@@ -1,0 +1,58 @@
+/* 재사용 가능한 입력 스타일 */
+
+.input {
+  width: 100%;
+  padding: clamp(6px, 0.74vh, 10px) clamp(10px, 1.25vw, 16px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--sidebar-radius-sm);
+  font-size: clamp(14px, 1.62vh, 18px);
+  font-family: inherit;
+  background-color: var(--background);
+  color: var(--text-dark);
+  transition: var(--transition-base);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--sidebar-primary);
+  box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.1);
+}
+
+.input:disabled {
+  background-color: var(--lightgrey);
+  color: var(--text-light);
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: var(--text-light);
+}
+
+/* 입력 크기 변형 */
+.input-sm {
+  padding: clamp(5px, 0.56vh, 8px) clamp(8px, 1.04vw, 14px);
+  font-size: clamp(12px, 1.39vh, 16px);
+}
+
+.input-lg {
+  padding: clamp(10px, 1.16vh, 16px) clamp(14px, 1.82vw, 20px);
+  font-size: clamp(16px, 1.85vh, 22px);
+}
+
+/* 에러 상태 */
+.input.error {
+  border-color: var(--error);
+}
+
+.input.error:focus {
+  box-shadow: 0 0 0 2px rgba(255, 61, 0, 0.1);
+}
+
+/* 성공 상태 */
+.input.success {
+  border-color: var(--success);
+}
+
+.input.success:focus {
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+}

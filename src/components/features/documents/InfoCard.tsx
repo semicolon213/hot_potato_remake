@@ -1,0 +1,64 @@
+import React from "react";
+import "./InfoCard.css";
+import type { InfoCardItem } from "../../../types/documents";
+
+export type Item = InfoCardItem;
+
+interface InfoCardProps {
+  title: string;
+  subtitle: string;
+  icon: string;
+  backgroundColor: string;
+  items: Item[];
+  onItemClick?: (item: Item) => void;
+}
+
+const InfoCard: React.FC<InfoCardProps> = ({
+  title,
+  subtitle,
+  icon,
+  backgroundColor,
+  items,
+  onItemClick,
+}) => {
+  return (
+    <div className="card document-card">
+      <div className="card-header" style={{ backgroundColor }}>
+        <div className="card-title">{title}</div>
+      </div>
+
+      <div className="items-list">
+        {items.map((item, index) => (
+          <div
+            className="list-item"
+            key={index}
+            onClick={() => onItemClick && onItemClick(item)}
+            style={{ cursor: onItemClick ? 'pointer' : 'default' }}
+          >
+            <div className="item-info">
+              <div className="item-name">{item.name}</div>
+              {item.time && <div className="item-time">{item.time}</div>}
+            </div>
+            <div className="item-badges">
+              {item.tag && (
+                <span className="item-tag">
+                  {item.tag}
+                </span>
+              )}
+              {item.typeLabel && (
+                <span className={`item-type ${item.isPersonal ? 'personal' : 'public'}`}>
+                  {item.typeLabel}
+                </span>
+              )}
+            </div>
+            <div className="item-arrow">
+              <div className="icon icon-chevron-right"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default InfoCard;

@@ -1,0 +1,198 @@
+import React, { useState, useEffect } from "react";
+import "./Header.css";
+import type { PageType } from "../../types/app";
+import DataSyncStatus from "../ui/DataSyncStatus";
+import { tokenManager } from "../../utils/auth/tokenManager";
+
+// 사용자 프로필 타입이 필요해지면 아래를 참조해 확장
+
+interface HeaderProps {
+  onPageChange: (pageName: string) => void;
+  userInfo?: {
+    name: string;
+    email: string;
+    isAdmin: boolean;
+  };
+  onLogout?: () => void;
+  pageSectionLabel?: string;
+  currentPage?: PageType;
+  lastSyncTime?: Date | null;
+  onRefresh?: () => Promise<void>;
+  isRefreshing?: boolean;
+}
+
+interface SubMenuTab {
+  pageName: PageType;
+  label: string;
+}
+
+const Header: React.FC<HeaderProps> = ({ onPageChange, pageSectionLabel, currentPage, lastSyncTime, onRefresh, isRefreshing, userInfo }) => {
+  // 토큰 만료까지 남은 시간 상태
+  const [timeUntilExpiry, setTimeUntilExpiry] = useState<number>(0);
+
+  // 토큰 만료 시간 실시간 업데이트
+  useEffect(() => {
+    const updateTimeUntilExpiry = () => {
+      const remaining = tokenManager.getTimeUntilExpiry();
+      setTimeUntilExpiry(remaining);
+    };
+
+    // 즉시 업데이트
+    updateTimeUntilExpiry();
+
+    // 1초마다 업데이트
+    const interval = setInterval(updateTimeUntilExpiry, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // 토큰 만료 시간 포맷팅
+  const formatTimeUntilExpiry = (ms: number): string => {
+    if (ms <= 0) return '만료됨';
+
+    const totalSeconds = Math.floor(ms / 1000);
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const totalHours = Math.floor(totalMinutes / 60);
+    const days = Math.floor(totalHours / 24);
+
+    if (days > 0) {
+      const hours = totalHours % 24;
+      return `${days}일 ${hours}시간`;
+    } else if (totalHours > 0) {
+      const minutes = totalMinutes % 60;
+      return `${totalHours}시간 ${minutes}분`;
+    } else if (totalMinutes > 0) {
+      const seconds = totalSeconds % 60;
+      return `${totalMinutes}분 ${seconds}초`;
+    } else {
+      return `${totalSeconds}초`;
+    }
+  };
+
+  // 하위 메뉴 탭 정의
+  const getSubMenuTabs = (): SubMenuTab[] | null => {
+    if (!currentPage) return null;
+
+    // 문서 섹션
+    if (['document_management', 'new_document', 'workflow_management'].includes(currentPage)) {
+      return [
+        { pageName: 'document_management', label: '문서관리' },
+        { pageName: 'new_document', label: '새 문서' },
+        { pageName: 'workflow_management', label: '결재관리' },
+      ];
+    }
+
+    // 일정 섹션
+    if (['calendar', 'timetable'].includes(currentPage)) {
+      return [
+        { pageName: 'calendar', label: '학사 일정' },
+        { pageName: 'timetable', label: '개인 시간표' },
+      ];
+    }
+
+    // 학생 및 교직원 섹션
+    if (['students', 'students_council', 'staff', 'staff_committee'].includes(currentPage)) {
+      return [
+        { pageName: 'students', label: '학생' },
+        { pageName: 'students_council', label: '학생회' },
+        { pageName: 'staff', label: '교직원' },
+        { pageName: 'staff_committee', label: '학과 위원회' },
+      ];
+    }
+
+    // 구글 서비스 섹션
+    if (['google_appscript', 'google_sheets', 'google_docs', 'google_gemini', 'google_groups'].includes(currentPage)) {
+      return [
+        { pageName: 'google_appscript', label: '앱스크립트' },
+        { pageName: 'google_sheets', label: '구글시트' },
+        { pageName: 'google_docs', label: '구글독스' },
+        { pageName: 'google_gemini', label: '제미나이' },
+        { pageName: 'google_groups', label: '그룹스' },
+      ];
+    }
+
+    return null;
+  };
+
+  const subMenuTabs = getSubMenuTabs();
+
+  const renderBreadcrumb = () => {
+    if (!pageSectionLabel) return null;
+    
+    const parts = pageSectionLabel.split(' | ');
+    // 하위 메뉴 탭이 있는 경우 breadcrumb-child를 제거하고 상위 섹션만 표시
+    if (parts.length === 2 && subMenuTabs) {
+      return (
+        <div className="page-section-label" data-oid="page-section-label">
+          <span className="breadcrumb-parent">{parts[0]}</span>
+        </div>
+      );
+    }
+    // announcement-view 페이지인 경우 breadcrumb-child를 제거하고 상위 섹션만 표시
+    if (parts.length === 2 && currentPage === 'announcement-view') {
+      return (
+        <div className="page-section-label" data-oid="page-section-label">
+          <span className="breadcrumb-parent">{parts[0]}</span>
+        </div>
+      );
+    }
+    // 하위 메뉴 탭이 없는 경우 기존대로 표시
+    if (parts.length === 2) {
+      return (
+        <div className="page-section-label" data-oid="page-section-label">
+          <span className="breadcrumb-parent">{parts[0]}</span>
+          <span className="breadcrumb-separator">›</span>
+          <span className="breadcrumb-child">{parts[1]}</span>
+        </div>
+      );
+    }
+    return (
+      <div className="page-section-label" data-oid="page-section-label">
+        {pageSectionLabel}
+      </div>
+    );
+  };
+
+  return (
+      <div className="header" data-oid="klo-qi-">
+        {subMenuTabs ? (
+          <div className="header-navigation-group">
+        {renderBreadcrumb()}
+            <div className="submenu-tabs">
+              {subMenuTabs.map((tab) => (
+                <button
+                  key={tab.pageName}
+                  className={`submenu-tab ${currentPage === tab.pageName ? 'active' : ''}`}
+                  onClick={() => onPageChange(tab.pageName)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          renderBreadcrumb()
+        )}
+        <div className="header-actions" data-oid="xq1uhkt">
+          <div className="header-status-group">
+            {userInfo && (
+              <div className="token-expiry-status">
+                <span className="token-expiry-text">
+                  {timeUntilExpiry > 0 ? formatTimeUntilExpiry(timeUntilExpiry) : '만료됨'}
+                </span>
+              </div>
+            )}
+            {lastSyncTime !== undefined && onRefresh && (
+              <DataSyncStatus
+                lastSyncTime={lastSyncTime || null}
+                onRefresh={onRefresh}
+                isRefreshing={isRefreshing || false}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+  );
+};
+
+export default Header;

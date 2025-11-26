@@ -1,0 +1,70 @@
+#Calendar {
+  display: flex;
+  height: calc(100vh - 60px); /* Adjust based on header height */
+  background-color: var(--bg-gray);
+}
+
+.calendar-main-content {
+  flex-grow: 1;
+  padding: clamp(16px, 1.85vh, 20px);
+  overflow: hidden;
+  height: 100%;
+  background-color: transparent;
+  display: flex;
+  flex-direction: column;
+}
+
+.event-input,
+.event-textarea {
+  padding: clamp(8px, 0.93vh, 14px);
+  border-radius: var(--sidebar-radius-sm);
+  border: 1px solid var(--border-color);
+  font-size: clamp(15px, 1.74vh, 20px);
+  transition: var(--transition-base);
+}
+
+.event-input:focus,
+.event-textarea:focus {
+  outline: none;
+  border-color: var(--sidebar-primary); /* 검은색 테두리 */
+  box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.1); /* 검은색 그림자 */
+}
+
+.event-button {
+  padding: clamp(8px, 0.93vh, 14px) clamp(12px, 1.5vw, 20px);
+  border: none;
+  background-color: var(--sidebar-primary); /* 검은색 */
+  color: var(--white-pure); /* 흰색 텍스트 */
+  border-radius: var(--sidebar-radius-sm);
+  cursor: pointer;
+  font-size: clamp(15px, 1.74vh, 20px);
+  transition: var(--transition-base);
+  font-weight: var(--font-weight-medium);
+}
+
+.event-button:hover {
+  background-color: var(--sidebar-hover-bg); /* 호버 시 흰색 */
+  color: var(--sidebar-hover-text); /* 호버 시 검은색 텍스트 */
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.calendar-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.add-event-button {
+    background: none;
+    border: none;
+    color: var(--sidebar-primary);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 10px 15px;
+}
+
+.add-event-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}

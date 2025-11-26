@@ -1,0 +1,204 @@
+.weekly-calendar-container {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-radius: var(--sidebar-radius-sm);
+    overflow: hidden;
+    background-color: var(--white-pure);
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.weekly-header {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--white-pure);
+}
+
+.time-column-header {
+    width: 60px;
+    flex-shrink: 0;
+}
+
+.day-header {
+    flex: 1;
+    text-align: center;
+    padding: clamp(8px, 0.93vh, 12px) 0;
+    border-left: 1px solid var(--border-color);
+    background-color: var(--white-pure);
+}
+
+.day-name {
+    font-size: clamp(12px, 1.39vh, 14px);
+    color: var(--text-medium);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: -0.01em;
+}
+
+.day-number {
+    font-size: clamp(14px, 1.62vh, 16px);
+    font-weight: var(--font-weight-semibold);
+    display: block;
+    color: var(--text-dark);
+    margin-top: clamp(4px, 0.46vh, 6px);
+}
+
+.day-header.sunday .day-name,
+.day-header.sunday .day-number {
+    color: #dc3545;
+}
+
+.day-header.saturday .day-name,
+.day-header.saturday .day-number {
+    color: #dc3545;
+}
+
+.day-column.sunday,
+.day-column.saturday {
+    background-color: var(--bg-gray-alt);
+}
+
+.weekly-all-day-section {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--white-pure);
+}
+
+.all-day-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(12px, 1.39vh, 14px);
+    color: var(--text-medium);
+    font-weight: var(--font-weight-medium);
+    padding: clamp(8px, 0.93vh, 12px);
+    letter-spacing: -0.01em;
+}
+
+.all-day-events-canvas {
+    position: relative;
+    display: flex;
+    flex: 1;
+}
+
+.all-day-column {
+    flex: 1;
+    border-left: 1px solid var(--border-color);
+    background-color: var(--white-pure);
+}
+
+.all-day-event-item {
+    position: absolute;
+    color: white;
+    padding: 0 5px;
+    border-radius: var(--border-radius-sm);
+    font-size: 12px;
+    margin: 2px 0;
+    cursor: pointer;
+    box-sizing: border-box;
+    z-index: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.all-day-event-item.continuation-left {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.all-day-event-item.continuation-right {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.all-day-event-item .event-title {
+    font-weight: 500;
+}
+
+.scrollable-body {
+    max-height: 70vh;
+    overflow-y: scroll;
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    &::-webkit-scrollbar {
+        display: none;
+    }
+    /* Hide scrollbar for IE, Edge and Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.weekly-body {
+    display: flex;
+    height: 1000px;
+}
+
+.time-column {
+    width: 60px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.time-slot-label {
+    flex: 1;
+    text-align: center;
+    font-size: clamp(12px, 1.39vh, 14px);
+    color: var(--text-medium);
+    position: relative;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: -0.01em;
+}
+
+.day-column {
+    flex: 1;
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    background-color: var(--white-pure);
+}
+
+.timed-events-grid {
+    position: relative;
+    flex-grow: 1;
+}
+
+.time-grid-line {
+    height: 41.66px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.timed-event-item {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    color: white;
+    border-radius: var(--border-radius-sm);
+    padding: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.timed-event-item .event-title {
+    font-weight: 500;
+}
+
+.day-header.today .day-number {
+    background-color: rgba(255, 0, 0, 0.8);
+    color: white !important;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 24px;
+    margin: 0 auto;
+}

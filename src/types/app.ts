@@ -1,0 +1,157 @@
+/**
+ * @file app.ts
+ * @brief 애플리케이션 공통 타입 정의
+ * @details 애플리케이션 전반에서 사용되는 공통 타입들을 정의합니다.
+ * @author Hot Potato Team
+ * @date 2024
+ */
+
+/**
+ * @brief 이벤트 데이터 타입 정의
+ * @details 캘린더 이벤트의 정보를 담는 인터페이스입니다.
+ */
+export interface Event {
+    id: string;
+    title: string;
+    startDate: string;
+    endDate: string;
+    description?: string;
+    colorId?: string;
+    startDateTime?: string;
+    endDateTime?: string;
+    type?: string;
+    color?: string;
+    rrule?: string; // For recurrence rule
+    attendees?: string; // For attendees
+}
+
+/**
+ * @brief 게시글 데이터 타입 정의
+ * @details 게시판과 공지사항에서 사용되는 게시글 정보를 담는 인터페이스입니다.
+ */
+export interface Post {
+  id: string;
+  title: string;
+  author: string;
+  date: string;
+  views: number;
+  likes: number;
+  content: string;
+  writer_id: string;
+  writer_email?: string; // 암호화된 이메일
+  file_notice?: string;
+  access_rights?: string; // JSON 문자열: {individual: [user_ids], groups: [user_types]}
+  fix_notice?: string; // 고정 공지 상태: '' | '-' (요청) | 'O' (승인) | 'X' (거절)
+  isPinned?: boolean; // fix_notice === 'O'인지 확인하는 편의 속성
+}
+
+/**
+ * @brief 공지사항 접근 권한 타입 정의
+ */
+export interface AnnouncementAccessRights {
+  individual?: string[]; // 개별 사용자 ID 목록
+  groups?: string[]; // 그룹(user_type) 목록
+}
+
+/**
+ * @brief 공지사항 작성용 사용자 정보
+ */
+export interface AnnouncementUser {
+  id: string;
+  name: string;
+  user_type: string;
+  email: string;
+  file_notice?: string;
+}
+
+export interface User {
+  email: string;
+  name: string;
+  studentId: string;
+  isAdmin: boolean;
+  isApproved: boolean;
+  role: string;
+  userType?: string;
+  accessToken?: string;
+}
+
+export type PageType =
+  | 'dashboard'
+  | 'admin'
+  | 'board'
+  | 'documents'
+  | 'calendar'
+  | 'users'
+  | 'settings'
+  | 'new-board-post'
+  | 'announcements'
+  | 'announcement-view'
+  | 'new-announcement-post'
+  | 'accounting'
+  | 'document_management'
+  | 'docbox'
+  | 'new_document'
+  | 'preferences'
+  | 'mypage'
+  | 'empty_document'
+  | 'proceedings'
+  | 'students'
+  | 'students_council'
+  | 'staff'
+  | 'staff_committee'
+  | 'workflow_management'
+  | 'google_appscript'
+  | 'google_sheets'
+  | 'google_docs'
+  | 'google_gemini'
+  | 'google_groups'
+  | 'google_calendar'
+  | 'google_chat';
+
+export interface DateRange {
+  start: Date | null;
+  end: Date | null;
+}
+
+export interface CustomPeriod {
+  id: string;
+  name: string;
+  period: DateRange;
+}
+
+export interface Student {
+  no_student: string;
+  name: string;
+  address: string;
+  phone_num: string;
+  grade: string;
+  state: string;
+  council: string;
+}
+
+export interface Staff {
+  no: string;
+  pos: string;
+  name: string;
+  tel: string;
+  phone: string;
+  email: string;
+  date: string;
+  note: string;
+}
+
+export interface WidgetData {
+  id: string;
+  type: string;
+  title: string;
+  componentType: string;
+  props: Record<string, unknown>;
+}
+
+export interface WidgetOption {
+    id: string;
+    type: string;
+    icon: string;
+    title: string;
+    description: string;
+}

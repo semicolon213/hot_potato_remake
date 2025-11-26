@@ -1,0 +1,226 @@
+/* 알림 모달 스타일 */
+.notification-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 10000;
+  padding-top: 80px;
+  pointer-events: auto;
+}
+
+.notification-modal {
+  background: var(--white-pure);
+  border-radius: 8px;
+  padding: 16px 20px;
+  min-width: 300px;
+  max-width: 500px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notification-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-success .notification-icon {
+  color: var(--success, #4CAF50);
+}
+
+.notification-error .notification-icon {
+  color: var(--error, #f44336);
+}
+
+.notification-warning .notification-icon {
+  color: var(--warning, #ff9800);
+}
+
+.notification-info .notification-icon {
+  color: var(--info, #2196F3);
+}
+
+.notification-message {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-dark);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-placeholder);
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.notification-close:hover {
+  color: var(--text-dark);
+}
+
+.notification-info {
+  border-left: 4px solid var(--info);
+}
+
+.notification-success {
+  border-left: 4px solid var(--success);
+}
+
+.notification-error {
+  border-left: 4px solid var(--error);
+}
+
+.notification-warning {
+  border-left: 4px solid var(--warning);
+}
+
+/* 확인 모달 스타일 */
+.confirm-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  pointer-events: auto;
+}
+
+.confirm-modal {
+  background: var(--white-pure);
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 600px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.confirm-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-dark);
+}
+
+.confirm-modal-message {
+  font-size: 14px;
+  color: var(--text-light);
+  margin-bottom: 24px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.confirm-modal-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-direction: row-reverse; /* 확인 버튼을 오른쪽에, 취소 버튼을 왼쪽에 */
+}
+
+.confirm-button {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 90px;
+}
+
+.cancel-button {
+  background-color: var(--border-light);
+  color: var(--text-dark);
+  border: 1px solid var(--border-color);
+}
+
+.cancel-button:hover {
+  background-color: var(--border-color);
+}
+
+.confirm-primary {
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.primary-button {
+  background-color: var(--info);
+  color: var(--white-pure);
+}
+
+.primary-button:hover {
+  background-color: #1976d2;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+}
+
+.danger-button {
+  background-color: var(--error);
+  color: var(--white-pure);
+}
+
+.danger-button:hover {
+  background-color: #d32f2f;
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+}
+
+.confirm-info {
+  border-top: 3px solid var(--info);
+}
+
+.confirm-warning {
+  border-top: 3px solid var(--warning);
+}
+
+.confirm-danger {
+  border-top: 3px solid var(--error);
+}
+

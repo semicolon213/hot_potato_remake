@@ -1,0 +1,109 @@
+/* 재사용 가능한 카드 스타일 */
+
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--sidebar-radius-sm);
+  box-shadow: var(--shadow-base);
+  overflow: hidden;
+  transition: var(--transition-base);
+}
+
+.card-hoverable:hover {
+  border-color: var(--sidebar-primary);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.card-clickable {
+  cursor: pointer;
+}
+
+.card-clickable:hover {
+  border-color: var(--sidebar-primary);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  padding: clamp(12px, 1.39vh, 20px) clamp(16px, 2.08vw, 24px) clamp(10px, 1.16vh, 16px);
+  border-bottom: 1px solid var(--border-light);
+  background-color: var(--table-header-bg);
+}
+
+.card-title {
+  margin: 0 0 clamp(3px, 0.35vh, 5px) 0;
+  font-size: clamp(16px, 1.85vh, 22px);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-dark);
+}
+
+.card-subtitle {
+  margin: 0;
+  font-size: clamp(13px, 1.5vh, 17px);
+  color: var(--text-medium);
+}
+
+.card-content {
+  padding: clamp(16px, 1.85vh, 24px);
+}
+
+/* 카드 크기 변형 */
+.card-sm .card-content {
+  padding: 12px 16px;
+}
+
+.card-sm .card-header {
+  padding: 12px 16px 8px;
+}
+
+.card-lg .card-content {
+  padding: 24px 28px;
+}
+
+.card-lg .card-header {
+  padding: 20px 28px 16px;
+}
+
+/* 카드 레이아웃 */
+.card-horizontal {
+  display: flex;
+  flex-direction: row;
+}
+
+.card-horizontal .card-header {
+  border-bottom: none;
+  border-right: 1px solid var(--border-light);
+  min-width: 200px;
+}
+
+.card-horizontal .card-content {
+  flex: 1;
+}
+
+/* 카드 액션 */
+.card-actions {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-light);
+  background-color: var(--table-header-bg);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 카드 상태 */
+.card-success {
+  border-color: var(--success);
+}
+
+.card-warning {
+  border-color: var(--warning);
+}
+
+.card-error {
+  border-color: var(--error);
+}
+
+.card-info {
+  border-color: var(--info);
+}

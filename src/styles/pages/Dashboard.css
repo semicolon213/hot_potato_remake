@@ -1,0 +1,177 @@
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: var(--main-font);
+}
+
+body {
+    display: flex;
+    height: 100vh;
+    background-color: transparent;
+}
+
+/* 미니멀리즘 메인 컨텐츠 */
+.main-content {
+    width: 100%;
+    padding: clamp(24px, 2.78vh, 32px) clamp(24px, 3.125vw, 40px);
+    margin: 0;
+    min-height: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    overflow-y: auto;
+    position: relative;
+    z-index: 1;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: clamp(24px, 2.78vh, 32px);
+    padding: 0;
+    margin: 0 0 clamp(24px, 2.78vh, 32px) 0;
+    gap: 16px;
+}
+
+
+.add-widget-btn {
+    background: var(--sidebar-primary);
+    color: #f8f8f7;
+    border: none;
+    padding: clamp(8px, 0.93vh, 12px) clamp(24px, 3.125vw, 36px);
+    border-radius: var(--sidebar-radius-sm);
+    cursor: pointer;
+    transition: var(--transition-base);
+    font-weight: var(--font-weight-semibold);
+    font-size: clamp(14px, 1.62vh, 16px);
+    white-space: nowrap;
+    height: clamp(44px, 5.09vh, 48px);
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin: 0;
+}
+
+.add-widget-btn:hover {
+    background: var(--sidebar-hover-bg);
+    color: var(--sidebar-hover-text);
+    border: 1px solid #1a1a1a;
+}
+
+.sync-btn {
+    background: var(--sidebar-primary);
+    color: #f8f8f7;
+    border: none;
+    padding: clamp(8px, 0.93vh, 12px) clamp(16px, 2.08vw, 24px);
+    border-radius: var(--sidebar-radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 0.74vw, 8px);
+    transition: var(--transition-base);
+    font-size: clamp(14px, 1.62vh, 16px);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+    height: clamp(44px, 5.09vh, 48px);
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.sync-btn:hover {
+    background: var(--sidebar-hover-bg);
+    color: var(--sidebar-hover-text);
+    border: 1px solid #1a1a1a;
+}
+
+.sync-btn i {
+    font-size: clamp(14px, 1.62vh, 16px);
+    color: inherit;
+}
+
+.sync-btn:disabled {
+    background: #ccc;
+    color: #666;
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
+    box-shadow: none;
+}
+
+.sync-btn:disabled:hover {
+    background: #ccc;
+    color: #666;
+    transform: none;
+    box-shadow: none;
+}
+
+/* 빈 대시보드 스타일 */
+.empty-dashboard {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    padding: 40px 20px;
+}
+
+.empty-message {
+    text-align: center;
+    background: #ffffff;
+    padding: clamp(32px, 3.7vh, 48px);
+    border-radius: var(--sidebar-radius-sm);
+    box-shadow: none;
+    border: 1px solid #e2e8f0;
+    max-width: clamp(350px, 36.46vw, 480px);
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* 모든 자식 요소 중앙 정렬 */
+}
+
+.empty-message i {
+    font-size: 48px;
+    color: var(--text-light);
+    margin-bottom: 20px;
+}
+
+.empty-message h3 {
+    color: var(--text-dark);
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.empty-message p {
+    color: var(--text-light);
+    font-size: 16px;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+.add-first-widget-btn {
+    background: var(--sidebar-primary);
+    color: #f8f8f7;
+    border: none;
+    padding: clamp(8px, 0.93vh, 12px) clamp(16px, 2.08vw, 24px);
+    border-radius: var(--sidebar-radius-sm);
+    cursor: pointer;
+    font-size: clamp(14px, 1.62vh, 16px);
+    font-weight: var(--font-weight-semibold);
+    transition: var(--transition-base);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    height: clamp(44px, 5.09vh, 48px);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 0.74vw, 8px);
+    margin: 0 auto; /* 가운데 정렬 보장 */
+}
+
+.add-first-widget-btn:hover {
+    background: var(--sidebar-hover-bg);
+    color: var(--sidebar-hover-text);
+    border: 1px solid #1a1a1a;
+}

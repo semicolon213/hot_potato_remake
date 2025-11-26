@@ -1,0 +1,1341 @@
+.students-container {
+  width: 100%;
+  padding: clamp(24px, 2.78vh, 32px) clamp(24px, 3.125vw, 40px);
+  margin: 0;
+  min-height: 100%;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+/* 년도별 탭 스타일 (장부 항목 표기 방식과 동일) */
+.year-tabs {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.56vw, 16px);
+  margin: 0;
+  border-bottom: none;
+  padding: 0;
+  flex: 1;
+}
+
+.year-nav-btn {
+  flex: 0 0 auto;
+  padding: clamp(4px, 0.46vh, 6px) clamp(8px, 1.04vw, 12px);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-light);
+  transition: var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: clamp(28px, 3.24vh, 32px);
+  min-width: clamp(28px, 3.24vh, 32px);
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.year-nav-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.year-nav-btn:hover:not(:disabled) {
+  color: var(--text-dark);
+  background-color: var(--bg-gray-alt);
+}
+
+.year-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.year-display {
+  flex: 0 0 auto;
+  padding: clamp(4px, 0.46vh, 6px) clamp(8px, 1.04vw, 12px);
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.04vw, 12px);
+  min-height: clamp(28px, 3.24vh, 32px);
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.year-display-item {
+  cursor: pointer;
+  padding: clamp(4px, 0.46vh, 6px) clamp(8px, 1.04vw, 12px);
+  border-radius: var(--sidebar-radius-sm);
+  transition: var(--transition-base);
+}
+
+.year-display-item:hover {
+  background-color: var(--bg-gray-alt);
+}
+
+.year-display-item.active {
+  background-color: transparent;
+  color: var(--text-dark);
+}
+
+.student-list-section {
+  width: 100%;
+  margin-top: clamp(16px, 1.85vh, 24px);
+}
+
+.student-list-add-button-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: clamp(12px, 1.39vh, 16px);
+}
+
+.student-add-button {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.69vh, 8px);
+  padding: clamp(8px, 0.93vh, 10px) clamp(16px, 2.08vw, 20px);
+  background-color: var(--sidebar-primary, #1a1a1a);
+  color: var(--white-pure, #fff);
+  border: none;
+  border-radius: clamp(6px, 0.69vh, 8px);
+  font-size: clamp(13px, 1.5vh, 14px);
+  font-weight: var(--font-weight-medium, 500);
+  cursor: pointer;
+  transition: var(--transition-base, all 0.2s ease);
+}
+
+.student-add-button:hover {
+  background-color: var(--sidebar-hover-bg, #2a2a2a);
+  color: var(--text-dark, #000);
+}
+
+.student-add-button .add-icon {
+  font-size: clamp(12px, 1.39vh, 14px);
+}
+
+.student-add-button .add-button-text {
+  white-space: nowrap;
+}
+
+.student-table-container {
+  width: 100%;
+  background-color: var(--white-pure);
+  border-radius: var(--sidebar-radius-sm);
+  border: 1px solid var(--border-color);
+  overflow-x: auto;
+  overflow-y: visible;
+  box-shadow: none;
+}
+
+.student-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0;
+  table-layout: fixed;
+}
+
+.student-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--white-pure);
+  color: var(--text-dark);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  font-size: clamp(14px, 1.62vh, 16px);
+  letter-spacing: 0.2px;
+  height: clamp(52px, 6.02vh, 60px);
+  min-height: clamp(52px, 6.02vh, 60px);
+  max-height: clamp(52px, 6.02vh, 60px);
+  padding: clamp(12px, 1.39vh, 16px) clamp(12px, 1.56vw, 16px);
+  box-sizing: border-box;
+}
+
+.student-table th, .student-table td {
+  border-bottom: 1px solid var(--border-color);
+  padding: clamp(12px, 1.39vh, 16px) clamp(12px, 1.56vw, 16px);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  height: clamp(52px, 6.02vh, 60px);
+  min-height: clamp(52px, 6.02vh, 60px);
+  max-height: clamp(52px, 6.02vh, 60px);
+  vertical-align: middle;
+  box-sizing: border-box;
+  font-size: clamp(14px, 1.62vh, 16px);
+}
+
+.student-table td {
+  color: var(--text-dark);
+  font-weight: var(--font-weight-normal);
+  transition: background-color 0.2s ease;
+}
+
+.student-table tbody tr.student-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  height: clamp(52px, 6.02vh, 60px);
+  min-height: clamp(52px, 6.02vh, 60px);
+  max-height: clamp(52px, 6.02vh, 60px);
+}
+
+.student-table tbody tr.student-row:hover {
+  background-color: var(--bg-gray-alt);
+}
+
+.student-table tbody tr.student-row:last-child:not(.empty-row) td {
+  border-bottom: none;
+}
+
+.student-table tbody tr.empty-row {
+  cursor: default;
+  pointer-events: none;
+}
+
+.student-table tbody tr.empty-row:hover {
+  background-color: transparent;
+}
+
+.student-table th.sortable {
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.student-table th.sortable:hover {
+  background-color: var(--bg-gray-alt);
+}
+
+.student-table th.sortable.sorted {
+  background-color: transparent;
+}
+
+.student-table th .th-content {
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 0.52vw, 8px);
+  justify-content: flex-start;
+  position: relative;
+}
+
+.student-table .title-cell-inner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.student-table .col-council {
+  white-space: normal;
+  overflow: visible;
+}
+
+.student-table .col-council .council-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(4px, 0.52vw, 6px);
+  white-space: normal;
+}
+
+.student-table .title-cell-inner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.student-table .title-cell-inner .title-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 필터 아이콘 스타일 */
+.student-table th .filter-clear-icon {
+  background: none;
+  border: none;
+  padding: clamp(2px, 0.23vh, 4px);
+  margin-left: auto;
+  cursor: pointer;
+  color: var(--text-light);
+  font-size: clamp(12px, 1.39vh, 14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(20px, 2.31vh, 24px);
+  height: clamp(20px, 2.31vh, 24px);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.student-table th .filter-clear-icon .filter-icon,
+.student-table th .filter-clear-icon .clear-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.student-table th .filter-clear-icon .filter-icon {
+  opacity: 1;
+}
+
+.student-table th .filter-clear-icon .clear-icon {
+  opacity: 0;
+}
+
+.student-table th .filter-clear-icon:hover .filter-icon {
+  opacity: 0;
+}
+
+.student-table th .filter-clear-icon:hover .clear-icon {
+  opacity: 1;
+}
+
+.student-table th .filter-clear-icon:hover {
+  color: var(--text-dark);
+  background-color: var(--bg-gray-alt);
+}
+
+.student-table th .filter-clear-icon:active {
+  transform: scale(0.95);
+}
+
+.students-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: clamp(8px, 0.93vh, 10px);
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  color: var(--text-dark, #333);
+  box-shadow: none;
+}
+
+.header-left h1 {
+  display: none; /* 상단바에 제목이 표시되므로 제거 */
+}
+
+.header-stats {
+  display: flex;
+  gap: clamp(16px, 2.08vw, 24px);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+}
+
+.stat-number {
+  font-size: clamp(20px, 2.31vh, 24px);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  color: var(--text-dark, #333);
+  text-shadow: none;
+}
+
+.stat-label {
+  font-size: clamp(12px, 1.39vh, 14px);
+  color: var(--text-medium, #666);
+  margin-top: clamp(4px, 0.46vh, 6px);
+  font-weight: var(--font-weight-medium);
+}
+
+.tab-buttons {
+  display: flex;
+  gap: clamp(8px, 1.04vw, 12px);
+}
+
+
+.filter-toggle-btn,
+.clear-filters-btn {
+  padding: clamp(8px, 0.93vh, 12px) clamp(16px, 2.08vw, 24px) !important;
+  background-color: var(--sidebar-primary);
+  color: var(--white);
+  border: none;
+  border-radius: var(--sidebar-radius-sm);
+  cursor: pointer;
+  font-size: clamp(14px, 1.62vh, 16px) !important;
+  font-weight: var(--font-weight-semibold);
+  transition: var(--transition-base);
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.74vw, 8px);
+  box-shadow: none;
+  height: clamp(44px, 5.09vh, 48px) !important;
+  box-sizing: border-box;
+  white-space: nowrap;
+  min-height: clamp(44px, 5.09vh, 48px) !important;
+  max-height: clamp(44px, 5.09vh, 48px) !important;
+}
+
+.tab-icon {
+  font-size: clamp(14px, 1.62vh, 16px);
+  color: inherit;
+}
+
+.tab-button .tab-icon {
+  font-size: clamp(14px, 1.62vh, 16px);
+  color: inherit;
+}
+
+.tab-button span {
+  font-size: clamp(13px, 1.5vh, 15px);
+  font-weight: var(--font-weight-semibold);
+}
+
+.filter-toggle-btn:hover,
+.clear-filters-btn:hover {
+  background-color: var(--sidebar-hover-bg);
+  color: var(--sidebar-hover-text);
+  border: 1px solid var(--sidebar-primary);
+}
+
+.filter-toggle-btn.active {
+  background-color: var(--sidebar-hover-bg);
+  color: var(--sidebar-hover-text);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: none;
+}
+
+.students-list {
+  margin-top: 0;
+}
+
+.students-list .action-buttons-container {
+  margin-top: 0;
+}
+
+.council-section {
+  margin-top: 0;
+}
+
+.council-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: clamp(16px, 1.85vh, 24px);
+  padding: 0;
+  background-color: transparent;
+  border-radius: 0;
+}
+
+.council-header h2 {
+  display: none; /* 상단바에 제목이 표시되므로 제거 */
+}
+
+.council-header-right {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.56vw, 16px);
+}
+
+.back-to-list-btn {
+  padding: clamp(8px, 0.93vh, 12px) clamp(16px, 2.08vw, 24px);
+  border: none;
+  background-color: var(--sidebar-primary);
+  color: var(--white);
+  border-radius: var(--sidebar-radius-sm);
+  cursor: pointer;
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-semibold);
+  transition: var(--transition-base);
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.74vw, 8px);
+  height: clamp(44px, 5.09vh, 48px);
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.back-to-list-btn:hover {
+  background-color: var(--sidebar-hover-bg);
+  color: var(--sidebar-hover-text);
+  border: 1px solid var(--sidebar-primary);
+}
+
+.back-to-list-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.year-selector {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.3vw, 12px);
+}
+
+.year-selector label {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-dark);
+  font-size: clamp(14px, 1.62vh, 16px);
+}
+
+.year-select {
+  padding: clamp(12px, 1.39vh, 16px) clamp(16px, 2.08vw, 20px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--sidebar-radius-sm);
+  background-color: var(--white-pure);
+  color: var(--text-dark);
+  font-size: clamp(14px, 1.62vh, 16px);
+  cursor: pointer;
+  transition: var(--transition-base);
+  height: clamp(44px, 5.09vh, 48px);
+  box-sizing: border-box;
+}
+
+.year-select:focus {
+  outline: none;
+  border-color: var(--sidebar-primary);
+  box-shadow: none;
+}
+
+.council-table {
+  margin-top: 0;
+}
+
+.no-year-selected {
+  text-align: center;
+  padding: clamp(60px, 6.94vh, 80px) clamp(20px, 2.6vw, 40px);
+  color: var(--text-medium);
+  font-size: clamp(14px, 1.62vh, 16px);
+  background-color: var(--bg-gray-alt);
+  border-radius: var(--sidebar-radius-sm);
+  border: 2px dashed var(--border-color);
+}
+
+.loading, .error {
+  text-align: center;
+  padding: clamp(60px, 6.94vh, 80px) clamp(20px, 2.6vw, 40px);
+  font-size: clamp(14px, 1.62vh, 16px);
+  color: var(--text-medium);
+}
+
+.error {
+  color: #721c24;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: var(--sidebar-radius-sm);
+}
+
+.council-item {
+  margin-bottom: clamp(4px, 0.46vh, 6px);
+  padding: clamp(2px, 0.23vh, 4px) 0;
+  font-size: clamp(14px, 1.62vh, 16px);
+}
+
+.council-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 학생회 배지 스타일 - 문서관리 type-badge 스타일 적용 */
+.council-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(4px, 0.52vw, 6px);
+  align-items: center;
+}
+
+.council-badge-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(4px, 0.46vh, 6px) clamp(10px, 1.3vw, 14px);
+  border-radius: var(--sidebar-radius-sm);
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-normal);
+  white-space: nowrap;
+  background-color: #f3e5f5;
+  color: var(--text-dark);
+}
+
+/* 상태 배지 스타일 - 문서관리 type-badge 스타일 적용 */
+.state-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(4px, 0.46vh, 6px) clamp(10px, 1.3vw, 14px);
+  border-radius: var(--sidebar-radius-sm);
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-normal);
+  white-space: nowrap;
+  background-color: #f3e5f5;
+  color: var(--text-dark);
+}
+
+.no-tag {
+  color: var(--text-dark);
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-normal);
+}
+
+/* 검색 및 필터 영역 */
+.search-filter-section {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  margin-top: clamp(16px, 1.85vh, 24px);
+  margin-bottom: clamp(16px, 1.85vh, 24px);
+  border: none;
+  box-shadow: none;
+}
+
+.search-controls {
+  display: flex;
+  gap: clamp(12px, 1.56vw, 16px);
+  align-items: flex-end;
+  margin-bottom: clamp(16px, 1.85vh, 24px);
+}
+
+.search-input-group {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: clamp(16px, 2.08vw, 20px);
+  font-size: clamp(14px, 1.62vh, 16px);
+  color: var(--text-medium);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: clamp(12px, 1.39vh, 16px) clamp(40px, 5.2vw, 50px) clamp(12px, 1.39vh, 16px) clamp(40px, 5.2vw, 50px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--sidebar-radius-sm);
+  font-size: clamp(14px, 1.62vh, 16px);
+  background-color: var(--white-pure);
+  color: var(--text-dark);
+  transition: var(--transition-base);
+  height: clamp(44px, 5.09vh, 48px);
+  box-sizing: border-box;
+  font-weight: var(--font-weight-medium);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--sidebar-primary);
+  background-color: var(--white-pure);
+  box-shadow: none;
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: clamp(12px, 1.5vw, 16px);
+  background: none;
+  border: none;
+  font-size: clamp(14px, 1.62vh, 16px);
+  color: var(--text-medium);
+  cursor: pointer;
+  padding: clamp(4px, 0.46vh, 6px);
+  border-radius: 50%;
+  transition: var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clear-search-btn:hover {
+  color: var(--sidebar-primary);
+}
+
+.filter-controls {
+  display: flex;
+  gap: clamp(8px, 1.04vw, 12px);
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.filters-panel {
+  background: var(--white-pure);
+  padding: clamp(20px, 2.31vh, 24px);
+  border-radius: var(--sidebar-radius-sm);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+  margin-top: clamp(16px, 1.85vh, 24px);
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(16px, 2.08vw, 20px);
+  align-items: end;
+}
+
+.filter-row .filter-group {
+  flex: 0 0 auto;
+  min-width: clamp(180px, 23.44vw, 250px);
+  max-width: clamp(250px, 32.55vw, 300px);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 0.93vh, 10px);
+}
+
+.filter-group label {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-dark);
+  font-size: clamp(14px, 1.62vh, 16px);
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.74vw, 8px);
+}
+
+.filter-select {
+  padding: clamp(12px, 1.39vh, 16px) clamp(16px, 2.08vw, 20px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--sidebar-radius-sm);
+  background-color: var(--white-pure);
+  color: var(--text-dark);
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-base);
+  box-shadow: none;
+  height: clamp(44px, 5.09vh, 48px);
+  box-sizing: border-box;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--sidebar-primary);
+  box-shadow: none;
+}
+
+.filter-select:hover {
+  border-color: #adb5bd;
+}
+
+/* 액션 버튼들 */
+.action-buttons-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0;
+  margin-bottom: clamp(16px, 1.85vh, 24px);
+  padding-top: clamp(10.67px, 1.23vh, 13.33px);
+  padding-bottom: clamp(10.67px, 1.23vh, 13.33px);
+  padding-left: clamp(16px, 1.85vh, 20px);
+  padding-right: clamp(16px, 1.85vh, 20px);
+  background-color: var(--white-pure);
+  border-radius: var(--sidebar-radius-sm);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: clamp(16px, 2.08vw, 20px);
+}
+
+.action-left {
+  display: flex;
+  gap: clamp(12px, 1.56vw, 16px);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.student-action-buttons-container {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.04vw, 12px);
+  flex-wrap: wrap;
+}
+
+.export-btn, .template-btn, .import-btn, .add-btn {
+  position: relative;
+  padding: clamp(8px, 0.93vh, 12px) clamp(14px, 1.82vw, 20px);
+  border: none !important;
+  border-radius: var(--sidebar-radius-sm);
+  background-color: transparent;
+  cursor: pointer;
+  font-size: clamp(14px, 1.62vh, 16px);
+  color: var(--text-medium);
+  font-weight: var(--font-weight-medium);
+  transition: var(--transition-base);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: none;
+  box-sizing: border-box;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.students-container .tab-button,
+.action-buttons-container .tab-button,
+.tab-buttons .tab-button {
+  position: relative !important;
+  padding: clamp(8px, 0.93vh, 12px) clamp(14px, 1.82vw, 20px) !important;
+  border: 1px solid var(--sidebar-primary) !important;
+  border-radius: var(--sidebar-radius-sm) !important;
+  background-color: var(--sidebar-primary) !important;
+  color: var(--white-pure) !important;
+  cursor: pointer;
+  font-size: clamp(14px, 1.62vh, 16px) !important;
+  font-weight: var(--font-weight-medium) !important;
+  transition: var(--transition-base);
+  display: flex !important;
+  align-items: center;
+  gap: 4px !important;
+  box-shadow: none !important;
+  box-sizing: border-box;
+  white-space: nowrap;
+  flex: none !important;
+  letter-spacing: -0.01em !important;
+}
+
+.export-btn::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background-color: var(--sidebar-primary);
+  transition: width 0.2s ease, opacity 0.2s ease;
+  opacity: 0;
+}
+
+.export-btn:hover {
+  color: var(--text-dark);
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.export-btn:hover::before {
+  width: calc(100% - clamp(28px, 3.65vw, 40px));
+  opacity: 0.6;
+}
+
+.students-container .tab-button::before,
+.action-buttons-container .tab-button::before,
+.tab-buttons .tab-button::before {
+  display: none !important;
+}
+
+.students-container .tab-button:hover,
+.action-buttons-container .tab-button:hover,
+.tab-buttons .tab-button:hover {
+  background-color: var(--gray-dark) !important;
+  border-color: var(--gray-dark) !important;
+  color: var(--white-pure) !important;
+}
+
+.students-container .tab-button:hover::before,
+.action-buttons-container .tab-button:hover::before,
+.tab-buttons .tab-button:hover::before {
+  display: none !important;
+}
+
+.students-container .tab-button.active,
+.action-buttons-container .tab-button.active,
+.tab-buttons .tab-button.active {
+  font-weight: var(--font-weight-semibold) !important;
+  background-color: var(--sidebar-primary) !important;
+  border-color: var(--sidebar-primary) !important;
+  color: var(--white-pure) !important;
+}
+
+.students-container .tab-button.active::before,
+.action-buttons-container .tab-button.active::before,
+.tab-buttons .tab-button.active::before {
+  display: none !important;
+}
+
+.students-container .tab-button.active::after,
+.action-buttons-container .tab-button.active::after,
+.tab-buttons .tab-button.active::after {
+  display: none !important;
+  content: none !important;
+}
+
+.template-btn::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background-color: var(--sidebar-primary);
+  transition: width 0.2s ease, opacity 0.2s ease;
+  opacity: 0;
+}
+
+.template-btn:hover {
+  color: var(--text-dark);
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.template-btn:hover::before {
+  width: calc(100% - clamp(28px, 3.65vw, 40px));
+  opacity: 0.6;
+}
+
+.import-btn::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background-color: var(--sidebar-primary);
+  transition: width 0.2s ease, opacity 0.2s ease;
+  opacity: 0;
+}
+
+.import-btn:hover {
+  color: var(--text-dark);
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.import-btn:hover::before {
+  width: calc(100% - clamp(28px, 3.65vw, 40px));
+  opacity: 0.6;
+}
+
+.add-btn::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background-color: var(--sidebar-primary);
+  transition: width 0.2s ease, opacity 0.2s ease;
+  opacity: 0;
+}
+
+.add-btn:hover {
+  color: var(--text-dark);
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.add-btn:hover::before {
+  width: calc(100% - clamp(28px, 3.65vw, 40px));
+  opacity: 0.6;
+}
+
+.btn-icon {
+  font-size: clamp(14px, 1.62vh, 16px);
+  color: inherit;
+}
+
+.export-btn .btn-icon,
+.template-btn .btn-icon,
+.import-btn .btn-icon,
+.tab-button .tab-icon {
+  font-size: clamp(14px, 1.62vh, 16px);
+  color: inherit;
+}
+
+.btn-text {
+  font-size: clamp(13px, 1.5vh, 15px);
+  font-weight: var(--font-weight-semibold);
+}
+
+.action-right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.result-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: clamp(4px, 0.46vh, 6px);
+}
+
+.result-text {
+  color: var(--text-dark);
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-semibold);
+}
+
+.highlight {
+  color: var(--sidebar-primary);
+  font-size: clamp(16px, 1.85vh, 18px);
+  font-weight: var(--font-weight-bold);
+  text-shadow: none;
+}
+
+.total-text {
+  color: var(--text-medium);
+  font-size: clamp(12px, 1.39vh, 14px);
+  font-weight: var(--font-weight-medium);
+}
+
+/* 학생 목록 테이블 */
+.students-table-container {
+  background-color: var(--white-pure);
+  border-radius: var(--sidebar-radius-sm);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.table-header {
+  display: flex;
+  background-color: var(--bg-gray-alt);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.table-header-cell {
+  font-size: clamp(13px, 1.5vh, 15px);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-dark, #333);
+  padding: clamp(12px, 1.39vh, 16px) clamp(16px, 2.08vw, 24px);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 1.04vw, 12px);
+}
+
+.table-header-cell:hover {
+  background-color: #f1f3f5;
+}
+
+.sort-indicator {
+  font-size: clamp(12px, 1.39vh, 14px);
+  color: var(--sidebar-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.table-row {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  padding: clamp(12px, 1.39vh, 16px) 0;
+  transition: var(--transition-base);
+}
+
+.table-row:hover {
+  background-color: var(--bg-gray-alt);
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.table-cell {
+  font-size: clamp(14px, 1.62vh, 16px);
+  color: var(--text-medium, #495057);
+  padding: 0 clamp(16px, 2.08vw, 24px);
+  display: flex;
+  align-items: center;
+  word-break: break-word;
+}
+
+.no-results {
+  text-align: center;
+  padding: clamp(60px, 6.94vh, 80px) clamp(20px, 2.6vw, 40px);
+  color: var(--text-medium);
+  font-size: clamp(14px, 1.62vh, 16px);
+  background-color: var(--bg-gray-alt);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .students-container {
+    padding: clamp(16px, 1.85vh, 24px) clamp(16px, 2.08vw, 20px);
+  }
+  
+  .students-header {
+    flex-direction: column;
+    gap: clamp(16px, 1.85vh, 20px);
+    align-items: stretch;
+  }
+
+  .header-stats {
+    justify-content: center;
+  }
+
+  .tab-buttons {
+    justify-content: center;
+  }
+
+  .council-header {
+    flex-direction: column;
+    gap: clamp(12px, 1.39vh, 15px);
+    align-items: stretch;
+  }
+
+  .council-header-right {
+    flex-direction: column;
+    gap: clamp(12px, 1.39vh, 15px);
+    align-items: stretch;
+  }
+
+  .back-to-list-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .year-selector {
+    justify-content: center;
+  }
+
+  .search-controls {
+    flex-direction: column;
+    gap: clamp(12px, 1.39vh, 15px);
+    align-items: stretch;
+  }
+
+  .filter-controls {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .filter-row {
+    flex-direction: column;
+  }
+  
+  .filter-row .filter-group {
+    min-width: unset;
+    max-width: unset;
+    width: 100%;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: clamp(16px, 1.85vh, 20px);
+    align-items: stretch;
+  }
+
+  .action-left {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .action-right {
+    align-items: center;
+  }
+
+  .result-info {
+    align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .students-container {
+    padding: clamp(16px, 1.85vh, 20px);
+  }
+
+  .export-btn, .template-btn, .import-btn {
+    padding: clamp(6px, 0.74vh, 8px) clamp(12px, 1.56vw, 16px);
+    font-size: clamp(12px, 1.39vh, 14px);
+  }
+  
+  .students-container .tab-button,
+  .action-buttons-container .tab-button,
+  .tab-buttons .tab-button {
+    padding: clamp(6px, 0.74vh, 8px) clamp(12px, 1.56vw, 16px) !important;
+    font-size: clamp(12px, 1.39vh, 14px) !important;
+  }
+  
+  .filter-toggle-btn,
+  .clear-filters-btn {
+    padding: clamp(8px, 0.93vh, 12px) clamp(16px, 2.08vw, 24px) !important;
+    font-size: clamp(14px, 1.62vh, 16px) !important;
+    height: clamp(44px, 5.09vh, 48px) !important;
+    min-height: clamp(44px, 5.09vh, 48px) !important;
+    max-height: clamp(44px, 5.09vh, 48px) !important;
+  }
+}
+
+.add-staff-button {
+  background-color: var(--white-pure);
+  color: var(--text-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--sidebar-radius-sm);
+  padding: clamp(8px, 0.93vh, 12px) clamp(16px, 2.08vw, 24px);
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: var(--transition-base);
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.74vw, 8px);
+}
+
+.add-staff-button:hover {
+  background-color: var(--bg-gray-alt);
+  color: var(--text-dark);
+  border-color: var(--sidebar-primary);
+}
+
+/* 페이지네이션 */
+.students-container .pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(4px, 0.52vw, 8px);
+  margin-top: clamp(16px, 1.85vh, 24px);
+  padding: 0;
+  background: var(--bg-gray);
+  border: none;
+}
+
+.pagination button {
+  width: clamp(36px, 4.17vh, 44px);
+  height: clamp(36px, 4.17vh, 44px);
+  padding: 0;
+  border: 1px solid var(--border-color);
+  background-color: var(--white-pure);
+  color: var(--text-dark);
+  border-radius: var(--sidebar-radius-sm);
+  font-size: clamp(13px, 1.51vh, 15px);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.pagination button:hover:not(:disabled) {
+  background-color: var(--bg-gray-alt);
+  border-color: var(--border-color-alt);
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination button.active {
+  background-color: var(--sidebar-primary);
+  color: var(--white-pure);
+  border-color: var(--sidebar-primary);
+}
+
+.pagination button.active:hover {
+  background-color: var(--gray-dark);
+}
+
+.pagination button.page-arrow-link {
+  width: auto;
+  min-width: clamp(60px, 6.94vh, 80px);
+  height: clamp(36px, 4.17vh, 44px);
+  padding: 0 clamp(12px, 1.56vw, 16px);
+  background-color: var(--white-pure) !important;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.pagination button.page-arrow-link:hover:not(:disabled) {
+  background-color: var(--white-pure) !important;
+  border-color: var(--border-color-alt);
+}
+
+.pagination button.page-arrow-link:disabled {
+  background-color: var(--white-pure) !important;
+  opacity: 0.5;
+}
+
+.page-ellipsis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(36px, 4.17vh, 44px);
+  height: clamp(36px, 4.17vh, 44px);
+  color: var(--text-medium);
+  font-size: clamp(13px, 1.51vh, 15px);
+}
+
+/* 학생회 페이지 년도 이동 네비게이션 */
+.council-year-navigation {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.04vw, 12px);
+  padding: 0;
+  margin: 0;
+}
+
+.council-year-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(32px, 3.7vh, 36px);
+  height: clamp(32px, 3.7vh, 36px);
+  padding: 0;
+  border: none;
+  border-radius: clamp(6px, 0.69vh, 8px);
+  background-color: var(--bg-white);
+  color: var(--text-medium);
+  cursor: pointer;
+  transition: var(--transition-base);
+  box-sizing: border-box;
+}
+
+.council-year-nav-btn svg {
+  width: clamp(14px, 1.62vh, 16px);
+  height: clamp(14px, 1.62vh, 16px);
+  color: inherit;
+}
+
+.council-year-nav-btn:hover:not(:disabled) {
+  background-color: var(--bg-gray-alt);
+  color: var(--text-dark);
+}
+
+.council-year-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background-color: var(--bg-gray);
+}
+
+.council-year-display {
+  display: flex;
+  align-items: center;
+  padding: clamp(6px, 0.69vh, 8px) clamp(12px, 1.56vw, 16px);
+  min-height: clamp(32px, 3.7vh, 36px);
+  box-sizing: border-box;
+}
+
+.council-year-text {
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-dark);
+  white-space: nowrap;
+}

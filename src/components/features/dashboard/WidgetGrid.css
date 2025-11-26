@@ -1,0 +1,354 @@
+/* 위젯 그리드 */
+.widget-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(300px, 20.83vw, 400px), 1fr));
+    gap: clamp(16px, 1.85vh, 24px);
+}
+
+.widget {
+    background-color: var(--white-pure);
+    border-radius: clamp(10px, 1.25vw, 16px);
+    box-shadow: none;
+    padding: clamp(16px, 1.85vh, 24px);
+    position: relative;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(160, 174, 192, 0.3);
+    overflow: hidden;
+    min-height: clamp(200px, 23.15vh, 280px);
+}
+
+.widget:hover {
+    border-color: var(--sidebar-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(12px, 1.39vh, 16px);
+    padding-bottom: clamp(10px, 1.16vh, 12px);
+    border-bottom: 1px solid rgba(160, 174, 192, 0.3);
+}
+
+.widget-header h3 {
+    color: var(--text-dark);
+    font-size: clamp(16px, 1.85vh, 18px);
+    font-weight: var(--font-weight-semibold);
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+.widget-header h3 i {
+    margin-right: clamp(8px, 0.93vw, 10px);
+    color: var(--sidebar-primary);
+    font-size: clamp(16px, 1.85vh, 18px);
+}
+
+/* 위젯 콘텐츠 아이콘 색상 수정 */
+.widget-content i {
+    margin-right: 10px;
+    color: var(--text-medium);
+    font-size: 14px;
+    width: 20px;
+    text-align: center;
+}
+
+.widget-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.widget-btn {
+    background: transparent;
+    border: 1px solid #a0aec0;
+    cursor: pointer;
+    color: #4a5568;
+    font-size: clamp(14px, 1.62vh, 16px);
+    transition: all 0.2s ease;
+    width: clamp(28px, 3.24vh, 32px);
+    height: clamp(28px, 3.24vh, 32px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: clamp(6px, 0.74vw, 8px);
+    padding: 0;
+    opacity: 0.8;
+}
+
+.widget-btn:hover {
+    color: var(--white-pure);
+    background-color: #dc3545;
+    border-color: #dc3545;
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+    opacity: 1;
+    transform: scale(1.05);
+}
+
+/* 위젯 액션 버튼 아이콘 색상 수정 */
+.widget-btn i {
+    color: inherit;
+    font-size: clamp(14px, 1.62vh, 16px);
+}
+
+/* 삭제 버튼 전용 스타일 */
+.widget-delete-btn {
+    color: #718096 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.widget-delete-btn .delete-icon {
+    width: clamp(14px, 1.62vh, 16px);
+    height: clamp(14px, 1.62vh, 16px);
+    color: currentColor;
+    transition: all 0.2s ease;
+}
+
+.widget-delete-btn:hover {
+    color: var(--white-pure) !important;
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+
+.widget-delete-btn:hover .delete-icon {
+    color: var(--white-pure) !important;
+    transform: scale(1.1);
+}
+
+.widget-content {
+    color: var(--text-dark);
+    line-height: 1.6;
+    max-height: clamp(150px, 17.36vh, 200px);
+    overflow-y: auto;
+    font-size: clamp(14px, 1.62vh, 16px);
+}
+
+.widget-content p {
+    margin-bottom: clamp(6px, 0.69vh, 8px);
+    padding: clamp(6px, 0.69vh, 8px) 0;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #f8fafc;
+    transition: all 0.2s ease;
+}
+
+.widget-content p:last-child {
+    margin-bottom: 0;
+    border-bottom: none;
+}
+
+.widget-content p:hover {
+    background-color: #f8fafc;
+    padding-left: clamp(8px, 0.93vw, 10px);
+    border-radius: clamp(4px, 0.46vw, 6px);
+}
+
+
+/* 특정 위젯 스타일 */
+.widget[data-widget-type="notice"] .widget-content p {
+    position: relative;
+    padding-left: 15px;
+}
+
+.widget[data-widget-type="notice"] .widget-content p::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--sidebar-primary);
+    font-weight: bold;
+}
+
+.widget[data-widget-type="library"] .widget-content p {
+    display: flex;
+    justify-content: space-between;
+}
+
+.widget[data-widget-type="library"] .seat-available {
+    color: var(--success);
+    font-weight: bold;
+}
+
+.widget[data-widget-type="library"] .seat-total {
+    color: var(--text-light);
+    font-size: 0.9em;
+}
+
+.widget[data-widget-type="professor-contact"] input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--sidebar-radius-sm);
+    margin-bottom: 10px;
+}
+
+.widget[data-widget-type="professor-contact"] .contact-option {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    cursor: pointer;
+}
+
+.widget[data-widget-type="professor-contact"] .contact-option:hover {
+    color: var(--sidebar-primary);
+}
+
+/* 성적 위젯 스타일 */
+.widget[data-widget-type="grades"] .grade-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.widget[data-widget-type="grades"] .grade-bar {
+    height: 10px;
+    background-color: var(--lightgrey);
+    border-radius: var(--sidebar-radius-sm);
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+.widget[data-widget-type="grades"] .grade-progress {
+    height: 100%;
+    background: var(--sidebar-primary); /* 검은색 배경 */
+    border-radius: var(--sidebar-radius-sm);
+}
+
+/* 일정 위젯 스타일 */
+.widget[data-widget-type="calendar"] .calendar-day {
+    font-weight: 600;
+    color: #888;
+}
+
+.widget[data-widget-type="calendar"] .calendar-event {
+    position: relative;
+}
+
+.widget[data-widget-type="calendar"] .widget-content > div:not(:last-child) {
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+}
+
+/* 출석 위젯 스타일 */
+.widget[data-widget-type="attendance"] .attendance-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.widget[data-widget-type="attendance"] .attendance-box {
+    text-align: center;
+    padding: 10px;
+    border-radius: var(--sidebar-radius-sm);
+    background-color: var(--lightgrey);
+    flex: 1;
+    margin: 0 5px;
+}
+
+.widget[data-widget-type="attendance"] .attendance-value {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+/* 과제 위젯 스타일 */
+.widget[data-widget-type="assignments"] .assignment-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.widget[data-widget-type="assignments"] .assignment-due {
+    font-size: 12px;
+    color: var(--error);
+    font-weight: bold;
+}
+
+/* 시간표 위젯 스타일 */
+.widget[data-widget-type="timetable"] .timetable-item {
+    display: flex;
+    margin-bottom: 10px;
+}
+
+.widget[data-widget-type="timetable"] .timetable-time {
+    font-weight: bold;
+    color: var(--sidebar-primary);
+    min-width: 80px;
+}
+
+/* 학식 메뉴 위젯 스타일 */
+.widget[data-widget-type="cafeteria"] .menu-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.widget[data-widget-type="cafeteria"] .menu-price {
+    color: var(--error);
+    font-weight: bold;
+}
+
+/* 날씨 위젯 스타일 */
+.widget[data-widget-type="weather"] .weather-today {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.widget[data-widget-type="weather"] .weather-temp {
+    font-size: 28px;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.widget[data-widget-type="weather"] .weather-icon {
+    font-size: 40px;
+    margin-right: 15px;
+    color: var(--sidebar-primary);
+}
+
+.widget[data-widget-type="weather"] .weather-forecast {
+    display: flex;
+    justify-content: space-between;
+}
+
+.widget[data-widget-type="weather"] .forecast-day {
+    text-align: center;
+    font-size: 12px;
+}
+
+/* 버스 정보 위젯 스타일 */
+.widget[data-widget-type="bus"] .bus-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.widget[data-widget-type="bus"] .bus-time {
+    font-weight: bold;
+    color: var(--success);
+}
+
+/* 캠퍼스 맵 위젯 스타일 */
+.widget[data-widget-type="campus-map"] .map-container {
+    height: 200px;
+    background-color: var(--lightgrey);
+    border-radius: var(--sidebar-radius-sm);
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-light);
+    font-weight: bold;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .widget-grid {
+        grid-template-columns: 1fr;
+    }
+}
