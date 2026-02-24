@@ -1,16 +1,30 @@
 /**
  * @file useLedgerManagement.ts
  * @brief 장부 관리 훅
- * @details 장부 목록 조회 및 관리 기능을 제공합니다.
+ * @details 장부 목록 조회 및 관리 기능을 제공합니다. 초기 로딩 캐시가 있으면 즉시 표시하고 백그라운드 갱신합니다.
  * @author Hot Potato Team
  * @date 2024
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { getLedgerFolders, getLedgerInfo } from '../../../utils/google/accountingFolderManager';
+import { getLedgerInfo } from '../../../utils/google/accountingFolderManager';
 import { apiClient } from '../../../utils/api/apiClient';
+import { getCacheManager } from '../../../utils/cache/cacheManager';
+import { generateCacheKey } from '../../../utils/cache/cacheUtils';
 import type { LedgerInfo, CreateLedgerRequest, LedgerResponse } from '../../../types/features/accounting';
-import { ENV_CONFIG } from '../../../config/environment';
+
+const LEDGER_LIST_CACHE_KEY = generateCacheKey('accounting', 'getLedgerList', {});
+
+function toLedgerInfoList(data: LedgerResponse[] | undefined): LedgerInfo[] {
+  if (!data || !Array.isArray(data)) return [];
+  return data.map((ledger: LedgerResponse) => ({
+    folderId: ledger.folderId || '',
+    folderName: ledger.folderName || '',
+    spreadsheetId: ledger.spreadsheetId || '',
+    evidenceFolderId: ledger.evidenceFolderId || '',
+    createdDate: ledger.createdDate || ''
+  }));
+}
 
 export const useLedgerManagement = () => {
   const [ledgers, setLedgers] = useState<LedgerInfo[]>([]);
@@ -18,46 +32,31 @@ export const useLedgerManagement = () => {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * 장부 목록 새로고침
+   * 장부 목록 새로고침. silent=true면 로딩 UI 없이 백그라운드 갱신(캐시 우선 표시 후 사용).
    */
-  const refreshLedgers = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    
+  const refreshLedgers = useCallback(async (silent = false) => {
+    if (!silent) {
+      setIsLoading(true);
+      setError(null);
+    }
     try {
-      // Apps Script를 통해 장부 목록 조회 (회계 폴더 ID 문제 회피)
-      console.log('📋 Apps Script를 통해 장부 목록 조회 시작...');
       const response = await apiClient.getLedgerList();
-      
       if (response.success && response.data) {
-        console.log('✅ 장부 목록 조회 성공:', response.data.length, '개');
-        // Apps Script 응답을 LedgerInfo 형식으로 변환
-        const ledgers: LedgerInfo[] = response.data.map((ledger: LedgerResponse) => ({
-          folderId: ledger.folderId || '',
-          folderName: ledger.folderName || '',
-          spreadsheetId: ledger.spreadsheetId || '',
-          evidenceFolderId: ledger.evidenceFolderId || '',
-          createdDate: ledger.createdDate || ''
-        }));
-        setLedgers(ledgers);
+        setLedgers(toLedgerInfoList(response.data));
       } else {
-        console.warn('⚠️ Apps Script 응답에서 장부 목록을 찾을 수 없습니다.');
-        console.warn('⚠️ 응답:', response);
-        setLedgers([]);
+        if (!silent) setLedgers([]);
       }
-      
     } catch (err: unknown) {
-      console.error('❌ 장부 목록 조회 오류:', err);
-      const error = err as { message?: string; status?: number };
-      const errorMessage = error?.message || '장부 목록을 불러오는데 실패했습니다.';
-      setError(errorMessage);
-      
-      // 403 권한 오류인 경우 특별 처리
-      if (error?.status === 403 || error?.message?.includes('PERMISSION_DENIED')) {
-        setError('Google Drive 권한이 없습니다. 권한을 확인해주세요.');
-      }
+      const errObj = err as { message?: string; status?: number };
+      const errorMessage = errObj?.message || '장부 목록을 불러오는데 실패했습니다.';
+      setError(
+        errObj?.status === 403 || errObj?.message?.includes('PERMISSION_DENIED')
+          ? 'Google Drive 권한이 없습니다. 권한을 확인해주세요.'
+          : errorMessage
+      );
+      if (!silent) setLedgers([]);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, []);
 
@@ -113,14 +112,21 @@ export const useLedgerManagement = () => {
     }
   }, []);
 
-  // 초기 로드 (Google API 초기화 후 실행)
+  // 초기 로드: 캐시가 있으면 즉시 표시 후 백그라운드 갱신, 없으면 로딩 표시 후 요청
   useEffect(() => {
-    // 약간의 지연을 주어 Google API 초기화가 완료될 시간을 확보
-    const timer = setTimeout(() => {
+    let cancelled = false;
+    const cacheManager = getCacheManager();
+    (async () => {
+      const cached = await cacheManager.get<{ success: boolean; data?: LedgerResponse[] }>(LEDGER_LIST_CACHE_KEY);
+      if (cancelled) return;
+      if (cached?.success && cached.data) {
+        setLedgers(toLedgerInfoList(cached.data));
+        refreshLedgers(true);
+        return;
+      }
       refreshLedgers();
-    }, 1000);
-
-    return () => clearTimeout(timer);
+    })();
+    return () => { cancelled = true; };
   }, [refreshLedgers]);
 
   return {

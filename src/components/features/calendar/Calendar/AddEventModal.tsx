@@ -576,7 +576,7 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, eventToEdit }) =
             <h2>{isEditMode ? '일정 수정' : '일정 추가'}</h2>
           </div>
           <button className="modal-close" onClick={onClose}>
-            <img src={xIcon} alt="Close" />
+            <img src={xIcon} alt="Close" loading="lazy" />
           </button>
         </div>
         

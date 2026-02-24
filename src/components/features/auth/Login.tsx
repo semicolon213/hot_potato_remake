@@ -21,6 +21,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [logoSrc, setLogoSrc] = useState<string>("/logo.svg");
   const [logoClickCount, setLogoClickCount] = useState<number>(0);
   const [refreshKey, setRefreshKey] = useState<number>(0);
+  /** 제거 확인 중인 계정 이메일 (이 상태일 때만 '제거' 버튼 클릭으로 실제 제거) */
+  const [removingEmail, setRemovingEmail] = useState<string | null>(null);
 
   const {
     loginState,
@@ -44,10 +46,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   const handleRemoveAccount = (email: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // 버튼 클릭 이벤트 전파 방지
+    e.stopPropagation();
     lastUserManager.remove(email);
-    // 상태 갱신을 위해 refreshKey 업데이트하여 컴포넌트 리렌더링
+    setRemovingEmail(null);
     setRefreshKey(prev => prev + 1);
+  };
+
+  const handleConfirmRemove = (email: string) => {
+    setRemovingEmail(email);
+  };
+
+  const handleCancelRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRemovingEmail(null);
   };
 
   return (
@@ -59,6 +70,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               src={logoSrc}
               alt="Hot Potato Logo"
               className="login-logo"
+              loading="lazy"
               onClick={handleLogoClick}
               onError={() => setLogoSrc("/logo.svg")}
               title=""
@@ -82,9 +94,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                           >
                             <div className="last-user-avatar">
                               {user.picture ? (
-                                <img 
-                                  src={user.picture} 
+                                <img
+                                  src={user.picture}
                                   alt={user.name}
+                                  loading="lazy"
                                   onError={(e) => {
                                     // 이미지 로드 실패 시 (429 에러 등) 초기 이니셜 표시
                                     const target = e.target as HTMLImageElement;
@@ -107,18 +120,39 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                               <div className="last-user-email">{user.email}</div>
                             </div>
                           </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveAccount(user.email, e);
-                            }}
-                            className="last-user-remove-btn"
-                            title="계정 제거"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                            </svg>
-                          </button>
+                          {removingEmail === user.email ? (
+                            <div className="last-user-remove-actions" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={(e) => handleRemoveAccount(user.email, e)}
+                                className="last-user-remove-confirm-btn"
+                                title="계정 제거"
+                              >
+                                제거
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelRemove}
+                                className="last-user-remove-cancel-btn"
+                                title="취소"
+                              >
+                                취소
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConfirmRemove(user.email);
+                              }}
+                              className="last-user-remove-btn"
+                              title="계정 제거"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>

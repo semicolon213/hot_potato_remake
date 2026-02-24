@@ -23,7 +23,7 @@ interface AccountingProps {
 const Accounting: React.FC<AccountingProps> = ({ onPageChange }) => {
   const [selectedLedger, setSelectedLedger] = useState<LedgerInfo | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const { ledgers } = useLedgerManagement();
+  const { ledgers, isLoading, error, refreshLedgers, createLedger } = useLedgerManagement();
 
   const handleSelectLedger = (ledger: LedgerInfo) => {
     setSelectedLedger(ledger);
@@ -35,7 +35,7 @@ const Accounting: React.FC<AccountingProps> = ({ onPageChange }) => {
 
   const handleCreateSuccess = () => {
     setIsCreateModalOpen(false);
-    // 장부 목록 새로고침은 LedgerList 내부에서 처리됨
+    refreshLedgers();
   };
 
   // 통계 계산
@@ -75,6 +75,7 @@ const Accounting: React.FC<AccountingProps> = ({ onPageChange }) => {
       <div className="accounting-page">
         <LedgerDetail
           ledger={selectedLedger}
+          ledgers={ledgers}
           onBack={() => setSelectedLedger(null)}
           onSelectLedger={handleSelectLedger}
         />
@@ -117,6 +118,10 @@ const Accounting: React.FC<AccountingProps> = ({ onPageChange }) => {
 
       <div className="accounting-list-section">
         <LedgerList
+          ledgers={ledgers}
+          isLoading={isLoading}
+          error={error}
+          refreshLedgers={refreshLedgers}
           onSelectLedger={handleSelectLedger}
           onCreateLedger={handleCreateLedger}
         />

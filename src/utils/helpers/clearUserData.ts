@@ -10,6 +10,7 @@ import { clearSpreadsheetIds } from '../database/papyrusManager';
 import { clearPersonalConfigSpreadsheetId } from '../database/personalConfigManager';
 import { resetGoogleAPIInitialization } from '../google/googleSheetUtils';
 import { resetGoogleApiInitializer } from '../google/googleApiInitializer';
+import { tokenManager } from '../auth/tokenManager';
 
 /**
  * @brief localStorage에서 사용자 관련 항목 제거
@@ -18,9 +19,9 @@ import { resetGoogleApiInitializer } from '../google/googleApiInitializer';
 export const clearLocalStorageUserData = (): void => {
     console.log('🧹 localStorage 사용자 데이터 정리 시작...');
     
-    // 기본 사용자 데이터
+    // 기본 사용자 데이터 (토큰은 tokenManager 단일 소스로 제거)
     localStorage.removeItem('user');
-    localStorage.removeItem('googleAccessToken');
+    tokenManager.clear();
     localStorage.removeItem('searchTerm');
     
     // 템플릿 관련 데이터

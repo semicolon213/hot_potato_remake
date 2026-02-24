@@ -23,7 +23,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "audit": "npm audit --audit-level moderate",
-    "bundle-size": "npm run build && echo 'Bundle size check skipped - bundlesize not installed'",
+    "bundle-size": "npm run build && node scripts/check-bundle-size.mjs",
     "ci": "npm run type-check && npm run lint && npm run format:check && npm run test:ci && npm run audit"
   },
   "dependencies": {
@@ -38,6 +38,7 @@
     "@tiptap/pm": "^3.9.0",
     "@tiptap/react": "^3.9.0",
     "@tiptap/starter-kit": "^3.9.0",
+    "@types/react-window": "^1.8.8",
     "@types/recharts": "^1.8.29",
     "@vitejs/plugin-react": "^4.7.0",
     "docx": "^9.5.1",
@@ -49,6 +50,7 @@
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
     "react-quilljs": "^2.0.5",
+    "react-window": "^2.2.7",
     "recharts": "^3.4.1",
     "rrule": "^2.8.1",
     "vite": "^5.4.20",

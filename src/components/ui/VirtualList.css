@@ -1,0 +1,13 @@
+.virtual-list {
+  overflow-x: auto;
+}
+
+.virtual-list--fallback .virtual-list__row {
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.virtual-list__row {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}

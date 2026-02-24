@@ -11,6 +11,201 @@ import { tokenManager } from '../utils/auth/tokenManager';
 import { initializeSpreadsheetIds } from '../utils/database/papyrusManager';
 import type { User } from '../types/app';
 
+type InitialDataScope = 'global' | 'dashboard' | 'page';
+type InitialDataPhase = 1 | 2;
+
+interface InitialDataTaskConfig {
+  key: string;
+  name: string;
+  category: string;
+  scope: InitialDataScope;
+  phase: InitialDataPhase;
+  required: boolean;
+  runIf: (user: User) => boolean;
+  fn: (user: User) => Promise<unknown>;
+}
+
+const INITIAL_DATA_TASKS: InitialDataTaskConfig[] = [
+  {
+    key: 'announcements',
+    name: '공지사항',
+    category: 'announcements',
+    scope: 'global',
+    phase: 1,
+    required: true,
+    runIf: (user) => !!(user.studentId && user.userType),
+    fn: async (user) => {
+      const { fetchAnnouncements } = await import('../utils/database/papyrusManager');
+      return fetchAnnouncements(user.studentId!, user.userType!);
+    }
+  },
+  {
+    key: 'calendar-events',
+    name: '캘린더 이벤트',
+    category: 'calendar',
+    scope: 'global',
+    phase: 1,
+    required: true,
+    runIf: () => true,
+    fn: async () => {
+      const { fetchCalendarEvents } = await import('../utils/database/papyrusManager');
+      return fetchCalendarEvents();
+    }
+  },
+  {
+    key: 'documents',
+    name: '전체 문서 목록',
+    category: 'documents',
+    scope: 'global',
+    phase: 2,
+    required: true,
+    runIf: () => true,
+    fn: async () => {
+      const { loadAllDocuments } = await import('../utils/helpers/loadDocumentsFromDrive');
+      return loadAllDocuments();
+    }
+  },
+  {
+    key: 'templates',
+    name: '템플릿 목록',
+    category: 'templates',
+    scope: 'global',
+    phase: 1,
+    required: true,
+    runIf: () => true,
+    fn: async () => apiClient.getTemplates()
+  },
+  {
+    key: 'shared-templates',
+    name: '공유 템플릿 목록',
+    category: 'templates',
+    scope: 'global',
+    phase: 2,
+    required: false,
+    runIf: () => true,
+    fn: async () => apiClient.getSharedTemplates()
+  },
+  {
+    key: 'static-tags',
+    name: '기본 태그 목록',
+    category: 'tags',
+    scope: 'global',
+    phase: 1,
+    required: true,
+    runIf: () => true,
+    fn: async () => apiClient.getStaticTags()
+  },
+  {
+    key: 'workflow-templates',
+    name: '워크플로우 템플릿',
+    category: 'workflow',
+    scope: 'global',
+    phase: 1,
+    required: true,
+    runIf: () => true,
+    fn: async () => apiClient.getWorkflowTemplates()
+  },
+  {
+    key: 'students',
+    name: '학생 목록',
+    category: 'students',
+    scope: 'page',
+    phase: 2,
+    required: false,
+    runIf: () => true,
+    fn: async () => {
+      const { fetchStudents } = await import('../utils/database/papyrusManager');
+      return fetchStudents();
+    }
+  },
+  {
+    key: 'staff',
+    name: '교직원 목록',
+    category: 'staff',
+    scope: 'page',
+    phase: 2,
+    required: false,
+    runIf: () => true,
+    fn: async () => {
+      const { fetchStaff } = await import('../utils/database/papyrusManager');
+      return fetchStaff();
+    }
+  },
+  {
+    key: 'attendees',
+    name: '참석자 목록',
+    category: 'attendees',
+    scope: 'page',
+    phase: 2,
+    required: false,
+    runIf: () => true,
+    fn: async () => {
+      const { fetchAttendees } = await import('../utils/database/papyrusManager');
+      return fetchAttendees();
+    }
+  },
+  {
+    key: 'ledger-list',
+    name: '장부 목록',
+    category: 'accounting',
+    scope: 'global',
+    phase: 1,
+    required: true,
+    runIf: () => true,
+    fn: async () => apiClient.getLedgerList()
+  },
+  {
+    key: 'my-requested-workflows',
+    name: '내가 올린 결재',
+    category: 'workflow',
+    scope: 'dashboard',
+    phase: 2,
+    required: false,
+    runIf: (user) => !!user.email,
+    fn: async (user) => apiClient.getMyRequestedWorkflows(user.email!)
+  },
+  {
+    key: 'my-pending-workflows',
+    name: '내 담당 워크플로우',
+    category: 'workflow',
+    scope: 'dashboard',
+    phase: 2,
+    required: false,
+    runIf: (user) => !!user.email,
+    fn: async (user) => apiClient.getMyPendingWorkflows({ userEmail: user.email! })
+  },
+  {
+    key: 'completed-workflows',
+    name: '완료된 워크플로우',
+    category: 'workflow',
+    scope: 'dashboard',
+    phase: 2,
+    required: false,
+    runIf: (user) => !!user.email,
+    fn: async (user) => apiClient.getCompletedWorkflows({ userEmail: user.email! })
+  },
+  {
+    key: 'all-users',
+    name: '전체 사용자 목록',
+    category: 'users',
+    scope: 'page',
+    phase: 2,
+    required: false,
+    runIf: (user) => !!user.isAdmin,
+    fn: async () => apiClient.getAllUsers()
+  },
+  {
+    key: 'pending-users',
+    name: '승인 대기 사용자',
+    category: 'users',
+    scope: 'dashboard',
+    phase: 2,
+    required: false,
+    runIf: (user) => !!user.isAdmin,
+    fn: async () => apiClient.getPendingUsers()
+  }
+];
+
 /**
  * 데이터 동기화 진행률 콜백
  */
@@ -54,6 +249,12 @@ export class DataSyncService {
   private pausedCategories: Map<string, number> = new Map();
   // 429 에러 발생 횟수 추적
   private error429Count: Map<string, number> = new Map();
+  // 카테고리별 갱신 중복 방지 (같은 카테고리 동시 다중 갱신 방지)
+  private refreshingCategories: Set<string> = new Set();
+  // invalidateAndRefresh 디바운스 (연속 호출 시 한 번만 갱신)
+  private invalidateDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private invalidateDebounceMs = 800;
+  private pendingInvalidateKeys: string[] = [];
 
   // 페이지별 활성화 카테고리 매핑 (해당 페이지에 있을 때만 갱신)
   private readonly PAGE_CATEGORY_MAP: Record<string, string[]> = {
@@ -68,209 +269,146 @@ export class DataSyncService {
   };
 
   /**
-   * 초기 데이터 로딩 (로그인 시)
+   * 초기 전체 데이터 한 번에 로드 (스프레드시트 ID 후 나머지 모두 병렬).
+   * 완료 후 앱을 표시하면 모든 페이지에서 데이터가 바로 나타남.
+   * 이후 구글 시트 변경은 주기적 백그라운드 동기화로 반영.
+   */
+  async initializeDataFull(
+    user: User,
+    onProgress?: SyncProgressCallback
+  ): Promise<{
+    announcementSpreadsheetId: string | null;
+    calendarProfessorSpreadsheetId: string | null;
+    calendarCouncilSpreadsheetId: string | null;
+    calendarADProfessorSpreadsheetId: string | null;
+    calendarSuppSpreadsheetId: string | null;
+    calendarStudentSpreadsheetId: string | null;
+    hotPotatoDBSpreadsheetId: string | null;
+    studentSpreadsheetId: string | null;
+    staffSpreadsheetId: string | null;
+  }> {
+    if (this.isInitializing) {
+      console.warn('⚠️ 이미 초기화 중입니다.');
+      return await initializeSpreadsheetIds();
+    }
+
+    if (!tokenManager.isValid()) {
+      throw new Error('토큰이 만료되었습니다. 다시 로그인해주세요.');
+    }
+
+    this.isInitializing = true;
+    try {
+      onProgress?.({ current: 0, total: 1, message: '스프레드시트 ID 초기화 중...' });
+      const spreadsheetIds = await initializeSpreadsheetIds();
+      
+      const applicableTasks = INITIAL_DATA_TASKS.filter(
+        (task) => task.runIf(user) && task.phase === 1
+      );
+      const tasks: Array<{ name: string; category: string; fn: () => Promise<unknown> }> = applicableTasks.map((task) => ({
+        name: task.name,
+        category: task.category,
+        fn: () => task.fn(user)
+      }));
+
+      // 태스크에서 사용하는 동적 import 모듈 선로딩 (첫 요청 지연 감소)
+      await Promise.all([
+        import('../utils/database/papyrusManager'),
+        import('../utils/helpers/loadDocumentsFromDrive')
+      ]);
+
+      const total = tasks.length;
+      let completed = 0;
+      const CONCURRENCY = 8; // 동시 요청 수 제한 (429·지연 완화)
+
+      onProgress?.({ current: 0, total, message: '모든 데이터 로딩 중...' });
+
+      for (let i = 0; i < tasks.length; i += CONCURRENCY) {
+        const chunk = tasks.slice(i, i + CONCURRENCY);
+        await Promise.allSettled(
+          chunk.map(async (task) => {
+            try {
+              await task.fn();
+            } catch (error) {
+              console.error(`❌ ${task.name} 로딩 실패:`, error);
+            } finally {
+              completed++;
+              onProgress?.({ current: completed, total, category: task.category, message: `${task.name} 완료` });
+            }
+          })
+        );
+      }
+
+      this.lastSyncTime = new Date();
+      console.log('✅ 초기 전체 데이터 로딩 완료');
+      return spreadsheetIds;
+    } finally {
+      this.isInitializing = false;
+    }
+  }
+
+  /**
+   * 초기 데이터 로딩 (전체 새로고침 시 사용). 한 번에 모두 로드.
    */
   async initializeData(
     user: User,
     onProgress?: SyncProgressCallback
   ): Promise<void> {
-    if (this.isInitializing) {
-      console.warn('⚠️ 이미 초기화 중입니다.');
+    await this.initializeDataFull(user, onProgress);
+  }
+
+  /**
+   * 2단계 초기 로딩 (백그라운드). 문서/학생·교직원/워크플로우 등 phase 2 태스크만 실행.
+   * isInitializing을 사용하지 않아 로그인 직후 비동기 호출해도 블로킹하지 않음.
+   */
+  async initializePhase2(
+    user: User,
+    onProgress?: SyncProgressCallback
+  ): Promise<void> {
+    if (!tokenManager.isValid()) return;
+
+    const applicableTasks = INITIAL_DATA_TASKS.filter(
+      (task) => task.runIf(user) && task.phase === 2
+    );
+    const tasks: Array<{ name: string; category: string; fn: () => Promise<unknown> }> = applicableTasks.map((task) => ({
+      name: task.name,
+      category: task.category,
+      fn: () => task.fn(user)
+    }));
+
+    if (tasks.length === 0) {
+      this.lastSyncTime = new Date();
       return;
     }
 
-    this.isInitializing = true;
+    await Promise.all([
+      import('../utils/database/papyrusManager'),
+      import('../utils/helpers/loadDocumentsFromDrive')
+    ]);
 
-    try {
-      // 토큰 유효성 확인
-      if (!tokenManager.isValid()) {
-        throw new Error('토큰이 만료되었습니다. 다시 로그인해주세요.');
-      }
+    const total = tasks.length;
+    let completed = 0;
+    const CONCURRENCY = 8;
 
-      const tasks: Array<{
-        name: string;
-        category: string;
-        action: string;
-        params?: Record<string, unknown>;
-        fn: () => Promise<unknown>;
-      }> = [];
+    onProgress?.({ current: 0, total, message: '백그라운드 동기화 중...' });
 
-      // 1. 스프레드시트 ID 초기화
-      tasks.push({
-        name: '스프레드시트 ID 초기화',
-        category: 'spreadsheetIds',
-        action: 'getSpreadsheetIds',
-        fn: async () => {
-          return await initializeSpreadsheetIds();
-        }
-      });
-
-      // 2. 사용자 데이터
-      if (user.isAdmin) {
-        tasks.push({
-          name: '전체 사용자 목록',
-          category: 'users',
-          action: 'getAllUsers',
-          fn: () => apiClient.getAllUsers()
-        });
-        tasks.push({
-          name: '승인 대기 사용자',
-          category: 'users',
-          action: 'getPendingUsers',
-          fn: () => apiClient.getPendingUsers()
-        });
-      }
-
-      // 3. 문서 관련 데이터
-      tasks.push({
-        name: '전체 문서 목록',
-        category: 'documents',
-        action: 'getAllDocuments',
-        fn: async () => {
-          const { loadAllDocuments } = await import('../utils/helpers/loadDocumentsFromDrive');
-          return await loadAllDocuments();
-        }
-      });
-      tasks.push({
-        name: '템플릿 목록',
-        category: 'templates',
-        action: 'getTemplates',
-        fn: () => apiClient.getTemplates()
-      });
-      tasks.push({
-        name: '공유 템플릿 목록',
-        category: 'templates',
-        action: 'getSharedTemplates',
-        fn: () => apiClient.getSharedTemplates()
-      });
-      tasks.push({
-        name: '기본 태그 목록',
-        category: 'tags',
-        action: 'getStaticTags',
-        fn: () => apiClient.getStaticTags()
-      });
-
-      // 4. 워크플로우 데이터
-      if (user.email) {
-        tasks.push({
-          name: '내가 올린 결재',
-          category: 'workflow',
-          action: 'getMyRequestedWorkflows',
-          params: { userEmail: user.email },
-          fn: () => apiClient.getMyRequestedWorkflows(user.email!)
-        });
-        tasks.push({
-          name: '내 담당 워크플로우',
-          category: 'workflow',
-          action: 'getMyPendingWorkflows',
-          params: { userEmail: user.email },
-          fn: () => apiClient.getMyPendingWorkflows({ userEmail: user.email! })
-        });
-        tasks.push({
-          name: '완료된 워크플로우',
-          category: 'workflow',
-          action: 'getCompletedWorkflows',
-          params: { userEmail: user.email },
-          fn: () => apiClient.getCompletedWorkflows({ userEmail: user.email! })
-        });
-      }
-      tasks.push({
-        name: '워크플로우 템플릿',
-        category: 'workflow',
-        action: 'getWorkflowTemplates',
-        fn: () => apiClient.getWorkflowTemplates()
-      });
-
-      // 5. 캘린더, 학생, 교직원 데이터 (직접 Google Sheets API 호출)
-      tasks.push({
-        name: '캘린더 이벤트',
-        category: 'calendar',
-        action: 'fetchCalendarEvents',
-        fn: async () => {
-          const { fetchCalendarEvents } = await import('../utils/database/papyrusManager');
-          return await fetchCalendarEvents();
-        }
-      });
-      tasks.push({
-        name: '학생 목록',
-        category: 'students',
-        action: 'fetchStudents',
-        fn: async () => {
-          const { fetchStudents } = await import('../utils/database/papyrusManager');
-          return await fetchStudents();
-        }
-      });
-      tasks.push({
-        name: '교직원 목록',
-        category: 'staff',
-        action: 'fetchStaff',
-        fn: async () => {
-          const { fetchStaff } = await import('../utils/database/papyrusManager');
-          return await fetchStaff();
-        }
-      });
-      tasks.push({
-        name: '참석자 목록',
-        category: 'attendees',
-        action: 'fetchAttendees',
-        fn: async () => {
-          const { fetchAttendees } = await import('../utils/database/papyrusManager');
-          return await fetchAttendees();
-        }
-      });
-
-      // 병렬 처리 (그룹별로)
-      const totalTasks = tasks.length;
-      let completedTasks = 0;
-
-      // 카테고리별로 그룹화하여 병렬 처리
-      const categoryGroups = new Map<string, typeof tasks>();
-      tasks.forEach(task => {
-        if (!categoryGroups.has(task.category)) {
-          categoryGroups.set(task.category, []);
-        }
-        categoryGroups.get(task.category)!.push(task);
-      });
-
-      // 각 카테고리별로 병렬 처리
-      for (const [category, categoryTasks] of categoryGroups) {
-        const promises = categoryTasks.map(async (task) => {
+    for (let i = 0; i < tasks.length; i += CONCURRENCY) {
+      const chunk = tasks.slice(i, i + CONCURRENCY);
+      await Promise.allSettled(
+        chunk.map(async (task) => {
           try {
-            onProgress?.({
-              current: completedTasks,
-              total: totalTasks,
-              category: task.category,
-              message: `${task.name} 로딩 중...`
-            });
-
             await task.fn();
-
-            completedTasks++;
-            onProgress?.({
-              current: completedTasks,
-              total: totalTasks,
-              category: task.category,
-              message: `${task.name} 완료`
-            });
           } catch (error) {
             console.error(`❌ ${task.name} 로딩 실패:`, error);
-            completedTasks++;
-            // 에러가 발생해도 계속 진행
+          } finally {
+            completed++;
+            onProgress?.({ current: completed, total, category: task.category, message: `${task.name} 완료` });
           }
-        });
-
-        await Promise.allSettled(promises);
-      }
-
-      this.lastSyncTime = new Date();
-      console.log('✅ 초기 데이터 로딩 완료');
-
-    } catch (error) {
-      console.error('❌ 초기 데이터 로딩 실패:', error);
-      throw error;
-    } finally {
-      this.isInitializing = false;
+        })
+      );
     }
+
+    this.lastSyncTime = new Date();
+    console.log('✅ 2단계(백그라운드) 데이터 로딩 완료');
   }
 
   /**
@@ -298,8 +436,9 @@ export class DataSyncService {
         picture: userInfo.picture
       };
 
-      // 초기화와 동일한 로직으로 전체 데이터 다시 로딩
-      await this.initializeData(user, onProgress);
+      // 1단계 + 2단계 모두 실행하여 전체 갱신
+      await this.initializeDataFull(user, onProgress);
+      await this.initializePhase2(user, onProgress);
 
     } catch (error) {
       console.error('❌ 전체 데이터 갱신 실패:', error);
@@ -309,8 +448,14 @@ export class DataSyncService {
 
   /**
    * 특정 카테고리만 갱신 (백그라운드에서 실제 데이터 가져오기)
+   * 같은 카테고리에 대한 동시 다중 갱신은 건너뜁니다.
    */
   async refreshCategory(category: string, background: boolean = true): Promise<void> {
+    if (this.refreshingCategories.has(category)) {
+      console.log(`⏳ ${category} 갱신이 이미 진행 중입니다. 건너뜁니다.`);
+      return;
+    }
+
     // 429 에러로 인해 일시 중지된 카테고리인지 확인
     const pausedUntil = this.pausedCategories.get(category);
     if (pausedUntil && Date.now() < pausedUntil) {
@@ -336,31 +481,34 @@ export class DataSyncService {
     await this.cacheManager.invalidate(`${category}:*`);
 
     // 백그라운드에서 실제 데이터 가져오기
+    this.refreshingCategories.add(category);
+    const clearRefreshing = () => {
+      this.refreshingCategories.delete(category);
+    };
+
     if (background) {
       // 비동기로 백그라운드에서 실행 (응답 지연 없음)
       this.fetchCategoryDataInBackground(category)
         .then(() => {
-          // 성공한 경우에만 갱신 시간 업데이트
           this.lastSyncTime = new Date();
           this.lastSyncByCategory.set(category, Date.now());
           console.log(`✅ ${category} 갱신 완료 및 시간 업데이트`);
         })
         .catch((error) => {
-          // 에러 발생 시 갱신 시간 업데이트하지 않음 (다음 주기에 재시도)
           console.error(`❌ ${category} 갱신 실패, 다음 주기에 재시도 예정`);
           this.handle429Error(category, error);
-        });
+        })
+        .finally(clearRefreshing);
     } else {
-      // 동기 실행 (즉시 데이터 가져오기)
       try {
         await this.fetchCategoryDataInBackground(category);
-        // 성공한 경우에만 갱신 시간 업데이트
         this.lastSyncTime = new Date();
         this.lastSyncByCategory.set(category, Date.now());
       } catch (error) {
-        // 에러 발생 시 갱신 시간 업데이트하지 않음
         this.handle429Error(category, error);
         throw error;
+      } finally {
+        clearRefreshing();
       }
     }
   }
@@ -507,48 +655,51 @@ export class DataSyncService {
 
   /**
    * 쓰기 작업 후 관련 캐시 무효화 및 백그라운드 갱신
-   * 비동기로 실행되어 응답 지연 없음
+   * 연속 호출 시 디바운스하여 한 번만 갱신합니다.
    */
   async invalidateAndRefresh(cacheKeys: string[]): Promise<void> {
-    try {
-      // 토큰 유효성 확인
-      if (!tokenManager.isValid()) {
-        console.warn('⚠️ 토큰이 만료되어 캐시 무효화를 건너뜁니다.');
-        return;
-      }
-
-      // 캐시 무효화
-      for (const key of cacheKeys) {
-        await this.cacheManager.invalidate(key);
-      }
-
-      // 백그라운드에서 관련 데이터 다시 로딩
-      // 와일드카드 패턴에서 카테고리 추출
-      const categories = new Set<string>();
-      cacheKeys.forEach(key => {
-        const match = key.match(/^([^:]+):/);
-        if (match) {
-          categories.add(match[1]);
-        }
-      });
-
-      // 각 카테고리별로 백그라운드 갱신 (비동기, 응답 지연 없음)
-      const refreshPromises = Array.from(categories).map(category => 
-        this.refreshCategory(category, true).catch((error) => {
-          console.error(`❌ ${category} 백그라운드 갱신 실패:`, error);
-        })
-      );
-
-      // 모든 갱신을 백그라운드에서 병렬로 실행 (응답 대기 안 함)
-      Promise.allSettled(refreshPromises).then(() => {
-        this.lastSyncTime = new Date();
-        console.log('✅ 캐시 무효화 및 백그라운드 갱신 완료:', cacheKeys);
-      });
-
-    } catch (error) {
-      console.error('❌ 캐시 무효화 및 갱신 실패:', error);
-      // 에러가 발생해도 계속 진행
+    const keys = [...cacheKeys];
+    if (this.invalidateDebounceTimer !== null) {
+      clearTimeout(this.invalidateDebounceTimer);
+      this.invalidateDebounceTimer = null;
     }
+    const merged = new Set([...this.pendingInvalidateKeys, ...keys]);
+    this.pendingInvalidateKeys = Array.from(merged);
+
+    this.invalidateDebounceTimer = setTimeout(() => {
+      this.invalidateDebounceTimer = null;
+      const toProcess = [...this.pendingInvalidateKeys];
+      this.pendingInvalidateKeys = [];
+      this.doInvalidateAndRefresh(toProcess).catch((err) => {
+        console.error('❌ 캐시 무효화 및 갱신 실패:', err);
+      });
+    }, this.invalidateDebounceMs);
+  }
+
+  /**
+   * 캐시 무효화 및 카테고리별 백그라운드 갱신 실행
+   */
+  private async doInvalidateAndRefresh(cacheKeys: string[]): Promise<void> {
+    if (!tokenManager.isValid()) {
+      console.warn('⚠️ 토큰이 만료되어 캐시 무효화를 건너뜁니다.');
+      return;
+    }
+    for (const key of cacheKeys) {
+      await this.cacheManager.invalidate(key);
+    }
+    const categories = new Set<string>();
+    cacheKeys.forEach(key => {
+      const match = key.match(/^([^:]+):/);
+      if (match) categories.add(match[1]);
+    });
+    const refreshPromises = Array.from(categories).map(category =>
+      this.refreshCategory(category, true).catch((error) => {
+        console.error(`❌ ${category} 백그라운드 갱신 실패:`, error);
+      })
+    );
+    await Promise.allSettled(refreshPromises);
+    this.lastSyncTime = new Date();
+    console.log('✅ 캐시 무효화 및 백그라운드 갱신 완료:', cacheKeys);
   }
 
   /**

@@ -12,6 +12,7 @@ import { useTemplateUI } from '../../../hooks/features/templates/useTemplateUI';
 import type { Template } from '../../../hooks/features/templates/useTemplateUI';
 import { initializeGoogleAPIOnce, findPersonalDocumentFolder } from '../../../utils/google/googleSheetUtils';
 import type { GridRange, RowData, CellData, BatchUpdateData } from '../../../types/googleSheets';
+import { tokenManager } from '../../../utils/auth/tokenManager';
 import './accounting.css';
 
 interface LedgerExportModalProps {
@@ -1561,9 +1562,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
 
       // 템플릿을 복사하여 새 스프레드시트 생성 (원본 보존)
       let token = (gapi.client as any).getToken();
-      // gapi client에 토큰이 없으면 tokenManager에서 가져오기
       if (!token || !token.access_token) {
-        const { tokenManager } = await import('../../../utils/auth/tokenManager');
         const accessToken = tokenManager.get();
         if (!accessToken) {
           throw new Error('Google 인증 토큰이 없습니다. 다시 로그인해주세요.');

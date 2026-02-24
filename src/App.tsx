@@ -48,8 +48,11 @@ import { tokenManager } from './utils/auth/tokenManager';
 import { lastUserManager } from './utils/auth/lastUserManager';
 import { useSession } from './hooks/features/auth/useSession';
 import { useNotification } from './hooks/ui/useNotification';
+import { useOnlineStatus } from './hooks/ui/useOnlineStatus';
 import { NotificationModal, ConfirmModal } from './components/ui/NotificationModal';
+import { OfflineBanner } from './components/ui/OfflineBanner';
 import LoadingProgress from './components/ui/LoadingProgress';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { useAuthStore } from './hooks/features/auth/useAuthStore';
 
 /**
@@ -58,6 +61,7 @@ import { useAuthStore } from './hooks/features/auth/useAuthStore';
  * @returns {JSX.Element} 렌더링된 컴포넌트
  */
 const App: React.FC = () => {
+  const isOnline = useOnlineStatus();
   const {
     // User state
     user,
@@ -67,8 +71,6 @@ const App: React.FC = () => {
     // Page state
     currentPage,
     setCurrentPage,
-    googleAccessToken,
-    setGoogleAccessToken,
     searchTerm,
     setSearchTerm,
 
@@ -139,6 +141,12 @@ const App: React.FC = () => {
     resetAllState
   } = useAppState();
 
+  // 액세스 토큰 단일 소스: tokenManager. UI 반영을 위한 로컬 상태만 유지.
+  const [accessToken, setAccessToken] = useState<string | null>(() => tokenManager.get());
+  useEffect(() => {
+    setAccessToken(user ? tokenManager.get() : null);
+  }, [user]);
+
   // 알림 훅
   const {
     notification,
@@ -148,68 +156,46 @@ const App: React.FC = () => {
     handleConfirm
   } = useNotification();
 
-  // 로그인 처리
+  // 로그인 처리 (토큰은 useAuth에서 tokenManager에 이미 저장됨, accessToken은 useEffect에서 동기화)
   const handleLogin = (userData: User) => {
-    // console.log('로그인 처리 시작:', userData);
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
-    // 토큰은 useAuth에서 tokenManager를 통해 이미 저장됨
-    // 여기서는 상태만 업데이트
-    if (userData.accessToken) {
-      const token = tokenManager.get();
-      if (token) {
-        setGoogleAccessToken(token);
-      } else {
-        // tokenManager에 토큰이 없으면 직접 설정 (하위 호환성)
-        setGoogleAccessToken(userData.accessToken);
-      }
-    }
-    // console.log('✅ 로그인 완료 - 데이터 로딩은 useAppState에서 자동 처리됩니다');
+    setAccessToken(tokenManager.get());
   };
 
   // 일반 로그아웃 처리 (기본 동작)
   const handleLogout = useCallback(() => {
+    tokenManager.clear();
+    setAccessToken(null);
     setUser(null);
     setCurrentPage("dashboard");
     setSearchTerm("");
     localStorage.removeItem('user');
     localStorage.removeItem('searchTerm');
-    // tokenManager를 통한 토큰 삭제
-    tokenManager.clear();
-    setGoogleAccessToken(null);
     if (window.google && window.google.accounts) {
       window.google.accounts.id.disableAutoSelect();
     }
-
-    // Zustand auth store도 초기화
     try {
-      const authStoreLogout = useAuthStore.getState().logout;
-      authStoreLogout();
+      useAuthStore.getState().logout();
     } catch (error) {
       console.warn('Auth store 로그아웃 실패:', error);
     }
-
     console.log('🚪 로그아웃 완료');
-  }, [setUser, setCurrentPage, setSearchTerm, setGoogleAccessToken]);
+  }, [setUser, setCurrentPage, setSearchTerm]);
 
   // 완전 로그아웃 처리 (현재 로그인한 계정만 제거)
   const handleFullLogout = () => {
-    // 현재 로그인한 사용자의 이메일 가져오기
     const currentUserEmail = user?.email;
-
+    tokenManager.clear();
+    setAccessToken(null);
     setUser(null);
     setCurrentPage("dashboard");
     setSearchTerm("");
-    // 모든 localStorage 항목 삭제
     localStorage.removeItem('user');
     localStorage.removeItem('searchTerm');
-    // tokenManager를 통한 토큰 삭제
-    tokenManager.clear();
-    // 현재 로그인한 사용자 계정만 제거 (모든 계정 제거가 아님)
     if (currentUserEmail) {
       lastUserManager.remove(currentUserEmail);
     }
-    setGoogleAccessToken(null);
     // Google 로그인 정보 완전 삭제
     if (window.google && window.google.accounts) {
       window.google.accounts.id.disableAutoSelect();
@@ -239,11 +225,11 @@ const App: React.FC = () => {
         const refreshed = await tokenManager.autoRefresh();
         if (refreshed) {
           console.log('✅ 토큰이 자동으로 갱신되었습니다.');
-          // gapi에 새 토큰 설정
           const newToken = tokenManager.get();
           if (newToken && window.gapi?.client) {
             window.gapi.client.setToken({ access_token: newToken });
           }
+          setAccessToken(newToken);
           return;
         } else {
           console.warn('⚠️ 토큰 자동 갱신 실패 (Refresh Token이 없을 수 있습니다)');
@@ -309,6 +295,19 @@ const App: React.FC = () => {
       localStorage.removeItem('selectedAnnouncement');
     }
   }, [announcements, currentPage, setSelectedAnnouncement]);
+
+  // 브라우저 뒤로/앞으로 가기 시 URL과 currentPage 동기화 (딥링크 지원)
+  useEffect(() => {
+    const handlePopState = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const pageFromUrl = urlParams.get('page');
+      if (pageFromUrl) {
+        setCurrentPage(pageFromUrl as PageType);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [setCurrentPage]);
 
   // 페이지 전환 처리
   const handlePageChange = (pageName: string, params?: Record<string, string>) => {
@@ -1168,6 +1167,8 @@ const App: React.FC = () => {
   // 승인된 사용자 - develop의 레이아웃과 디자인 유지
   return (
     <GoogleOAuthProvider clientId={ENV_CONFIG.GOOGLE_CLIENT_ID}>
+      <ErrorBoundary>
+      <OfflineBanner isOnline={isOnline} />
       <div className="app-container" data-oid="g1w-gjq">
         <Sidebar onPageChange={handlePageChange} onLogout={handleLogout} onFullLogout={handleFullLogout} user={user} currentPage={currentPage} data-oid="7q1u3ax" />
         <div className="main-panel" data-oid="n9gxxwr">
@@ -1197,7 +1198,7 @@ const App: React.FC = () => {
               customTemplates={customTemplates}
               tags={tags}
               isTemplatesLoading={isTemplatesLoading}
-              googleAccessToken={googleAccessToken}
+              googleAccessToken={accessToken}
               calendarEvents={calendarEvents}
               semesterStartDate={semesterStartDate}
               finalExamsPeriod={finalExamsPeriod}
@@ -1279,6 +1280,7 @@ const App: React.FC = () => {
         isVisible={isInitializingData && dataSyncProgress.total > 0}
         progress={dataSyncProgress}
       />
+      </ErrorBoundary>
     </GoogleOAuthProvider>
   );
 };

@@ -164,10 +164,11 @@ const Mypage: React.FC = () => {
           <div className="avatar-wrapper">
             <div className="avatar" aria-hidden>
               {profilePicture ? (
-                <img 
-                  src={profilePicture} 
-                  alt={displayName} 
+                <img
+                  src={profilePicture}
+                  alt={displayName}
                   className="avatar-image"
+                  loading="lazy"
                 />
               ) : (
                 <div className="avatar-initial">{userInitial}</div>

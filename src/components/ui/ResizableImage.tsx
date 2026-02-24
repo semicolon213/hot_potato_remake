@@ -122,6 +122,7 @@ const ResizableImageComponent = ({ node, updateAttributes, selected }) => {
         ref={imgRef}
         src={node.attrs.src}
         alt=""
+        loading="lazy"
         style={{
           width: node.attrs.width ? `${node.attrs.width}px` : 'auto',
           height: node.attrs.height ? `${node.attrs.height}px` : 'auto',

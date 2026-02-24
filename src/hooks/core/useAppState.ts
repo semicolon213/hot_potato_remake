@@ -22,8 +22,10 @@ import { ENV_CONFIG } from '../../config/environment';
 import { tokenManager } from '../../utils/auth/tokenManager';
 import { generateWidgetContent } from "../../utils/helpers/widgetContentGenerator";
 import { getDataSyncService } from '../../services/dataSyncService';
+import { useDataSyncState } from './useDataSyncState';
 import { apiClient } from '../../utils/api/apiClient';
 import { useNotification } from '../ui/useNotification';
+import { useAppDataStore } from '../../stores/appDataStore';
 
 // Widget related interfaces and constants, moved from useWidgetManagement.ts
 interface WidgetData {
@@ -74,22 +76,26 @@ export const useAppState = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isGapiReady, setIsGapiReady] = useState(false);
     
-    // DataSyncService 관련 상태
-    const [isInitializingData, setIsInitializingData] = useState(false);
-    const [dataSyncProgress, setDataSyncProgress] = useState({ current: 0, total: 0, message: '' });
-    const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-    const [hasInitialized, setHasInitialized] = useState(false); // 초기화 완료 플래그
-    const dataSyncServiceRef = useRef(getDataSyncService());
+    const dataSync = useDataSyncState();
+    const {
+      isInitializingData,
+      setIsInitializingData,
+      dataSyncProgress,
+      setDataSyncProgress,
+      lastSyncTime,
+      setLastSyncTime,
+      hasInitialized,
+      setHasInitialized,
+      dataSyncServiceRef,
+    } = dataSync;
 
-    // Original app state
+    // Original app state (액세스 토큰은 App에서 tokenManager 단일 소스로 관리)
     const [currentPage, setCurrentPage] = useState<PageType>("dashboard");
-    const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
     const [customTemplates, setCustomTemplates] = useState<Template[]>([]);
     const [isTemplatesLoading, setIsTemplatesLoading] = useState(true);
     const [tags, setTags] = useState<string[]>([]);
 
-    // State for Announcements
-    const [announcements, setAnnouncements] = useState<Post[]>([]);
+    const { announcements, setAnnouncements, calendarEvents, setCalendarEvents } = useAppDataStore();
     const [selectedAnnouncement, setSelectedAnnouncement] = useState<Post | null>(null);
     const [isGoogleAuthenticatedForAnnouncements, setIsGoogleAuthenticatedForAnnouncements] = useState(false);
     const [isGoogleAuthenticatedForBoard, setIsGoogleAuthenticatedForBoard] = useState(false);
@@ -106,8 +112,6 @@ export const useAppState = () => {
     const [activeCalendarSpreadsheetId, setActiveCalendarSpreadsheetId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
 
-    // State for Calendar
-    const [calendarEvents, setCalendarEvents] = useState<Event[]>([]);
     const [isCalendarLoading, setIsCalendarLoading] = useState(false);
     const [semesterStartDate, setSemesterStartDate] = useState(new Date());
     const [finalExamsPeriod, setFinalExamsPeriod] = useState<DateRange>({ start: null, end: null });
@@ -166,11 +170,10 @@ export const useAppState = () => {
                 setSearchTerm(savedSearchTerm);
             }
 
-            // 토큰이 유효하고 사용자 정보가 있으면 로그인 상태 복원
+            // 토큰이 유효하고 사용자 정보가 있으면 로그인 상태 복원 (토큰은 tokenManager에 있음)
             if (savedUser && savedToken) {
                 const userData = JSON.parse(savedUser);
                 setUser(userData);
-                setGoogleAccessToken(savedToken);
 
                 // 승인된 사용자인 경우 데이터 초기화
                 if (userData.isApproved) {
@@ -248,31 +251,46 @@ export const useAppState = () => {
         dataSyncService.setCurrentPage(currentPage);
     }, [currentPage]);
 
-    // 사용자 로그인 시 데이터 자동 로딩 (새로 로그인한 경우) - 한 번만 실행
+    // 사용자 로그인 시: 모든 데이터를 한 번에 병렬 로드 후 앱 표시 → 페이지 이동 시 데이터 즉시 표시
+    // 구글 시트 변경은 DataSyncService 주기 백그라운드 동기화로 반영
     useEffect(() => {
         if (user && user.isApproved && !isLoading && !isInitializingData && !hasInitialized) {
             const initAndFetch = async () => {
                 setIsInitializingData(true);
-                setDataSyncProgress({ current: 0, total: 0, message: '초기화 중...' });
+                setDataSyncProgress({ current: 0, total: 0, message: '데이터 로딩 중...' });
 
                 try {
-                    // Google API 초기화
                     await initializeGoogleAPIOnce(hotPotatoDBSpreadsheetId);
 
-                    // DataSyncService를 통한 초기 데이터 로딩
                     const dataSyncService = dataSyncServiceRef.current;
-                    await dataSyncService.initializeData(user, (progress) => {
+
+                    const categoryLabels: Record<string, string> = {
+                        announcements: '공지사항',
+                        calendar: '캘린더',
+                        documents: '문서',
+                        templates: '템플릿',
+                        tags: '태그',
+                        workflow: '워크플로우',
+                        students: '학생',
+                        staff: '교직원',
+                        attendees: '참석자',
+                        users: '사용자',
+                        accounting: '회계'
+                    };
+
+                    const spreadsheetIds = await dataSyncService.initializeDataFull(user, (progress) => {
+                        const label = progress.category ? categoryLabels[progress.category] : undefined;
+                        const message =
+                            progress.message ||
+                            (label ? `${label} 데이터를 로딩 중입니다...` : '데이터 로딩 중...');
+
                         setDataSyncProgress({
                             current: progress.current,
                             total: progress.total,
-                            message: progress.message || ''
+                            message
                         });
                     });
 
-                    // 스프레드시트 ID들 가져오기 (DataSyncService에서 이미 로딩했지만 상태 업데이트 필요)
-                    const spreadsheetIds = await initializeSpreadsheetIds();
-
-                    // 스프레드시트 ID들 상태 업데이트
                     setAnnouncementSpreadsheetId(spreadsheetIds.announcementSpreadsheetId);
                     setCalendarProfessorSpreadsheetId(spreadsheetIds.calendarProfessorSpreadsheetId);
                     setCalendarCouncilSpreadsheetId(spreadsheetIds.calendarCouncilSpreadsheetId);
@@ -286,29 +304,27 @@ export const useAppState = () => {
                     setIsGapiReady(true);
                     setIsGoogleAuthenticatedForAnnouncements(true);
                     setIsGoogleAuthenticatedForBoard(true);
-
-                    // 마지막 동기화 시간 업데이트
-                    const lastSync = dataSyncService.getLastSyncTime();
-                    setLastSyncTime(lastSync);
-
-                    console.log("✅ 로그인 후 데이터 초기화 완료");
-                    setHasInitialized(true); // 초기화 완료 플래그 설정
-                    showNotification('데이터 초기화가 완료되었습니다.', 'success');
+                    setHasInitialized(true);
+                    setIsInitializingData(false);
+                    setLastSyncTime(dataSyncService.getLastSyncTime());
+                    showNotification('준비되었습니다. 모든 데이터가 로드되었습니다.', 'success');
+                    // 2단계(문서/학생·교직원 등)는 백그라운드에서 로드
+                    void dataSyncService.initializePhase2(user, (progress) => {
+                        const label = progress.category ? categoryLabels[progress.category] : undefined;
+                        const message = progress.message || (label ? `${label} 데이터를 로딩 중입니다...` : '백그라운드 동기화 중...');
+                        setDataSyncProgress({ current: progress.current, total: progress.total, message });
+                    }).then(() => {
+                        setLastSyncTime(dataSyncService.getLastSyncTime());
+                    });
                 } catch (error) {
                     console.error("Error during login initialization", error);
                     const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
-                    console.warn("Google API 초기화 실패했지만 앱을 계속 실행합니다.");
-
-                    // Google API 초기화 실패해도 계속 진행
                     setIsGapiReady(false);
                     setIsGoogleAuthenticatedForAnnouncements(false);
                     setIsGoogleAuthenticatedForBoard(false);
-
-                    console.log("⚠️ 일부 Google 서비스가 제한될 수 있습니다.");
-                    setHasInitialized(true); // 에러가 발생해도 플래그 설정하여 재시도 방지
-                    showNotification(`데이터 초기화 중 오류가 발생했습니다: ${errorMessage}`, 'error', 5000);
-                } finally {
+                    setHasInitialized(true);
                     setIsInitializingData(false);
+                    showNotification(`데이터 초기화 중 오류가 발생했습니다: ${errorMessage}`, 'error', 5000);
                 }
             };
 
@@ -705,9 +721,8 @@ export const useAppState = () => {
     const resetAllState = useCallback(() => {
         console.log('🧹 useAppState 상태 초기화 시작...');
 
-        // 사용자 상태 초기화
+        // 사용자 상태 초기화 (토큰은 App에서 tokenManager.clear()로 제거)
         setUser(null);
-        setGoogleAccessToken(null);
         setCurrentPage("dashboard");
         setSearchTerm("");
 
@@ -809,8 +824,6 @@ export const useAppState = () => {
         // Page state
         currentPage,
         setCurrentPage,
-        googleAccessToken,
-        setGoogleAccessToken,
         searchTerm,
         setSearchTerm,
 

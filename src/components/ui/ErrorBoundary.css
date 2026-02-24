@@ -1,0 +1,53 @@
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: var(--spacing-padding, 1rem);
+  background: var(--background, #f5f5f5);
+}
+
+.error-boundary-content {
+  max-width: 420px;
+  padding: 1.5rem;
+  text-align: center;
+  background: var(--card-bg, #fff);
+  border-radius: var(--border-radius-lg, 8px);
+  box-shadow: var(--shadow-base, 0 2px 8px rgba(0, 0, 0, 0.08));
+}
+
+.error-boundary-title {
+  margin: 0 0 0.75rem;
+  font-size: var(--font-size-xl, 1.25rem);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--text-dark, #1a1a1a);
+}
+
+.error-boundary-message {
+  margin: 0 0 1.25rem;
+  font-size: var(--font-size-base, 1rem);
+  color: var(--text-medium, #555);
+  line-height: 1.5;
+}
+
+.error-boundary-details {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  font-size: 0.8rem;
+  text-align: left;
+  background: var(--background, #f0f0f0);
+  border-radius: var(--border-radius-sm, 4px);
+  overflow: auto;
+  max-height: 120px;
+}
+
+.error-boundary-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.error-boundary-actions .button {
+  min-width: 100px;
+}

@@ -10,7 +10,7 @@ const RichTextEditor = ({ value, onChange }) => {
   const renderElement = useCallback(props => {
     switch (props.element.type) {
       case 'image':
-        return <img src={props.element.url} alt="" {...props.attributes} style={{ maxWidth: '100%' }}/>;
+        return <img src={props.element.url} alt="" loading="lazy" {...props.attributes} style={{ maxWidth: '100%' }} />;
       case 'paragraph':
       default:
         return <p {...props.attributes}>{props.children}</p>;

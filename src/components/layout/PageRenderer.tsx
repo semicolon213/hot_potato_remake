@@ -8,28 +8,30 @@
  * @date 2024
  */
 
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import type { PageType, User, Post, Event, DateRange, CustomPeriod, Student, Staff as StaffType } from '../../types/app';
 import type { Template } from '../../hooks/features/templates/useTemplateUI';
-import Admin from '../../pages/Admin';
-import Students from '../../pages/Students';
-import Staff from '../../pages/Staff';
-import MyCalendarPage from '../../pages/Calendar';
-import Dashboard from '../../pages/Dashboard';
-import DocumentManagement from '../../pages/DocumentManagement';
-import EmptyDocument from '../../pages/EmptyDocument';
-import Mypage from '../../pages/Mypage';
-import NewDocument from '../../pages/NewDocument';
-import Board from '../../pages/Board/Board';
-import NewBoardPost from '../../pages/Board/NewBoardPost';
-import AnnouncementsPage from '../../pages/Announcements/Announcements';
-import AnnouncementView from '../../pages/Announcements/AnnouncementView';
-import NewAnnouncementPost from '../../pages/Announcements/NewAnnouncementPost';
-import Accounting from '../../pages/Accounting';
-import Proceedings from '../../pages/Proceedings';
-import GoogleServicePage from '../../pages/GoogleService';
-import WorkflowManagement from '../../pages/WorkflowManagement';
-import Timetable from '../../pages/Timetable';
+import { PageLoadingSkeleton } from '../ui/PageLoadingSkeleton';
+
+const Admin = lazy(() => import('../../pages/Admin'));
+const Students = lazy(() => import('../../pages/Students'));
+const Staff = lazy(() => import('../../pages/Staff'));
+const MyCalendarPage = lazy(() => import('../../pages/Calendar'));
+const Dashboard = lazy(() => import('../../pages/Dashboard'));
+const DocumentManagement = lazy(() => import('../../pages/DocumentManagement'));
+const EmptyDocument = lazy(() => import('../../pages/EmptyDocument'));
+const Mypage = lazy(() => import('../../pages/Mypage'));
+const NewDocument = lazy(() => import('../../pages/NewDocument'));
+const Board = lazy(() => import('../../pages/Board/Board'));
+const NewBoardPost = lazy(() => import('../../pages/Board/NewBoardPost'));
+const AnnouncementsPage = lazy(() => import('../../pages/Announcements/Announcements'));
+const AnnouncementView = lazy(() => import('../../pages/Announcements/AnnouncementView'));
+const NewAnnouncementPost = lazy(() => import('../../pages/Announcements/NewAnnouncementPost'));
+const Accounting = lazy(() => import('../../pages/Accounting'));
+const Proceedings = lazy(() => import('../../pages/Proceedings'));
+const GoogleServicePage = lazy(() => import('../../pages/GoogleService'));
+const WorkflowManagement = lazy(() => import('../../pages/WorkflowManagement'));
+const Timetable = lazy(() => import('../../pages/Timetable'));
 
 interface PageRendererProps {
   currentPage: PageType;
@@ -324,7 +326,11 @@ const PageRenderer: React.FC<PageRendererProps> = ({
     }
   };
 
-  return renderCurrentPage();
+  return (
+    <Suspense fallback={<PageLoadingSkeleton />}>
+      {renderCurrentPage()}
+    </Suspense>
+  );
 };
 
 export default PageRenderer;

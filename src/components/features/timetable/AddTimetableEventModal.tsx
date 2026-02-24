@@ -91,7 +91,7 @@ const AddTimetableEventModal: React.FC<AddTimetableEventModalProps> = ({ onClose
         <div className="modal-header">
           <h2 className="modal-title">일정 {isEditMode ? '수정' : '추가'}</h2>
           <button className="close-icon-button" onClick={onClose} aria-label="닫기">
-            <img src={xIcon} alt="Close" className="close-icon" />
+            <img src={xIcon} alt="Close" className="close-icon" loading="lazy" />
           </button>
         </div>
         

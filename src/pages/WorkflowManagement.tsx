@@ -4,7 +4,7 @@
  * 탭 3개: 내가 올린 결재, 내가 결재해야 하는 것, 결재 완료된 리스트
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { apiClient } from '../utils/api/apiClient';
 import WorkflowRequestModal from '../components/features/workflow/WorkflowRequestModal';
 import WorkflowActionModal from '../components/features/workflow/WorkflowActionModal';
@@ -38,6 +38,11 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState<boolean>(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [tableScrollTop, setTableScrollTop] = useState(0);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const WORKFLOW_ROW_HEIGHT = 56;
+  const WORKFLOW_VIRTUAL_THRESHOLD = 80;
+  const WORKFLOW_VISIBLE_OVERSCAN = 5;
 
   useEffect(() => {
     const userInfo = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
@@ -356,6 +361,20 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
           </div>
         ) : (
           <div className="workflow-list-section">
+            <div
+              ref={tableScrollRef}
+              className="workflow-table-scroll"
+              style={
+                filteredWorkflows.length >= WORKFLOW_VIRTUAL_THRESHOLD
+                  ? { height: 420, overflow: 'auto' }
+                  : undefined
+              }
+              onScroll={
+                filteredWorkflows.length >= WORKFLOW_VIRTUAL_THRESHOLD
+                  ? (e) => setTableScrollTop(e.currentTarget.scrollTop)
+                  : undefined
+              }
+            >
             <table className="workflow-table">
               <colgroup>
                 <col className="col-number-width" />
@@ -376,7 +395,64 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
                 </tr>
               </thead>
               <tbody>
-                {filteredWorkflows.map((workflow) => {
+                {filteredWorkflows.length >= WORKFLOW_VIRTUAL_THRESHOLD ? (() => {
+                  const totalHeight = filteredWorkflows.length * WORKFLOW_ROW_HEIGHT;
+                  const startIndex = Math.max(0, Math.floor(tableScrollTop / WORKFLOW_ROW_HEIGHT) - WORKFLOW_VISIBLE_OVERSCAN);
+                  const visibleCount = Math.ceil(420 / WORKFLOW_ROW_HEIGHT) + WORKFLOW_VISIBLE_OVERSCAN * 2;
+                  const endIndex = Math.min(filteredWorkflows.length - 1, startIndex + visibleCount);
+                  const visibleWorkflows = filteredWorkflows.slice(startIndex, endIndex + 1);
+                  return (
+                    <>
+                      {startIndex > 0 && (
+                        <tr aria-hidden style={{ height: startIndex * WORKFLOW_ROW_HEIGHT }}>
+                          <td colSpan={6} style={{ padding: 0, border: 'none', lineHeight: 0 }} />
+                        </tr>
+                      )}
+                      {visibleWorkflows.map((workflow) => {
+                  const myStep = activeTab === 'pending' ? getMyPendingStep(workflow) : null;
+                  const heldStep = activeTab === 'requested' && (workflow.workflowStatus === '검토보류' || workflow.workflowStatus === '결재보류') ? getHeldStep(workflow) : null;
+                  const documentTitle = workflow.workflowDocumentTitle || workflow.attachedDocumentTitle || workflow.documentTitle || '제목 없음';
+                  const reviewProgress = `${workflow.reviewLine.filter(r => r.status === '승인').length} / ${workflow.reviewLine.length}`;
+                  const paymentProgress = `${workflow.paymentLine.filter(p => p.status === '승인').length} / ${workflow.paymentLine.length}`;
+                  return (
+                    <tr key={workflow.workflowId} className="workflow-row" style={{ height: WORKFLOW_ROW_HEIGHT }} onClick={() => handleWorkflowClick(workflow)}>
+                      <td className="col-number">{workflow.workflowId}</td>
+                      <td className="col-title"><div className="title-cell-inner"><span className="title-ellipsis">{documentTitle}</span></div></td>
+                      <td className="col-author">{workflow.requesterName || workflow.requesterEmail}</td>
+                      <td className="col-date">{formatDate(workflow.workflowRequestDate)}</td>
+                      <td className="col-status"><span className={`status-badge ${getStatusBadgeClass(workflow.workflowStatus)}`}>{workflow.workflowStatus}</span></td>
+                      <td className="col-progress">
+                        <div className="progress-info">
+                          <span className="progress-item">검토: {reviewProgress}</span>
+                          <span className="progress-item">결재: {paymentProgress}</span>
+                        </div>
+                        {(activeTab === 'pending' && myStep) || (activeTab === 'requested' && heldStep) || (activeTab === 'requested' && (workflow.workflowStatus === '검토반려' || workflow.workflowStatus === '전체반려') && workflow.requesterEmail === userEmail) ? (
+                          <div className="workflow-row-actions" onClick={(e) => e.stopPropagation()}>
+                            {activeTab === 'pending' && myStep && (
+                              <button className={`btn-action ${myStep.status === '보류' ? 'btn-resume' : 'btn-approve'}`} onClick={(e) => handleActionClick(workflow, myStep.type, myStep.step, e)} title={myStep.status === '보류' ? '보류된 결재 재개' : `${myStep.type === 'review' ? '검토' : '결재'} 처리`}>
+                                {myStep.status === '보류' ? '▶️ 재개' : `${myStep.type === 'review' ? '검토' : '결재'} 처리`}
+                              </button>
+                            )}
+                            {activeTab === 'requested' && heldStep && (
+                              <button className="btn-action btn-resume" onClick={(e) => handleActionClick(workflow, heldStep.type, heldStep.step, e)} title="보류된 결재 재개">▶️ 재개</button>
+                            )}
+                            {activeTab === 'requested' && (workflow.workflowStatus === '검토반려' || workflow.workflowStatus === '전체반려') && workflow.requesterEmail === userEmail && (
+                              <button className="btn-action btn-resubmit" onClick={(e) => handleResubmit(workflow, e)} title="반려된 결재 재제출">🔄 재제출</button>
+                            )}
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+                      {endIndex < filteredWorkflows.length - 1 && (
+                        <tr aria-hidden style={{ height: (filteredWorkflows.length - endIndex - 1) * WORKFLOW_ROW_HEIGHT }}>
+                          <td colSpan={6} style={{ padding: 0, border: 'none', lineHeight: 0 }} />
+                        </tr>
+                      )}
+                    </>
+                  );
+                })() : filteredWorkflows.map((workflow) => {
                   const myStep = activeTab === 'pending' ? getMyPendingStep(workflow) : null;
                   const heldStep = activeTab === 'requested' && (workflow.workflowStatus === '검토보류' || workflow.workflowStatus === '결재보류') ? getHeldStep(workflow) : null;
                   const documentTitle = workflow.workflowDocumentTitle || 
@@ -453,6 +529,7 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

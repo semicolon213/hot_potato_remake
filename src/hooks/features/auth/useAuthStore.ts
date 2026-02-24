@@ -11,7 +11,7 @@ export interface User {
   role: 'student' | 'teacher' | 'admin';
   userType?: string;
   isApproved: boolean;
-  googleAccessToken?: string;
+  /** 액세스 토큰은 저장하지 않음. 항상 tokenManager.get() 사용 */
 }
 
 interface AuthState {
@@ -22,7 +22,6 @@ interface AuthState {
   
   // Actions
   setUser: (user: User) => void;
-  setGoogleToken: (token: string) => void;
   setStudentId: (studentId: string) => void;
   setTeacherId: (teacherId: string) => void;
   approveUser: () => void;
@@ -44,10 +43,6 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: true, 
         error: null 
       }),
-
-      setGoogleToken: (token: string) => set((state) => ({
-        user: state.user ? { ...state.user, googleAccessToken: token } : null
-      })),
 
       setStudentId: (studentId: string) => set((state) => ({
         user: state.user ? { ...state.user, studentId, role: 'student' } : null

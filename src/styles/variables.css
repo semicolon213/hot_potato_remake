@@ -63,10 +63,11 @@
   --shadow-base: 0 clamp(3px, 0.37vh, 5px) clamp(12px, 1.48vh, 20px) rgba(0, 0, 0, 0.1);
   --shadow-hover: 0 4px 8px rgba(0, 0, 0, 0.15);
   
-  /* 반응형 브레이크포인트 */
+  /* 반응형 브레이크포인트 (미디어 쿼리에서는 var() 미지원이므로 동일 숫자 사용 권장) */
   --breakpoint-mobile: 768px;
   --breakpoint-tablet: 1024px;
   --breakpoint-desktop: 1280px;
+  /* 새/수정 CSS 시 @media (max-width: 768px) 등 작성 시 위 값과 통일 */
   
   /* 터치 타겟 최소 크기 (접근성) */
   --touch-target-min: 44px;

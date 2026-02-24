@@ -18,6 +18,13 @@
   box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.1);
 }
 
+.input:focus-visible {
+  outline: none;
+  border-color: var(--sidebar-primary);
+  box-shadow: 0 0 0 2px var(--primary, #47CB81);
+  outline-offset: 0;
+}
+
 .input:disabled {
   background-color: var(--lightgrey);
   color: var(--text-light);

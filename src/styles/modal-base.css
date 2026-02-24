@@ -1,0 +1,43 @@
+/**
+ * 공통 모달 레이아웃 베이스
+ * 개별 모달에서 .modal-overlay, .modal-content, .modal-header 조합 사용 후 필요 시 오버라이드
+ */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: var(--spacing-padding, 1rem);
+}
+
+.modal-content {
+  background: var(--card-bg, var(--white-pure, #fff));
+  border-radius: var(--border-radius-lg, 8px);
+  box-shadow: var(--shadow-base, 0 4px 12px rgba(0, 0, 0, 0.15));
+  max-width: min(90vw, 600px);
+  width: 100%;
+}
+
+.modal-header {
+  padding: var(--spacing-padding, 1rem) 1.25rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  font-size: var(--font-size-lg, 1.125rem);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--text-dark, #1a1a1a);
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+@media (max-width: var(--breakpoint-mobile, 768px)) {
+  .modal-content {
+    max-width: 95vw;
+  }
+}

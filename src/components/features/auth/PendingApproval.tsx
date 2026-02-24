@@ -20,7 +20,7 @@ const PendingApproval: React.FC<PendingApprovalProps> = ({ user, onLogout }) => 
     <div className="pending-approval">
       <div className="pending-card">
         <div className="pending-header">
-          <img src="/src/assets/image/potato.png" alt="Hot Potato Logo" className="logo" />
+          <img src="/src/assets/image/potato.png" alt="Hot Potato Logo" className="logo" loading="lazy" />
           <h2>승인 대기 중</h2>
           <p>관리자 승인을 기다리고 있습니다.</p>
         </div>

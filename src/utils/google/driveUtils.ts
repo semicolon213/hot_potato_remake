@@ -4,6 +4,8 @@
  * @details 폴더 검색, 파일 목록 조회 등 Google Drive와 상호작용하는 함수들을 포함합니다.
  */
 
+import { tokenManager } from '../auth/tokenManager';
+
 // gapi 클라이언트가 로드되었는지 확인하기 위해 전역 타입을 확장합니다.
 declare global {
   interface Window {
@@ -60,8 +62,6 @@ export const getSheetsInFolder = async (folderId: string): Promise<{ id: string;
   try {
     console.log(`📁 폴더 내 스프레드시트 조회 시작: ${folderId}`);
     
-    // 토큰 확인 및 설정
-    const { tokenManager } = await import('../../utils/auth/tokenManager');
     const token = tokenManager.get();
     if (token && window.gapi?.client) {
       try {

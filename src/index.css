@@ -1,5 +1,6 @@
 /* CSS 변수 import */
 @import './styles/variables.css';
+@import './styles/modal-base.css';
 
 @font-face {
   font-family: 'Paperozi';
@@ -66,6 +67,20 @@
 
 html {
   overflow-y: auto; /* 필요할 때만 스크롤바 표시 */
+}
+
+/* 키보드 포커스 가시성 (접근성) - outline 제거된 요소에도 포커스 링 표시 */
+*:focus {
+  outline: none;
+}
+*:focus-visible {
+  outline: 2px solid var(--primary, #47CB81);
+  outline-offset: 2px;
+}
+/* 유틸 클래스: 포커스 링이 필요한 요소에 적용 */
+.focus-visible-ring:focus-visible {
+  outline: 2px solid var(--primary, #47CB81);
+  outline-offset: 2px;
 }
 
 /* 사이드바 연동 레이아웃 토큰 */
@@ -166,7 +181,7 @@ input, textarea, [contenteditable] {
   overflow: hidden;
 }
 
-/* 모바일 반응형 레이아웃 */
+/* 모바일 반응형 레이아웃 (768px = var(--breakpoint-mobile)) */
 @media (max-width: 768px) {
   .app-container {
     grid-template-columns: 1fr;

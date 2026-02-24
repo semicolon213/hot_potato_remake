@@ -430,44 +430,21 @@ export const useAdminPanel = () => {
         return;
       }
 
-      // useAuthStore에서 액세스 토큰 가져오기
-      let adminAccessToken;
+      let adminAccessToken: string;
       try {
-        // 1순위: useAuthStore의 user.googleAccessToken
-        if (user?.googleAccessToken) {
-          console.log('useAuthStore에서 토큰 발견:', user.googleAccessToken.substring(0, 20) + '...');
-          adminAccessToken = user.googleAccessToken;
-        } 
-        // 2순위: tokenManager를 통해 토큰 확인 (만료 체크 포함)
-        else {
-          const storedToken = tokenManager.get();
-          if (storedToken) {
-            console.log('tokenManager에서 토큰 발견:', storedToken.substring(0, 20) + '...');
-            adminAccessToken = storedToken;
-          } else {
-            // 3순위: gapi client에서 직접 가져오기 (Auth2 대신)
-            const gapi = window.gapi;
-            if (!gapi || !gapi.client) {
-              throw new Error('Google API가 초기화되지 않았습니다.');
-            }
-            
-            // gapi client에서 토큰 가져오기
-            const token = gapi.client.getToken();
-            console.log('gapi.client.getToken() 결과:', token);
-            
-            if (!token || !token.access_token) {
-              console.error('토큰 상태:', {
-                token: token,
-                hasAccessToken: !!(token && token.access_token),
-                tokenType: typeof token
-              });
-              throw new Error('액세스 토큰을 가져올 수 없습니다. 다시 로그인해주세요.');
-            }
-            
-            adminAccessToken = token.access_token;
-            console.log('액세스 토큰 길이:', adminAccessToken.length);
-            console.log('토큰 만료 시간:', token.expires_at ? new Date(token.expires_at) : '알 수 없음');
+        const storedToken = tokenManager.get();
+        if (storedToken) {
+          adminAccessToken = storedToken;
+        } else {
+          const gapi = window.gapi;
+          if (!gapi || !gapi.client) {
+            throw new Error('Google API가 초기화되지 않았습니다.');
           }
+          const token = gapi.client.getToken();
+          if (!token || !token.access_token) {
+            throw new Error('액세스 토큰을 가져올 수 없습니다. 다시 로그인해주세요.');
+          }
+          adminAccessToken = token.access_token;
         }
       } catch (tokenError) {
         console.error('토큰 가져오기 실패:', tokenError);

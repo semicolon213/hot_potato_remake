@@ -7,6 +7,7 @@
  */
 
 import { getAccountingFolderId as getPapyrusAccountingFolderId } from '../database/papyrusManager';
+import { tokenManager } from '../auth/tokenManager';
 import { ENV_CONFIG } from '../../config/environment';
 import type { LedgerInfo } from '../../types/features/accounting';
 import type { FileItem, DriveFile, FolderItem } from '../../types/google';
@@ -37,8 +38,7 @@ export const getLedgerFolders = async (): Promise<LedgerInfo[]> => {
       return [];
     }
 
-    // 토큰 확인 및 설정
-    const token = localStorage.getItem('googleAccessToken');
+    const token = tokenManager.get();
     if (!token) {
       console.warn('⚠️ Google API 인증 토큰이 없습니다.');
       return [];

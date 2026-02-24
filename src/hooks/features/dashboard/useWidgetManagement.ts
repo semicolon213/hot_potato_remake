@@ -11,6 +11,7 @@ import { getAccountingData } from "../../../utils/google/googleSheetUtils";
 import { getFolderIdByName, getSheetsInFolder } from "../../../utils/google/driveUtils";
 import { ENV_CONFIG } from '../../../config/environment';
 import { apiClient } from "../../../utils/api/apiClient";
+import { tokenManager } from '../../../utils/auth/tokenManager';
 
 /**
  * 위젯의 데이터 구조를 정의하는 인터페이스입니다.
@@ -262,28 +263,10 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         gapi.client.setApiKey(ENV_CONFIG.PAPYRUS_DB_API_KEY);
       }
       
-      // 토큰 확인 및 재설정
-      const token = localStorage.getItem('googleAccessToken');
-      if (token) {
+      const validToken = tokenManager.get();
+      if (validToken) {
         try {
-          // tokenManager를 사용하여 토큰 가져오기 (만료 체크 포함)
-          const { tokenManager } = await import('../../../utils/auth/tokenManager');
-          const validToken = tokenManager.get();
-          if (validToken) {
-            gapi.client.setToken({ access_token: validToken });
-          } else {
-            console.warn("토큰이 만료되었습니다. 재로그인이 필요할 수 있습니다.");
-            // 만료된 토큰이어도 시도 (일부 경우 작동할 수 있음)
-            try {
-              const tokenData = JSON.parse(token);
-              if (tokenData.accessToken) {
-                gapi.client.setToken({ access_token: tokenData.accessToken });
-              }
-            } catch (e) {
-              // 토큰이 문자열인 경우
-              gapi.client.setToken({ access_token: token });
-            }
-          }
+          gapi.client.setToken({ access_token: validToken });
         } catch (tokenError) {
           console.warn("토큰 설정 실패:", tokenError);
         }
@@ -566,28 +549,10 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
           return;
         }
 
-        // 토큰 확인 및 재설정
-        const token = localStorage.getItem('googleAccessToken');
-        if (token) {
+        const validToken = tokenManager.get();
+        if (validToken) {
           try {
-            // tokenManager를 사용하여 토큰 가져오기 (만료 체크 포함)
-            const { tokenManager } = await import('../../../utils/auth/tokenManager');
-            const validToken = tokenManager.get();
-            if (validToken) {
-              gapi.client.setToken({ access_token: validToken });
-            } else {
-              console.warn("토큰이 만료되었습니다. 재로그인이 필요할 수 있습니다.");
-              // 만료된 토큰이어도 시도 (일부 경우 작동할 수 있음)
-              try {
-                const tokenData = JSON.parse(token);
-                if (tokenData.accessToken) {
-                  gapi.client.setToken({ access_token: tokenData.accessToken });
-                }
-              } catch (e) {
-                // 토큰이 문자열인 경우
-                gapi.client.setToken({ access_token: token });
-              }
-            }
+            gapi.client.setToken({ access_token: validToken });
           } catch (tokenError) {
             console.warn("토큰 설정 실패:", tokenError);
           }
@@ -851,6 +816,9 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       let accountingStatsItems: { label: string; income: string; expense: string; balance: string; balanceValue?: number }[] | null = null;
       let accountingStatsRawData: { category: string; income: number; expense: number }[] | null = null;
       let tuitionItems: string[] | null = null;
+
+      /** spreadsheetId/요청 키 단위로 API 결과 공유 (동일 요청 중복 호출 방지) */
+      const widgetFetchCache = new Map<string, Promise<unknown>>();
 
       // 독립적인 위젯들을 병렬로 로드
       const loadPromises: Promise<void>[] = [];
@@ -1251,11 +1219,16 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       
       if (needsAccountingStatsData) {
         loadingWidgetsRef.current.add('accounting-stats');
+        const spreadsheetId = accountingStatsWidgetWithLedger.props.spreadsheetId as string;
+        const cacheKey = `getAccountingCategorySummary:${spreadsheetId}`;
         loadPromises.push(
           (async () => {
             try {
-              const { getAccountingCategorySummary } = await import("../../../utils/google/googleSheetUtils");
-              const summary = await getAccountingCategorySummary(accountingStatsWidgetWithLedger.props.spreadsheetId);
+              if (!widgetFetchCache.has(cacheKey)) {
+                const { getAccountingCategorySummary } = await import("../../../utils/google/googleSheetUtils");
+                widgetFetchCache.set(cacheKey, getAccountingCategorySummary(spreadsheetId));
+              }
+              const summary = await widgetFetchCache.get(cacheKey) as { category: string; income: number; expense: number }[];
               if (summary && summary.length > 0) {
                 // 원본 데이터 저장 (통합 보기용)
                 accountingStatsRawData = summary;
@@ -1303,15 +1276,21 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               const ledgersResponse = await apiClient.getLedgerList();
               if (ledgersResponse.success && ledgersResponse.data && ledgersResponse.data.length > 0) {
                 const { getLedgerBalance } = await import("../../../utils/google/googleSheetUtils");
-                
-                // 각 장부의 잔액 계산
+                // spreadsheetId 단위로 getLedgerBalance 결과 공유
+                const getBalance = async (ledger: any) => {
+                  const key = `getLedgerBalance:${ledger.spreadsheetId}`;
+                  if (!widgetFetchCache.has(key)) {
+                    widgetFetchCache.set(key, getLedgerBalance(ledger.spreadsheetId).catch(() => 0));
+                  }
+                  return widgetFetchCache.get(key) as Promise<number>;
+                };
                 const ledgerBalances = await Promise.all(
                   ledgersResponse.data.map(async (ledger: any) => {
                     try {
-                      const balance = await getLedgerBalance(ledger.spreadsheetId);
+                      const balance = await getBalance(ledger);
                       return {
                         name: ledger.folderName || ledger.name || '알 수 없음',
-                        balance: balance
+                        balance
                       };
                     } catch (error) {
                       console.error(`장부 ${ledger.folderName} 잔액 계산 오류:`, error);
@@ -1348,11 +1327,16 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       let budgetPlanItems: { budget_id: string; title: string; total_amount: number; status: string; action_required: string }[] | null = null;
       if (shouldLoadBudgetPlan && budgetPlanWidget?.props.spreadsheetId && user?.email) {
         loadingWidgetsRef.current.add('budget-plan');
+        const budgetPlanSpreadsheetId = budgetPlanWidget.props.spreadsheetId as string;
+        const budgetPlanCacheKey = `getPendingBudgetPlans:${budgetPlanSpreadsheetId}:${user.email}`;
         loadPromises.push(
           (async () => {
             try {
-              const { getPendingBudgetPlans } = await import("../../../utils/google/googleSheetUtils");
-              const pendingItems = await getPendingBudgetPlans(budgetPlanWidget.props.spreadsheetId, user.email);
+              if (!widgetFetchCache.has(budgetPlanCacheKey)) {
+                const { getPendingBudgetPlans } = await import("../../../utils/google/googleSheetUtils");
+                widgetFetchCache.set(budgetPlanCacheKey, getPendingBudgetPlans(budgetPlanSpreadsheetId, user!.email!));
+              }
+              const pendingItems = await widgetFetchCache.get(budgetPlanCacheKey) as { budget_id: string; title: string; total_amount: number; status: string; action_required: string }[];
               if (pendingItems && pendingItems.length > 0) {
                 budgetPlanItems = pendingItems;
               } else {
@@ -1666,7 +1650,6 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
 
       // 토큰 확인 및 설정 (tokenManager 사용)
       try {
-        const { tokenManager } = await import('../../../utils/auth/tokenManager');
         const validToken = tokenManager.get();
         if (!validToken) {
           console.error("Google Access Token이 없거나 만료되었습니다.");

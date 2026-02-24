@@ -339,6 +339,17 @@
   cursor: pointer;
 }
 
+.field-error {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--error, #c33);
+}
+
+.form-input.input-error {
+  border-color: var(--error, #c33);
+}
+
 .register-btn {
   display: flex;
   align-items: center;
@@ -492,13 +503,36 @@
   margin-bottom: clamp(8px, 0.93vh, 12px);
 }
 
-/* 계정 아이템 컨테이너 */
+/* 계정 아이템 컨테이너 - 전체 호버 시 로그인 버튼과 동일한 검은색 테두리 */
 .last-user-item {
   display: flex;
   align-items: center;
-  gap: 0; /* 계정 선택 버튼과 제거 버튼 사이 여백 제거 */
+  gap: 0;
   position: relative;
   width: 100%;
+  border-radius: var(--sidebar-radius-sm);
+  transition: var(--transition-base);
+}
+
+.last-user-item:hover .last-user-btn,
+.last-user-item:hover .last-user-remove-btn {
+  border-color: var(--sidebar-primary);
+}
+
+.last-user-item:hover .last-user-btn {
+  background: var(--white-pure);
+  box-shadow: 0 2px 8px rgba(26, 26, 26, 0.08);
+}
+
+.last-user-item:hover .last-user-remove-btn {
+  background: var(--white-pure);
+  color: var(--text-dark);
+}
+
+.last-user-item:hover .last-user-remove-btn:hover {
+  background: #ffebee;
+  border-color: #f44336;
+  color: #f44336;
 }
 
 /* 마지막 로그인 사용자 섹션 (하위 호환성) */
@@ -634,6 +668,57 @@
   width: 16px;
   height: 16px;
   stroke-width: 2;
+}
+
+/* 계정 제거 확인: 제거/취소 버튼 영역 */
+.last-user-remove-actions {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: stretch;
+  border: 2px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 var(--sidebar-radius-sm) var(--sidebar-radius-sm) 0;
+  overflow: hidden;
+}
+
+.last-user-item:hover .last-user-remove-actions {
+  border-color: var(--sidebar-primary);
+}
+
+.last-user-remove-confirm-btn,
+.last-user-remove-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 clamp(10px, 1.16vh, 14px);
+  font-size: clamp(12px, 1.39vh, 14px);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-base);
+  border: none;
+  min-width: clamp(44px, 5.09vh, 56px);
+}
+
+.last-user-remove-confirm-btn {
+  background: #ffebee;
+  color: #c62828;
+  border-right: 1px solid var(--border-color);
+}
+
+.last-user-remove-confirm-btn:hover {
+  background: #ffcdd2;
+  color: #b71c1c;
+}
+
+.last-user-remove-cancel-btn {
+  background: var(--white-pure);
+  color: #666;
+}
+
+.last-user-remove-cancel-btn:hover {
+  background: var(--bg-gray);
+  color: var(--text-dark);
 }
 
 /* 로그인 구분선 */

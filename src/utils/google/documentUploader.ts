@@ -7,6 +7,7 @@
  */
 
 import { apiClient } from '../api/apiClient';
+import { tokenManager } from '../auth/tokenManager';
 import { findPersonalDocumentFolder } from './googleSheetUtils';
 import { ENV_CONFIG } from '../../config/environment';
 
@@ -167,8 +168,7 @@ export const uploadPersonalDocument = async (
       closeDelim
     ]);
 
-    // 토큰 가져오기
-    const token = localStorage.getItem('googleAccessToken');
+    const token = tokenManager.get();
     if (!token) {
       return {
         success: false,

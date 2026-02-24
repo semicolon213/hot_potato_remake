@@ -77,9 +77,12 @@
   filter: brightness(1.05);
 }
 
-/* 포커스 스타일 */
+/* 포커스 스타일 (키보드 사용자만 링 표시) */
 .button:focus {
-  outline: 2px solid var(--focus-color);
+  outline: none;
+}
+.button:focus-visible {
+  outline: 2px solid var(--focus-color, var(--primary, #47CB81));
   outline-offset: 2px;
 }
 

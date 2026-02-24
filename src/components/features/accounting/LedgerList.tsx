@@ -2,29 +2,33 @@
  * @file LedgerList.tsx
  * @brief 장부 목록 컴포넌트
  * @details 장부 목록을 표시하고 장부를 선택할 수 있는 컴포넌트입니다.
+ *         부모(Accounting)에서 useLedgerManagement를 한 번만 사용하고 여기로 전달하여 중복 API 호출을 막습니다.
  * @author Hot Potato Team
  * @date 2024
  */
 
 import React from 'react';
-import { useLedgerManagement } from '../../../hooks/features/accounting/useLedgerManagement';
 import type { LedgerInfo } from '../../../types/features/accounting';
+import { ErrorFallback } from '../../ui/ErrorFallback';
 import './accounting.css';
 
 interface LedgerListProps {
+  ledgers: LedgerInfo[];
+  isLoading: boolean;
+  error: string | null;
+  refreshLedgers: () => void | Promise<void>;
   onSelectLedger?: (ledger: LedgerInfo) => void;
   onCreateLedger?: () => void;
 }
 
 export const LedgerList: React.FC<LedgerListProps> = ({
+  ledgers,
+  isLoading,
+  error,
+  refreshLedgers,
   onSelectLedger,
   onCreateLedger
 }) => {
-  const { ledgers, isLoading, error, refreshLedgers, createLedger } = useLedgerManagement();
-
-  const handleCreateSuccess = () => {
-    refreshLedgers();
-  };
 
   if (isLoading) {
     return (
@@ -37,8 +41,11 @@ export const LedgerList: React.FC<LedgerListProps> = ({
   if (error) {
     return (
       <div className="ledger-list-error">
-        <p>❌ {error}</p>
-        <button onClick={refreshLedgers}>다시 시도</button>
+        <ErrorFallback
+          message={error}
+          onRetry={refreshLedgers}
+          title="장부 목록을 불러올 수 없습니다"
+        />
       </div>
     );
   }

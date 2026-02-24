@@ -155,10 +155,10 @@ export const DataSyncStatus: React.FC<DataSyncStatusProps> = ({
   const isRefreshingState = isRefreshing || isRefreshingLocal;
 
   return (
-    <div className="data-sync-container">
+    <div className="data-sync-container" role="status" aria-label={`데이터 동기화: ${relativeTime}`}>
       <div className="data-sync-status">
         <span className="sync-text" title={formatAbsoluteTime(lastSyncTime)}>
-          {relativeTime}
+          {isRefreshingState ? '동기화 중…' : `동기화 ${relativeTime}`}
         </span>
         {isSyncPaused && (
           <span className="sync-paused-indicator" title="자동 동기화 일시 중지됨">

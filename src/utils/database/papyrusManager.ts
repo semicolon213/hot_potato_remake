@@ -227,12 +227,14 @@ export const initializeSpreadsheetIds = async (): Promise<{
         const studentId = ids[ENV_CONFIG.STUDENT_SPREADSHEET_NAME] || null;
         const staffId = ids[ENV_CONFIG.STAFF_SPREADSHEET_NAME] || null;
 
-        // 개인 설정 파일 ID 초기화 (별도 함수로 처리)
-        const {findPersonalConfigFile} = await import('./personalConfigManager');
-        const personalConfigId = await findPersonalConfigFile();
-
-        // 회계 폴더 ID 조회
-        const accountingFolderResponse = await apiClient.request('getAccountingFolderId', {});
+        // 개인 설정 파일 ID와 회계 폴더 ID 병렬 조회 (서로 독립)
+        const [personalConfigId, accountingFolderResponse] = await Promise.all([
+          (async () => {
+            const { findPersonalConfigFile } = await import('./personalConfigManager');
+            return findPersonalConfigFile();
+          })(),
+          apiClient.request('getAccountingFolderId', {})
+        ]);
         const accountingId = accountingFolderResponse.success && accountingFolderResponse.data?.accountingFolderId
             ? accountingFolderResponse.data.accountingFolderId
             : null;

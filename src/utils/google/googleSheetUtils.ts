@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 import { ENV_CONFIG } from '../../config/environment';
+import { tokenManager } from '../auth/tokenManager';
 
 const GOOGLE_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID;
 
@@ -54,8 +55,6 @@ export const initializeGoogleAPIOnce = async (): Promise<void> => {
               ],
               scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive'
             });
-            // tokenManager를 사용하여 토큰 가져오기
-            const { tokenManager } = await import('../auth/tokenManager');
             const token = tokenManager.get();
             if (token) {
               (gapi.client as any).setToken({ access_token: token });
@@ -251,7 +250,6 @@ export const getSheetData = async (spreadsheetId: string, sheetName: string, ran
 
   try {
     // API 호출 전에 토큰 재설정 (최신 토큰 보장)
-    const { tokenManager } = await import('../../utils/auth/tokenManager');
     const token = tokenManager.get();
     if (token && gapi.client) {
       try {
@@ -279,7 +277,6 @@ export const getSheetData = async (spreadsheetId: string, sheetName: string, ran
     // 401 오류인 경우 토큰 재설정 후 재시도
     if (error.status === 401 || error.code === 401) {
       console.log('401 오류 감지, 토큰 재설정 후 재시도...');
-      const { tokenManager } = await import('../../utils/auth/tokenManager');
       const token = tokenManager.get();
       if (token && gapi.client) {
         try {
@@ -314,7 +311,6 @@ export const getAccountingCategorySummary = async (spreadsheetId: string): Promi
     
     // papyrus-db 인증 설정
     if (window.gapi && window.gapi.client) {
-      const { tokenManager } = await import('../../utils/auth/tokenManager');
       const token = tokenManager.get();
       if (token) {
         try {
@@ -395,7 +391,6 @@ export const getLedgerBalance = async (spreadsheetId: string): Promise<number> =
     
     // papyrus-db 인증 설정
     if (window.gapi && window.gapi.client) {
-      const { tokenManager } = await import('../../utils/auth/tokenManager');
       const token = tokenManager.get();
       if (token) {
         try {
@@ -458,7 +453,6 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
     
     // papyrus-db 인증 설정
     if (window.gapi && window.gapi.client) {
-      const { tokenManager } = await import('../../utils/auth/tokenManager');
       const token = tokenManager.get();
       if (token) {
         try {
@@ -834,7 +828,6 @@ export const findPersonalDocumentFolder = async (): Promise<string | null> => {
 export const copyGoogleDocument = async (fileId: string, newTitle: string, tag?: string): Promise<{ id: string, webViewLink: string } | null> => {
   try {
     // 토큰 확인
-    const { tokenManager } = await import('../auth/tokenManager');
     const token = tokenManager.get();
     if (!token || !tokenManager.isValid()) {
       const errorMsg = 'Google 인증 토큰이 없거나 만료되었습니다. 다시 로그인해주세요.';
@@ -1032,7 +1025,6 @@ export const deleteRowsByDocIds = async (
         
         // papyrus-db 인증 설정
         if (window.gapi && window.gapi.client) {
-          const { tokenManager } = await import('../../utils/auth/tokenManager');
           const token = tokenManager.get();
           if (token) {
             try {

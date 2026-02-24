@@ -13,12 +13,12 @@ import { CategoryManagement } from './CategoryManagement';
 import { AccountDisplay } from './AccountDisplay';
 import { BudgetPlanList } from './BudgetPlanList';
 import { LedgerExportModal } from './LedgerExportModal';
-import { useLedgerManagement } from '../../../hooks/features/accounting/useLedgerManagement';
 import type { LedgerInfo, LedgerEntry } from '../../../types/features/accounting';
 import './accounting.css';
 
 interface LedgerDetailProps {
   ledger: LedgerInfo;
+  ledgers: LedgerInfo[];
   onBack: () => void;
   onSelectLedger?: (ledger: LedgerInfo) => void;
 }
@@ -27,13 +27,13 @@ type TabType = 'entries' | 'accounts' | 'categories' | 'budgets';
 
 export const LedgerDetail: React.FC<LedgerDetailProps> = ({
   ledger,
+  ledgers,
   onBack,
   onSelectLedger
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('entries');
   const [showLedgerDropdown, setShowLedgerDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { ledgers } = useLedgerManagement();
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isAddingNew, setIsAddingNew] = useState(false);
