@@ -194,6 +194,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <h2 className="signup-section-title">회원가입</h2>
             <div className="signup-section-email">{formData.email}</div>
 
+            {loginState.sheetPrefilled && (
+              <p className="signup-sheet-hint">학번/교번과 이름은 총 관리자가 시트에 입력한 정보입니다.</p>
+            )}
             <div className="input-group">
               <label htmlFor="name">이름 *</label>
               <input
@@ -202,7 +205,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 value={formData.name}
                 onChange={(e) => updateFormData('name', e.target.value)}
                 placeholder="이름을 입력하세요"
-                className="form-input"
+                className={`form-input ${loginState.sheetPrefilled ? 'disabled' : ''}`}
+                disabled={loginState.sheetPrefilled}
+                readOnly={loginState.sheetPrefilled}
               />
             </div>
 
@@ -214,7 +219,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 value={formData.studentId}
                 onChange={(e) => updateFormData('studentId', e.target.value)}
                 placeholder="학번 또는 교번을 입력하세요"
-                className="form-input"
+                className={`form-input ${loginState.sheetPrefilled ? 'disabled' : ''}`}
+                disabled={loginState.sheetPrefilled}
+                readOnly={loginState.sheetPrefilled}
               />
             </div>
 

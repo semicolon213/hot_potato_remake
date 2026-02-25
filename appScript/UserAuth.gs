@@ -161,6 +161,25 @@ function checkUserStatus(email) {
       };
     }
     
+    // 가입 승인 요청을 아직 보내지 않은 경우: user_type, Approval 등이 비어 있으면
+    // "가입 승인 요청" 화면으로 가야 하므로 not_registered 반환
+    const hasUserType = user.user_type && String(user.user_type).trim() !== '';
+    const hasApproval = user.Approval !== undefined && user.Approval !== null && String(user.Approval).trim() !== '';
+    if (!hasUserType || !hasApproval) {
+      return {
+        success: true,
+        data: {
+          status: 'not_registered',
+          message: '가입 정보를 입력해주세요. (학번/교번, 가입유형 선택 후 가입 승인 요청)',
+          user: {
+            ...user,
+            no_member: user.no_member,
+            name_member: user.name_member
+          }
+        }
+      };
+    }
+    
     // 승인 상태 확인 (Approval 컬럼)
     const isApproved = user.Approval === 'O';
     const isAdmin = user.is_admin === 'O';

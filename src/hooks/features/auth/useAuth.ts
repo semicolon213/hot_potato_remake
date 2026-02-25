@@ -31,6 +31,8 @@ interface LoginState {
   isLoading: boolean;
   error: string;
   showRegistrationForm: boolean;
+  /** 시트에 관리자가 미리 입력한 학번/이름으로 폼이 채워진 경우 (읽기 전용) */
+  sheetPrefilled: boolean;
 }
 
 interface LoginResponse {
@@ -38,6 +40,8 @@ interface LoginResponse {
   isRegistered: boolean;
   isApproved: boolean;
   studentId?: string;
+  /** 시트(hp_member)의 name_member - 관리자가 미리 입력한 이름 */
+  nameFromSheet?: string;
   isAdmin?: boolean;
   userType?: string;
   error?: string;
@@ -78,18 +82,41 @@ const checkUserStatus = async (email: string): Promise<LoginResponse> => {
     }
 
     // 응답 구조 변환 (UserManagement.gs의 응답을 LoginResponse 형식으로)
-    // apiClient.checkApprovalStatus는 ApprovalStatusResponse를 반환하므로 변환 필요
-    const responseData = data.data || data;
+    const raw = (data as unknown as Record<string, unknown>).data ?? data;
+    const responseData = raw as Record<string, unknown> & {
+      user?: { no_member?: string; name_member?: string; user_type?: string; userType?: string; Approval?: string; isApproved?: boolean; isAdmin?: boolean; studentId?: string; student_id?: string };
+      status?: string;
+      approvalStatus?: string;
+      studentId?: string;
+      isApproved?: boolean;
+      message?: string;
+    };
+    const user = responseData.user;
+    const status = responseData.status ?? responseData.approvalStatus;
+
+    // hp_member에 행은 있지만 user_type, Approval 등이 비어 있으면
+    // "가입 승인 요청" 화면(회원가입 폼)으로 보내야 함 → isRegistered = false
+    const hasRow = user && (user.no_member || user.student_id || responseData.studentId);
+    const hasUserType = (user?.user_type ?? user?.userType ?? '') !== '';
+    const hasApproval = user?.Approval !== undefined && user?.Approval !== null && String(user?.Approval ?? '').trim() !== '';
+    const registrationNotSubmitted = hasRow && (!hasUserType || !hasApproval);
+
+    const isRegistered = status === 'not_registered' || registrationNotSubmitted
+      ? false
+      : (status !== 'not_registered');
+    const isApproved = isRegistered && (user?.isApproved ?? responseData.isApproved ?? false);
+
     return {
-      success: data.success || false,
-      isRegistered: responseData.status !== 'not_registered' || false,
-      isApproved: responseData.user?.isApproved || responseData.isApproved || false,
-      approvalStatus: responseData.status || responseData.approvalStatus || 'not_requested',
-      studentId: responseData.user?.no_member || responseData.user?.studentId || '',
-      isAdmin: responseData.user?.isAdmin || false,
-      userType: responseData.user?.user_type || responseData.userType || '',
-      error: data.error || responseData.message,
-      debug: data.debug
+      success: (data as unknown as Record<string, unknown>).success || false,
+      isRegistered,
+      isApproved,
+      approvalStatus: status || 'not_requested',
+      studentId: user?.no_member || user?.studentId || responseData.studentId || '',
+      nameFromSheet: user?.name_member || undefined,
+      isAdmin: user?.isAdmin || false,
+      userType: user?.user_type || user?.userType || '',
+      error: (data as unknown as Record<string, unknown>).error as string | undefined || responseData.message as string | undefined,
+      debug: (data as unknown as Record<string, unknown>).debug
     } as LoginResponse;
   } catch (error) {
     console.error('사용자 상태 확인 실패:', error);
@@ -107,7 +134,8 @@ export const useAuth = (onLogin: (user: User) => void) => {
     isLoggedIn: false,
     isLoading: false,
     error: '',
-    showRegistrationForm: false
+    showRegistrationForm: false,
+    sheetPrefilled: false
   });
 
   const [formData, setFormData] = useState<LoginFormData>({
@@ -281,14 +309,23 @@ export const useAuth = (onLogin: (user: User) => void) => {
           });
         }
       } else {
-        // 새로운 사용자 또는 등록되지 않은 사용자 - 회원가입 화면 표시
-        console.log('새로운 사용자 - 회원가입 화면 표시');
-        setFormData(prev => ({ ...prev, email, name: '' })); // 이름은 빈 문자열로 초기화
+        // 새로운 사용자 또는 가입 승인 요청 미제출(user_type/Approval 비어 있음) - 회원가입 화면 표시
+        // 학번/교번, 이름은 관리자가 시트에 미리 입력한 값으로 채움(있을 경우 읽기 전용)
+        console.log('가입 승인 요청 화면 표시 (회원가입 폼)');
+        const sheetName = result.nameFromSheet ?? '';
+        const sheetStudentId = result.studentId ?? '';
+        setFormData(prev => ({
+          ...prev,
+          email,
+          name: sheetName || name || prev.name,
+          studentId: sheetStudentId || prev.studentId || ''
+        }));
         setLoginState(prev => ({
           ...prev,
           isLoggedIn: true,
           showRegistrationForm: true,
-          isLoading: false
+          isLoading: false,
+          sheetPrefilled: !!(sheetName || sheetStudentId)
         }));
       }
     } catch (error) {
@@ -298,12 +335,13 @@ export const useAuth = (onLogin: (user: User) => void) => {
         error: '사용자 상태 확인 중 오류가 발생했습니다.',
         isLoading: false
       }));
-      // 오류 시 회원가입 화면 표시
-      setFormData(prev => ({ ...prev, email, name: '' })); // 이름은 빈 문자열로 초기화
+      // 오류 시 회원가입 화면 표시 (시트 데이터 없음)
+      setFormData(prev => ({ ...prev, email, name: '', studentId: '' }));
       setLoginState(prev => ({
         ...prev,
         isLoggedIn: true,
-        showRegistrationForm: true
+        showRegistrationForm: true,
+        sheetPrefilled: false
       }));
     }
   };
