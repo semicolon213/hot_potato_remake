@@ -864,126 +864,25 @@ export const deleteAnnouncement = async (spreadsheetId: string, announcementId: 
     }
 };
 
-// 템플릿 관련 함수들 (deprecated - document_template 시트 방식은 제거됨)
-// 템플릿은 이제 개인 템플릿 폴더와 공유 템플릿 폴더에서 직접 가져옵니다.
-export const fetchTemplates = async (): Promise<Template[]> => {
-    // document_template 시트 방식은 더 이상 사용하지 않음
-    // 템플릿은 useTemplateUI의 loadDynamicTemplates에서 폴더 기반으로 로드됨
-    console.log('⚠️ fetchTemplates: document_template 시트 방식은 더 이상 사용되지 않습니다. 폴더 기반 템플릿을 사용하세요.');
-    return [];
-};
+// 템플릿 관련 함수들 (document_template 시트 방식 제거됨 - 폴더 기반 템플릿만 사용)
+export const fetchTemplates = async (): Promise<Template[]> => [];
+export const fetchTags = async (): Promise<string[]> => [];
 
+/** @deprecated document_template 시트 방식 제거됨. 폴더 기반 템플릿만 사용. */
+export const addTemplate = async (_newDocData: { title: string; description: string; tag: string; }): Promise<void> => {};
 
-export const fetchTags = async (): Promise<string[]> => {
-    // document_template 시트 방식은 더 이상 사용하지 않음
-    // 태그는 personalTagManager의 fetchTags를 사용하세요
-    console.log('⚠️ fetchTags: document_template 시트 방식은 더 이상 사용되지 않습니다. personalTagManager를 사용하세요.');
-    return [];
-};
+/** @deprecated document_template 시트 방식 제거됨. */
+export const deleteTemplate = async (_rowIndex: number): Promise<void> => {};
 
-export const addTemplate = async (newDocData: { title: string; description: string; tag: string; }): Promise<void> => {
-    try {
-        if (!hotPotatoDBSpreadsheetId) {
-            throw new Error('Hot Potato DB spreadsheet ID not found');
-        }
-
-        // 1. Create a new Google Doc
-        const doc = await window.gapi.client.docs.documents.create({
-            title: newDocData.title,
-        });
-
-        const documentId = doc.result.documentId;
-        console.log(`Created new Google Doc with ID: ${documentId}`);
-
-        // 2. Add a new row to the Google Sheet with the documentId
-        const newRowData = [
-            '', // A column - empty
-            newDocData.title, // B column
-            newDocData.description, // C column
-            newDocData.tag, // D column
-            '', // E column - empty
-            documentId, // F column - documentId
-        ];
-
-        await append(hotPotatoDBSpreadsheetId, ENV_CONFIG.DOCUMENT_TEMPLATE_SHEET_NAME, [newRowData]);
-        console.log('Template saved to Google Sheets successfully');
-
-        // 3. Store the documentId in localStorage
-        const newStorageKey = `template_doc_id_${newDocData.title}`;
-        localStorage.setItem(newStorageKey, documentId);
-
-        console.log('문서가 성공적으로 저장되었습니다.');
-    } catch (error) {
-        console.error('Error creating document or saving to sheet:', error);
-        throw error;
-    }
-};
-
-export const deleteTemplate = async (rowIndex: number): Promise<void> => {
-    try {
-        if (!hotPotatoDBSpreadsheetId) {
-            throw new Error('Hot Potato DB spreadsheet ID not found');
-        }
-
-        // papyrus-db를 사용하여 행 삭제 (시트 ID는 0으로 가정)
-        await deleteRow(hotPotatoDBSpreadsheetId, 0, rowIndex);
-
-        console.log('Template deleted from Google Sheets successfully');
-    } catch (error) {
-        console.error('Error deleting template from Google Sheet:', error);
-        throw error;
-    }
-};
-
+/** @deprecated document_template 시트 방식 제거됨. */
 export const updateTemplate = async (
-    rowIndex: number,
-    newDocData: { title: string; description: string; tag: string; },
-    documentId: string
-): Promise<void> => {
-    try {
-        if (!hotPotatoDBSpreadsheetId) {
-            throw new Error('Hot Potato DB spreadsheet ID not found');
-        }
+    _rowIndex: number,
+    _newDocData: { title: string; description: string; tag: string; },
+    _documentId: string
+): Promise<void> => {};
 
-        const newRowData = [
-            '', // A column - empty
-            newDocData.title, // B column
-            newDocData.description, // C column
-            newDocData.tag, // D column
-            '', // E column - empty
-            documentId // F column - documentId
-        ];
-
-        await update(hotPotatoDBSpreadsheetId, ENV_CONFIG.DOCUMENT_TEMPLATE_SHEET_NAME, `A${rowIndex}:F${rowIndex}`, [newRowData]);
-        console.log('Template updated in Google Sheets successfully');
-    } catch (error) {
-        console.error('Error updating template in Google Sheet:', error);
-        throw error;
-    }
-};
-
-export const updateTemplateFavorite = async (rowIndex: number, favoriteStatus: string | undefined): Promise<void> => {
-    try {
-        if (!hotPotatoDBSpreadsheetId) {
-            throw new Error('Hot Potato DB spreadsheet ID not found');
-        }
-
-        // Google Sheets API를 사용하여 특정 셀 업데이트
-        await window.gapi.client.sheets.spreadsheets.values.update({
-            spreadsheetId: hotPotatoDBSpreadsheetId,
-            range: `${ENV_CONFIG.DOCUMENT_TEMPLATE_SHEET_NAME}!G${rowIndex}`,
-            valueInputOption: 'RAW',
-            resource: {
-                values: [[favoriteStatus || '']],
-            },
-        });
-
-        console.log(`Template favorite status updated in Google Sheets for row ${rowIndex}.`);
-    } catch (error) {
-        console.error('Error updating template favorite status in Google Sheet:', error);
-        throw error;
-    }
-};
+/** @deprecated document_template 시트 방식 제거됨. */
+export const updateTemplateFavorite = async (_rowIndex: number, _favoriteStatus: string | undefined): Promise<void> => {};
 
 // 캘린더 관련 함수들
 export const fetchCalendarEvents = async (): Promise<Event[]> => {

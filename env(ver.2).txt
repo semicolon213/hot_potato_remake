@@ -4,6 +4,7 @@ VITE_APP_SCRIPT_URL=https://script.google.com/macros/s/AKfycbwlgk6IgxezP9RpLT3Jn
 VITE_FOLER_NAME={
     "ROOT":"hot_potato_remake",
     
+    "DOCUMENT":"document",
     "S_DOC":"shared_documents",
     "P_DOC":"personal_documents",
     "S_TEMP":"shared_forms",
@@ -11,8 +12,8 @@ VITE_FOLER_NAME={
 
     "WORKFLOW":"workflow",
 
-    "ACCOUNT":"account"
-    "ACCOUNT_PROOF":"proof",
+    "ACCOUNT":"account",
+    "ACCOUNT_EVIDENCE":"evidence",
     
     "NOTICE_ATTACH":"attached_file"
 }

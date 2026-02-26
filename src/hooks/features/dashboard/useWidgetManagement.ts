@@ -259,10 +259,6 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         return;
       }
       
-      if (ENV_CONFIG.PAPYRUS_DB_API_KEY) {
-        gapi.client.setApiKey(ENV_CONFIG.PAPYRUS_DB_API_KEY);
-      }
-      
       const validToken = tokenManager.get();
       if (validToken) {
         try {

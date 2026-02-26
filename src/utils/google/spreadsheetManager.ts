@@ -206,185 +206,40 @@ export const incrementViewCount = async (announcementSpreadsheetId: string, anno
   }
 };
 
-// 템플릿 관련 함수들
-export const fetchTemplates = async (hotPotatoDBSpreadsheetId: string): Promise<Template[]> => {
-    try {
-        const response = await window.gapi.client.sheets.spreadsheets.values.get({
-            spreadsheetId: hotPotatoDBSpreadsheetId,
-            range: 'document_template!B2:G',
-        });
+// 템플릿/태그 관련 함수들 (document_template 시트 방식 제거됨 - 폴더 기반만 사용)
+/** @deprecated document_template 시트 방식 제거됨. */
+export const fetchTemplates = async (_hotPotatoDBSpreadsheetId: string): Promise<Template[]> => [];
 
-        const data = response.result.values;
-        if (data && data.length > 0) {
-            const allTemplates: Template[] = data.map((row: string[], i: number) => ({
-                rowIndex: i + 2,
-                title: row[0] || '',
-                description: row[1] || '',
-                parttitle: row[1] || '',
-                tag: row[2] || '',
-                type: row[0] || '',
-                documentId: row[4] || '',
-                favorites_tag: row[5] || '',
-            }));
+/** @deprecated document_template 시트 방식 제거됨. personalTagManager 사용. */
+export const fetchTags = async (_hotPotatoDBSpreadsheetId: string): Promise<string[]> => [];
 
-            const filteredTemplates = allTemplates.filter(template => {
-                return template.title && template.description && template.tag;
-            });
-
-            console.log('Loaded templates from Google Sheets:', filteredTemplates);
-            return filteredTemplates;
-        }
-        return [];
-    } catch (error) {
-        console.error('Error fetching templates from Google Sheet:', error);
-        return [];
-    }
-};
-
-export const fetchTags = async (hotPotatoDBSpreadsheetId: string): Promise<string[]> => {
-    try {
-        const response = await window.gapi.client.sheets.spreadsheets.values.get({
-            spreadsheetId: hotPotatoDBSpreadsheetId,
-            range: 'document_template!E2:E',
-        });
-
-        const tagColumnValues = response.result.values?.flat().filter(Boolean) || [];
-        const uniqueTags = [...new Set(tagColumnValues as string[])];
-        return uniqueTags;
-    } catch (error) {
-        console.error('Error fetching tags from Google Sheet:', error);
-        return [];
-    }
-};
-
+/** @deprecated document_template 시트 방식 제거됨. */
 export const addTemplate = async (
-    hotPotatoDBSpreadsheetId: string,
-    newDocData: { title: string; description: string; tag: string; }
-): Promise<void> => {
-    try {
-        // 1. Create a new Google Doc
-        const doc = await window.gapi.client.docs.documents.create({
-            title: newDocData.title,
-        });
+    _hotPotatoDBSpreadsheetId: string,
+    _newDocData: { title: string; description: string; tag: string; }
+): Promise<void> => {};
 
-        const documentId = doc.result.documentId;
-        console.log(`Created new Google Doc with ID: ${documentId}`);
-
-        // 2. Add a new row to the Google Sheet with the documentId
-        const newRowData = [
-            '', // A column - empty
-            newDocData.title, // B column
-            newDocData.description, // C column
-            newDocData.tag, // D column
-            '', // E column - empty
-            documentId, // F column - documentId
-        ];
-
-        await window.gapi.client.sheets.spreadsheets.values.append({
-            spreadsheetId: hotPotatoDBSpreadsheetId,
-            range: 'document_template!A1',
-            valueInputOption: 'RAW',
-            insertDataOption: 'INSERT_ROWS',
-            resource: {
-                values: [newRowData],
-            },
-        });
-
-        console.log('Template saved to Google Sheets successfully');
-
-        // 3. Store the documentId in localStorage
-        const newStorageKey = `template_doc_id_${newDocData.title}`;
-        localStorage.setItem(newStorageKey, documentId);
-
-        console.log('문서가 성공적으로 저장되었습니다.');
-    } catch (error) {
-        console.error('Error creating document or saving to sheet:', error);
-        throw error;
-    }
-};
-
+/** @deprecated document_template 시트 방식 제거됨. */
 export const deleteTemplate = async (
-    hotPotatoDBSpreadsheetId: string,
-    documentTemplateSheetId: number,
-    rowIndex: number
-): Promise<void> => {
-    try {
-        await window.gapi.client.sheets.spreadsheets.batchUpdate({
-            spreadsheetId: hotPotatoDBSpreadsheetId,
-            resource: {
-                requests: [
-                    {
-                        deleteDimension: {
-                            range: {
-                                sheetId: documentTemplateSheetId,
-                                dimension: 'ROWS',
-                                startIndex: rowIndex - 1,
-                                endIndex: rowIndex,
-                            },
-                        },
-                    },
-                ],
-            },
-        });
+    _hotPotatoDBSpreadsheetId: string,
+    _documentTemplateSheetId: number,
+    _rowIndex: number
+): Promise<void> => {};
 
-        console.log('Template deleted from Google Sheets successfully');
-    } catch (error) {
-        console.error('Error deleting template from Google Sheet:', error);
-        throw error;
-    }
-};
-
+/** @deprecated document_template 시트 방식 제거됨. */
 export const updateTemplate = async (
-    hotPotatoDBSpreadsheetId: string,
-    rowIndex: number,
-    newDocData: { title: string; description: string; tag: string; },
-    documentId: string
-): Promise<void> => {
-    try {
-        const newRowData = [
-            '', // A column - empty
-            newDocData.title, // B column
-            newDocData.description, // C column
-            newDocData.tag, // D column
-            '', // E column - empty
-            documentId // F column - documentId
-        ];
+    _hotPotatoDBSpreadsheetId: string,
+    _rowIndex: number,
+    _newDocData: { title: string; description: string; tag: string; },
+    _documentId: string
+): Promise<void> => {};
 
-        await window.gapi.client.sheets.spreadsheets.values.update({
-            spreadsheetId: hotPotatoDBSpreadsheetId,
-            range: `document_template!A${rowIndex}`,
-            valueInputOption: 'RAW',
-            resource: {
-                values: [newRowData],
-            },
-        });
-
-        console.log('Template updated in Google Sheets successfully');
-    } catch (error) {
-        console.error('Error updating document in Google Sheet:', error);
-        throw error;
-    }
-};
-
+/** @deprecated document_template 시트 방식 제거됨. */
 export const updateTemplateFavorite = async (
-    hotPotatoDBSpreadsheetId: string,
-    rowIndex: number,
-    favoriteStatus: string | undefined
-): Promise<void> => {
-    try {
-        await updateSheetCell(
-            hotPotatoDBSpreadsheetId,
-            'document_template',
-            rowIndex,
-            6, // Column G
-            favoriteStatus || ''
-        );
-        console.log(`Template favorite status updated in Google Sheets for row ${rowIndex}.`);
-    } catch (error) {
-        console.error('Error updating template favorite status in Google Sheet:', error);
-        throw error;
-    }
-};
+    _hotPotatoDBSpreadsheetId: string,
+    _rowIndex: number,
+    _favoriteStatus: string | undefined
+): Promise<void> => {};
 
 // 캘린더 관련 함수들
 export const fetchCalendarEvents = async (
@@ -746,118 +601,21 @@ export const saveAcademicScheduleToSheet = async (
     }
 };
 
-// 태그 관련 함수들
-export const addTag = async (hotPotatoDBSpreadsheetId: string, newTag: string): Promise<void> => {
-    try {
-        const newRow = {
-            'template_title': '',
-            'tamplateparttitle': '', // Typo as per user's message
-            'tag_name': newTag
-        };
-        await appendRow(hotPotatoDBSpreadsheetId, 'document_template', newRow);
-        console.log('새로운 태그가 추가되었습니다.');
-    } catch (error) {
-        console.error('Error saving tag to Google Sheet:', error);
-        throw error;
-    }
-};
+// 태그 관련 함수들 (document_template 시트 방식 제거됨 - personalTagManager 사용)
+/** @deprecated document_template 시트 방식 제거됨. personalTagManager.addTag 사용. */
+export const addTag = async (_hotPotatoDBSpreadsheetId: string, _newTag: string): Promise<void> => {};
 
+/** @deprecated document_template 시트 방식 제거됨. personalTagManager.deleteTag 사용. */
 export const deleteTag = async (
-    hotPotatoDBSpreadsheetId: string,
-    documentTemplateSheetId: number,
-    tagToDelete: string
-): Promise<void> => {
-    try {
-        const response = await window.gapi.client.sheets.spreadsheets.get({
-            spreadsheetId: hotPotatoDBSpreadsheetId,
-            ranges: ['document_template!A:E'],
-            includeGridData: true,
-        });
+    _hotPotatoDBSpreadsheetId: string,
+    _documentTemplateSheetId: number,
+    _tagToDelete: string
+): Promise<void> => {};
 
-        const gridData = response.result.sheets[0].data[0];
-        const rowsToDelete = new Set<number>();
-
-        if (gridData.rowData) {
-            for (let rowIndex = 0; rowIndex < gridData.rowData.length; rowIndex++) {
-                const row = gridData.rowData[rowIndex];
-                if (row.values) {
-                    // Check column D (index 3) and E (index 4)
-                    const tagD = row.values[3]?.formattedValue;
-                    const tagE = row.values[4]?.formattedValue;
-                    if (tagD === tagToDelete || tagE === tagToDelete) {
-                        rowsToDelete.add(rowIndex);
-                    }
-                }
-            }
-        }
-
-        if (rowsToDelete.size > 0) {
-            const requests = Array.from(rowsToDelete).sort((a, b) => b - a).map(rowIndex => ({
-                deleteDimension: {
-                    range: {
-                        sheetId: documentTemplateSheetId,
-                        dimension: 'ROWS',
-                        startIndex: rowIndex,
-                        endIndex: rowIndex + 1,
-                    },
-                },
-            }));
-
-            await window.gapi.client.sheets.spreadsheets.batchUpdate({
-                spreadsheetId: hotPotatoDBSpreadsheetId,
-                resource: { requests },
-            });
-        }
-    } catch (error) {
-        console.error('Error deleting tag from Google Sheet:', error);
-        throw error;
-    }
-};
-
+/** @deprecated document_template 시트 방식 제거됨. personalTagManager.updateTag 사용. */
 export const updateTag = async (
-    hotPotatoDBSpreadsheetId: string,
-    documentTemplateSheetId: number,
-    oldTag: string,
-    newTag: string
-): Promise<void> => {
-    try {
-        const response = await window.gapi.client.sheets.spreadsheets.get({
-            spreadsheetId: hotPotatoDBSpreadsheetId,
-            ranges: ['document_template!A:E'],
-            includeGridData: true,
-        });
-
-        const gridData = response.result.sheets[0].data[0];
-        const requests = [];
-
-        if (gridData.rowData) {
-            for (let rowIndex = 0; rowIndex < gridData.rowData.length; rowIndex++) {
-                const row = gridData.rowData[rowIndex];
-                if (row.values) {
-                    for (let colIndex = 0; colIndex < row.values.length; colIndex++) {
-                        const cell = row.values[colIndex];
-                        if (cell.formattedValue === oldTag) {
-                            requests.push({
-                                updateCells: {
-                                    rows: [{ values: [{ userEnteredValue: { stringValue: newTag } }] }],
-                                    fields: 'userEnteredValue',
-                                    start: { sheetId: documentTemplateSheetId, rowIndex, columnIndex: colIndex },
-                                },
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        if (requests.length > 0) {
-            await window.gapi.client.sheets.spreadsheets.batchUpdate({
-                spreadsheetId: hotPotatoDBSpreadsheetId,
-                resource: { requests },
-            });
-        }
-    } catch (error) {
-        console.error('Error updating tag in Google Sheet:', error);
-        throw error;
-    }
-};
+    _hotPotatoDBSpreadsheetId: string,
+    _documentTemplateSheetId: number,
+    _oldTag: string,
+    _newTag: string
+): Promise<void> => {};

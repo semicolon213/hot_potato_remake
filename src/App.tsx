@@ -87,7 +87,6 @@ const App: React.FC = () => {
     selectedAnnouncement,
     setSelectedAnnouncement,
     isGoogleAuthenticatedForAnnouncements,
-    isGoogleAuthenticatedForBoard,
     isAnnouncementsLoading,
     announcementSpreadsheetId,
 
@@ -365,7 +364,6 @@ const App: React.FC = () => {
       dashboard: '대시보드',
       announcements: '공지사항',
       'announcement-view': '공지사항',
-      board: '게시판',
       chat: '채팅',
       admin: '관리자',
       mypage: '마이페이지',
@@ -389,7 +387,6 @@ const App: React.FC = () => {
       dashboard: '대시보드',
       announcements: '공지사항',
       'announcement-view': '공지사항 상세',
-      board: '게시판',
       chat: '채팅',
       admin: '관리자',
       mypage: '마이페이지',
@@ -412,20 +409,6 @@ const App: React.FC = () => {
   const handleSearchSubmit = () => {
     if (currentPage !== 'document_management') {
       handlePageChange('document_management');
-    }
-  };
-
-  // 게시판 추가 핸들러
-  const handleAddPost = async (postData: { title: string; content: string; author: string; writer_id: string; }) => {
-    try {
-      if (!announcementSpreadsheetId) {
-        throw new Error("Board spreadsheet ID not found");
-      }
-      // TODO: 게시판 추가 로직 구현 필요
-      console.warn('게시판 추가 기능은 아직 구현되지 않았습니다.');
-      handlePageChange('board');
-    } catch (error) {
-      console.error('Error adding post:', error);
     }
   };
 
@@ -1189,11 +1172,8 @@ const App: React.FC = () => {
               posts={[]}
               announcements={announcements}
               selectedAnnouncement={selectedAnnouncement}
-              isGoogleAuthenticatedForBoard={isGoogleAuthenticatedForBoard}
               isGoogleAuthenticatedForAnnouncements={isGoogleAuthenticatedForAnnouncements}
-              boardSpreadsheetId={announcementSpreadsheetId}
               announcementSpreadsheetId={announcementSpreadsheetId}
-              isBoardLoading={false}
               isAnnouncementsLoading={isAnnouncementsLoading}
               customTemplates={customTemplates}
               tags={tags}
@@ -1212,7 +1192,6 @@ const App: React.FC = () => {
               staff={staff}
               searchTerm={searchTerm}
               onPageChange={handlePageChange}
-              onAddPost={handleAddPost}
               onAddAnnouncement={handleAddAnnouncement}
               onSelectAnnouncement={handleSelectAnnouncement}
               onUpdateAnnouncement={handleUpdateAnnouncement}

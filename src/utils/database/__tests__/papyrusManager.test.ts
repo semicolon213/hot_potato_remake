@@ -22,7 +22,6 @@ jest.mock('../../config/environment', () => ({
     BOARD_SHEET_NAME: '시트1',
     ANNOUNCEMENT_SHEET_NAME: '시트1',
     CALENDAR_SHEET_NAME: '시트1',
-    DOCUMENT_TEMPLATE_SHEET_NAME: 'document_template',
     STUDENT_SHEET_NAME: 'info',
     STUDENT_ISSUE_SHEET_NAME: 'std_issue',
     STAFF_SHEET_NAME: '시트1',
@@ -162,19 +161,19 @@ describe('PapyrusDB Manager', () => {
     });
   });
 
-  // --- Templates tests ---
+  // --- Templates tests (document_template 시트 방식 제거됨 - no-op) ---
   describe('Templates', () => {
-    it('should return empty array when spreadsheet ID not found', async () => {
+    it('should return empty array (document_template 제거됨)', async () => {
       const templates = await fetchTemplates();
       expect(templates).toEqual([]);
     });
 
-    it('should throw error when adding template without spreadsheet ID', async () => {
+    it('addTemplate is no-op (document_template 제거됨)', async () => {
       await expect(addTemplate({
         title: 'test template',
         description: 'test description',
         tag: 'test tag'
-      })).rejects.toThrow('Hot Potato DB spreadsheet ID not found');
+      })).resolves.toBeUndefined();
     });
   });
 

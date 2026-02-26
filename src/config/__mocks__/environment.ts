@@ -21,7 +21,6 @@ export const ENV_CONFIG = {
   // 시트 이름들 (원래 코드와 동일하게 수정)
   ANNOUNCEMENT_SHEET_NAME: '시트1',
   CALENDAR_SHEET_NAME: '시트1',
-  DOCUMENT_TEMPLATE_SHEET_NAME: 'document_template',
   STUDENT_SHEET_NAME: 'info',
   STUDENT_ISSUE_SHEET_NAME: 'std_issue',
   STAFF_SHEET_NAME: '시트1',

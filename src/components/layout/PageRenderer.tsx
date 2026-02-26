@@ -22,8 +22,6 @@ const DocumentManagement = lazy(() => import('../../pages/DocumentManagement'));
 const EmptyDocument = lazy(() => import('../../pages/EmptyDocument'));
 const Mypage = lazy(() => import('../../pages/Mypage'));
 const NewDocument = lazy(() => import('../../pages/NewDocument'));
-const Board = lazy(() => import('../../pages/Board/Board'));
-const NewBoardPost = lazy(() => import('../../pages/Board/NewBoardPost'));
 const AnnouncementsPage = lazy(() => import('../../pages/Announcements/Announcements'));
 const AnnouncementView = lazy(() => import('../../pages/Announcements/AnnouncementView'));
 const NewAnnouncementPost = lazy(() => import('../../pages/Announcements/NewAnnouncementPost'));
@@ -39,11 +37,8 @@ interface PageRendererProps {
   posts: Post[];
   announcements: Post[];
   selectedAnnouncement: Post | null;
-  isGoogleAuthenticatedForBoard: boolean;
   isGoogleAuthenticatedForAnnouncements: boolean;
-  boardSpreadsheetId: string | null;
   announcementSpreadsheetId: string | null;
-  isBoardLoading: boolean;
   isAnnouncementsLoading: boolean;
   customTemplates: Template[];
   tags: string[];
@@ -100,11 +95,8 @@ const PageRenderer: React.FC<PageRendererProps> = ({
   posts,
   announcements,
   selectedAnnouncement,
-  isGoogleAuthenticatedForBoard,
   isGoogleAuthenticatedForAnnouncements,
-  boardSpreadsheetId,
   announcementSpreadsheetId,
-  isBoardLoading,
   isAnnouncementsLoading,
   customTemplates,
   tags,
@@ -150,19 +142,9 @@ const PageRenderer: React.FC<PageRendererProps> = ({
   const renderCurrentPage = () => {
     switch (currentPage) {
       case "board":
-        return <Board
-          onPageChange={onPageChange}
-          posts={posts}
-          isAuthenticated={isGoogleAuthenticatedForBoard}
-          boardSpreadsheetId={boardSpreadsheetId}
-          isLoading={isBoardLoading}
-          data-oid="d01oi2r" />;
       case "new-board-post":
-        return <NewBoardPost
-          onPageChange={onPageChange}
-          onAddPost={(postData: { title: string; content: string; author: string; writer_id: string; }) => Promise.resolve()}
-          user={user}
-          isAuthenticated={isGoogleAuthenticatedForBoard} />;
+        // Board 기능 제거됨 → 대시보드로 표시
+        return <Dashboard hotPotatoDBSpreadsheetId={hotPotatoDBSpreadsheetId} user={user} />;
       case "announcements":
         return <AnnouncementsPage
           onUnpinAnnouncement={onUnpinAnnouncement}

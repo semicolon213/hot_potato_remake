@@ -98,7 +98,6 @@ export const useAppState = () => {
     const { announcements, setAnnouncements, calendarEvents, setCalendarEvents } = useAppDataStore();
     const [selectedAnnouncement, setSelectedAnnouncement] = useState<Post | null>(null);
     const [isGoogleAuthenticatedForAnnouncements, setIsGoogleAuthenticatedForAnnouncements] = useState(false);
-    const [isGoogleAuthenticatedForBoard, setIsGoogleAuthenticatedForBoard] = useState(false);
     const [isAnnouncementsLoading, setIsAnnouncementsLoading] = useState(false);
     const [announcementSpreadsheetId, setAnnouncementSpreadsheetId] = useState<string | null>(null);
     const [hotPotatoDBSpreadsheetId, setHotPotatoDBSpreadsheetId] = useState<string | null>(null);
@@ -199,7 +198,6 @@ export const useAppState = () => {
 
                         setIsGapiReady(true);
                         setIsGoogleAuthenticatedForAnnouncements(true);
-                        setIsGoogleAuthenticatedForBoard(true);
 
                         // console.log("✅ 새로고침 후 Papyrus DB 연결 완료");
                     } catch (error) {
@@ -303,7 +301,6 @@ export const useAppState = () => {
 
                     setIsGapiReady(true);
                     setIsGoogleAuthenticatedForAnnouncements(true);
-                    setIsGoogleAuthenticatedForBoard(true);
                     setHasInitialized(true);
                     setIsInitializingData(false);
                     setLastSyncTime(dataSyncService.getLastSyncTime());
@@ -321,7 +318,6 @@ export const useAppState = () => {
                     const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
                     setIsGapiReady(false);
                     setIsGoogleAuthenticatedForAnnouncements(false);
-                    setIsGoogleAuthenticatedForBoard(false);
                     setHasInitialized(true);
                     setIsInitializingData(false);
                     showNotification(`데이터 초기화 중 오류가 발생했습니다: ${errorMessage}`, 'error', 5000);
@@ -451,7 +447,6 @@ export const useAppState = () => {
         try {
             const gapi = window.gapi;
             if (!gapi || !gapi.client || !gapi.client.sheets) throw new Error("Google API가 초기화되지 않았습니다.");
-            if (ENV_CONFIG.PAPYRUS_DB_API_KEY) gapi.client.setApiKey(ENV_CONFIG.PAPYRUS_DB_API_KEY);
 
             let response;
             try {
@@ -735,7 +730,6 @@ export const useAppState = () => {
         setAnnouncements([]);
         setSelectedAnnouncement(null);
         setIsGoogleAuthenticatedForAnnouncements(false);
-        setIsGoogleAuthenticatedForBoard(false);
         setIsAnnouncementsLoading(false);
         setAnnouncementSpreadsheetId(null);
 
@@ -841,8 +835,6 @@ export const useAppState = () => {
         setSelectedAnnouncement,
         isGoogleAuthenticatedForAnnouncements,
         setIsGoogleAuthenticatedForAnnouncements,
-        isGoogleAuthenticatedForBoard,
-        setIsGoogleAuthenticatedForBoard,
         isAnnouncementsLoading,
         setIsAnnouncementsLoading,
         announcementSpreadsheetId,

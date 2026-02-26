@@ -36,6 +36,7 @@ function getEnvJson<T extends Record<string, string>>(
 const DEFAULT_FOLER: Record<string, string> = {
   ROOT: 'hot_potato_remake',
 
+  DOCUMENT: 'document',
   S_DOC: 'shared_documents',
   P_DOC: 'personal_documents',
   S_TEMP: 'shared_forms',
@@ -44,7 +45,7 @@ const DEFAULT_FOLER: Record<string, string> = {
   WORKFLOW: 'workflow',
 
   ACCOUNT: 'account',
-  ACCOUNT_PROOF: 'proof',
+  ACCOUNT_EVIDENCE: 'evidence',
 
   NOTICE_ATTACH: 'attached_file',
 };
@@ -152,13 +153,14 @@ export const ENV_CONFIG_V2 = {
 
   WORKFLOW_FOLDER_NAME: FOLER.WORKFLOW ?? 'error',
 
+  DOCUMENT_FOLDER_NAME: FOLER.DOCUMENT ?? 'error',
   SHARED_DOCUMENT_FOLDER_NAME: FOLER.S_DOC ?? 'error',
   PERSONAL_DOCUMENT_FOLDER_NAME: FOLER.P_DOC ?? 'error',
   SHARED_TEMPLATE_FOLDER_NAME: FOLER.S_TEMP ?? 'error',
   PERSONAL_TEMPLATE_FOLDER_NAME: FOLER.P_TEMP ?? 'error',
 
   ACCOUNT_FOLDER_NAME: FOLER.ACCOUNT ?? 'error',
-  PROOF_FOLDER_NAME: FOLER.ACCOUNT_PROOF ?? 'error',
+  EVIDENCE_FOLDER_NAME: FOLER.ACCOUNT_EVIDENCE ?? 'error',
   
   NOTICE_ATTACH_FOLDER_NAME: FOLER.NOTICE_ATTACH ?? 'error',
 
@@ -177,6 +179,7 @@ export const validateEnvironmentVariablesV2 = (): boolean => {
 
     c.ROOT_FOLDER_NAME,
 
+    c.DOCUMENT_FOLDER_NAME,
     c.SHARED_DOCUMENT_FOLDER_NAME,
     c.PERSONAL_DOCUMENT_FOLDER_NAME,
     c.SHARED_TEMPLATE_FOLDER_NAME,
@@ -185,7 +188,7 @@ export const validateEnvironmentVariablesV2 = (): boolean => {
     c.WORKFLOW_FOLDER_NAME,
 
     c.ACCOUNT_FOLDER_NAME,
-    c.PROOF_FOLDER_NAME,
+    c.EVIDENCE_FOLDER_NAME,
 
     c.NOTICE_ATTACH_FOLDER_NAME,
 
