@@ -30,7 +30,7 @@ interface WidgetData {
   order?: number; // 위젯 순서 (드래그 앤 드롭 순서)
 }
 
-const SHEET_NAME = ENV_CONFIG.DASHBOARD_SHEET_NAME;
+const SHEET_NAME = ENV_CONFIG.DASHBOARD_SHEET_NAME; // ENV v2: CONFIG_DASHBOARD_SHEET_NAME에서 오는 대시보드 시트
 const DATA_RANGE = `${SHEET_NAME}!A2:D`;
 
 // 위젯 옵션: 각 위젯 타입에 1-20 사이의 고정 ID를 할당합니다.

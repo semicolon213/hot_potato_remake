@@ -117,7 +117,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
           'ad_professor': 'ADJUNCT_PROFESSOR'
         };
         const emailKey = roleMap[role];
-        return emailKey ? ENV_CONFIG.GROUP_EMAILS[emailKey] : '';
+        return emailKey ? ENV_CONFIG.GROUP_EMAILS[emailKey] : ''; // ENV v2: VITE_GROUP_EMAIL 기반
       }).filter(email => email);
 
       const request: CreateAccountRequest = {

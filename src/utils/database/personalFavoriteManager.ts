@@ -106,7 +106,7 @@ export const fetchFavorites = async (): Promise<FavoriteData[]> => {
     }
 
     console.log('⭐ 즐겨찾기 로드 시작 (캐시 미스)...');
-    const data = await getSheetData(spreadsheetId, 'favorite');
+    const data = await getSheetData(spreadsheetId, 'favorite'); // 시트명 하드코딩 (personal config)
     
     if (!data || !data.values || data.values.length <= 1) {
       console.log('즐겨찾기 데이터가 없습니다.');

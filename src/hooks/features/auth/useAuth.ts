@@ -149,7 +149,7 @@ export const useAuth = (onLogin: (user: User) => void) => {
 
   // Google OAuth URL 생성 (리디렉션 방식)
   const buildGoogleOAuthUrl = (hint?: string): string => {
-    const clientId = ENV_CONFIG.GOOGLE_CLIENT_ID;
+    const clientId = ENV_CONFIG.GOOGLE_CLIENT_ID; // ENV v2: VITE_GOOGLE_CLIENT_ID 기반
     // 리디렉션 URI는 origin만 사용 (슬래시 없이)
     // Google Cloud Console에 등록된 URI와 정확히 일치해야 함
     const redirectUri = window.location.origin;

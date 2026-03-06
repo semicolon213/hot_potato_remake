@@ -95,7 +95,7 @@ export const getEvidenceFolderIdFromSpreadsheet = async (spreadsheetId: string):
 
     // 부모 폴더 내의 증빙 폴더 찾기
     const foldersResponse = await gapi.drive.files.list({
-      q: `'${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and name='${ENV_CONFIG.EVIDENCE_FOLDER_NAME}' and trashed=false`,
+      q: `'${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and name='${ENV_CONFIG.EVIDENCE_FOLDER_NAME}' and trashed=false`, // ENV v2: VITE_FOLER_NAME(ACCOUNT_EVIDENCE) 기반
       fields: 'files(id)',
       pageSize: 1
     });

@@ -77,7 +77,7 @@ export const fetchTags = async (): Promise<string[]> => {
     }
 
     console.log('🏷️ 개인 태그 로드 시작 (캐시 미스)...');
-    const data = await getSheetData(spreadsheetId, 'tag');
+    const data = await getSheetData(spreadsheetId, 'tag'); // 시트명 하드코딩 (personal config)
     
     if (!data || !data.values || data.values.length <= 1) {
       console.log('태그 데이터가 없습니다.');

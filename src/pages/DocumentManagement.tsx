@@ -214,7 +214,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
       let result;
 
       if (permissionType === 'shared') {
-        const groupEmails = selectedGroups.map(group => ENV_CONFIG.GROUP_EMAILS[group as keyof typeof ENV_CONFIG.GROUP_EMAILS]).filter(Boolean) as string[];
+        const groupEmails = selectedGroups.map(group => ENV_CONFIG.GROUP_EMAILS[group as keyof typeof ENV_CONFIG.GROUP_EMAILS]).filter(Boolean) as string[]; // ENV v2: VITE_GROUP_EMAIL 기반
         const allEditors = [...groupEmails, ...individualEmails.filter(email => email.trim())];
 
         result = await uploadSharedDocument(

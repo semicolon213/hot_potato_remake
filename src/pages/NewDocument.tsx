@@ -583,7 +583,7 @@ function NewDocument({
             });
 
             // 선택된 그룹들의 이메일 수집
-            const groupEmails = selectedGroups.map(group => ENV_CONFIG.GROUP_EMAILS[group]).filter(Boolean);
+            const groupEmails = selectedGroups.map(group => ENV_CONFIG.GROUP_EMAILS[group]).filter(Boolean); // ENV v2: VITE_GROUP_EMAIL 기반
             
             // 개별 이메일과 그룹 이메일 합치기 (생성자 이메일도 포함)
             const validIndividualEmails = individualEmails.filter(email => email && email.trim() !== '');
@@ -986,9 +986,9 @@ function NewDocument({
         try {
             console.log('🔍 개인 템플릿 폴더 찾기/생성 시작');
 
-            const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;
-            const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME;
-            const personalTemplateFolderName = ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME;
+            const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(ROOT) 기반
+            const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(DOCUMENT) 기반
+            const personalTemplateFolderName = ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_TEMP) 기반
 
             // 1단계: 루트에서 루트 폴더 찾기 또는 생성
             let hotPotatoResponse = await gapi.client.drive.files.list({

@@ -10,7 +10,7 @@ import { ENV_CONFIG } from '../../config/environment';
 import { tokenManager } from '../auth/tokenManager';
 import type { PapyrusAuth } from '../../types/google';
 
-const GOOGLE_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID; // ENV v2: VITE_GOOGLE_CLIENT_ID 기반
 
 // 중앙화된 Google API 초기화 상태 관리
 let isGoogleAPIInitialized = false;

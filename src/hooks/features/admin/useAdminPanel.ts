@@ -51,7 +51,7 @@ export const useAdminPanel = () => {
     try {
       console.log('📌 고정 공지 승인 요청 목록 로딩 시작');
       const response = await apiClient.request(API_ACTIONS.GET_PINNED_ANNOUNCEMENT_REQUESTS, {
-        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME
+        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
       });
 
       if (response.success) {
@@ -82,7 +82,7 @@ export const useAdminPanel = () => {
       console.log('📌 고정 공지 승인 요청:', announcementId);
 
       const response = await apiClient.request(API_ACTIONS.APPROVE_PINNED_ANNOUNCEMENT, {
-        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
         announcementId: announcementId,
         approvalAction: 'approve'
       });
@@ -115,7 +115,7 @@ export const useAdminPanel = () => {
       console.log('📌 고정 공지 거절 요청:', announcementId);
 
       const response = await apiClient.request(API_ACTIONS.APPROVE_PINNED_ANNOUNCEMENT, {
-        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
         announcementId: announcementId,
         approvalAction: 'reject'
       });

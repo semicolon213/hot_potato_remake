@@ -435,7 +435,7 @@ export function useTemplateUI(
                 console.log('📄 권한 부여 문서 생성:', { selectedTemplate, selectedGroups, individualEmails });
                 
                 // 선택된 그룹들을 이메일로 변환
-                const groupEmails = selectedGroups.map(groupKey => ENV_CONFIG.GROUP_EMAILS[groupKey as keyof typeof ENV_CONFIG.GROUP_EMAILS]);
+                const groupEmails = selectedGroups.map(groupKey => ENV_CONFIG.GROUP_EMAILS[groupKey as keyof typeof ENV_CONFIG.GROUP_EMAILS]); // ENV v2: VITE_GROUP_EMAIL 기반
                 // 빈 이메일은 제외
                 const validIndividualEmails = individualEmails.filter(email => email.trim() !== '');
                 const allEditors = [...groupEmails, ...validIndividualEmails];

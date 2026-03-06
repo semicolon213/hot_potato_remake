@@ -222,7 +222,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
 
     try {
       const response = await apiClient.request(API_ACTIONS.REQUEST_PINNED_ANNOUNCEMENT, {
-        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
         announcementId: post.id,
         userId: user.studentId
       });

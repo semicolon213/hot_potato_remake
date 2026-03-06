@@ -61,8 +61,8 @@ export const findPersonalConfigFile = async (): Promise<string | null> => {
     
     console.log('🔍 개인 설정 파일 찾기 시작');
     
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;
-    const configFileName = ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME;
+    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;             // ENV v2: FOLER.ROOT 기반 루트 폴더명
+    const configFileName = ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME;    // ENV v2: SPREADSHEET.CONFIG 기반 개인 설정 파일명
 
     // 1단계: 루트에서 루트 폴더 찾기
     const hotPotatoResponse = await window.gapi.client.drive.files.list({
@@ -239,7 +239,7 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
         sheets: [
           {
             properties: {
-              title: 'favorite',
+              title: 'favorite', // TODO: ENV_CONFIG 기반 시트명으로 치환 가능 (현재 하드코딩)
               gridProperties: {
                 rowCount: 1000,
                 columnCount: 2
@@ -248,7 +248,7 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
           },
           {
             properties: {
-              title: 'tag',
+              title: 'tag',      // TODO: ENV_CONFIG 기반 시트명으로 치환 가능 (현재 하드코딩)
               gridProperties: {
                 rowCount: 1000,
                 columnCount: 1
@@ -257,7 +257,7 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
           },
           {
             properties: {
-              title: 'user_custom',
+              title: 'user_custom', // TODO: ENV_CONFIG 기반 시트명으로 치환 가능 (현재 하드코딩)
               gridProperties: {
                 rowCount: 1000,
                 columnCount: 10
@@ -266,7 +266,7 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
           },
           {
             properties: {
-              title: 'schedule',
+              title: 'schedule', // TODO: ENV_CONFIG 기반 시트명으로 치환 가능 (현재 하드코딩)
               gridProperties: {
                 rowCount: 1000,
                 columnCount: 7
@@ -319,7 +319,7 @@ export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise
     
     const sheetsClient = window.gapi.client.sheets;
     
-    // favorite 시트 헤더 설정
+    // favorite 시트 헤더 설정 (시트명/헤더 하드코딩)
     await sheetsClient.spreadsheets.values.update({
       spreadsheetId: spreadsheetId,
       range: 'favorite!A1:B1',
@@ -329,7 +329,7 @@ export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise
       }
     });
 
-    // tag 시트 헤더 설정
+    // tag 시트 헤더 설정 (시트명/헤더 하드코딩)
     await sheetsClient.spreadsheets.values.update({
       spreadsheetId: spreadsheetId,
       range: 'tag!A1',
@@ -339,7 +339,7 @@ export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise
       }
     });
 
-    // user_custom 시트 헤더 설정
+    // user_custom 시트 헤더 설정 (시트명/헤더 하드코딩)
     await sheetsClient.spreadsheets.values.update({
       spreadsheetId: spreadsheetId,
       range: 'user_custom!A1:B1',
@@ -349,7 +349,7 @@ export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise
       }
     });
 
-    // schedule 시트 헤더 설정
+    // schedule 시트 헤더 설정 (시트명/헤더 하드코딩)
     await sheetsClient.spreadsheets.values.update({
       spreadsheetId: spreadsheetId,
       range: 'schedule!A1:G1',
@@ -359,7 +359,7 @@ export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise
       }
     });
 
-    // dashboard 시트 헤더 설정
+    // dashboard 시트 헤더 설정 (ENV v2: CONFIG_DASHBOARD_SHEET_NAME 기반)
     await sheetsClient.spreadsheets.values.update({
       spreadsheetId: spreadsheetId,
       range: `${ENV_CONFIG.DASHBOARD_SHEET_NAME}!A1:D1`,
@@ -401,7 +401,7 @@ export const initializePersonalConfigFile = async (): Promise<string | null> => 
         const existingSheets = spreadsheet.result.sheets?.map(sheet => sheet.properties?.title) || [];
         console.log('📄 기존 시트 목록:', existingSheets);
         
-        const requiredSheets = ['favorite', 'tag', 'user_custom', 'schedule', ENV_CONFIG.DASHBOARD_SHEET_NAME];
+        const requiredSheets = ['favorite', 'tag', 'user_custom', 'schedule', ENV_CONFIG.DASHBOARD_SHEET_NAME]; // TODO: 시트명 하드코딩, ENV 매핑으로 치환 검토
         const missingSheets = requiredSheets.filter(sheetName => !existingSheets.includes(sheetName));
         
         if (missingSheets.length > 0) {
@@ -440,7 +440,7 @@ export const initializePersonalConfigFile = async (): Promise<string | null> => 
             // 생성된 시트에 바로 헤더 설정
             let range = '';
             let values: string[][] = [];
-            if (sheetName === 'favorite') {
+            if (sheetName === 'favorite') { // 이하 range/헤더도 하드코딩
               range = 'favorite!A1:B1';
               values = [['type', 'favorite']];
             } else if (sheetName === 'tag') {

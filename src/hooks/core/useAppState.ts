@@ -36,7 +36,7 @@ interface WidgetData {
   props: Record<string, unknown>;
 }
 
-const WIDGET_SHEET_NAME = ENV_CONFIG.DASHBOARD_SHEET_NAME;
+const WIDGET_SHEET_NAME = ENV_CONFIG.DASHBOARD_SHEET_NAME; // ENV v2: CONFIG_DASHBOARD_SHEET_NAME 기반 위젯 시트
 const WIDGET_RANGE = `${WIDGET_SHEET_NAME}!A2:D`; // widget_id, widget_type, widget_order, widget_config
 
 const widgetOptions = [
@@ -129,7 +129,7 @@ export const useAppState = () => {
     const dragItem = useRef<number | null>(null);
     const dragOverItem = useRef<number | null>(null);
 
-    // 환경변수에서 시트 이름 가져오기
+    // 환경변수에서 시트 이름 가져오기 (ENV v2에서 DEFAULT_SHEET_NAME로 매핑됨)
     const announcementSheetName = ENV_CONFIG.ANNOUNCEMENT_SHEET_NAME;
     const calendarSheetName = ENV_CONFIG.CALENDAR_SHEET_NAME;
 

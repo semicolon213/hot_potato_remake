@@ -14,10 +14,10 @@ import { ENV_CONFIG } from './environment';
  */
 export const API_CONFIG = {
   // Apps Script 웹앱 URL (환경변수에서 가져오기)
-  APP_SCRIPT_URL: ENV_CONFIG.APP_SCRIPT_URL,
+  APP_SCRIPT_URL: ENV_CONFIG.APP_SCRIPT_URL, // ENV v2: VITE_APP_SCRIPT_URL 기반
   
   // Google Client ID (기존 환경변수)
-  GOOGLE_CLIENT_ID: ENV_CONFIG.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_ID: ENV_CONFIG.GOOGLE_CLIENT_ID, // ENV v2: VITE_GOOGLE_CLIENT_ID 기반
   
   // API 타임아웃 (밀리초)
   TIMEOUT: 60000, // 60초로 증가

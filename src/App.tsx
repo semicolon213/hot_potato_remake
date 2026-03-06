@@ -1149,7 +1149,7 @@ const App: React.FC = () => {
 
   // 승인된 사용자 - develop의 레이아웃과 디자인 유지
   return (
-    <GoogleOAuthProvider clientId={ENV_CONFIG.GOOGLE_CLIENT_ID}>
+    <GoogleOAuthProvider clientId={ENV_CONFIG.GOOGLE_CLIENT_ID}>{/* ENV v2: VITE_GOOGLE_CLIENT_ID 기반 */}
       <ErrorBoundary>
       <OfflineBanner isOnline={isOnline} />
       <div className="app-container" data-oid="g1w-gjq">

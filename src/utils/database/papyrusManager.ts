@@ -175,12 +175,12 @@ export const initializeSpreadsheetIds = async (): Promise<{
         try {
         // 환경변수에서 스프레드시트 이름 목록 가져오기 (hp_potato_DB는 개인 설정 파일로 분리)
         const spreadsheetNames = [
-            ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+            ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,           // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
             ENV_CONFIG.CALENDAR_PROFESSOR_SPREADSHEET_NAME,
             ENV_CONFIG.CALENDAR_STUDENT_SPREADSHEET_NAME,
             ENV_CONFIG.CALENDAR_COUNCIL_SPREADSHEET_NAME,
-            ENV_CONFIG.CALENDAR_ADPROFESSOR_SPREADSHEET_NAME,
-            ENV_CONFIG.CALENDAR_SUPP_SPREADSHEET_NAME,
+            ENV_CONFIG.CALENDAR_ADPROFESSOR_SPREADSHEET_NAME,   // ENV v2: CALENDAR_ADJ_PROFESSOR_SPREADSHEET_NAME 매핑
+            ENV_CONFIG.CALENDAR_SUPP_SPREADSHEET_NAME,          // ENV v2: CALENDAR_ASSISTANT_SPREADSHEET_NAME 매핑
             ENV_CONFIG.STUDENT_SPREADSHEET_NAME,
             ENV_CONFIG.STAFF_SPREADSHEET_NAME
         ];
@@ -217,7 +217,7 @@ export const initializeSpreadsheetIds = async (): Promise<{
             console.warn('⚠️ 찾지 못한 스프레드시트:', response.notFound);
         }
 
-        // 결과 매핑 (hp_potato_DB는 개인 설정 파일로 별도 초기화)
+        // 결과 매핑 (hp_potato_DB는 개인 설정 파일로 별도 초기화, ENV v2 키 기준)
         const announcementId = ids[ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME] || null;
         const calendarProfessorId = ids[ENV_CONFIG.CALENDAR_PROFESSOR_SPREADSHEET_NAME] || null;
         const calendarStudentId = ids[ENV_CONFIG.CALENDAR_STUDENT_SPREADSHEET_NAME] || null;
@@ -321,7 +321,7 @@ export const fetchAnnouncements = async (userId: string, userType: string): Prom
         console.log(`Fetching announcements via Apps Script API for user: ${userId}, type: ${userType}`);
         
         const response = await apiClient.request('getAnnouncements', {
-            spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+            spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME에서 온 공지 스프레드시트명
             userId: userId,
             userType: userType
         });
@@ -382,7 +382,7 @@ const uploadFileToDrive = async (file: File): Promise<{ name: string, url: strin
         throw new Error('Google Access Token not found or expired');
     }
 
-    const folderId = '1nXDKPPjHZVQu_qqng4O5vu1sSahDXNpD';
+    const folderId = '1nXDKPPjHZVQu_qqng4O5vu1sSahDXNpD'; // TODO: 환경변수로 분리 검토 (하드코딩된 Drive 폴더 ID)
 
     const fileMetadata = {
         name: file.name,
@@ -469,7 +469,7 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
             const fullImgTag = match[0]; // The entire <img ...> tag
             const base64Src = match[1]; // The base64 data URL
             const blob = dataURLtoBlob(base64Src);
-            const folderId = '1nXDKPPjHZVQu_qqng4O5vu1sSahDXNpD'; // Assuming a fixed folder ID
+            const folderId = '1nXDKPPjHZVQu_qqng4O5vu1sSahDXNpD'; // TODO: 환경변수로 분리 검토 (하드코딩된 Drive 폴더 ID)
 
             const fileMetadata = {
                 name: `announcement-image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -593,7 +593,7 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
         let response;
         try {
             response = await apiClient.request('createAnnouncement', {
-                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
                 writerEmail: postData.writerEmail,
                 writerName: postData.author,
                 title: postData.title,
@@ -623,7 +623,7 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
         // 고정 공지 요청 (isPinned가 true이고 fix_notice가 '-'가 아닌 경우)
         if (postData.isPinned && response.data?.announcementId) {
             await apiClient.request('requestPinnedAnnouncement', {
-                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
                 announcementId: response.data.announcementId,
                 userId: postData.writer_id
             });
@@ -647,7 +647,7 @@ export const incrementViewCount = async (announcementId: string): Promise<void> 
         }
 
         const response = await apiClient.request('incrementAnnouncementView', {
-            spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+            spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
             announcementId: announcementId
         });
 
@@ -755,7 +755,7 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
         let response;
         try {
             response = await apiClient.request('updateAnnouncement', {
-                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
                 announcementId: announcementId,
                 userId: userId,
                 title: postData.title,
@@ -776,7 +776,7 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
         if (postData.isPinned && response.success) {
             try {
                 await apiClient.request('requestPinnedAnnouncement', {
-                    spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+                    spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
                     announcementId: announcementId,
                     userId: userId
                 });
@@ -837,7 +837,7 @@ export const deleteAnnouncement = async (spreadsheetId: string, announcementId: 
         let response;
         try {
             response = await apiClient.request('deleteAnnouncement', {
-                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
                 announcementId: announcementId,
                 userId: userId
             });
@@ -918,7 +918,7 @@ export const fetchCalendarEvents = async (): Promise<Event[]> => {
         for (const spreadsheetId of allCalendarIds) {
             try {
                 console.log(`Fetching calendar events from spreadsheet: ${spreadsheetId}`);
-                const data = await getSheetData(spreadsheetId, ENV_CONFIG.CALENDAR_SHEET_NAME);
+                const data = await getSheetData(spreadsheetId, ENV_CONFIG.CALENDAR_SHEET_NAME); // ENV v2: DEFAULT_SHEET_NAME 기반 캘린더 시트명
 
                 if (data && data.values && data.values.length > 1) {
                     const events = data.values.slice(1).map((row: string[], index: number) => ({
@@ -967,7 +967,7 @@ export const addCalendarEvent = async (spreadsheetId: string, eventData: Omit<Ev
             throw new Error('Calendar spreadsheet ID not found');
         }
 
-        const data = await getSheetData(spreadsheetId, ENV_CONFIG.CALENDAR_SHEET_NAME);
+        const data = await getSheetData(spreadsheetId, ENV_CONFIG.CALENDAR_SHEET_NAME); // ENV v2: DEFAULT_SHEET_NAME 기반 캘린더 시트명
         const existingIds = data && data.values ? data.values.slice(1).map(row => row[0]).filter(id => id && id.includes('-cal-')).map(id => parseInt(id.split('-').pop() || '0', 10)).filter(num => !isNaN(num)) : [];
         const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
         const newEventId = `${userType}-cal-${maxId + 1}`;
@@ -1208,7 +1208,7 @@ export const fetchStudents = async (spreadsheetId?: string): Promise<Student[]> 
         }
 
         console.log(`👥 학생 목록 로드 시작 (캐시 미스): ${targetSpreadsheetId}, sheet: ${ENV_CONFIG.STUDENT_SHEET_NAME}`);
-        const data = await getSheetData(targetSpreadsheetId, ENV_CONFIG.STUDENT_SHEET_NAME);
+        const data = await getSheetData(targetSpreadsheetId, ENV_CONFIG.STUDENT_SHEET_NAME); // ENV v2: INFO_SHEET_NAME 기반 학생 시트명
         console.log('Students data received:', data);
 
         if (!data || !data.values || data.values.length <= 1) {
@@ -1261,7 +1261,7 @@ export const deleteStudent = async (spreadsheetId: string, studentNo: string): P
 
         setupPapyrusAuth();
 
-        const sheetName = ENV_CONFIG.STUDENT_SHEET_NAME;
+        const sheetName = ENV_CONFIG.STUDENT_SHEET_NAME; // ENV v2: INFO_SHEET_NAME 기반 학생 시트명
 
         // Get sheet metadata to find the correct sheetId
         const spreadsheet = await window.gapi.client.sheets.spreadsheets.get({
@@ -1416,7 +1416,7 @@ export const fetchStudentIssues = async (studentNo: string): Promise<StudentIssu
         }
 
         console.log(`📋 학생 이슈 로드 시작 (캐시 미스): ${studentNo}`);
-        const data = await getSheetData(studentSpreadsheetId, ENV_CONFIG.STUDENT_ISSUE_SHEET_NAME);
+        const data = await getSheetData(studentSpreadsheetId, ENV_CONFIG.STUDENT_ISSUE_SHEET_NAME); // ENV v2: ISSUE_SHEET_NAME 기반 학생 이슈 시트명
 
         if (!data || !data.values || data.values.length <= 1) {
             return [];
@@ -1738,7 +1738,7 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
     }
 
     console.log('👨‍💼 교직원 목록 로드 시작 (Papyrus, 캐시 미스)...');
-    const data = await getSheetData(staffSpreadsheetId, ENV_CONFIG.STAFF_INFO_SHEET_NAME);
+    const data = await getSheetData(staffSpreadsheetId, ENV_CONFIG.STAFF_INFO_SHEET_NAME); // ENV v2: INFO_SHEET_NAME 기반 교직원 시트명
 
     if (!data || !data.values || data.values.length === 0) {
       return [];
@@ -1855,7 +1855,7 @@ export const fetchCommitteeFromPapyrus = async (spreadsheetId: string): Promise<
     }
 
     console.log('👥 위원회 목록 로드 시작 (캐시 미스)...');
-    const data = await getSheetData(staffSpreadsheetId, ENV_CONFIG.STAFF_COMMITTEE_SHEET_NAME);
+    const data = await getSheetData(staffSpreadsheetId, ENV_CONFIG.STAFF_COMMITTEE_SHEET_NAME); // ENV v2: COMMITTEE_SHEET_NAME 기반 위원회 시트명
 
     if (!data || !data.values || data.values.length === 0) {
       return [];

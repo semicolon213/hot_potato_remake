@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { ENV_CONFIG } from '../../config/environment';
 import { tokenManager } from '../auth/tokenManager';
 
-const GOOGLE_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID; // ENV v2: VITE_GOOGLE_CLIENT_ID에서 읽는 클라이언트 ID
 
 let isGoogleAPIInitialized = false;
 let googleAPIInitPromise: Promise<void> | null = null;
@@ -324,7 +324,7 @@ export const getAccountingCategorySummary = async (spreadsheetId: string): Promi
       };
     }
     
-    // "장부" 시트 데이터 가져오기
+    // "장부" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
     const data = await getSheetData(spreadsheetId, '장부');
     
     if (!data || !data.values || data.values.length < 2) {
@@ -404,7 +404,7 @@ export const getLedgerBalance = async (spreadsheetId: string): Promise<number> =
       };
     }
     
-    // "통장" 시트 데이터 가져오기
+    // "통장" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
     const data = await getSheetData(spreadsheetId, '통장');
     
     if (!data || !data.values || data.values.length < 2) {
@@ -466,7 +466,7 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
       };
     }
     
-    // papyrus-db로 "예산계획" 시트 데이터 가져오기
+    // papyrus-db로 "예산계획" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
     const data = await getSheetData(spreadsheetId, '예산계획');
     
     if (!data || !data.values || data.values.length < 2) {
@@ -474,7 +474,7 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
       return [];
     }
     
-    // 통장 정보 먼저 가져오기 (account_id -> 관리인 매핑)
+    // 통장 정보 먼저 가져오기 (account_id -> 관리인 매핑, 시트명 하드코딩)
     const accountData = await getSheetData(spreadsheetId, '통장');
     const accountMap: Record<string, { mainManagerId: string; subManagerIds: string[] }> = {};
     
@@ -751,9 +751,9 @@ export const findPersonalDocumentFolder = async (): Promise<string | null> => {
 
   try {
     const { ENV_CONFIG } = await import('../../config/environment');
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;
-    const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME;
-    const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME;
+    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(ROOT) 기반
+    const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(DOCUMENT) 기반
+    const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_DOC) 기반
 
     // 1단계: 루트에서 루트 폴더 찾기
     const hotPotatoResponse = await gapi.client.drive.files.list({
@@ -795,7 +795,7 @@ export const findPersonalDocumentFolder = async (): Promise<string | null> => {
 
     if (!personalDocResponse.result.files || personalDocResponse.result.files.length === 0) {
       const { ENV_CONFIG } = await import('../../config/environment');
-      const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME;
+      const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_DOC) 기반
       console.log(`❌ ${personalDocFolderName} 폴더를 찾을 수 없습니다. 폴더를 생성합니다.`);
       
       // 개인 문서 폴더 생성
@@ -1038,7 +1038,7 @@ export const deleteRowsByDocIds = async (
           };
         }
         
-        // papyrus-db로 "카테고리" 시트 데이터 가져오기
+        // papyrus-db로 "카테고리" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
         const data = await getSheetData(spreadsheetId, '카테고리');
         
         if (!data || !data.values || data.values.length <= 1) {

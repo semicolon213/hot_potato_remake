@@ -47,9 +47,9 @@ export function usePersonalTemplates() {
             console.log('🔍 개인 템플릿 폴더 찾기/생성 시작');
 
             const { ENV_CONFIG } = await import('../../../config/environment');
-            const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;
-            const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME;
-            const personalTemplateFolderName = ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME;
+            const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(ROOT) 기반
+            const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(DOCUMENT) 기반
+            const personalTemplateFolderName = ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_TEMP) 기반
 
             // 1단계: 루트에서 루트 폴더 찾기 또는 생성
             let hotPotatoResponse = await gapi.client.drive.files.list({

@@ -167,7 +167,7 @@ export const getLedgerFolders = async (): Promise<LedgerInfo[]> => {
     // 폴더만 필터링 (장부 폴더)
     const folders = response.result.files.filter((item: DriveFile) => 
       item.mimeType === 'application/vnd.google-apps.folder' &&
-      item.name !== ENV_CONFIG.EVIDENCE_FOLDER_NAME
+      item.name !== ENV_CONFIG.EVIDENCE_FOLDER_NAME // ENV v2: VITE_FOLER_NAME(ACCOUNT_EVIDENCE) 기반
     );
 
     console.log('📁 필터링된 장부 폴더 수:', folders.length);
@@ -236,7 +236,7 @@ export const getLedgerInfo = async (folderId: string): Promise<LedgerInfo | null
     // 증빙 폴더 찾기
     const evidenceFolder = filesResponse.result.files?.find((file: DriveFile) => 
       file.mimeType === 'application/vnd.google-apps.folder' && 
-      file.name === ENV_CONFIG.EVIDENCE_FOLDER_NAME
+      file.name === ENV_CONFIG.EVIDENCE_FOLDER_NAME // ENV v2: VITE_FOLER_NAME(ACCOUNT_EVIDENCE) 기반
     );
     if (evidenceFolder) {
       evidenceFolderId = evidenceFolder.id;
