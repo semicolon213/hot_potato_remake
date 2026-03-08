@@ -8,34 +8,111 @@
 
 /**
  * 스프레드시트 이름으로 ID 찾기
- * @param {string} sheetName - 스프레드시트 이름
- * @returns {string} 스프레드시트 ID
+ * - 검색 범위: "프로젝트 루트 폴더" 하위만 검색 (드라이브 전체 검색 X)
+ * - 루트 폴더 결정: 1) ROOT_FOLDER_ID(환경변수) 있으면 우선, 2) 없으면 hp_member 부모 폴더
+ *   (웹앱/트리거 등에서는 hp_member를 못 쓸 수 있으므로 ROOT_FOLDER_ID 설정 권장)
+ *
+ * @param {string} sheetName - 찾을 스프레드시트 파일 이름 (예: 'static_tag', '워크플로우_관리')
+ * @returns {string|null} 스프레드시트 ID, 없으면 null
  */
 function getSheetIdByName(sheetName) {
   try {
     console.log('📊 스프레드시트 ID 찾기 시작:', sheetName);
 
-    const query = `name='${sheetName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
-    console.log('📊 스프레드시트 검색 쿼리:', query);
+    var rootFolder = null;
+    var props = PropertiesService.getScriptProperties();
 
-    const files = Drive.Files.list({
-      q: query,
-      fields: 'files(id,name)'
-    });
+    // ----- 1) 스크립트 속성 ROOT_FOLDER_ID (명시적으로 지정한 경우만 우선) -----
+    var rootFolderId = props && props.getProperty('ROOT_FOLDER_ID');
+    if (rootFolderId) {
+      try {
+        rootFolder = DriveApp.getFolderById(rootFolderId);
+        console.log('📁 루트 폴더 (ROOT_FOLDER_ID):', rootFolder.getId());
+      } catch (e) {
+        console.warn('📁 ROOT_FOLDER_ID 사용 불가:', e.message);
+      }
+    }
 
-    if (files.files && files.files.length > 0) {
-      const spreadsheetId = files.files[0].id;
-      console.log('📊 스프레드시트 ID 찾기 성공:', spreadsheetId);
-      return spreadsheetId;
-    } else {
-      console.warn('📊 스프레드시트를 찾을 수 없습니다:', sheetName);
+    // ----- 2) hp_member 스프레드시트의 부모 폴더 (실제 프로젝트 폴더) -----
+    if (!rootFolder) {
+      try {
+        var hpSpreadsheet = getHpMemberSpreadsheet();
+        if (hpSpreadsheet) {
+          var file = DriveApp.getFileById(hpSpreadsheet.getId());
+          var parents = file.getParents();
+          if (parents.hasNext()) {
+            rootFolder = parents.next();
+            console.log('📁 루트 폴더 (hp_member 부모):', rootFolder.getId());
+          }
+        }
+      } catch (e) {
+        console.warn('📁 hp_member 부모 폴더 사용 불가:', e.message);
+      }
+    }
+
+    if (!rootFolder) {
+      console.warn('📁 루트 폴더를 찾을 수 없습니다. 스크립트 속성 ROOT_FOLDER_ID 또는 hp_member 연결을 확인하세요.');
       return null;
     }
+
+    // ----- 루트 폴더 + 모든 하위 폴더에서 sheetName과 같은 이름의 구글 시트만 검색 -----
+    var foundFiles = findSpreadsheetInFolderTreeByName_(rootFolder, sheetName);
+
+    if (!foundFiles || foundFiles.length === 0) {
+      console.warn('📊 루트 폴더 하위에서 스프레드시트를 찾을 수 없습니다:', sheetName);
+      return null;
+    }
+
+    if (foundFiles.length > 1) {
+      console.warn('⚠️ 루트 폴더 하위에 같은 이름의 스프레드시트가 여러 개 있습니다. 첫 번째 파일만 사용합니다. 개수:', foundFiles.length);
+    }
+
+    const spreadsheetId = foundFiles[0].getId();
+    console.log('📊 스프레드시트 ID 찾기 성공 (루트 폴더 하위 검색):', spreadsheetId);
+    return spreadsheetId;
 
   } catch (error) {
     console.error('📊 스프레드시트 ID 찾기 오류:', error);
     return null;
   }
+}
+
+/**
+ * 폴더 트리(현재 폴더 + 모든 하위 폴더)에서 이름이 일치하는 구글 스프레드시트만 찾기
+ * - getSheetIdByName에서 "프로젝트 루트 하위만 검색"할 때 사용
+ * - 루트 직하위뿐 아니라 하위 폴더(예: 문서/static_tag)까지 재귀 검색
+ *
+ * @param {Folder} folder - 검색 시작 폴더 (루트 또는 하위 폴더)
+ * @param {string} sheetName - 찾을 스프레드시트 파일 이름
+ * @returns {Array<File>} 발견된 구글 시트 파일 목록 (MimeType.GOOGLE_SHEETS만 포함)
+ */
+function findSpreadsheetInFolderTreeByName_(folder, sheetName) {
+  const result = [];
+
+  try {
+    // 현재 폴더에서 이름이 sheetName인 파일만 검색 (동명 폴더/문서는 제외)
+    const files = folder.getFilesByName(sheetName);
+    while (files.hasNext()) {
+      const file = files.next();
+      if (file.getMimeType && file.getMimeType() === MimeType.GOOGLE_SHEETS) {
+        result.push(file);
+      }
+    }
+
+    // 하위 폴더를 재귀적으로 탐색 (예: hot potato → 문서 → static_tag)
+    const subFolders = folder.getFolders();
+    while (subFolders.hasNext()) {
+      const subFolder = subFolders.next();
+      const subResults = findSpreadsheetInFolderTreeByName_(subFolder, sheetName);
+      if (subResults && subResults.length > 0) {
+        result.push.apply(result, subResults);
+      }
+    }
+  } catch (error) {
+    console.error('📁 폴더 트리에서 스프레드시트 검색 오류:', error);
+  }
+
+  return result;
 }
 
 /**
