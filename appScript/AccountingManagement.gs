@@ -14,11 +14,15 @@ function initializeAccountingFolder() {
   try {
     console.log('📁 회계 폴더 초기화 시작');
     
-    // 루트 폴더 찾기
-    const rootFolderName = 'hot potato'; // 환경변수에서 가져오기
-    const accountingFolderName = '회계';
+    // 루트 폴더 찾기 (스크립트 속성 또는 기본값)
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    const accountingFolderName = PropertiesService.getScriptProperties().getProperty('ACCOUNT_FOLDER_NAME') || 'account';
     
-    const rootFolder = DriveApp.getFoldersByName(rootFolderName).next();
+    const rootFolders = DriveApp.getFoldersByName(rootFolderName);
+    if (!rootFolders.hasNext()) {
+      throw new Error('루트 폴더를 찾을 수 없습니다: ' + rootFolderName);
+    }
+    const rootFolder = rootFolders.next();
     
     // 회계 폴더 찾기 또는 생성
     let accountingFolder;

@@ -15,7 +15,7 @@ function getStaticTags(req) {
     
     // 스크립트 속성에서 설정 가져오기
     const spreadsheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SPREADSHEET_NAME') || 'static_tag';
-    const sheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || 'tag';
+    const sheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || '시트1';
     
     console.log('📊 기본 태그 스프레드시트:', spreadsheetName, '시트:', sheetName);
     
@@ -127,7 +127,7 @@ function addStaticTag(req) {
     
     // 스크립트 속성에서 설정 가져오기
     const spreadsheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SPREADSHEET_NAME') || 'static_tag';
-    const sheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || 'tag';
+    const sheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || '시트1';
     
     // 스프레드시트 ID 찾기
     const spreadsheetId = getSheetIdByName(spreadsheetName);
@@ -231,7 +231,7 @@ function updateStaticTag(req) {
     
     // 스크립트 속성에서 설정 가져오기
     const spreadsheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SPREADSHEET_NAME') || 'static_tag';
-    const sheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || 'tag';
+    const sheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || '시트1';
     
     // 스프레드시트 ID 찾기
     const spreadsheetId = getSheetIdByName(spreadsheetName);
@@ -390,7 +390,7 @@ function deleteStaticTag(req) {
     
     // 스크립트 속성에서 설정 가져오기
     const spreadsheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SPREADSHEET_NAME') || 'static_tag';
-    const sheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || 'tag';
+    const sheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || '시트1';
     
     // 스프레드시트 ID 찾기
     const spreadsheetId = getSheetIdByName(spreadsheetName);
@@ -581,9 +581,9 @@ function findSharedTemplatesByTag(tag) {
 function findPersonalTemplatesByTag(tag) {
   try {
     // 개인 템플릿 폴더 경로 구성
-    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot potato';
-    const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || '문서';
-    const personalTemplateFolderName = PropertiesService.getScriptProperties().getProperty('PERSONAL_TEMPLATE_FOLDER_NAME') || '개인 양식';
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || 'document';
+    const personalTemplateFolderName = PropertiesService.getScriptProperties().getProperty('PERSONAL_TEMPLATE_FOLDER_NAME') || 'personal_forms';
     const folderPath = rootFolderName + '/' + documentFolderName + '/' + personalTemplateFolderName;
     
     var folderRes = findOrCreateFolder(folderPath);

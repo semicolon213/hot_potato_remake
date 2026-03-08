@@ -5,30 +5,57 @@
  */
 
 export const ENV_CONFIG = {
-  // Google API 설정
   GOOGLE_CLIENT_ID: 'test-client-id',
-  
-  // Apps Script URL
   APP_SCRIPT_URL: 'https://script.google.com/macros/s/test/exec',
-  
-  // 스프레드시트 이름들 (ID는 동적으로 가져옴)
-  HOT_POTATO_DB_SPREADSHEET_NAME: 'hot_potato_DB',
+  PAPYRUS_DB_URL: '',
+  PAPYRUS_DB_API_KEY: 'test-api-key',
+
+  HOT_POTATO_DB_SPREADSHEET_NAME: 'user_config',
   ANNOUNCEMENT_SPREADSHEET_NAME: 'notice',
   CALENDAR_PROFESSOR_SPREADSHEET_NAME: 'calendar_professor',
+  CALENDAR_COUNCIL_SPREADSHEET_NAME: 'calendar_council',
+  CALENDAR_ADPROFESSOR_SPREADSHEET_NAME: 'calendar_adj_professor',
+  CALENDAR_SUPP_SPREADSHEET_NAME: 'calendar_assistant',
   CALENDAR_STUDENT_SPREADSHEET_NAME: 'calendar_student',
   STUDENT_SPREADSHEET_NAME: 'student',
-  
-  // 시트 이름들 (원래 코드와 동일하게 수정)
+  STAFF_SPREADSHEET_NAME: 'staff',
+
   ANNOUNCEMENT_SHEET_NAME: '시트1',
   CALENDAR_SHEET_NAME: '시트1',
   STUDENT_SHEET_NAME: 'info',
   STUDENT_ISSUE_SHEET_NAME: 'std_issue',
-  STAFF_SHEET_NAME: '시트1',
-  DASHBOARD_SHEET_NAME: 'user_custom',
-  
-  // Papyrus DB 설정
-  PAPYRUS_DB_URL: '',
-  PAPYRUS_DB_API_KEY: 'test-api-key',
+  STAFF_INFO_SHEET_NAME: 'info',
+  STAFF_COMMITTEE_SHEET_NAME: 'committee',
+  DASHBOARD_SHEET_NAME: 'dashboard',
+  MENU_SHEET_NAME: '',
+  CONFIG_FAVORITE_SHEET_NAME: 'favorite',
+  CONFIG_TAG_SHEET_NAME: 'tag',
+  CONFIG_SCHEDULE_SHEET_NAME: 'schedule',
+
+  WORKFLOW_TEMPLATE_SHEET_NAME: 'workflow_templates',
+  WORKFLOW_HISTORY_SHEET_NAME: 'workflow_history',
+  WORKFLOW_DOCUMENT_SHEET_NAME: 'workflow_documents',
+
+  GROUP_EMAILS: {
+    STUDENT: '',
+    COUNCIL: '',
+    PROFESSOR: '',
+    ADJUNCT_PROFESSOR: '',
+    ASSISTANT: '',
+  },
+
+  ROOT_FOLDER_NAME: 'hot_potato_remake',
+  DOCUMENT_FOLDER_NAME: 'document',
+  SHARED_DOCUMENT_FOLDER_NAME: 'shared_documents',
+  PERSONAL_DOCUMENT_FOLDER_NAME: 'personal_documents',
+  TEMPLATE_FOLDER_NAME: 'shared_forms',
+  SHARED_TEMPLATE_FOLDER_NAME: 'shared_forms',
+  PERSONAL_TEMPLATE_FOLDER_NAME: 'personal_forms',
+  ACCOUNTING_FOLDER_NAME: 'account',
+  EVIDENCE_FOLDER_NAME: 'evidence',
+  NOTICE_ATTACH_FOLDER_NAME: 'attached_file',
+
+  PERSONAL_CONFIG_FILE_NAME: 'user_config',
 } as const;
 
 export const validateEnvironmentVariables = (): boolean => {

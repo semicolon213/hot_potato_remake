@@ -1,7 +1,7 @@
 /**
  * @file usePersonalTemplates.ts
  * @brief 개인 템플릿 관리 훅
- * @details 사용자의 개인 드라이브에서 "hot potato/문서/개인 양식" 폴더의 템플릿을 가져오는 훅입니다.
+ * @details 사용자의 개인 드라이브에서 "hot_potato_remake/document/personal_forms" 폴더의 템플릿을 가져오는 훅입니다.
  * @author Hot Potato Team
  * @date 2024
  */
@@ -40,7 +40,7 @@ export function usePersonalTemplates() {
 
     /**
      * @brief Google Drive API로 개인 템플릿 폴더 찾기 또는 생성
-     * @details "hot potato/문서/개인 양식" 폴더 경로를 단계별로 탐색하고, 없으면 자동으로 생성합니다.
+     * @details "hot_potato_remake/document/personal_forms" 폴더 경로를 단계별로 탐색하고, 없으면 자동으로 생성합니다.
      */
     const findPersonalTemplateFolder = useCallback(async (): Promise<string | null> => {
         try {
@@ -151,7 +151,7 @@ export function usePersonalTemplates() {
             // 개인 템플릿 폴더 찾기
             const folderId = await findPersonalTemplateFolder();
             if (!folderId) {
-                setError('개인 템플릿 폴더를 찾을 수 없습니다. hot potato/문서/개인 양식 폴더가 존재하는지 확인해주세요.');
+                setError('개인 템플릿 폴더를 찾을 수 없습니다. hot_potato_remake/document/personal_forms 폴더가 존재하는지 확인해주세요.');
                 return;
             }
 

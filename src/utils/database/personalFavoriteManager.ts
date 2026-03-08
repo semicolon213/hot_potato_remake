@@ -11,6 +11,7 @@ import { deleteRow } from 'papyrus-db/dist/sheets/delete';
 import { getCacheManager } from '../cache/cacheManager';
 import { generateCacheKey } from '../cache/cacheUtils';
 import { tokenManager } from '../auth/tokenManager';
+import { ENV_CONFIG } from '../../config/environment';
 import { 
   getPersonalConfigSpreadsheetId,
   initializePersonalConfigFile,
@@ -106,7 +107,7 @@ export const fetchFavorites = async (): Promise<FavoriteData[]> => {
     }
 
     console.log('⭐ 즐겨찾기 로드 시작 (캐시 미스)...');
-    const data = await getSheetData(spreadsheetId, 'favorite'); // 시트명 하드코딩 (personal config)
+    const data = await getSheetData(spreadsheetId, ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME);
     
     if (!data || !data.values || data.values.length <= 1) {
       console.log('즐겨찾기 데이터가 없습니다.');
@@ -168,7 +169,7 @@ export const addFavorite = async (favoriteData: FavoriteData): Promise<boolean> 
       return true;
     }
 
-    await append(spreadsheetId, 'favorite', [[favoriteData.type, favoriteData.favorite]]);
+    await append(spreadsheetId, ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME, [[favoriteData.type, favoriteData.favorite]]);
     console.log('✅ 즐겨찾기 추가 완료:', favoriteData);
     
     // 캐시 무효화
@@ -200,7 +201,7 @@ export const removeFavorite = async (favoriteData: FavoriteData): Promise<boolea
       return false;
     }
 
-    const data = await getSheetData(spreadsheetId, 'favorite');
+    const data = await getSheetData(spreadsheetId, ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME);
     
     if (!data || !data.values || data.values.length <= 1) {
       console.log('삭제할 즐겨찾기가 없습니다.');
@@ -220,9 +221,9 @@ export const removeFavorite = async (favoriteData: FavoriteData): Promise<boolea
     }
 
     // 실제 시트 ID 가져오기
-    const sheetId = await getSheetId(spreadsheetId, 'favorite');
+    const sheetId = await getSheetId(spreadsheetId, ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME);
     if (!sheetId) {
-      console.error('favorite 시트 ID를 찾을 수 없습니다.');
+      console.error(`${ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME} 시트 ID를 찾을 수 없습니다.`);
       return false;
     }
 

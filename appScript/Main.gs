@@ -59,6 +59,28 @@ function doPost(e) {
       }
     }
     
+    // 일괄 복호화 (여러 값을 한 번의 API 호출로 처리)
+    if (req.action === 'decryptEmailBatch') {
+      const values = req.data;
+      if (!Array.isArray(values)) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ success: false, message: 'data는 배열이어야 합니다.' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      try {
+        const decrypted = values.map(function(v) { return decryptEmailMain(v || ''); });
+        console.log('🔓 일괄 복호화 완료:', values.length, '개');
+        return ContentService
+          .createTextOutput(JSON.stringify({ success: true, data: decrypted }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('🔓 일괄 복호화 오류:', error);
+        return ContentService
+          .createTextOutput(JSON.stringify({ success: false, message: '복호화 중 오류가 발생했습니다: ' + error.message }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
     // 문서 생성 액션 처리
     if (req.action === 'createDocument') {
       console.log('📄 문서 생성 요청 받음:', req);
@@ -1765,9 +1787,9 @@ function moveDocumentToSharedFolder(documentId) {
     const file = DriveApp.getFileById(documentId);
     
     // 폴더 경로: 환경변수 또는 기본값 사용
-    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot potato';
-    const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || '문서';
-    const sharedFolderName = PropertiesService.getScriptProperties().getProperty('SHARED_DOCUMENT_FOLDER_NAME') || '공유 문서';
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || 'document';
+    const sharedFolderName = PropertiesService.getScriptProperties().getProperty('SHARED_DOCUMENT_FOLDER_NAME') || 'shared_documents';
     const targetFolder = findOrCreateFolderPath([rootFolderName, documentFolderName, sharedFolderName]);
     
     if (!targetFolder) {
@@ -1809,9 +1831,9 @@ function moveDocumentToSharedFolderWithModule(documentId) {
     const file = DriveApp.getFileById(documentId);
     
     // 폴더 경로: 환경변수 또는 기본값 사용
-    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot potato';
-    const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || '문서';
-    const sharedFolderName = PropertiesService.getScriptProperties().getProperty('SHARED_DOCUMENT_FOLDER_NAME') || '공유 문서';
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || 'document';
+    const sharedFolderName = PropertiesService.getScriptProperties().getProperty('SHARED_DOCUMENT_FOLDER_NAME') || 'shared_documents';
     const folderPath = rootFolderName + '/' + documentFolderName + '/' + sharedFolderName;
     const targetFolder = DocumentFolder.findOrCreateFolder(folderPath);
     

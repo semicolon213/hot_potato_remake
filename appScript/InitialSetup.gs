@@ -26,7 +26,7 @@ function initializeSystem() {
     if (!rootFolder) {
       throw new Error('루트 폴더를 찾거나 생성할 수 없습니다.');
     }
-    results.folders.push({ name: 'hot potato', id: rootFolder.getId() });
+    results.folders.push({ name: rootFolderName, id: rootFolder.getId() });
     console.log('✅ 루트 폴더 확인:', rootFolder.getId());
     
     // 2. 폴더 구조 생성
@@ -65,7 +65,7 @@ function initializeSystem() {
  */
 function getOrCreateRootFolder() {
   try {
-    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot potato';
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
     const folders = DriveApp.getFoldersByName(rootFolderName);
     
     if (folders.hasNext()) {
@@ -86,58 +86,95 @@ function getOrCreateRootFolder() {
  */
 function createFolderStructure(rootFolder) {
   const folders = [];
+  const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
   
-  // 루트 폴더 직하위 폴더들
+  // 새 구조: 루트 직하위 폴더들 (영문)
   const rootFolders = [
-    '공지사항문서',
-    '회계',
-    '결재문서',
-    '집행부',
-    '채팅',
-    '문서',
-    '겸임교원',
-    '학생',
-    '조교'
+    'notice',
+    'account',
+    'workflow',
+    'document',
+    'professor',
+    'student',
+    'std_council',
+    'adj_professor',
+    'assistant'
   ];
   
-  // 문서 폴더 하위 폴더들
+  // document 폴더 하위 (personal_documents, personal_forms는 개인 드라이브에서 사용자별 생성)
   const documentSubFolders = [
-    '양식',
-    '개인 문서',
-    '개인 양식',
-    '공유 문서'
+    'shared_documents',
+    'shared_forms'
   ];
   
-  // 역할별 폴더 하위 폴더들
-  const roleSubFolders = {
-    '집행부': ['student', 'calendar_council'],
-    '겸임교원': ['calendar_ADprofessor'],
-    '학생': ['calendar_student'],
-    '조교': ['staff', 'calendar_supp']
-  };
+  // notice, workflow 하위 (첨부파일)
+  const noticeSubFolders = ['attached_file'];
+  const workflowSubFolders = ['attached_file'];
   
-  // 루트 폴더 직하위 폴더 생성
+  // account 하위 (증빙)
+  const accountSubFolders = ['evidence'];
+  
+  // 루트 직하위 폴더 생성
   const createdFolders = {};
   rootFolders.forEach(folderName => {
     try {
       const folder = getOrCreateFolder(rootFolder, folderName);
       createdFolders[folderName] = folder;
-      folders.push({ name: folderName, id: folder.getId(), path: `hot potato/${folderName}` });
+      folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/${folderName}` });
       console.log(`✅ 폴더 생성: ${folderName}`);
     } catch (error) {
       console.error(`❌ 폴더 생성 실패: ${folderName}`, error);
     }
   });
   
-  // 문서 폴더 하위 폴더 생성
-  if (createdFolders['문서']) {
+  // document 하위 폴더
+  if (createdFolders['document']) {
     documentSubFolders.forEach(folderName => {
       try {
-        const folder = getOrCreateFolder(createdFolders['문서'], folderName);
-        folders.push({ name: folderName, id: folder.getId(), path: `hot potato/문서/${folderName}` });
-        console.log(`✅ 폴더 생성: 문서/${folderName}`);
+        const folder = getOrCreateFolder(createdFolders['document'], folderName);
+        folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/document/${folderName}` });
+        console.log(`✅ 폴더 생성: document/${folderName}`);
       } catch (error) {
-        console.error(`❌ 폴더 생성 실패: 문서/${folderName}`, error);
+        console.error(`❌ 폴더 생성 실패: document/${folderName}`, error);
+      }
+    });
+  }
+  
+  // notice/attached_file
+  if (createdFolders['notice']) {
+    noticeSubFolders.forEach(folderName => {
+      try {
+        const folder = getOrCreateFolder(createdFolders['notice'], folderName);
+        folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/notice/${folderName}` });
+        console.log(`✅ 폴더 생성: notice/${folderName}`);
+      } catch (error) {
+        console.error(`❌ 폴더 생성 실패: notice/${folderName}`, error);
+      }
+    });
+  }
+  
+  // workflow/attached_file
+  if (createdFolders['workflow']) {
+    workflowSubFolders.forEach(folderName => {
+      try {
+        const folder = getOrCreateFolder(createdFolders['workflow'], folderName);
+        folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/workflow/${folderName}` });
+        console.log(`✅ 폴더 생성: workflow/${folderName}`);
+      } catch (error) {
+        console.error(`❌ 폴더 생성 실패: workflow/${folderName}`, error);
+      }
+    });
+  }
+  
+  // account/evidence
+  if (createdFolders['account']) {
+    accountSubFolders.forEach(folderName => {
+      try {
+        const folder = getOrCreateFolder(createdFolders['account'], folderName);
+        folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/account/${folderName}` });
+        console.log(`✅ 폴더 생성: account/${folderName}`);
+      } catch (error) {
+        console.error(`❌ 폴더 생성 실패: account/${folderName}`, error);
       }
     });
   }
@@ -171,6 +208,7 @@ function getOrCreateFolder(parentFolder, folderName) {
  */
 function createSpreadsheets(rootFolder, folderStructure) {
   const results = [];
+  const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
   
   // 폴더 맵 생성 (빠른 검색을 위해)
   const folderMap = {};
@@ -178,11 +216,9 @@ function createSpreadsheets(rootFolder, folderStructure) {
     folderMap[f.path] = DriveApp.getFolderById(f.id);
   });
   
-  // 루트 폴더에 생성할 스프레드시트
+  // 루트 폴더에 생성할 스프레드시트 (hp_member만 루트에)
   const rootSpreadsheets = [
-    { name: 'notice', sheetConfigs: createNoticeSheetConfig() },
-    { name: 'hp_member', sheetConfigs: createHpMemberSheetConfig() },
-    { name: '워크플로우_관리', sheetConfigs: createWorkflowSheetConfig() }
+    { name: 'hp_member', sheetConfigs: createHpMemberSheetConfig() }
   ];
   
   rootSpreadsheets.forEach(config => {
@@ -196,31 +232,57 @@ function createSpreadsheets(rootFolder, folderStructure) {
     }
   });
   
-  // 문서 폴더에 생성할 스프레드시트
-  if (folderMap['hot potato/문서']) {
+  // notice 폴더에 notice 스프레드시트
+  if (folderMap[`${rootFolderName}/notice`]) {
     try {
       const result = createSpreadsheetInFolder(
-        folderMap['hot potato/문서'],
+        folderMap[`${rootFolderName}/notice`],
+        'notice',
+        createNoticeSheetConfig()
+      );
+      if (result) results.push(result);
+    } catch (error) {
+      console.error('❌ 스프레드시트 생성 실패: notice', error);
+    }
+  }
+  
+  // workflow 폴더에 workflow 스프레드시트
+  if (folderMap[`${rootFolderName}/workflow`]) {
+    try {
+      const result = createSpreadsheetInFolder(
+        folderMap[`${rootFolderName}/workflow`],
+        'workflow',
+        createWorkflowSheetConfig()
+      );
+      if (result) results.push(result);
+    } catch (error) {
+      console.error('❌ 스프레드시트 생성 실패: workflow', error);
+    }
+  }
+  
+  // document 폴더에 static_tag
+  if (folderMap[`${rootFolderName}/document`]) {
+    try {
+      const result = createSpreadsheetInFolder(
+        folderMap[`${rootFolderName}/document`],
         'static_tag',
         createStaticTagSheetConfig()
       );
-      if (result) {
-        results.push(result);
-      }
+      if (result) results.push(result);
     } catch (error) {
       console.error('❌ 스프레드시트 생성 실패: static_tag', error);
     }
   }
   
-  // 역할별 폴더에 생성할 스프레드시트
+  // 역할별 폴더에 스프레드시트 (새 구조)
   const roleSpreadsheets = [
-    { folderPath: 'hot potato/교수', name: 'calendar_professor', sheetConfigs: createCalendarSheetConfig() },
-    { folderPath: 'hot potato/집행부', name: 'calendar_council', sheetConfigs: createCalendarSheetConfig() },
-    { folderPath: 'hot potato/겸임교원', name: 'calendar_ADprofessor', sheetConfigs: createCalendarSheetConfig() },
-    { folderPath: 'hot potato/조교', name: 'calendar_supp', sheetConfigs: createCalendarSheetConfig() },
-    { folderPath: 'hot potato/학생', name: 'calendar_student', sheetConfigs: createCalendarSheetConfig() },
-    { folderPath: 'hot potato/집행부', name: 'student', sheetConfigs: createStudentSheetConfig() },
-    { folderPath: 'hot potato/조교', name: 'staff', sheetConfigs: createStaffSheetConfig() }
+    { folderPath: `${rootFolderName}/professor`, name: 'calendar_professor', sheetConfigs: createCalendarSheetConfig() },
+    { folderPath: `${rootFolderName}/student`, name: 'calendar_student', sheetConfigs: createCalendarSheetConfig() },
+    { folderPath: `${rootFolderName}/std_council`, name: 'calendar_council', sheetConfigs: createCalendarSheetConfig() },
+    { folderPath: `${rootFolderName}/std_council`, name: 'student', sheetConfigs: createStudentSheetConfig() },
+    { folderPath: `${rootFolderName}/adj_professor`, name: 'calendar_adj_professor', sheetConfigs: createCalendarSheetConfig() },
+    { folderPath: `${rootFolderName}/assistant`, name: 'calendar_assistant', sheetConfigs: createCalendarSheetConfig() },
+    { folderPath: `${rootFolderName}/assistant`, name: 'staff', sheetConfigs: createStaffSheetConfig() }
   ];
   
   roleSpreadsheets.forEach(config => {
@@ -228,9 +290,7 @@ function createSpreadsheets(rootFolder, folderStructure) {
       const folder = folderMap[config.folderPath];
       if (folder) {
         const result = createSpreadsheetInFolder(folder, config.name, config.sheetConfigs);
-        if (result) {
-          results.push(result);
-        }
+        if (result) results.push(result);
       } else {
         console.warn(`⚠️ 폴더를 찾을 수 없음: ${config.folderPath}`);
       }
@@ -460,7 +520,7 @@ function createWorkflowSheetConfig() {
  */
 function createStaticTagSheetConfig() {
   return [{
-    name: 'tag',
+    name: '시트1',
     headers: ['tag']
   }];
 }
@@ -475,12 +535,12 @@ function createCalendarSheetConfig() {
     headers: [
       'id_calendar',
       'title_calendar',
-      'startDate_calendar',
-      'endDate_calendar',
+      'start_date',
+      'end_date',
       'description_calendar',
       'colorId_calendar',
-      'startDateTime_calendar',
-      'endDateTime_calendar',
+      'start_date_time',
+      'end_date_time',
       'tag_calendar',
       'recurrence_rule_calendar',
       'attendees_calendar'
@@ -579,7 +639,7 @@ function getSharedDocumentFolderName() {
     }
   }
   
-  return folderName || '공유 문서';
+  return folderName || 'shared_documents';
 }
 
 /**
@@ -601,24 +661,26 @@ function setScriptProperties() {
     }
     
     const propertiesToSet = {
-      // 폴더 이름 설정
-      'ROOT_FOLDER_NAME': 'hot potato',
-      'DOCUMENT_FOLDER_NAME': '문서',
-      'TEMPLATE_FOLDER_NAME': '양식',
-      'SHARED_DOCUMENT_FOLDER_NAME': '공유 문서', // 정확한 속성명 (코드에서 사용)
-      'PERSONAL_TEMPLATE_FOLDER_NAME': '개인 양식',
+      // 폴더 이름 설정 (새 구조)
+      'ROOT_FOLDER_NAME': 'hot_potato_remake',
+      'DOCUMENT_FOLDER_NAME': 'document',
+      'ACCOUNT_FOLDER_NAME': 'account',
+      'WORKFLOW_FOLDER_NAME': 'workflow',
+      'TEMPLATE_FOLDER_NAME': 'shared_forms',
+      'SHARED_DOCUMENT_FOLDER_NAME': 'shared_documents',
+      'PERSONAL_TEMPLATE_FOLDER_NAME': 'personal_forms',
       
       // 시트 이름 설정
       'SHEET_NAME_USER': 'user',
       'SHEET_NAME_ADMIN_KEYS': 'admin_keys',
-      'NOTICE_SHEET_NAME': '시트1', // 코드에서 기본값으로 사용
+      'NOTICE_SHEET_NAME': '시트1',
       
       // 스태틱 태그 설정
       'STATIC_TAG_SPREADSHEET_NAME': 'static_tag',
-      'STATIC_TAG_SHEET_NAME': 'tag',
+      'STATIC_TAG_SHEET_NAME': '시트1',
       
       // 워크플로우 설정
-      'WORKFLOW_SPREADSHEET_NAME': '워크플로우_관리'
+      'WORKFLOW_SPREADSHEET_NAME': 'workflow'
     };
     
     const setProperties = {};

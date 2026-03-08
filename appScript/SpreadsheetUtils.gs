@@ -99,7 +99,7 @@ function findSpreadsheetInFolderTreeByName_(folder, sheetName) {
       }
     }
 
-    // 하위 폴더를 재귀적으로 탐색 (예: hot potato → 문서 → static_tag)
+    // 하위 폴더를 재귀적으로 탐색 (예: hot_potato_remake → document → static_tag)
     const subFolders = folder.getFolders();
     while (subFolders.hasNext()) {
       const subFolder = subFolders.next();

@@ -134,10 +134,10 @@ function requestWorkflow(req) {
         
         // 결재 문서 폴더로 이동
         try {
-          const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot potato';
+          const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
           const rootFolder = getFolderByName(rootFolderName);
           if (rootFolder) {
-            const workflowFolderName = '결재 문서';
+            const workflowFolderName = PropertiesService.getScriptProperties().getProperty('WORKFLOW_FOLDER_NAME') || 'workflow';
             let workflowFolder = getSubFolderByName(rootFolder, workflowFolderName);
             if (!workflowFolder) {
               workflowFolder = rootFolder.createFolder(workflowFolderName);

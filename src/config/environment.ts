@@ -1,111 +1,194 @@
 /**
  * @file environment.ts
- * @brief 환경변수 설정 파일
- * @details 애플리케이션에서 사용하는 모든 환경변수를 중앙에서 관리합니다.
+ * @brief 환경변수 설정 파일 (V2 JSON 형식)
+ * @details VITE_FOLER_NAME, VITE_SPREADSHEET_NAME, VITE_SHEET_NAME, VITE_GROUP_EMAIL JSON을
+ *          파싱하여 ENV_CONFIG로 노출합니다. 기존 키 이름을 유지해 호환성을 보장합니다.
  * @author Hot Potato Team
  * @date 2024
  */
 
-/**
- * @brief 환경변수 설정 객체
- * @details 모든 환경변수를 타입 안전하게 관리합니다.
- */
-// 환경변수 접근 함수 (테스트 환경과 실제 환경 모두 지원)
+// ========== 환경변수 읽기 (테스트/실제 환경 공통) ==========
 const getEnvVar = (key: string, defaultValue: string = ''): string => {
-  // Jest 테스트 환경에서는 process.env 사용
   if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
     return process.env[key] || defaultValue;
   }
-  // 실제 애플리케이션에서는 import.meta.env 사용
-  if (typeof window !== 'undefined' && import.meta && import.meta.env) {
-    return import.meta.env[key] || defaultValue;
+  if (typeof window !== 'undefined' && import.meta?.env) {
+    return (import.meta.env[key] as string) || defaultValue;
   }
   return defaultValue;
 };
 
-export const ENV_CONFIG = {
-  // Google API 설정
-  GOOGLE_CLIENT_ID: getEnvVar('VITE_GOOGLE_CLIENT_ID'),
+/** JSON 문자열 env 파싱. 실패 시 defaultValue 반환 */
+function getEnvJson<T extends Record<string, string>>(
+  key: string,
+  defaultValue: T
+): T {
+  const raw = getEnvVar(key);
+  if (!raw || typeof raw !== 'string') return defaultValue;
+  try {
+    const parsed = JSON.parse(raw) as T;
+    return typeof parsed === 'object' && parsed !== null ? { ...defaultValue, ...parsed } : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+}
 
-  // Apps Script URL
+// ========== JSON 기본값 (.env 미설정 시 사용) ==========
+const DEFAULT_FOLER: Record<string, string> = {
+  ROOT: 'hot_potato_remake',
+  DOCUMENT: 'document',
+  S_DOC: 'shared_documents',
+  P_DOC: 'personal_documents',
+  S_TEMP: 'shared_forms',
+  P_TEMP: 'personal_forms',
+  WORKFLOW: 'workflow',
+  ACCOUNT: 'account',
+  ACCOUNT_EVIDENCE: 'evidence',
+  NOTICE_ATTACH: 'attached_file',
+};
+
+const DEFAULT_SPREADSHEET: Record<string, string> = {
+  CONFIG: 'user_setting',
+  NOTICE: 'notice',
+  CALENDAR_PROFESSOR: 'calendar_professor',
+  CALENDAR_STUDENT: 'calendar_student',
+  CALENDAR_COUNCIL: 'calendar_council',
+  CALENDAR_ADJ_PROFESSOR: 'calendar_adj_professor',
+  CALENDAR_ASSISTANT: 'calendar_assistant',
+  STUDENT: 'student',
+  STAFF: 'staff',
+  TAG: 'static_tag',
+};
+
+const DEFAULT_SHEET: Record<string, string> = {
+  DEFAULT: '시트1',
+  WORKFLOW_TEMPLATE: 'workflow_templates',
+  WORKFLOW_HISTORY: 'workflow_history',
+  WORKFLOW_DOCUMENT: 'workflow_documents',
+  INFO: 'info',
+  ISSUE: 'std_issue',
+  COMMITTEE: 'committee',
+  CONFIG_FAVORITE: 'favorite',
+  CONFIG_TAG: 'tag',
+  CONFIG_DASHBOARD: 'dashboard',
+  CONFIG_SCHEDULE: 'schedule',
+};
+
+const DEFAULT_GROUP_EMAIL: Record<string, string> = {
+  STUDENT: 'student_hp@googlegroups.com',
+  PROFESSOR: 'professor_hp@googlegroups.com',
+  COUNCIL: 'std_council_hp@googlegroups.com',
+  ADJ_PROFESSOR: 'adj_professor_hp@googlegroups.com',
+  ASSISTANT: 'assistant_hp@googlegroups.com',
+};
+
+// ========== 파싱 결과 ==========
+const FOLER = getEnvJson('VITE_FOLER_NAME', DEFAULT_FOLER);
+const SPREADSHEET = getEnvJson('VITE_SPREADSHEET_NAME', DEFAULT_SPREADSHEET);
+const SHEET = getEnvJson('VITE_SHEET_NAME', DEFAULT_SHEET);
+const GROUP_EMAIL = getEnvJson('VITE_GROUP_EMAIL', DEFAULT_GROUP_EMAIL);
+
+/**
+ * @brief 환경변수 설정 객체 (기존 키 이름 유지)
+ * @details V2 JSON 기반으로 파싱하며, 기존 ENV_CONFIG 키와 호환됩니다.
+ */
+export const ENV_CONFIG = {
+  // Google API
+  GOOGLE_CLIENT_ID: getEnvVar('VITE_GOOGLE_CLIENT_ID'),
   APP_SCRIPT_URL: getEnvVar('VITE_APP_SCRIPT_URL'),
 
-  // 스프레드시트 이름들 (ID는 동적으로 가져옴)
-  HOT_POTATO_DB_SPREADSHEET_NAME: getEnvVar('VITE_HOT_POTATO_DB_SPREADSHEET_NAME', 'hot_potato_DB'),
-  ANNOUNCEMENT_SPREADSHEET_NAME: getEnvVar('VITE_ANNOUNCEMENT_SPREADSHEET_NAME', 'notice'),
-  CALENDAR_PROFESSOR_SPREADSHEET_NAME: getEnvVar('VITE_CALENDAR_PROFESSOR_SPREADSHEET_NAME', 'calendar_professor'),
-  CALENDAR_COUNCIL_SPREADSHEET_NAME: getEnvVar('VITE_CALENDAR_COUNCIL_SPREADSHEET_NAME', 'calendar_council'),
-  CALENDAR_ADPROFESSOR_SPREADSHEET_NAME: getEnvVar('VITE_CALENDAR_ADPROFESSOR_SPREADSHEET_NAME', 'calendar_ADprofessor'),
-  CALENDAR_SUPP_SPREADSHEET_NAME: getEnvVar('VITE_CALENDAR_SUPP_SPREADSHEET_NAME', 'calendar_supp'),
-  CALENDAR_STUDENT_SPREADSHEET_NAME: getEnvVar('VITE_CALENDAR_STUDENT_SPREADSHEET_NAME', 'calendar_student'),
-  STUDENT_SPREADSHEET_NAME: getEnvVar('VITE_STUDENT_SPREADSHEET_NAME', 'student'),
-  STAFF_SPREADSHEET_NAME: getEnvVar('VITE_STAFF_SPREADSHEET_NAME', 'staff'),
-
-  // 시트 이름들 (원래 코드와 동일하게 수정)
-  ANNOUNCEMENT_SHEET_NAME: getEnvVar('VITE_ANNOUNCEMENT_SHEET_NAME', '시트1'),
-  CALENDAR_SHEET_NAME: getEnvVar('VITE_CALENDAR_SHEET_NAME', '시트1'),
-  STUDENT_SHEET_NAME: getEnvVar('VITE_STUDENT_SHEET_NAME', 'info'),
-  STUDENT_ISSUE_SHEET_NAME: getEnvVar('VITE_STUDENT_ISSUE_SHEET_NAME', 'std_issue'),
-  STAFF_INFO_SHEET_NAME: getEnvVar('VITE_STAFF_INFO_SHEET_NAME', 'info'),
-  STAFF_COMMITTEE_SHEET_NAME: getEnvVar('VITE_STAFF_COMMITTEE_SHEET_NAME', 'committee'),
-  DASHBOARD_SHEET_NAME: getEnvVar('VITE_DASHBOARD_SHEET_NAME', 'dashboard'),
-  MENU_SHEET_NAME: getEnvVar('VITE_MENU_SHEET_NAME', 'menu'),
-
-  // Papyrus DB 설정
+  // Papyrus DB (플랫 변수, .env에 있으면 사용)
   PAPYRUS_DB_URL: getEnvVar('VITE_PAPYRUS_DB_URL'),
   PAPYRUS_DB_API_KEY: getEnvVar('VITE_PAPYRUS_DB_API_KEY'),
 
-  // 그룹스 이메일 설정
+  // 스프레드시트 이름 (기존 키 유지)
+  HOT_POTATO_DB_SPREADSHEET_NAME: SPREADSHEET.CONFIG ?? 'user_setting',
+  ANNOUNCEMENT_SPREADSHEET_NAME: SPREADSHEET.NOTICE ?? 'notice',
+  CALENDAR_PROFESSOR_SPREADSHEET_NAME: SPREADSHEET.CALENDAR_PROFESSOR ?? 'calendar_professor',
+  CALENDAR_COUNCIL_SPREADSHEET_NAME: SPREADSHEET.CALENDAR_COUNCIL ?? 'calendar_council',
+  CALENDAR_ADPROFESSOR_SPREADSHEET_NAME: SPREADSHEET.CALENDAR_ADJ_PROFESSOR ?? 'calendar_adj_professor',
+  CALENDAR_SUPP_SPREADSHEET_NAME: SPREADSHEET.CALENDAR_ASSISTANT ?? 'calendar_assistant',
+  CALENDAR_STUDENT_SPREADSHEET_NAME: SPREADSHEET.CALENDAR_STUDENT ?? 'calendar_student',
+  STUDENT_SPREADSHEET_NAME: SPREADSHEET.STUDENT ?? 'student',
+  STAFF_SPREADSHEET_NAME: SPREADSHEET.STAFF ?? 'staff',
+
+  // 시트 이름 (기존 키 유지)
+  ANNOUNCEMENT_SHEET_NAME: SHEET.DEFAULT ?? '시트1',
+  CALENDAR_SHEET_NAME: SHEET.DEFAULT ?? '시트1',
+  STUDENT_SHEET_NAME: SHEET.INFO ?? 'info',
+  STUDENT_ISSUE_SHEET_NAME: SHEET.ISSUE ?? 'std_issue',
+  STAFF_INFO_SHEET_NAME: SHEET.INFO ?? 'info',
+  STAFF_COMMITTEE_SHEET_NAME: SHEET.COMMITTEE ?? 'committee',
+  DASHBOARD_SHEET_NAME: SHEET.CONFIG_DASHBOARD ?? 'dashboard',
+  MENU_SHEET_NAME: '', // V2에 없음, 호환용
+
+  // 개인 설정 시트 (personalConfigManager, personalTagManager, personalFavoriteManager용)
+  CONFIG_FAVORITE_SHEET_NAME: SHEET.CONFIG_FAVORITE ?? 'favorite',
+  CONFIG_TAG_SHEET_NAME: SHEET.CONFIG_TAG ?? 'tag',
+  CONFIG_SCHEDULE_SHEET_NAME: SHEET.CONFIG_SCHEDULE ?? 'schedule',
+
+  // 워크플로우 시트
+  WORKFLOW_TEMPLATE_SHEET_NAME: SHEET.WORKFLOW_TEMPLATE ?? 'workflow_templates',
+  WORKFLOW_HISTORY_SHEET_NAME: SHEET.WORKFLOW_HISTORY ?? 'workflow_history',
+  WORKFLOW_DOCUMENT_SHEET_NAME: SHEET.WORKFLOW_DOCUMENT ?? 'workflow_documents',
+
+  // 그룹 이메일
   GROUP_EMAILS: {
-    STUDENT: getEnvVar('VITE_GROUP_EMAIL_STUDENT'),
-    COUNCIL: getEnvVar('VITE_GROUP_EMAIL_COUNCIL'),
-    PROFESSOR: getEnvVar('VITE_GROUP_EMAIL_PROFESSOR'),
-    ADJUNCT_PROFESSOR: getEnvVar('VITE_GROUP_EMAIL_ADJUNCT_PROFESSOR'),
-    ASSISTANT: getEnvVar('VITE_GROUP_EMAIL_ASSISTANT'),
+    STUDENT: GROUP_EMAIL.STUDENT ?? '',
+    COUNCIL: GROUP_EMAIL.COUNCIL ?? '',
+    PROFESSOR: GROUP_EMAIL.PROFESSOR ?? '',
+    ADJUNCT_PROFESSOR: GROUP_EMAIL.ADJ_PROFESSOR ?? '',
+    ASSISTANT: GROUP_EMAIL.ASSISTANT ?? '',
   },
 
-  // Drive 폴더 경로 설정
-  ROOT_FOLDER_NAME: getEnvVar('VITE_ROOT_FOLDER_NAME', 'hot potato'),
-  DOCUMENT_FOLDER_NAME: getEnvVar('VITE_DOCUMENT_FOLDER_NAME', '문서'),
-  SHARED_DOCUMENT_FOLDER_NAME: getEnvVar('VITE_SHARED_DOCUMENT_FOLDER_NAME', '공유 문서'),
-  PERSONAL_DOCUMENT_FOLDER_NAME: getEnvVar('VITE_PERSONAL_DOCUMENT_FOLDER_NAME', '개인 문서'),
-  TEMPLATE_FOLDER_NAME: getEnvVar('VITE_TEMPLATE_FOLDER_NAME', '양식'),
-  PERSONAL_TEMPLATE_FOLDER_NAME: getEnvVar('VITE_PERSONAL_TEMPLATE_FOLDER_NAME', '개인 양식'),
-  ACCOUNTING_FOLDER_NAME: getEnvVar('VITE_ACCOUNTING_FOLDER_NAME', '회계'),
-  EVIDENCE_FOLDER_NAME: getEnvVar('VITE_EVIDENCE_FOLDER_NAME', '증빙'),
-  
+  // Drive 폴더
+  ROOT_FOLDER_NAME: FOLER.ROOT ?? 'hot_potato_remake',
+  DOCUMENT_FOLDER_NAME: FOLER.DOCUMENT ?? 'document',
+  SHARED_DOCUMENT_FOLDER_NAME: FOLER.S_DOC ?? 'shared_documents',
+  PERSONAL_DOCUMENT_FOLDER_NAME: FOLER.P_DOC ?? 'personal_documents',
+  TEMPLATE_FOLDER_NAME: FOLER.S_TEMP ?? 'shared_forms',
+  SHARED_TEMPLATE_FOLDER_NAME: FOLER.S_TEMP ?? 'shared_forms',
+  PERSONAL_TEMPLATE_FOLDER_NAME: FOLER.P_TEMP ?? 'personal_forms',
+  ACCOUNTING_FOLDER_NAME: FOLER.ACCOUNT ?? 'account',
+  EVIDENCE_FOLDER_NAME: FOLER.ACCOUNT_EVIDENCE ?? 'evidence',
+  NOTICE_ATTACH_FOLDER_NAME: FOLER.NOTICE_ATTACH ?? 'attached_file',
+
   // 개인 설정 파일 이름
-  PERSONAL_CONFIG_FILE_NAME: getEnvVar('VITE_PERSONAL_CONFIG_FILE_NAME', 'hp_potato_DB'),
+  PERSONAL_CONFIG_FILE_NAME: SPREADSHEET.CONFIG ?? 'user_setting',
 } as const;
 
 /**
  * @brief 환경변수 검증 함수
- * @details 필수 환경변수가 설정되었는지 확인합니다.
- * @returns {boolean} 모든 필수 환경변수가 설정되었으면 true
  */
 export const validateEnvironmentVariables = (): boolean => {
-  const requiredVars = [
-    'GOOGLE_CLIENT_ID',
-    'ANNOUNCEMENT_SPREADSHEET_NAME',
-    'CALENDAR_PROFESSOR_SPREADSHEET_NAME',
-    'CALENDAR_COUNCIL_SPREADSHEET_NAME',
-    'CALENDAR_ADPROFESSOR_SPREADSHEET_NAME',
-    'CALENDAR_SUPP_SPREADSHEET_NAME',
-    'CALENDAR_STUDENT_SPREADSHEET_NAME',
-    'STUDENT_SPREADSHEET_NAME',
+  const c = ENV_CONFIG;
+  const required = [
+    c.GOOGLE_CLIENT_ID,
+    c.APP_SCRIPT_URL,
+    c.ROOT_FOLDER_NAME,
+    c.DOCUMENT_FOLDER_NAME,
+    c.SHARED_DOCUMENT_FOLDER_NAME,
+    c.PERSONAL_DOCUMENT_FOLDER_NAME,
+    c.SHARED_TEMPLATE_FOLDER_NAME,
+    c.PERSONAL_TEMPLATE_FOLDER_NAME,
+    c.ANNOUNCEMENT_SPREADSHEET_NAME,
+    c.CALENDAR_PROFESSOR_SPREADSHEET_NAME,
+    c.CALENDAR_COUNCIL_SPREADSHEET_NAME,
+    c.CALENDAR_ADPROFESSOR_SPREADSHEET_NAME,
+    c.CALENDAR_SUPP_SPREADSHEET_NAME,
+    c.CALENDAR_STUDENT_SPREADSHEET_NAME,
+    c.STUDENT_SPREADSHEET_NAME,
+    c.STAFF_SPREADSHEET_NAME,
   ];
-
-  const missingVars = requiredVars.filter(varName => !ENV_CONFIG[varName as keyof typeof ENV_CONFIG]);
-
-  if (missingVars.length > 0) {
-    console.error('❌ 필수 환경변수가 설정되지 않았습니다:', missingVars);
-    console.error('현재 설정된 환경변수:', {
-      GOOGLE_CLIENT_ID: ENV_CONFIG.GOOGLE_CLIENT_ID ? '설정됨' : '설정되지 않음',
-      APP_SCRIPT_URL: ENV_CONFIG.APP_SCRIPT_URL ? '설정됨' : '설정되지 않음'
+  const missing = required.filter((v) => !v);
+  if (missing.length > 0) {
+    console.error('❌ 필수 환경변수가 설정되지 않았습니다.');
+    console.error('현재 설정:', {
+      GOOGLE_CLIENT_ID: c.GOOGLE_CLIENT_ID ? '설정됨' : '미설정',
+      APP_SCRIPT_URL: c.APP_SCRIPT_URL ? '설정됨' : '미설정',
     });
     return false;
   }
-
-  console.log('✅ 모든 필수 환경변수가 설정되었습니다.');
+  console.log('✅ 필수 환경변수 검증 통과');
   return true;
 };

@@ -1,7 +1,7 @@
 /**
  * @file personalConfigManager.ts
  * @brief 개인 설정 파일 관리 유틸리티
- * @details 개인 드라이브의 hp_potato_DB 파일을 관리하는 유틸리티 모듈입니다.
+ * @details 개인 드라이브의 user_setting 파일을 관리하는 유틸리티 모듈입니다.
  * @author Hot Potato Team
  * @date 2024
  */
@@ -52,7 +52,7 @@ export const clearPersonalConfigSpreadsheetId = (): void => {
 
 /**
  * @brief 개인 설정 파일 찾기
- * @details 개인 드라이브에서 hp_potato_DB 파일을 찾습니다.
+ * @details 개인 드라이브에서 user_setting 파일을 찾습니다.
  * @returns {Promise<string | null>} 스프레드시트 ID 또는 null
  */
 export const findPersonalConfigFile = async (): Promise<string | null> => {
@@ -204,7 +204,7 @@ export const findPersonalTemplateFolder = async (): Promise<string | null> => {
 
 /**
  * @brief 개인 설정 파일 생성
- * @details hot potato 폴더에 hp_potato_DB 파일을 생성합니다.
+ * @details 루트 폴더에 user_setting 파일을 생성합니다.
  * @returns {Promise<string | null>} 생성된 스프레드시트 ID 또는 null
  */
 export const createPersonalConfigFile = async (): Promise<string | null> => {
@@ -213,21 +213,21 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
     
     console.log('📄 개인 설정 파일 생성 시작');
     
-    // 1단계: hot potato 폴더 찾기
+    // 1단계: 루트 폴더 찾기
     const hotPotatoResponse = await window.gapi.client.drive.files.list({
-      q: "'root' in parents and name='hot potato' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+      q: `'root' in parents and name='${ENV_CONFIG.ROOT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
       fields: 'files(id,name)',
       spaces: 'drive',
       orderBy: 'name'
     });
 
     if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      console.log('❌ hot potato 폴더를 찾을 수 없습니다. 폴더를 먼저 생성해주세요.');
+      console.log(`❌ ${ENV_CONFIG.ROOT_FOLDER_NAME} 폴더를 찾을 수 없습니다. 폴더를 먼저 생성해주세요.`);
       return null;
     }
 
     const hotPotatoFolder = hotPotatoResponse.result.files[0];
-    console.log('✅ hot potato 폴더 찾음:', hotPotatoFolder.id);
+    console.log(`✅ ${ENV_CONFIG.ROOT_FOLDER_NAME} 폴더 찾음:`, hotPotatoFolder.id);
 
     // 2단계: hp_potato_DB 스프레드시트 생성
     const sheetsClient = window.gapi.client.sheets;
@@ -239,7 +239,7 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
         sheets: [
           {
             properties: {
-              title: 'favorite', // TODO: ENV_CONFIG 기반 시트명으로 치환 가능 (현재 하드코딩)
+              title: ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME,
               gridProperties: {
                 rowCount: 1000,
                 columnCount: 2
@@ -248,7 +248,7 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
           },
           {
             properties: {
-              title: 'tag',      // TODO: ENV_CONFIG 기반 시트명으로 치환 가능 (현재 하드코딩)
+              title: ENV_CONFIG.CONFIG_TAG_SHEET_NAME,
               gridProperties: {
                 rowCount: 1000,
                 columnCount: 1
@@ -257,16 +257,7 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
           },
           {
             properties: {
-              title: 'user_custom', // TODO: ENV_CONFIG 기반 시트명으로 치환 가능 (현재 하드코딩)
-              gridProperties: {
-                rowCount: 1000,
-                columnCount: 10
-              }
-            }
-          },
-          {
-            properties: {
-              title: 'schedule', // TODO: ENV_CONFIG 기반 시트명으로 치환 가능 (현재 하드코딩)
+              title: ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME,
               gridProperties: {
                 rowCount: 1000,
                 columnCount: 7
@@ -287,7 +278,7 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
     });
 
     const spreadsheetId = spreadsheet.result.spreadsheetId;
-    console.log('✅ hp_potato_DB 파일 생성 완료:', spreadsheetId);
+    console.log('✅ user_setting 파일 생성 완료:', spreadsheetId);
 
     // 3단계: hot potato 폴더로 이동
     const driveClient = window.gapi.client.drive;
@@ -319,43 +310,33 @@ export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise
     
     const sheetsClient = window.gapi.client.sheets;
     
-    // favorite 시트 헤더 설정 (시트명/헤더 하드코딩)
+    // favorite 시트 헤더 설정
     await sheetsClient.spreadsheets.values.update({
       spreadsheetId: spreadsheetId,
-      range: 'favorite!A1:B1',
+      range: `${ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME}!A1:B1`,
       valueInputOption: 'RAW',
       resource: {
         values: [['type', 'favorite']]
       }
     });
 
-    // tag 시트 헤더 설정 (시트명/헤더 하드코딩)
+    // tag 시트 헤더 설정
     await sheetsClient.spreadsheets.values.update({
       spreadsheetId: spreadsheetId,
-      range: 'tag!A1',
+      range: `${ENV_CONFIG.CONFIG_TAG_SHEET_NAME}!A1`,
       valueInputOption: 'RAW',
       resource: {
         values: [['tag']]
       }
     });
 
-    // user_custom 시트 헤더 설정 (시트명/헤더 하드코딩)
+    // schedule 시트 헤더 설정
     await sheetsClient.spreadsheets.values.update({
       spreadsheetId: spreadsheetId,
-      range: 'user_custom!A1:B1',
+      range: `${ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME}!A1:G1`,
       valueInputOption: 'RAW',
       resource: {
-        values: [['dashboard', 'menu']]
-      }
-    });
-
-    // schedule 시트 헤더 설정 (시트명/헤더 하드코딩)
-    await sheetsClient.spreadsheets.values.update({
-      spreadsheetId: spreadsheetId,
-      range: 'schedule!A1:G1',
-      valueInputOption: 'RAW',
-      resource: {
-        values: [['no', 'title', 'date', 'startTime', 'endTime', 'description', 'color']]
+        values: [['no', 'title', 'date', 'start_time', 'end_time', 'description', 'color']]
       }
     });
 
@@ -401,7 +382,7 @@ export const initializePersonalConfigFile = async (): Promise<string | null> => 
         const existingSheets = spreadsheet.result.sheets?.map(sheet => sheet.properties?.title) || [];
         console.log('📄 기존 시트 목록:', existingSheets);
         
-        const requiredSheets = ['favorite', 'tag', 'user_custom', 'schedule', ENV_CONFIG.DASHBOARD_SHEET_NAME]; // TODO: 시트명 하드코딩, ENV 매핑으로 치환 검토
+        const requiredSheets = [ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME, ENV_CONFIG.CONFIG_TAG_SHEET_NAME, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME, ENV_CONFIG.DASHBOARD_SHEET_NAME];
         const missingSheets = requiredSheets.filter(sheetName => !existingSheets.includes(sheetName));
         
         if (missingSheets.length > 0) {
@@ -409,11 +390,9 @@ export const initializePersonalConfigFile = async (): Promise<string | null> => 
           
           for (const sheetName of missingSheets) {
             let columnCount = 1;
-            if (sheetName === 'user_custom') {
-              columnCount = 10;
-            } else if (sheetName === 'favorite') {
+            if (sheetName === ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME) {
               columnCount = 2;
-            } else if (sheetName === 'schedule') {
+            } else if (sheetName === ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME) {
               columnCount = 7;
             } else if (sheetName === ENV_CONFIG.DASHBOARD_SHEET_NAME) {
               columnCount = 4;
@@ -440,18 +419,15 @@ export const initializePersonalConfigFile = async (): Promise<string | null> => 
             // 생성된 시트에 바로 헤더 설정
             let range = '';
             let values: string[][] = [];
-            if (sheetName === 'favorite') { // 이하 range/헤더도 하드코딩
-              range = 'favorite!A1:B1';
+            if (sheetName === ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME) {
+              range = `${ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME}!A1:B1`;
               values = [['type', 'favorite']];
-            } else if (sheetName === 'tag') {
-              range = 'tag!A1';
+            } else if (sheetName === ENV_CONFIG.CONFIG_TAG_SHEET_NAME) {
+              range = `${ENV_CONFIG.CONFIG_TAG_SHEET_NAME}!A1`;
               values = [['tag']];
-            } else if (sheetName === 'user_custom') {
-              range = 'user_custom!A1:B1';
-              values = [['dashboard', 'menu']];
-            } else if (sheetName === 'schedule') {
-              range = 'schedule!A1:G1';
-              values = [['no', 'title', 'date', 'startTime', 'endTime', 'description', 'color']];
+            } else if (sheetName === ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME) {
+              range = `${ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME}!A1:G1`;
+              values = [['no', 'title', 'date', 'start_time', 'end_time', 'description', 'color']];
             } else if (sheetName === ENV_CONFIG.DASHBOARD_SHEET_NAME) {
               range = `${ENV_CONFIG.DASHBOARD_SHEET_NAME}!A1:D1`;
               values = [['widget_id', 'widget_type', 'widget_order', 'widget_config']];
@@ -527,7 +503,7 @@ export const getScheduleEvents = async (): Promise<any[]> => {
     setupPapyrusAuth();
     
     // papyrus-db 함수 시그니처에 맞게 수정: getSheetData(spreadsheetId, sheetName)
-    const response = await getSheetData(personalConfigSpreadsheetId, 'schedule');
+    const response = await getSheetData(personalConfigSpreadsheetId, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME);
 
     // getSheetData가 { values: [...] } 형태의 객체를 반환한다고 가정
     const data = response.values;
@@ -543,6 +519,9 @@ export const getScheduleEvents = async (): Promise<any[]> => {
       header.forEach((key, index) => {
         event[key] = row[index];
       });
+      // snake_case -> camelCase 매핑 (프론트엔드 호환)
+      if (event.start_time !== undefined) event.startTime = event.start_time;
+      if (event.end_time !== undefined) event.endTime = event.end_time;
       return event;
     });
 
@@ -580,14 +559,14 @@ export const addScheduleEvent = async (event: any): Promise<void> => {
       nextNo.toString(),
       event.title,
       event.day,
-      event.startTime,
-      event.endTime,
+      event.startTime ?? event.start_time ?? '',
+      event.endTime ?? event.end_time ?? '',
       event.description,
       event.color
     ];
     
     // papyrus-db 함수 시그니처에 맞게 수정: append(spreadsheetId, sheetName, rows)
-    await append(personalConfigSpreadsheetId, 'schedule', [newRow]);
+    await append(personalConfigSpreadsheetId, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME, [newRow]);
 
     console.log('✅ 시간표 일정 추가 완료');
 
@@ -641,9 +620,9 @@ export const deleteScheduleEvent = async (eventNo: number): Promise<void> => {
     setupPapyrusAuth();
 
     // 시트 이름으로 시트 ID 조회
-    const sheetId = await getSheetIdByName(personalConfigSpreadsheetId, 'schedule');
+    const sheetId = await getSheetIdByName(personalConfigSpreadsheetId, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME);
     if (sheetId === null) {
-      throw new Error("'schedule' 시트의 ID를 찾을 수 없습니다.");
+      throw new Error(`'${ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME}' 시트의 ID를 찾을 수 없습니다.`);
     }
 
     const existingEvents = await getScheduleEvents();
@@ -689,15 +668,15 @@ export const updateScheduleEvent = async (event: TimetableEvent): Promise<void> 
         event.no!.toString(), // 'no'는 항상 문자열이어야 함
         event.title,
         event.day,
-        event.startTime,
-        event.endTime,
+        event.startTime ?? event.start_time ?? '',
+        event.endTime ?? event.end_time ?? '',
         event.description,
         event.color
       ];
       
       // papyrus-db의 update는 1-based 인덱스를 기대하며, 헤더 행(1행)을 고려하여 +2
       const range = `A${rowIndexToUpdate + 2}:G${rowIndexToUpdate + 2}`;
-      await update(personalConfigSpreadsheetId, 'schedule', range, [updatedRow]);
+      await update(personalConfigSpreadsheetId, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME, range, [updatedRow]);
       console.log(`✅ 시간표 일정 (no: ${event.no}) 업데이트 완료`);
     } else {
       console.warn(`⚠️ 시간표 일정 (no: ${event.no})을 찾을 수 없어 업데이트하지 못했습니다.`);

@@ -10,6 +10,7 @@ import { getSheetData, append, update } from 'papyrus-db';
 import { deleteRow } from 'papyrus-db/dist/sheets/delete';
 import { getCacheManager } from '../cache/cacheManager';
 import { generateCacheKey, getCacheTTL, getActionCategory } from '../cache/cacheUtils';
+import { ENV_CONFIG } from '../../config/environment';
 import { 
   initializePersonalConfigFile, 
   getPersonalConfigSpreadsheetId,
@@ -77,7 +78,7 @@ export const fetchTags = async (): Promise<string[]> => {
     }
 
     console.log('🏷️ 개인 태그 로드 시작 (캐시 미스)...');
-    const data = await getSheetData(spreadsheetId, 'tag'); // 시트명 하드코딩 (personal config)
+    const data = await getSheetData(spreadsheetId, ENV_CONFIG.CONFIG_TAG_SHEET_NAME);
     
     if (!data || !data.values || data.values.length <= 1) {
       console.log('태그 데이터가 없습니다.');
@@ -128,7 +129,7 @@ export const addTag = async (tag: string): Promise<boolean> => {
       return true;
     }
 
-    await append(spreadsheetId || '', 'tag', [[tag]]);
+    await append(spreadsheetId || '', ENV_CONFIG.CONFIG_TAG_SHEET_NAME, [[tag]]);
     console.log('✅ 태그 추가 완료:', tag);
     return true;
   } catch (error) {
@@ -152,7 +153,7 @@ export const removeTag = async (tag: string): Promise<boolean> => {
       return false;
     }
 
-    const data = await getSheetData(spreadsheetId, 'tag');
+    const data = await getSheetData(spreadsheetId, ENV_CONFIG.CONFIG_TAG_SHEET_NAME);
     
     if (!data || !data.values || data.values.length <= 1) {
       console.log('삭제할 태그가 없습니다.');
@@ -171,9 +172,9 @@ export const removeTag = async (tag: string): Promise<boolean> => {
     }
 
     // 실제 시트 ID 가져오기
-    const sheetId = await getSheetId(spreadsheetId, 'tag');
+    const sheetId = await getSheetId(spreadsheetId, ENV_CONFIG.CONFIG_TAG_SHEET_NAME);
     if (!sheetId) {
-      console.error('tag 시트 ID를 찾을 수 없습니다.');
+      console.error(`${ENV_CONFIG.CONFIG_TAG_SHEET_NAME} 시트 ID를 찾을 수 없습니다.`);
       return false;
     }
 
@@ -202,7 +203,7 @@ export const updateTag = async (oldTag: string, newTag: string): Promise<boolean
       return false;
     }
 
-    const data = await getSheetData(spreadsheetId, 'tag');
+    const data = await getSheetData(spreadsheetId, ENV_CONFIG.CONFIG_TAG_SHEET_NAME);
     
     if (!data || !data.values || data.values.length <= 1) {
       console.log('업데이트할 태그가 없습니다.');
@@ -220,7 +221,7 @@ export const updateTag = async (oldTag: string, newTag: string): Promise<boolean
       return false;
     }
 
-    await update(spreadsheetId, 'tag', `A${rowIndex + 1}`, [[newTag]]);
+    await update(spreadsheetId, ENV_CONFIG.CONFIG_TAG_SHEET_NAME, `A${rowIndex + 1}`, [[newTag]]);
     console.log('✅ 태그 업데이트 완료:', oldTag, '->', newTag);
     return true;
   } catch (error) {
@@ -238,7 +239,7 @@ export const findPersonalTemplatesByTag = async (tag: string): Promise<string[]>
   try {
     // 개인 템플릿 폴더에서 파일들 가져오기
     const hotPotatoResponse = await gapi.client.drive.files.list({
-      q: "'root' in parents and name='hot potato' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+      q: `'root' in parents and name='${ENV_CONFIG.ROOT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
       fields: 'files(id,name)',
       spaces: 'drive',
       orderBy: 'name'
@@ -252,7 +253,7 @@ export const findPersonalTemplatesByTag = async (tag: string): Promise<string[]>
 
     // 문서 폴더 찾기
     const documentResponse = await gapi.client.drive.files.list({
-      q: `'${hotPotatoFolder.id}' in parents and name='문서' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      q: `'${hotPotatoFolder.id}' in parents and name='${ENV_CONFIG.DOCUMENT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
       fields: 'files(id,name)',
       spaces: 'drive',
       orderBy: 'name'
@@ -266,7 +267,7 @@ export const findPersonalTemplatesByTag = async (tag: string): Promise<string[]>
 
     // 개인 양식 폴더 찾기
     const personalTemplateResponse = await gapi.client.drive.files.list({
-      q: `'${documentFolder.id}' in parents and name='개인 양식' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      q: `'${documentFolder.id}' in parents and name='${ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
       fields: 'files(id,name)',
       spaces: 'drive',
       orderBy: 'name'

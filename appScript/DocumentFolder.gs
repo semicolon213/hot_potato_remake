@@ -15,8 +15,8 @@
 function moveDocumentToFolder(documentId, documentType = 'document') {
   // CONFIG.gs에서 폴더 경로 가져오기
   const folderPath = documentType === 'template' 
-    ? getTemplateFolderPath()  // 'hot potato/문서/양식'
-    : getSharedDocumentFolderPath();  // 'hot potato/문서/공유 문서'
+    ? getTemplateFolderPath()  // hot_potato_remake/document/shared_forms
+    : getSharedDocumentFolderPath();  // hot_potato_remake/document/shared_documents
   
   const debug = {
     step: 'moveDocumentToFolder_start',

@@ -12,7 +12,7 @@
  */
 function getWorkflowSpreadsheetName() {
   const name = PropertiesService.getScriptProperties().getProperty('WORKFLOW_SPREADSHEET_NAME');
-  return name || '워크플로우_관리';
+  return name || 'workflow';
 }
 
 /**
@@ -25,13 +25,19 @@ function getWorkflowSpreadsheet() {
     console.log('📊 워크플로우 스프레드시트 조회 시작:', spreadsheetName);
     
     // 루트 폴더에서 먼저 찾기
-    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot potato';
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
     const rootFolder = getFolderByName(rootFolderName);
     let spreadsheetId = null;
     
     if (rootFolder) {
-      // 루트 폴더에서 스프레드시트 찾기 (모든 파일 확인)
-      const files = rootFolder.getFilesByName(spreadsheetName);
+      // workflow 폴더에서 먼저 찾기 (새 구조: workflow/ 폴더에 workflow 스프레드시트)
+      const workflowFolderName = PropertiesService.getScriptProperties().getProperty('WORKFLOW_FOLDER_NAME') || 'workflow';
+      let searchFolder = rootFolder;
+      const workflowFolders = rootFolder.getFoldersByName(workflowFolderName);
+      if (workflowFolders.hasNext()) {
+        searchFolder = workflowFolders.next();
+      }
+      const files = searchFolder.getFilesByName(spreadsheetName);
       const foundFiles = [];
       while (files.hasNext()) {
         const file = files.next();
@@ -43,7 +49,7 @@ function getWorkflowSpreadsheet() {
       if (foundFiles.length > 0) {
         // 첫 번째 파일 사용
         spreadsheetId = foundFiles[0].getId();
-        console.log('📊 워크플로우 스프레드시트 찾음 (루트 폴더):', spreadsheetId);
+        console.log('📊 워크플로우 스프레드시트 찾음:', spreadsheetId);
         
         // 중복 파일이 있으면 경고
         if (foundFiles.length > 1) {
@@ -122,18 +128,22 @@ function getWorkflowSpreadsheet() {
         console.warn('📊 기본 시트1 삭제 실패 (무시됨):', error.message);
       }
       
-      // 루트 폴더로 이동
-        if (rootFolder) {
+      // workflow 폴더로 이동 (새 구조)
+      if (rootFolder) {
         try {
+          const workflowFolderName = PropertiesService.getScriptProperties().getProperty('WORKFLOW_FOLDER_NAME') || 'workflow';
+          let targetFolder = rootFolder;
+          const workflowFolders = rootFolder.getFoldersByName(workflowFolderName);
+          if (workflowFolders.hasNext()) {
+            targetFolder = workflowFolders.next();
+          } else {
+            targetFolder = rootFolder.createFolder(workflowFolderName);
+          }
           const file = DriveApp.getFileById(spreadsheetId);
-          const parents = file.getParents();
-          if (parents.hasNext()) {
-            const oldParent = parents.next();
-            file.moveTo(rootFolder);
-            console.log('📊 워크플로우 스프레드시트를 루트 폴더로 이동:', rootFolderName);
-        }
-      } catch (error) {
-        console.warn('📊 워크플로우 스프레드시트 폴더 이동 실패 (무시됨):', error.message);
+          file.moveTo(targetFolder);
+          console.log('📊 워크플로우 스프레드시트를 workflow 폴더로 이동');
+        } catch (error) {
+          console.warn('📊 워크플로우 스프레드시트 폴더 이동 실패 (무시됨):', error.message);
         }
       }
     }

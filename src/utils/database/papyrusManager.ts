@@ -173,7 +173,7 @@ export const initializeSpreadsheetIds = async (): Promise<{
 
     initializationPromise = (async () => {
         try {
-        // 환경변수에서 스프레드시트 이름 목록 가져오기 (hp_potato_DB는 개인 설정 파일로 분리)
+        // 환경변수에서 스프레드시트 이름 목록 가져오기 (user_setting은 개인 설정 파일로 분리)
         const spreadsheetNames = [
             ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,           // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
             ENV_CONFIG.CALENDAR_PROFESSOR_SPREADSHEET_NAME,
@@ -217,7 +217,7 @@ export const initializeSpreadsheetIds = async (): Promise<{
             console.warn('⚠️ 찾지 못한 스프레드시트:', response.notFound);
         }
 
-        // 결과 매핑 (hp_potato_DB는 개인 설정 파일로 별도 초기화, ENV v2 키 기준)
+        // 결과 매핑 (user_setting은 개인 설정 파일로 별도 초기화, ENV v2 키 기준)
         const announcementId = ids[ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME] || null;
         const calendarProfessorId = ids[ENV_CONFIG.CALENDAR_PROFESSOR_SPREADSHEET_NAME] || null;
         const calendarStudentId = ids[ENV_CONFIG.CALENDAR_STUDENT_SPREADSHEET_NAME] || null;
@@ -1228,17 +1228,17 @@ export const fetchStudents = async (spreadsheetId?: string): Promise<Student[]> 
             flunk: row[7] || '', // 유급 필드 (H열)
         }));
 
-        console.log(`👥 학생 목록 파싱 완료: ${rawStudents.length}명, 복호화 시작...`);
+        console.log(`👥 학생 목록 파싱 완료: ${rawStudents.length}명, 일괄 복호화 시작...`);
         
-        // 모든 학생의 암호화된 전화번호를 병렬로 복호화
-        const decryptedStudents: Student[] = await Promise.all(
-            rawStudents.map(async (student) => ({
-                ...student,
-                phone_num: await decryptValue(student.phone_num || '')
-            }))
-        );
+        // 일괄 복호화 (1회 API 호출)
+        const encryptedPhones = rawStudents.map((s) => s.phone_num || '');
+        const decryptedPhones = await decryptValuesBatch(encryptedPhones);
+        const decryptedStudents: Student[] = rawStudents.map((student, i) => ({
+            ...student,
+            phone_num: decryptedPhones[i] ?? student.phone_num
+        }));
 
-        console.log(`👥 학생 목록 복호화 완료: ${decryptedStudents.length}명`);
+        console.log(`👥 학생 목록 복호화 완료: ${decryptedStudents.length}명 (1회 일괄 호출)`);
         
         // 복호화된 데이터를 캐시에 저장
         const ttl = getCacheTTL(action);
@@ -1687,7 +1687,7 @@ export const updateTag = async (oldTag: string, newTag: string): Promise<void> =
  * @returns {Promise<Staff[]>} 교직원 목록
  */
 /**
- * 복호화 헬퍼 함수
+ * 복호화 헬퍼 함수 (단일 값 - 레거시/개별 호출용)
  */
 const decryptValue = async (encryptedValue: string): Promise<string> => {
   if (!encryptedValue || encryptedValue.trim() === '') {
@@ -1710,6 +1710,35 @@ const decryptValue = async (encryptedValue: string): Promise<string> => {
   } catch (error) {
     console.warn('복호화 실패:', error);
     return encryptedValue;
+  }
+};
+
+/** 배치 크기: Apps Script 요청 제한 고려 */
+const DECRYPT_BATCH_SIZE = 100;
+
+/**
+ * 일괄 복호화 - 여러 값을 한 번의 API 호출로 처리 (API 호출 수 대폭 감소)
+ */
+const decryptValuesBatch = async (encryptedValues: string[]): Promise<string[]> => {
+  if (!encryptedValues || encryptedValues.length === 0) {
+    return [];
+  }
+  try {
+    const { apiClient } = await import('../api/apiClient');
+    const results: string[] = [];
+    for (let i = 0; i < encryptedValues.length; i += DECRYPT_BATCH_SIZE) {
+      const chunk = encryptedValues.slice(i, i + DECRYPT_BATCH_SIZE);
+      const response = await apiClient.request<{ success: boolean; data: string[] }>('decryptEmailBatch', { data: chunk });
+      if (response.success && Array.isArray(response.data)) {
+        results.push(...response.data);
+      } else {
+        results.push(...chunk); // 실패 시 원본 반환
+      }
+    }
+    return results;
+  } catch (error) {
+    console.warn('일괄 복호화 실패:', error);
+    return encryptedValues;
   }
 };
 
@@ -1791,27 +1820,22 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
       return staff as Staff;
     });
 
-    console.log(`👨‍💼 교직원 목록 파싱 완료: ${rawStaffData.length}명, 복호화 시작...`);
+    console.log(`👨‍💼 교직원 목록 파싱 완료: ${rawStaffData.length}명, 일괄 복호화 시작...`);
     
-    // 모든 교직원의 암호화된 필드를 병렬로 복호화
-    const decryptedStaffData: Staff[] = await Promise.all(
-      rawStaffData.map(async (staff: Staff) => {
-        const [decryptedTel, decryptedPhone, decryptedEmail] = await Promise.all([
-          decryptValue(staff.tel || ''),
-          decryptValue(staff.phone || ''),
-          decryptValue(staff.email || '')
-        ]);
-        
-        return {
-          ...staff,
-          tel: decryptedTel,
-          phone: decryptedPhone,
-          email: decryptedEmail
-        };
-      })
-    );
+    // 일괄 복호화 (1회 API 호출) - tel, phone, email 순으로 평탄화
+    const encryptedStaffValues = rawStaffData.flatMap((s) => [s.tel || '', s.phone || '', s.email || '']);
+    const decryptedStaffValues = await decryptValuesBatch(encryptedStaffValues);
+    const decryptedStaffData: Staff[] = rawStaffData.map((staff, i) => {
+      const base = i * 3;
+      return {
+        ...staff,
+        tel: decryptedStaffValues[base] ?? staff.tel,
+        phone: decryptedStaffValues[base + 1] ?? staff.phone,
+        email: decryptedStaffValues[base + 2] ?? staff.email
+      };
+    });
 
-    console.log(`👨‍💼 교직원 목록 복호화 완료: ${decryptedStaffData.length}명`);
+    console.log(`👨‍💼 교직원 목록 복호화 완료: ${decryptedStaffData.length}명 (1회 일괄 호출)`);
     
     // 복호화된 데이터를 캐시에 저장
     const ttl = getCacheTTL(action);
@@ -1887,25 +1911,21 @@ export const fetchCommitteeFromPapyrus = async (spreadsheetId: string): Promise<
             return committee as Committee;
         });
 
-    console.log(`👥 위원회 목록 파싱 완료: ${rawCommitteeData.length}개, 복호화 시작...`);
+    console.log(`👥 위원회 목록 파싱 완료: ${rawCommitteeData.length}개, 일괄 복호화 시작...`);
     
-    // 모든 위원회의 암호화된 필드를 병렬로 복호화
-    const decryptedCommitteeData: Committee[] = await Promise.all(
-      rawCommitteeData.map(async (committee: Committee) => {
-        const [decryptedTel, decryptedEmail] = await Promise.all([
-          decryptValue(committee.tel || ''),
-          decryptValue(committee.email || '')
-        ]);
-        
-        return {
-          ...committee,
-          tel: decryptedTel,
-          email: decryptedEmail
-        };
-      })
-    );
+    // 일괄 복호화 (1회 API 호출) - tel, email 순으로 평탄화
+    const encryptedCommitteeValues = rawCommitteeData.flatMap((c) => [c.tel || '', c.email || '']);
+    const decryptedCommitteeValues = await decryptValuesBatch(encryptedCommitteeValues);
+    const decryptedCommitteeData: Committee[] = rawCommitteeData.map((committee, i) => {
+      const base = i * 2;
+      return {
+        ...committee,
+        tel: decryptedCommitteeValues[base] ?? committee.tel,
+        email: decryptedCommitteeValues[base + 1] ?? committee.email
+      };
+    });
 
-    console.log(`👥 위원회 목록 복호화 완료: ${decryptedCommitteeData.length}개`);
+    console.log(`👥 위원회 목록 복호화 완료: ${decryptedCommitteeData.length}개 (1회 일괄 호출)`);
     
     // 복호화된 데이터를 캐시에 저장
     const ttl = getCacheTTL(action);

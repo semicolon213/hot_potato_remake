@@ -7,7 +7,7 @@
 // ===== 템플릿 관련 함수들 =====
 
 /**
- * hot potato/문서/양식 폴더에서 템플릿 목록 가져오기
+ * hot_potato_remake/document/shared_forms 폴더에서 템플릿 목록 가져오기
  * @returns {Object} 템플릿 목록 결과
  */
 function getTemplatesFromFolder() {
@@ -49,9 +49,9 @@ function getTemplatesFromFolder() {
     }
     
     // 스크립트 속성에서 폴더 이름 가져오기
-    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot potato';
-    const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || '문서';
-    const templateFolderName = PropertiesService.getScriptProperties().getProperty('TEMPLATE_FOLDER_NAME') || '양식';
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || 'document';
+    const templateFolderName = PropertiesService.getScriptProperties().getProperty('TEMPLATE_FOLDER_NAME') || 'shared_forms';
     
     // 여러 가능한 폴더 경로 시도 (하위 호환성을 위해 유지)
     const possiblePaths = [
@@ -658,9 +658,9 @@ function testSpecificFolder() {
     }
     
     // 스크립트 속성에서 폴더 이름 가져오기
-    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot potato';
-    const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || '문서';
-    const templateFolderName = PropertiesService.getScriptProperties().getProperty('TEMPLATE_FOLDER_NAME') || '양식';
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || 'document';
+    const templateFolderName = PropertiesService.getScriptProperties().getProperty('TEMPLATE_FOLDER_NAME') || 'shared_forms';
     
     // 실제 폴더 구조를 단계별로 찾기
     // 1단계: 루트에서 루트 폴더 찾기 (하위 호환성을 위해 underscore 버전도 확인)

@@ -424,11 +424,11 @@
     }
 
     // ===== 문서 관리 설정 =====
-    // 문서 저장 폴더 경로 (환경변수 또는 기본값 사용)
-    const ROOT_FOLDER_NAME = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot potato';
-    const DOCUMENT_FOLDER_NAME = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || '문서';
-    const TEMPLATE_FOLDER_NAME = PropertiesService.getScriptProperties().getProperty('TEMPLATE_FOLDER_NAME') || '양식';
-    const SHARED_DOCUMENT_FOLDER_NAME = PropertiesService.getScriptProperties().getProperty('SHARED_DOCUMENT_FOLDER_NAME') || '공유 문서';
+    // 문서 저장 폴더 경로 (스크립트 속성 또는 기본값 - 새 구조 기준)
+    const ROOT_FOLDER_NAME = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    const DOCUMENT_FOLDER_NAME = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || 'document';
+    const TEMPLATE_FOLDER_NAME = PropertiesService.getScriptProperties().getProperty('TEMPLATE_FOLDER_NAME') || 'shared_forms';
+    const SHARED_DOCUMENT_FOLDER_NAME = PropertiesService.getScriptProperties().getProperty('SHARED_DOCUMENT_FOLDER_NAME') || 'shared_documents';
     
     const DOCUMENT_FOLDER_PATH = ROOT_FOLDER_NAME + '/' + DOCUMENT_FOLDER_NAME;
     const TEMPLATE_FOLDER_PATH = ROOT_FOLDER_NAME + '/' + DOCUMENT_FOLDER_NAME + '/' + TEMPLATE_FOLDER_NAME;
@@ -436,7 +436,7 @@
     
     // 기본 태그 관리 설정 (스크립트 속성 또는 기본값 사용)
     const STATIC_TAG_SPREADSHEET_NAME = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SPREADSHEET_NAME') || 'static_tag';
-    const STATIC_TAG_SHEET_NAME = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || 'tag';
+    const STATIC_TAG_SHEET_NAME = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || '시트1';
     
     // 역할별 스프레드시트 이름 매핑
     const ROLE_SPREADSHEET_MAP = {

@@ -32,7 +32,7 @@ function testDocumentCreation() {
 function testFolderCreation() {
   console.log('🧪 폴더 생성 테스트 시작');
   
-  const folder = DocumentFolder.findOrCreateFolder('hot_potato/문서');
+  const folder = DocumentFolder.findOrCreateFolder('hot_potato_remake/document');
   console.log('🧪 폴더 생성 테스트 결과:', folder);
   
   return folder;

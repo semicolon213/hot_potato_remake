@@ -25,22 +25,28 @@
 
 ```
 키: ROOT_FOLDER_NAME
-값: hot potato
+값: hot_potato_remake
 
 키: DOCUMENT_FOLDER_NAME
-값: 문서
-
-키: TEMPLATE_FOLDER_NAME
-값: 양식
+값: document
 
 키: SHARED_DOCUMENT_FOLDER_NAME
-값: 공유 문서
+값: shared_documents
+
+키: PERSONAL_TEMPLATE_FOLDER_NAME
+값: personal_forms
 
 키: SHEET_NAME_USER
 값: user
 
 키: SHEET_NAME_ADMIN_KEYS
 값: admin_keys
+
+키: STATIC_TAG_SPREADSHEET_NAME
+값: static_tag
+
+키: STATIC_TAG_SHEET_NAME
+값: 시트1
 ```
 
 ### 방법 2: 코드로 일괄 설정 함수 만들기
@@ -51,14 +57,14 @@ Apps Script 에디터에 아래 함수를 추가하고 실행하세요:
 // 임시 설정 함수 (한 번 실행 후 삭제해도 됨)
 function setupScriptProperties() {
   const properties = {
-    'ROOT_FOLDER_NAME': 'hot potato',
-    'DOCUMENT_FOLDER_NAME': '문서',
-    'TEMPLATE_FOLDER_NAME': '양식',
-    'SHARED_DOCUMENT_FOLDER_NAME': '공유 문서',
+    'ROOT_FOLDER_NAME': 'hot_potato_remake',
+    'DOCUMENT_FOLDER_NAME': 'document',
+    'SHARED_DOCUMENT_FOLDER_NAME': 'shared_documents',
+    'PERSONAL_TEMPLATE_FOLDER_NAME': 'personal_forms',
     'SHEET_NAME_USER': 'user',
     'SHEET_NAME_ADMIN_KEYS': 'admin_keys',
     'STATIC_TAG_SPREADSHEET_NAME': 'static_tag',
-    'STATIC_TAG_SHEET_NAME': 'tag'
+    'STATIC_TAG_SHEET_NAME': '시트1'
   };
   
   const scriptProperties = PropertiesService.getScriptProperties();

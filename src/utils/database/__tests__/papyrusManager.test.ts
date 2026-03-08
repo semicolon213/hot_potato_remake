@@ -25,7 +25,7 @@ jest.mock('../../config/environment', () => ({
     STUDENT_SHEET_NAME: 'info',
     STUDENT_ISSUE_SHEET_NAME: 'std_issue',
     STAFF_SHEET_NAME: '시트1',
-    DASHBOARD_SHEET_NAME: 'user_custom',
+    DASHBOARD_SHEET_NAME: 'dashboard',
   }
 }));
 

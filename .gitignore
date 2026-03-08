@@ -24,6 +24,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# clasp (Apps Script)
+.clasp.json
+
 # Environment variables
 *.env
 .env

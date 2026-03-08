@@ -348,13 +348,13 @@ export const addCalendarEvent = async (
         const newEventForSheet = {
             'id_calendar': newEventId,
             'title_calendar': eventData.title,
-            'startDate_calendar': eventData.startDate,
-            'endDate_calendar': eventData.endDate,
+            'start_date': eventData.startDate,
+            'end_date': eventData.endDate,
             'description_calendar': eventData.description || ' ',
-            'startDateTime_calendar': eventData.startDateTime,
-            'endDateTime_calendar': eventData.endDateTime,
-            'tag_calendar': eventData.type || '',
             'colorId_calendar': eventData.color || '',
+            'start_date_time': eventData.startDateTime,
+            'end_date_time': eventData.endDateTime,
+            'tag_calendar': eventData.type || '',
             'recurrence_rule_calendar': eventData.rrule || '',
             'attendees_calendar': eventData.attendees || ''
         };
