@@ -48,7 +48,7 @@ function approveUserWithGroup(studentId, groupRole) {
       }
       
       // 3. 사용자 이메일 복호화
-      const userEmail = applyDecryption(approvalResult.user.google_member, 'Base64', '');
+      const userEmail = decryptEmailMain(approvalResult.user.google_member);
       
       // 4. 그룹스 관리자에게 알림 이메일 전송
       const emailResult = sendGroupNotificationEmail({

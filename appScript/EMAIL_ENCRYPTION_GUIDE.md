@@ -9,16 +9,16 @@ Hot Potato Admin Key Management System에서 이메일 암호화 방식을 CONFI
 
 ### 1. 기본 설정 (CONFIG.gs)
 ```javascript
-// 이메일 암호화 설정
+// 이메일 암호화 설정 (Base64보다 안전한 다중 레이어 기본값)
 const EMAIL_ENCRYPTION_CONFIG = {
-  // 사용할 암호화 방법
-  METHOD: 'ROT13', // 'ROT13', 'Base64', 'Caesar', 'BitShift', 'Substitution' 등
+  // 단일 레이어일 때 사용할 방법
+  METHOD: 'Substitution',
   
-  // 암호화 레이어 수 (1 = 단일 암호화, 2+ = 다중 레이어)
-  LAYERS: 1,
+  // 암호화 레이어 수 (3 = BitShift → Substitution → Base64)
+  LAYERS: 3,
   
-  // 다중 레이어 사용 시 사용할 방법들
-  LAYER_METHODS: ['ROT13', 'Base64', 'Caesar'],
+  // 다중 레이어: BitShift → Substitution → Base64
+  LAYER_METHODS: ['BitShift', 'Substitution', 'Base64'],
   
   // 암호화된 이메일 식별 패턴 (전체 이메일 주소 기준)
   IDENTIFICATION_PATTERNS: {

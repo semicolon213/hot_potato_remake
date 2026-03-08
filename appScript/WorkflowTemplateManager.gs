@@ -379,21 +379,21 @@ function checkAdminStatus(email) {
       return false;
     }
     
-    // 이메일 암호화 (스프레드시트에 저장된 형식과 일치하도록)
-    let encryptedEmail;
+    // 이메일 암호화 (신규 다중레이어 + 기존 Base64 호환)
+    let encryptedVariants = [];
     try {
-      // applyEncryption 함수가 있는지 확인
-      if (typeof applyEncryption === 'function') {
-        encryptedEmail = applyEncryption(email, 'Base64', '');
-        console.log('🔐 암호화된 이메일:', encryptedEmail);
+      if (typeof getEncryptedEmailsForLookup === 'function') {
+        encryptedVariants = getEncryptedEmailsForLookup(email);
+        console.log('🔐 암호화 변형 수:', encryptedVariants.length);
+      } else if (typeof encryptEmailMain === 'function') {
+        encryptedVariants = [encryptEmailMain(email), applyEncryption(email, 'Base64', '')];
       } else {
-        // applyEncryption이 없으면 원본 이메일 사용 (암호화가 안 되어 있을 수도 있음)
-        encryptedEmail = email;
-        console.log('⚠️ applyEncryption 함수를 찾을 수 없어 원본 이메일 사용:', email);
+        encryptedVariants = [email];
+        console.log('⚠️ 암호화 함수를 찾을 수 없어 원본 이메일 사용:', email);
       }
     } catch (encryptError) {
       console.log('⚠️ 이메일 암호화 실패, 원본 이메일 사용:', encryptError);
-      encryptedEmail = email;
+      encryptedVariants = [email];
     }
     
     // 암호화된 이메일과 원본 이메일 모두 확인 (둘 다 시도)
@@ -402,7 +402,7 @@ function checkAdminStatus(email) {
       const isAdmin = data[i][adminIdx] === 'O';
       
       // 암호화된 이메일로 비교
-      if (storedEmail === encryptedEmail) {
+      if (encryptedVariants.includes(storedEmail)) {
         console.log('✅ 이메일 일치 (암호화):', storedEmail, 'isAdmin:', isAdmin);
         return isAdmin;
       }

@@ -7,7 +7,7 @@
 // ===== 이메일/연락처 암호화 함수들 =====
 
 /**
- * 이메일/연락처 통합 암호화 (Base64)
+ * 이메일/연락처 통합 암호화 (CONFIG 기반 - BitShift + Substitution 다중 레이어)
  * @param {string} email - 암호화할 이메일/연락처
  * @returns {string} 암호화된 이메일/연락처
  */
@@ -20,8 +20,16 @@ function encryptEmailMain(email) {
       return email || '';
     }
     
-    // 기존 암호화 함수 사용 (Base64)
-    const result = applyEncryption(email, 'Base64', '');
+    const config = getCurrentEmailEncryptionConfig();
+    let result;
+    
+    if (config.layers > 1 && config.layerMethods && config.layerMethods.length > 0) {
+      const multiResult = multiLayerEncrypt(email, config.layerMethods.slice(0, config.layers));
+      result = multiResult.success ? multiResult.encryptedText : email;
+    } else {
+      result = applyEncryption(email, config.method, '');
+    }
+    
     console.log('🔐 암호화 완료:', email, '->', result);
     return result;
   } catch (error) {
@@ -31,7 +39,7 @@ function encryptEmailMain(email) {
 }
 
 /**
- * 이메일/연락처 통합 복호화 (Base64)
+ * 이메일/연락처 통합 복호화 (CONFIG 기반, 기존 Base64 데이터 호환)
  * @param {string} encryptedEmail - 복호화할 이메일/연락처
  * @returns {string} 복호화된 이메일/연락처
  */
@@ -50,14 +58,45 @@ function decryptEmailMain(encryptedEmail) {
       return encryptedEmail;
     }
     
-    // 기존 복호화 함수 사용 (Base64)
-    const result = applyDecryption(encryptedEmail, 'Base64', '');
+    const config = getCurrentEmailEncryptionConfig();
+    let result;
+    
+    if (config.layers > 1 && config.layerMethods && config.layerMethods.length > 0) {
+      const multiResult = multiLayerDecrypt(encryptedEmail, config.layerMethods.slice(0, config.layers));
+      result = multiResult.success ? multiResult.decryptedText : encryptedEmail;
+    } else {
+      result = applyDecryption(encryptedEmail, config.method, '');
+    }
+    
+    // 기존 Base64로 저장된 데이터 호환: 결과가 이메일/전화번호 형식이 아니면 Base64 시도
+    if (!result || (!result.includes('@') && !/^010-\d{4}-\d{4}$/.test(result) && !/^[\d\-+()\s]+$/.test(result))) {
+      try {
+        const base64Decoded = Utilities.base64Decode(encryptedEmail);
+        const legacyResult = Utilities.newBlob(base64Decoded).getDataAsString();
+        if (legacyResult && (legacyResult.includes('@') || /^010-\d{4}-\d{4}$/.test(legacyResult))) {
+          result = legacyResult;
+        }
+      } catch (e) {
+        // Base64 실패 시 기존 result 유지
+      }
+    }
+    
     console.log('🔓 복호화 완료:', encryptedEmail, '->', result);
-    return result;
+    return result || encryptedEmail;
   } catch (error) {
     console.error('복호화 오류:', error);
     return encryptedEmail || '';
   }
+}
+
+/**
+ * 이메일 조회용 암호화 (신규 다중레이어 + 기존 Base64 모두 반환, DB 비교용)
+ * @param {string} email - 암호화할 이메일
+ * @returns {string[]} [신규암호화, Base64암호화] - 둘 중 하나로 DB와 매칭
+ */
+function getEncryptedEmailsForLookup(email) {
+  if (!email || typeof email !== 'string') return [];
+  return [encryptEmailMain(email), applyEncryption(email, 'Base64', '')];
 }
 
 /**
@@ -288,6 +327,7 @@ function getEncryptionEmailInfo() {
     functions: [
       'encryptEmailMain',
       'decryptEmailMain',
+      'getEncryptedEmailsForLookup',
       'validateEmailFormat',
       'validatePhoneFormat',
       'maskEmail',

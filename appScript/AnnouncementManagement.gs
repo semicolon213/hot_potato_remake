@@ -61,7 +61,7 @@ function getUserByEmail(email) {
     }
     
     const header = data[0];
-    const encryptedEmail = applyEncryption(email, 'Base64', '');
+    const encryptedVariants = getEncryptedEmailsForLookup(email);
     
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
@@ -70,7 +70,7 @@ function getUserByEmail(email) {
         user[key] = row[index];
       });
       
-      if (user.google_member === encryptedEmail && user.Approval === 'O') {
+      if (encryptedVariants.includes(user.google_member) && user.Approval === 'O') {
         return {
           no_member: user.no_member,
           user_type: user.user_type,
@@ -121,7 +121,7 @@ function getUserList() {
           id: user.no_member,
           name: user.name_member,
           user_type: user.user_type || 'student',
-          email: user.google_member ? applyDecryption(user.google_member, 'Base64', '') : ''
+          email: user.google_member ? decryptEmailMain(user.google_member) : ''
         });
       }
     }
@@ -302,7 +302,7 @@ function getAnnouncements(req) {
       if (announcement.writer_email) {
         try {
           console.log(`DEBUG: Attempting to decrypt writer_email for announcement ${announcement.id}, encrypted: "${announcement.writer_email}"`);
-          const decryptedEmail = applyDecryption(announcement.writer_email, 'Base64', '');
+          const decryptedEmail = decryptEmailMain(announcement.writer_email);
           console.log(`DEBUG: Decrypted email: "${decryptedEmail}"`);
           const writer = getUserByEmail(decryptedEmail);
           if (writer) {
@@ -485,8 +485,8 @@ function createAnnouncement(req) {
     // 이미지 처리
     const processedContent = processAndUploadImages_(content);
     
-    // 이메일 암호화
-    const encryptedEmail = applyEncryption(writerEmail, 'Base64', '');
+    // 이메일 암호화 (CONFIG 기반 다중 레이어)
+    const encryptedEmail = encryptEmailMain(writerEmail);
     
     // 권한 설정 JSON 문자열화
     const accessRightsStr = accessRights ? JSON.stringify(accessRights) : '';
@@ -585,7 +585,7 @@ function updateAnnouncement(req) {
         announcement = {
           writer_id: row[headerMap['writer_email']] ? 
             (() => {
-              const decryptedEmail = applyDecryption(row[headerMap['writer_email']], 'Base64', '');
+              const decryptedEmail = decryptEmailMain(row[headerMap['writer_email']]);
               const writer = getUserByEmail(decryptedEmail);
               return writer ? writer.no_member : '';
             })() : ''
@@ -710,7 +710,7 @@ function deleteAnnouncement(req) {
       
       if (String(noticeId) === String(announcementId)) {
         const writerEmail = row[headerMap['writer_email']];
-        const decryptedEmail = applyDecryption(writerEmail, 'Base64', '');
+        const decryptedEmail = decryptEmailMain(writerEmail);
         const writer = getUserByEmail(decryptedEmail);
         
         if (!writer || !canEditAnnouncement(writer.no_member, userId)) {
@@ -915,7 +915,7 @@ function requestPinnedAnnouncement(req) {
       const row = data[i];
       if (String(row[headerMap['no_notice']]) === String(announcementId)) {
         const writerEmail = row[headerMap['writer_email']];
-        const decryptedEmail = applyDecryption(writerEmail, 'Base64', '');
+        const decryptedEmail = decryptEmailMain(writerEmail);
         const writer = getUserByEmail(decryptedEmail);
         
         if (!writer || !canEditAnnouncement(writer.no_member, userId)) {
@@ -1145,7 +1145,7 @@ function getPinnedAnnouncementRequests(req) {
       // 승인 대기 중인 것만 ('-')
       if (fixNotice === '-') {
         const writerEmail = row[headerMap['writer_email']];
-        const decryptedEmail = applyDecryption(writerEmail, 'Base64', '');
+        const decryptedEmail = decryptEmailMain(writerEmail);
         const writer = getUserByEmail(decryptedEmail);
         
         requests.push({

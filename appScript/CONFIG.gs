@@ -68,16 +68,16 @@
     // 이메일 암호화 사용 여부
     const USE_EMAIL_ENCRYPTION = true;
 
-    // 이메일 암호화 방식 설정
+    // 이메일 암호화 방식 설정 (Base64보다 안전한 다중 레이어)
     const EMAIL_ENCRYPTION_CONFIG = {
-    // 사용할 암호화 방법 (ENCRYPTION_METHODS에서 선택)
-    METHOD: 'Base64', // 'ROT13', 'Base64', 'Caesar', 'BitShift', 'Substitution' 등
+    // 사용할 암호화 방법 (단일 레이어일 때만 사용)
+    METHOD: 'Substitution',
     
-    // 암호화 레이어 수 (1 = 단일 암호화, 2+ = 다중 레이어)
-    LAYERS: 1,
+    // 암호화 레이어 수 (3 = BitShift → Substitution → Base64)
+    LAYERS: 3,
     
-    // 다중 레이어 사용 시 사용할 방법들 (LAYERS > 1일 때만 적용)
-    LAYER_METHODS: ['ROT13', 'Base64', 'Caesar'],
+    // 다중 레이어: BitShift(전체문자) → Substitution(알파벳치환) → Base64(저장용인코딩)
+    LAYER_METHODS: ['BitShift', 'Substitution', 'Base64'],
     
     // 암호화된 이메일 식별 패턴 (전체 이메일 주소 기준)
     IDENTIFICATION_PATTERNS: {

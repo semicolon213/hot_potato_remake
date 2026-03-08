@@ -66,7 +66,7 @@ function getAllUsers() {
         ...user,
         rowIndex: index + 2,
         id: user.no_member || `user_${index}`,
-        email: user.google_member ? applyDecryption(user.google_member, 'Base64', '') : '',
+        email: user.google_member ? decryptEmailMain(user.google_member) : '',
         studentId: user.no_member || '',
         name: user.name_member || '',
         userType: (() => {

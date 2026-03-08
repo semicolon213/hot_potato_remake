@@ -60,12 +60,12 @@ function getUserNameByEmail(email) {
     console.log('👤 전체 사용자 수:', users.length);
     console.log('👤 첫 번째 사용자 샘플:', users[0]);
     
-    // 암호화된 이메일로 비교
-    const encryptedEmail = applyEncryption(email, 'Base64', '');
+    // 암호화된 이메일로 비교 (신규 다중레이어 + 기존 Base64 호환)
+    const encryptedVariants = getEncryptedEmailsForLookup(email);
     console.log('👤 원본 이메일:', email);
-    console.log('👤 암호화된 이메일:', encryptedEmail);
+    console.log('👤 암호화 변형:', encryptedVariants.length);
     
-    const user = users.find(u => u.google_member === encryptedEmail);
+    const user = users.find(u => encryptedVariants.includes(u.google_member));
     
     if (!user) {
       console.log('👤 해당 이메일의 사용자를 찾을 수 없습니다.');
@@ -147,9 +147,9 @@ function checkUserStatus(email) {
       return user;
     });
     
-    // 암호화된 이메일로 비교
-    const encryptedEmail = applyEncryption(email, 'Base64', '');
-    const user = users.find(u => u.google_member === encryptedEmail);
+    // 암호화된 이메일로 비교 (신규 다중레이어 + 기존 Base64 호환)
+    const encryptedVariants = getEncryptedEmailsForLookup(email);
+    const user = users.find(u => encryptedVariants.includes(u.google_member));
     
     if (!user) {
       return {

@@ -457,8 +457,8 @@ function addUserToSpreadsheet(userData) {
     const actualRowNumber = targetUserIndex + 2;
     debugInfo.actualRowNumber = actualRowNumber;
     
-    // 이메일 암호화
-    const encryptedEmail = applyEncryption(userData.email, 'Base64', '');
+    // 이메일 암호화 (CONFIG 기반 다중 레이어)
+    const encryptedEmail = encryptEmailMain(userData.email);
     
     // 실제 헤더 기준으로 컬럼 찾기
     const emailColumnIndex = header.findIndex(h => h.includes('google_member') || h.includes('이메일') || h.includes('email'));
