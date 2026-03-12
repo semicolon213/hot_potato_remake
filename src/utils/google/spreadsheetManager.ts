@@ -8,46 +8,15 @@
 
 import { appendRow } from 'papyrus-db';
 import { updateSheetCell } from './googleSheetUtils';
+import { findSpreadsheetById as findSpreadsheetByIdInRoot } from '../database/papyrusManager';
 import type { Post, Event, DateRange, CustomPeriod, Student, Staff } from '../../types/app';
 import type { Template } from '../../hooks/features/templates/useTemplateUI';
 
 /**
- * @brief 스프레드시트 ID 찾기 함수
- * @param {string} name - 찾을 스프레드시트의 이름
- * @returns {Promise<string | null>} 스프레드시트 ID 또는 null
- * @details Google Drive API를 사용하여 지정된 이름의 스프레드시트를 검색합니다.
+ * @brief 스프레드시트 ID 찾기 (드라이브 루트의 프로젝트 루트 폴더 하위에서만 검색)
+ * @details papyrusManager 구현을 재사용합니다.
  */
-export const findSpreadsheetById = async (name: string): Promise<string | null> => {
-    try {
-        // Google API가 초기화되지 않은 경우
-        if (!window.gapi || !window.gapi.client) {
-            console.warn('Google API가 초기화되지 않았습니다.');
-            return null;
-        }
-
-        const response = await window.gapi.client.drive.files.list({
-            q: `name='${name}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
-            fields: 'files(id,name,owners,parents)',
-            orderBy: 'name',
-            spaces: 'drive',
-            includeItemsFromAllDrives: true,
-            supportsAllDrives: true,
-            corpora: 'allDrives'
-        });
-        
-        if (response.result.files && response.result.files.length > 0) {
-            const fileId = response.result.files[0].id;
-            console.log(`Found '${name}' spreadsheet with ID:`, fileId);
-            return fileId;
-        } else {
-            console.warn(`Could not find spreadsheet with name '${name}'`);
-            return null;
-        }
-    } catch (error) {
-        console.warn(`Error searching for ${name} spreadsheet:`, error);
-        return null;
-    }
-};
+export const findSpreadsheetById = findSpreadsheetByIdInRoot;
 
 // 게시글 관련 함수들
 export const fetchPosts = async (boardSpreadsheetId: string, boardSheetName: string): Promise<Post[]> => {

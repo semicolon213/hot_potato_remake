@@ -161,10 +161,14 @@ function checkUserStatus(email) {
       };
     }
     
-    // 가입 승인 요청을 아직 보내지 않은 경우: user_type, Approval 등이 비어 있으면
+    // 가입 승인 요청을 아직 보내지 않은 경우: user_type, approval/Approval 등이 비어 있으면
     // "가입 승인 요청" 화면으로 가야 하므로 not_registered 반환
     const hasUserType = user.user_type && String(user.user_type).trim() !== '';
-    const hasApproval = user.Approval !== undefined && user.Approval !== null && String(user.Approval).trim() !== '';
+    // 시트에 따라 컬럼명이 'Approval' 또는 'approval' 일 수 있으므로 둘 다 처리
+    const approvalValue = user.Approval !== undefined && user.Approval !== null
+      ? user.Approval
+      : (user.approval !== undefined && user.approval !== null ? user.approval : '');
+    const hasApproval = approvalValue !== undefined && approvalValue !== null && String(approvalValue).trim() !== '';
     if (!hasUserType || !hasApproval) {
       return {
         success: true,
@@ -180,8 +184,8 @@ function checkUserStatus(email) {
       };
     }
     
-    // 승인 상태 확인 (Approval 컬럼)
-    const isApproved = user.Approval === 'O';
+    // 승인 상태 확인 (Approval/approval 컬럼)
+    const isApproved = String(approvalValue).trim() === 'O';
     const isAdmin = user.is_admin === 'O';
     
     return {

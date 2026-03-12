@@ -300,8 +300,10 @@ app.on('window-all-closed', () => {
   }
 });
 
-// 앱 종료 전 로그아웃 처리
+// 앱 종료 전 로그아웃 처리 + 캐시 정리
 app.on('before-quit', (event) => {
+  event.preventDefault();
+
   // 모든 윈도우에 로그아웃 신호 전송
   const windows = BrowserWindow.getAllWindows();
   windows.forEach(window => {
@@ -309,11 +311,36 @@ app.on('before-quit', (event) => {
       window.webContents.send('app-before-quit');
     }
   });
-  
-  // 잠시 대기 후 앱 종료 (로그아웃 처리 시간 확보)
-  setTimeout(() => {
-    app.exit(0);
-  }, 100);
+
+  const { session } = require('electron');
+  const defaultSession = session.defaultSession;
+
+  // HTTP 캐시 및 CacheStorage 정리 후 종료
+  const clearCachePromise = defaultSession.clearCache && typeof defaultSession.clearCache === 'function'
+    ? defaultSession.clearCache()
+    : Promise.resolve();
+  const clearStoragePromise = defaultSession.clearStorageData && typeof defaultSession.clearStorageData === 'function'
+    ? defaultSession.clearStorageData({ storages: ['cachestorage'] }).catch(() => {})
+    : Promise.resolve();
+
+  Promise.all([clearCachePromise, clearStoragePromise])
+    .then(() => {
+      if (process.platform === 'win32') {
+        try {
+          const fs = require('fs');
+          const cachePath = path.join(app.getPath('userData'), 'Cache');
+          if (fs.existsSync(cachePath)) {
+            fs.rmSync(cachePath, { recursive: true, force: true });
+          }
+        } catch (err) {
+          console.warn('캐시 폴더 삭제 실패 (무시):', err.message);
+        }
+      }
+    })
+    .catch((err) => console.warn('캐시 정리 중 오류:', err.message))
+    .finally(() => {
+      setTimeout(() => app.exit(0), 100);
+    });
 });
 
 // 보안: 새 윈도우 생성 방지 (Google OAuth 제외)

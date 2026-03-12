@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { fetchStudents as fetchStudentsFromPapyrus, deleteStudent as deleteStudentFromPapyrus } from '../../../utils/database/papyrusManager';
+import { ENV_CONFIG } from '../../../config/environment';
 import type { Student, StudentWithCouncil, CouncilPosition } from '../../../types/features/students/student';
 
 /**
@@ -93,7 +94,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     try {
       // 개발 환경에서는 프록시 사용, 프로덕션에서는 직접 URL 사용
       const isDevelopment = import.meta.env.DEV;
-      const baseUrl = isDevelopment ? '/api' : (import.meta.env.VITE_APP_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwFLMG03A0aHCa_OE9oqLY4fCzopaj6wPWMeJYCxyieG_8CgKHQMbnp9miwTMu0Snt9/exec');
+      const baseUrl = isDevelopment ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
       
       const requestBody = {
         action: 'decryptEmail',

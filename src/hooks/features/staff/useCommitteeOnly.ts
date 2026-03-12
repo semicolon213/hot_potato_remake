@@ -14,6 +14,7 @@ import {
   deleteCommittee as deleteCommitteeFromPapyrus
 } from '../../../utils/database/papyrusManager';
 import { useAppState } from '../../core/useAppState';
+import { ENV_CONFIG } from '../../../config/environment';
 import type { Committee, CareerItem } from '../../../types/features/staff';
 
 interface CommitteeFilters {
@@ -43,7 +44,7 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
   const encryptData = useCallback(async (dataItem: Committee) => {
     try {
       const isDevelopment = import.meta.env.DEV;
-      const baseUrl = isDevelopment ? '/api' : (import.meta.env.VITE_APP_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwFLMG03A0aHCa_OE9oqLY4fCzopaj6wPWMeJYCxyieG_8CgKHQMbnp9miwTMu0Snt9/exec');
+      const baseUrl = isDevelopment ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
 
       const encryptedCommittee = { ...dataItem };
       

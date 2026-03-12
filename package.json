@@ -6,7 +6,7 @@
   "main": "electron/main.cjs",
   "homepage": "./",
   "scripts": {
-    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev": "cross-env NODE_OPTIONS=\"--disable-warning=DEP0169\" concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "dev:web": "vite",
     "build": "vite build",
     "lint": "eslint .",

@@ -92,19 +92,24 @@ const checkUserStatus = async (email: string): Promise<LoginResponse> => {
       message?: string;
     };
     const user = responseData.user;
-    const status = responseData.status ?? responseData.approvalStatus;
+    const status = (responseData.status ?? responseData.approvalStatus ?? '').toString().toLowerCase();
 
-    // hp_member에 행은 있지만 user_type, Approval 등이 비어 있으면
+    // 시트 컬럼명이 'Approval' 또는 'approval' 일 수 있음
+    const approvalValue = user && (user.Approval ?? (user as Record<string, unknown>).approval);
+    const hasApprovalCol = approvalValue !== undefined && approvalValue !== null && String(approvalValue).trim() !== '';
+    const isApprovedByCol = String(approvalValue).trim().toUpperCase() === 'O';
+
+    // hp_member에 행은 있지만 user_type, approval 등이 비어 있으면
     // "가입 승인 요청" 화면(회원가입 폼)으로 보내야 함 → isRegistered = false
     const hasRow = user && (user.no_member || user.student_id || responseData.studentId);
     const hasUserType = (user?.user_type ?? user?.userType ?? '') !== '';
-    const hasApproval = user?.Approval !== undefined && user?.Approval !== null && String(user?.Approval ?? '').trim() !== '';
-    const registrationNotSubmitted = hasRow && (!hasUserType || !hasApproval);
+    const registrationNotSubmitted = hasRow && (!hasUserType || !hasApprovalCol);
 
+    // status가 approved/pending이면 이미 등록·승인 플로우가 반영된 것
     const isRegistered = status === 'not_registered' || registrationNotSubmitted
       ? false
-      : (status !== 'not_registered');
-    const isApproved = isRegistered && (user?.isApproved ?? responseData.isApproved ?? false);
+      : (status === 'approved' || status === 'pending');
+    const isApproved = isRegistered && (status === 'approved' || user?.isApproved === true || responseData.isApproved === true || isApprovedByCol);
 
     return {
       success: (data as unknown as Record<string, unknown>).success || false,
@@ -374,17 +379,17 @@ export const useAuth = (onLogin: (user: User) => void) => {
 
   // 회원가입 요청
   const handleRegistration = async () => {
-    if (!formData.email.trim()) {
+    if (!String(formData.email || '').trim()) {
       setLoginState(prev => ({ ...prev, error: '이메일 정보가 없습니다. 다시 로그인해주세요.' }));
       return;
     }
 
-    if (!formData.name.trim()) {
+    if (!String(formData.name || '').trim()) {
       setLoginState(prev => ({ ...prev, error: '이름을 입력해주세요.' }));
       return;
     }
 
-    if (!formData.studentId.trim()) {
+    if (!String(formData.studentId || '').trim()) {
       setLoginState(prev => ({ ...prev, error: '학번/교번을 입력해주세요.' }));
       return;
     }

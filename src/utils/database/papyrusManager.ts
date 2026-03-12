@@ -74,64 +74,96 @@ export const clearSpreadsheetIds = (): void => {
 };
 
 /**
- * @brief 스프레드시트 ID 찾기 함수
+ * @brief 드라이브 루트에 있는 프로젝트 루트 폴더 ID 조회
+ * @returns {Promise<string | null>} 루트 폴더 ID 또는 null
+ */
+const getProjectRootFolderId = async (): Promise<string | null> => {
+    if (!window.gapi?.client) return null;
+    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME || 'hot_potato_remake';
+    const safeName = rootFolderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const response = await window.gapi.client.drive.files.list({
+        q: `'root' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name)'
+    });
+    if (response.result.files && response.result.files.length > 0) {
+        return response.result.files[0].id;
+    }
+    return null;
+};
+
+/**
+ * @brief 스프레드시트 ID 찾기 함수 (드라이브 루트의 프로젝트 루트 폴더 하위에서만 검색)
  * @param {string} name - 찾을 스프레드시트의 이름
  * @returns {Promise<string | null>} 스프레드시트 ID 또는 null
  */
 export const findSpreadsheetById = async (name: string): Promise<string | null> => {
     try {
-        // Google API가 초기화되지 않은 경우
         if (!window.gapi || !window.gapi.client) {
             console.warn(`Google API가 초기화되지 않았습니다. 스프레드시트 '${name}' 검색을 건너뜁니다.`);
             return null;
         }
 
-        // Google API 인증 상태 확인 (더 안전한 방법)
         const token = tokenManager.get();
         if (!token) {
             console.warn(`Google API 인증 토큰이 없거나 만료되었습니다. 스프레드시트 '${name}' 검색을 건너뜁니다.`);
             return null;
         }
 
-        // 토큰을 gapi client에 설정
         try {
-            window.gapi.client.setToken({access_token: token});
-            console.log(`✅ 토큰이 gapi client에 설정되었습니다.`);
+            window.gapi.client.setToken({ access_token: token });
         } catch (tokenError) {
             console.warn(`토큰 설정 실패:`, tokenError);
         }
 
-        // Google API가 준비될 때까지 대기
         let attempts = 0;
-        const maxAttempts = 3; // 재시도 횟수 줄임
+        const maxAttempts = 3;
 
         while (attempts < maxAttempts) {
             try {
-                console.log(`스프레드시트 '${name}' 검색 중... (시도 ${attempts + 1}/${maxAttempts})`);
+                console.log(`스프레드시트 '${name}' 검색 중 (프로젝트 루트 폴더 하위)... (시도 ${attempts + 1}/${maxAttempts})`);
 
+                const rootFolderId = await getProjectRootFolderId();
+                if (!rootFolderId) {
+                    console.warn(`❌ 프로젝트 루트 폴더('${ENV_CONFIG.ROOT_FOLDER_NAME || 'hot_potato_remake'}')를 드라이브 루트에서 찾을 수 없습니다.`);
+                    return null;
+                }
+
+                const safeName = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                 const response = await window.gapi.client.drive.files.list({
-                    q: `name='${name}' and mimeType='application/vnd.google-apps.spreadsheet'`,
+                    q: `'${rootFolderId}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
                     fields: 'files(id, name)'
                 });
 
                 if (response.result.files && response.result.files.length > 0) {
                     const fileId = response.result.files[0].id;
-                    // console.log(`✅ 스프레드시트 '${name}' 발견, ID:`, fileId);
                     return fileId;
-                } else {
-                    console.warn(`❌ 이름이 '${name}'인 스프레드시트를 찾을 수 없습니다.`);
-                    return null;
                 }
+
+                // 루트 폴더 직하위에 없으면 하위 폴더들에서 재귀 검색 (SpreadsheetUtils 동작과 동일)
+                const folderResponse = await window.gapi.client.drive.files.list({
+                    q: `'${rootFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+                    fields: 'files(id, name)'
+                });
+                const subFolders = folderResponse.result.files || [];
+                for (const folder of subFolders) {
+                    const subResponse = await window.gapi.client.drive.files.list({
+                        q: `'${folder.id}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+                        fields: 'files(id, name)'
+                    });
+                    if (subResponse.result.files && subResponse.result.files.length > 0) {
+                        return subResponse.result.files[0].id;
+                    }
+                }
+
+                console.warn(`❌ 프로젝트 루트 폴더 하위에서 이름이 '${name}'인 스프레드시트를 찾을 수 없습니다.`);
+                return null;
             } catch (apiError) {
                 attempts++;
                 console.error(`API 호출 실패 (${attempts}/${maxAttempts}):`, apiError);
-
                 if (attempts >= maxAttempts) {
                     console.error(`❌ 스프레드시트 '${name}' 검색 실패:`, apiError);
-                    return null; // throw 대신 null 반환
+                    return null;
                 }
-
-                // 재시도 전 잠시 대기
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }

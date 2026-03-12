@@ -101,7 +101,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     try {
       // 개발 환경에서는 프록시 사용, 프로덕션에서는 직접 URL 사용
       const isDevelopment = import.meta.env.DEV;
-      const baseUrl = isDevelopment ? '/api' : (import.meta.env.VITE_APP_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwFLMG03A0aHCa_OE9oqLY4fCzopaj6wPWMeJYCxyieG_8CgKHQMbnp9miwTMu0Snt9/exec');
+      const baseUrl = isDevelopment ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
       
       const requestBody = {
         action: 'decryptEmail',
@@ -150,10 +150,10 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     try {
       // 개발 환경에서는 프록시 사용, 프로덕션에서는 직접 URL 사용
       const isDevelopment = import.meta.env.DEV;
-      const baseUrl = isDevelopment ? '/api' : (import.meta.env.VITE_APP_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwFLMG03A0aHCa_OE9oqLY4fCzopaj6wPWMeJYCxyieG_8CgKHQMbnp9miwTMu0Snt9/exec');
+      const baseUrl = isDevelopment ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
       
       console.log('🔗 사용하는 URL:', baseUrl);
-      console.log('🔗 환경변수 VITE_APP_SCRIPT_URL:', import.meta.env.VITE_APP_SCRIPT_URL);
+      console.log('🔗 ENV_CONFIG.APP_SCRIPT_URL:', ENV_CONFIG.APP_SCRIPT_URL);
       console.log('🔗 개발환경 여부:', isDevelopment);
       
       const requestBody = {

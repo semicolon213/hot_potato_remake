@@ -64,36 +64,7 @@ function addDocumentToSpreadsheet(documentId, title, creatorEmail, documentUrl, 
   }
 }
 
-/**
- * 스프레드시트 이름으로 ID 찾기
- * @param {string} sheetName - 스프레드시트 이름
- * @returns {string} 스프레드시트 ID
- */
-function getSheetIdByName(sheetName) {
-  try {
-    console.log('📊 스프레드시트 ID 찾기 시작:', sheetName);
-    
-    const query = `name='${sheetName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
-    console.log('📊 스프레드시트 검색 쿼리:', query);
-    
-    const files = Drive.Files.list({
-      q: query,
-      fields: 'files(id,name)'
-    });
-    
-    if (files.files && files.files.length > 0) {
-      const spreadsheetId = files.files[0].id;
-      console.log('📊 스프레드시트 ID 찾기 성공:', spreadsheetId);
-      return spreadsheetId;
-    } else {
-      console.warn('📊 스프레드시트를 찾을 수 없습니다:', sheetName);
-      return null;
-    }
-  } catch (error) {
-    console.error('📊 스프레드시트 ID 찾기 오류:', error);
-    return null;
-  }
-}
+// getSheetIdByName: SpreadsheetUtils.gs의 함수 사용 (프로젝트 루트 폴더 하위에서만 검색)
 
 /**
  * 공유 문서 폴더에서 파일 목록 가져오기 (기본 템플릿처럼 파일 목록 + 메타데이터 따로 조회)

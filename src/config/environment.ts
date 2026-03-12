@@ -97,10 +97,6 @@ export const ENV_CONFIG = {
   GOOGLE_CLIENT_ID: getEnvVar('VITE_GOOGLE_CLIENT_ID'),
   APP_SCRIPT_URL: getEnvVar('VITE_APP_SCRIPT_URL'),
 
-  // Papyrus DB (플랫 변수, .env에 있으면 사용)
-  PAPYRUS_DB_URL: getEnvVar('VITE_PAPYRUS_DB_URL'),
-  PAPYRUS_DB_API_KEY: getEnvVar('VITE_PAPYRUS_DB_API_KEY'),
-
   // 스프레드시트 이름 (기존 키 유지)
   HOT_POTATO_DB_SPREADSHEET_NAME: SPREADSHEET.CONFIG ?? 'user_setting',
   ANNOUNCEMENT_SPREADSHEET_NAME: SPREADSHEET.NOTICE ?? 'notice',

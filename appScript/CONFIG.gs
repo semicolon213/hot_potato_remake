@@ -4,10 +4,6 @@
     * Hot Potato Admin Key Management System
     */
 
-    // ===== 스프레드시트 설정 =====
-    // hp_member 스프레드시트 ID (실제 값으로 교체 필요)
-    const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE';
-
     // 시트 이름 상수 (스크립트 속성에서 가져오기, 기본값 제공)
     const SHEET_NAMES = {
     USER: PropertiesService.getScriptProperties().getProperty('SHEET_NAME_USER') || 'user',
@@ -156,7 +152,7 @@
     // 설정 값 가져오기
     function getConfig(key) {
     const configs = {
-        'spreadsheet_id': SPREADSHEET_ID,
+        'spreadsheet_id': getSpreadsheetId(),
         'sheet_names': SHEET_NAMES,
         'encryption_methods': ENCRYPTION_METHODS,
         'layer_config': LAYER_CONFIG,
@@ -181,31 +177,29 @@
     return configs[key] || null;
     }
 
-    // 스프레드시트 ID 설정
+    // 스프레드시트 ID 설정 (스크립트 속성에 저장)
     function setSpreadsheetId(id) {
-    if (id && id !== 'YOUR_SPREADSHEET_ID_HERE') {
-        // PropertiesService를 사용하여 동적으로 설정 저장
-        PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', id);
-        console.log('스프레드시트 ID가 설정되었습니다:', id);
+    if (id && typeof id === 'string' && id.trim()) {
+        PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', id.trim());
+        console.log('스프레드시트 ID가 스크립트 속성에 설정되었습니다:', id.trim());
         return true;
     }
     return false;
     }
 
-    // 스프레드시트 ID 가져오기 (동적)
+    // 스프레드시트 ID 가져오기 (스크립트 속성만 사용)
     function getSpreadsheetId() {
-    const storedId = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
-    return storedId || SPREADSHEET_ID;
+    return PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || null;
     }
 
     // 설정 검증
     function validateConfig() {
     const errors = [];
     
-    // 스프레드시트 ID 확인
+    // 스프레드시트 ID 확인 (스크립트 속성 SPREADSHEET_ID 필수)
     const spreadsheetId = getSpreadsheetId();
-    if (!spreadsheetId || spreadsheetId === 'YOUR_SPREADSHEET_ID_HERE') {
-        errors.push('스프레드시트 ID가 설정되지 않았습니다.');
+    if (!spreadsheetId) {
+        errors.push('스크립트 속성 SPREADSHEET_ID가 설정되지 않았습니다. (프로젝트 설정 > 스크립트 속성)');
     }
     
     // 암호화 방법 확인

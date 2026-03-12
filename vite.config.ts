@@ -1,8 +1,42 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // .env는 프로젝트 루트에서 로드 (config에서 process.env 사용 전에 필요)
+  const env = loadEnv(mode, process.cwd(), '')
+  const appScriptUrl = env.VITE_APP_SCRIPT_URL || process.env.VITE_APP_SCRIPT_URL
+
+  const proxy = appScriptUrl
+    ? {
+        '/api': {
+          target: appScriptUrl,
+          changeOrigin: true,
+          secure: false,
+          followRedirects: true,
+          rewrite: (path: string) => path.replace(/^\/api/, ''),
+          configure: (proxy: { on: (e: string, fn: (...a: unknown[]) => void) => void }) => {
+            proxy.on('error', (err: unknown) => {
+              console.log('🚨 프록시 에러:', err);
+            });
+            proxy.on('proxyReq', (...args: unknown[]) => {
+              const [proxyReq, req] = args as [{ path?: string }, { method?: string; url?: string }];
+              console.log('📤 프록시 요청:', req?.method, req?.url, '→', proxyReq?.path);
+            });
+            proxy.on('proxyRes', (...args: unknown[]) => {
+              const [proxyRes, req] = args as [{ statusCode?: number }, { url?: string }];
+              console.log('📥 프록시 응답:', proxyRes?.statusCode, req?.url);
+            });
+          },
+        },
+      }
+    : undefined
+
+  if (!appScriptUrl) {
+    console.warn('⚠️ VITE_APP_SCRIPT_URL이 .env에 없습니다. /api 요청은 프록시되지 않습니다.');
+  }
+
+  return {
   plugins: [react()],
   server: {
     fs: {
@@ -16,26 +50,7 @@ export default defineConfig({
       'Content-Security-Policy':
           "connect-src 'self' https://accounts.google.com https://apis.google.com https://www.googleapis.com https://content.googleapis.com https://oauth2.googleapis.com https://clients6.google.com https://script.google.com https://script.googleusercontent.com https://*.googleusercontent.com https://sheets.googleapis.com https://docs.googleapis.com https://drive.googleapis.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com https://ssl.gstatic.com;"
     },
-    proxy: {
-      '/api': {
-        target: process.env.VITE_APP_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwlgk6IgxezP9RpLT3Jn6Lv2JmuW1ZjTdrnx5-IyiC3MJDSv-xGb8vz1h9H0TCU9JyY/exec',
-        changeOrigin: true,
-        secure: false,
-        followRedirects: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-        configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
-            console.log('🚨 프록시 에러:', err);
-          });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('📤 프록시 요청:', req.method, req.url, '→', proxyReq.path);
-          });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('📥 프록시 응답:', proxyRes.statusCode, req.url);
-          });
-        },
-      }
-    }
+    proxy,
   },
   build: {
     rollupOptions: {
@@ -60,4 +75,5 @@ export default defineConfig({
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
   }
+  };
 })

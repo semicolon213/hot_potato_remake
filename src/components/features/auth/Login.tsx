@@ -289,7 +289,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <button
               type="button"
               onClick={handleRegistration}
-              disabled={loginState.isLoading || !formData.name.trim() || !formData.studentId.trim() || !formData.userType || (formData.isAdmin && !formData.adminKey.trim())}
+              disabled={
+                loginState.isLoading
+                || !String(formData.name || '').trim()
+                || !String(formData.studentId || '').trim()
+                || !formData.userType
+                || (formData.isAdmin && !String(formData.adminKey || '').trim())
+              }
               className="register-btn"
             >
               {loginState.isLoading ? (

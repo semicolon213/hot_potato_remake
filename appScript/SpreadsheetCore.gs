@@ -22,14 +22,14 @@ function getHpMemberSpreadsheet() {
     console.warn('연결된 스프레드시트를 찾을 수 없습니다:', error.message);
   }
   
-  // 연결된 스프레드시트가 없으면 CONFIG에서 ID로 찾기
+  // 연결된 스프레드시트가 없으면 스크립트 속성 SPREADSHEET_ID 사용
   const spreadsheetId = getSpreadsheetId();
-  if (spreadsheetId && spreadsheetId !== 'YOUR_SPREADSHEET_ID_HERE') {
-    console.log('CONFIG의 스프레드시트 ID 사용:', spreadsheetId);
+  if (spreadsheetId) {
+    console.log('스크립트 속성 SPREADSHEET_ID 사용:', spreadsheetId);
     return SpreadsheetApp.openById(spreadsheetId);
   }
   
-  throw new Error('스프레드시트를 찾을 수 없습니다. Apps Script 프로젝트에 스프레드시트를 연결하거나 CONFIG.gs에서 스프레드시트 ID를 설정하세요.');
+  throw new Error('스프레드시트를 찾을 수 없습니다. 프로젝트 설정 > 스크립트 속성에 SPREADSHEET_ID(회원/로그인용 스프레드시트 ID)를 설정하세요.');
 }
 
 /**

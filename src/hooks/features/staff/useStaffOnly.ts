@@ -13,7 +13,7 @@ import {
   updateStaff as updateStaffInPapyrus,
   deleteStaff as deleteStaffFromPapyrus
 } from '../../../utils/database/papyrusManager';
-// useAppState 의존성 제거 - 교직원 전용 데이터만 로드
+import { ENV_CONFIG } from '../../../config/environment';
 import type { StaffMember } from '../../../types/features/staff';
 
 interface StaffFilters {
@@ -41,7 +41,7 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
   const encryptData = useCallback(async (dataItem: StaffMember) => {
     try {
       const isDevelopment = import.meta.env.DEV;
-      const baseUrl = isDevelopment ? '/api' : (import.meta.env.VITE_APP_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwFLMG03A0aHCa_OE9oqLY4fCzopaj6wPWMeJYCxyieG_8CgKHQMbnp9miwTMu0Snt9/exec');
+      const baseUrl = isDevelopment ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
 
       const encryptedStaff = { ...dataItem };
       

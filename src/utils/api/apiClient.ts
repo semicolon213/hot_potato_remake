@@ -269,6 +269,7 @@ export class ApiClient {
 
   // 인증 API
   async checkApprovalStatus(email: string) {
+    // 기존 UserAuth.gs의 checkUserStatus를 호출 (hp_member/user 시트 기반)
     return this.request<ApprovalStatusResponse>('checkUserStatus', { email });
   }
 
