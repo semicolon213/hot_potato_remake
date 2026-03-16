@@ -917,6 +917,14 @@
   width: 18px;
   height: 18px;
   cursor: pointer;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.employment-checkbox-label span {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
 }
 
 .employment-error {

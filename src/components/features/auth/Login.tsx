@@ -611,7 +611,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     {employmentFormTab === 'question' && (
                       <div className="employment-form-group">
                         <label>질문 남기기</label>
-                        <p className="employment-hint small">각 질문과 내용을 입력한 뒤 저장하면 JSON으로 저장됩니다.</p>
                         {employmentQuestionEntries.map((entry, idx) => (
                           <div key={idx} className="employment-question-row">
                             <input
