@@ -352,6 +352,7 @@ const App: React.FC = () => {
       // 학생 및 교직원 섹션
       students: '학생 및 교직원',
       students_council: '학생 및 교직원',
+      students_grade_management: '학생 및 교직원',
       staff: '학생 및 교직원',
       staff_committee: '학생 및 교직원',
       // 구글서비스 섹션

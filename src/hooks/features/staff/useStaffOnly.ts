@@ -65,6 +65,23 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
         }
       }
       
+      // 연락처(휴대전화) 암호화
+      if (dataItem.phone && dataItem.phone.trim() !== '') {
+        try {
+          const response = await fetch(baseUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'encryptEmail', data: dataItem.phone })
+          });
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) encryptedStaff.phone = result.data;
+          }
+        } catch (error) {
+          console.warn('연락처 암호화 실패:', error);
+        }
+      }
+
       // 이메일 암호화
       if (dataItem.email && dataItem.email.trim() !== '') {
         try {

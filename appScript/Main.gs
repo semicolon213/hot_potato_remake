@@ -677,11 +677,31 @@ function doPost(e) {
       }
     }
     
-    // 학생 학년 업데이트 (매년 첫날 트리거용)
+    // 졸업 학년 조회
+    if (req.action === 'getGraduationGrade') {
+      try {
+        const result = getGraduationGrade(req.spreadsheetId);
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('❌ getGraduationGrade 오류:', error);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    // 졸업 학년 설정 (조교만)
+    if (req.action === 'setGraduationGrade') {
+      try {
+        const result = setGraduationGrade(req.spreadsheetId, req.grade, req.userEmail);
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('❌ setGraduationGrade 오류:', error);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    // 학생 학년 업데이트 (학년 관리에서 조교 수동 실행)
     if (req.action === 'updateStudentGrades') {
       console.log('📚 학생 학년 업데이트 요청:', req);
       try {
-        const result = updateStudentGrades(req.spreadsheetId);
+        const result = updateStudentGrades(req.spreadsheetId, req.graduationGrade, req.graduationYear, req.graduationTerm);
         return ContentService
           .createTextOutput(JSON.stringify(result))
           .setMimeType(ContentService.MimeType.JSON);
@@ -693,6 +713,87 @@ function doPost(e) {
             message: '학년 업데이트 중 오류가 발생했습니다: ' + error.message
           }))
           .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // ===== 학생 취업관리 (로그인 없이 / 학생관리 탭) =====
+    if (req.action === 'validateStudentForEmployment') {
+      try {
+        const result = validateStudentForEmployment(req.spreadsheetId, req.std_num, req.name, req.phone);
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('validateStudentForEmployment 오류:', error);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    if (req.action === 'getEmploymentByStdNum') {
+      try {
+        const sid = req.spreadsheetId || getStudentSpreadsheetIdForEmployment(req.spreadsheetId);
+        const result = getEmploymentByStdNum(sid, req.std_num);
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('getEmploymentByStdNum 오류:', error);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, data: null, message: error.message })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    if (req.action === 'saveEmployment') {
+      try {
+        const sid = req.spreadsheetId || getStudentSpreadsheetIdForEmployment(req.spreadsheetId);
+        const result = saveEmployment(sid, req.payload || req);
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('saveEmployment 오류:', error);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    if (req.action === 'updateEmploymentAfter') {
+      try {
+        const sid = req.spreadsheetId || getStudentSpreadsheetIdForEmployment(req.spreadsheetId);
+        const result = updateEmploymentAfter(sid, req.std_num, req.payload || {});
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('updateEmploymentAfter 오류:', error);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    if (req.action === 'getFieldList') {
+      try {
+        const sid = req.spreadsheetId || getStudentSpreadsheetIdForEmployment(req.spreadsheetId);
+        const result = getFieldList(sid);
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('getFieldList 오류:', error);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, data: [], message: error.message })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    if (req.action === 'createField') {
+      try {
+        const sid = req.spreadsheetId || getStudentSpreadsheetIdForEmployment(req.spreadsheetId);
+        const result = createField(sid, req.field_num, req.field_name, req.userEmail);
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('createField 오류:', error);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    if (req.action === 'updateField') {
+      try {
+        const sid = req.spreadsheetId || getStudentSpreadsheetIdForEmployment(req.spreadsheetId);
+        const result = updateField(sid, req.field_num, req.field_name, req.userEmail);
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('updateField 오류:', error);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    if (req.action === 'deleteField') {
+      try {
+        const sid = req.spreadsheetId || getStudentSpreadsheetIdForEmployment(req.spreadsheetId);
+        const result = deleteField(sid, req.field_num, req.userEmail);
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('deleteField 오류:', error);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, message: error.message })).setMimeType(ContentService.MimeType.JSON);
       }
     }
     

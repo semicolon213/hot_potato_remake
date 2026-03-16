@@ -83,7 +83,6 @@ pids
 
 # Gatsby files
 .cache/
-public
 
 # Storybook build outputs
 .out

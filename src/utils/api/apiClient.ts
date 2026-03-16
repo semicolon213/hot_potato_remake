@@ -630,6 +630,122 @@ export class ApiClient {
     });
   }
 
+  // ===== 학생 취업관리 API (로그인 없이 / 학생관리 탭) =====
+
+  /** 로그인 없이 학번·이름·전화번호로 본인 확인 (info 시트 기준) */
+  async validateStudentForEmployment(params: {
+    spreadsheetId?: string;
+    std_num: string;
+    name: string;
+    phone: string;
+  }) {
+    return this.request<{ success: boolean; message?: string; name?: string; std_num?: string }>(
+      'validateStudentForEmployment',
+      { spreadsheetId: params.spreadsheetId, std_num: params.std_num, name: params.name, phone: params.phone }
+    );
+  }
+
+  /** 학번으로 취업 정보 한 건 조회 */
+  async getEmploymentByStdNum(spreadsheetId: string | undefined, std_num: string) {
+    return this.request<{ success: boolean; data: import('../../types/features/students/employment').EmploymentRow | null; message?: string }>(
+      'getEmploymentByStdNum',
+      { spreadsheetId, std_num }
+    );
+  }
+
+  /** 취업 정보 저장 (신규 추가 또는 같은 학번 행 덮어쓰기) */
+  async saveEmployment(
+    spreadsheetId: string | undefined,
+    payload: import('../../types/features/students/employment').EmploymentRow
+  ) {
+    return this.request<{ success: boolean; message?: string }>('saveEmployment', { spreadsheetId, payload });
+  }
+
+  /** 취업 후만 수정 (com_name, occ_category, question) - 학생관리에서 사용 */
+  async updateEmploymentAfter(
+    spreadsheetId: string,
+    std_num: string,
+    payload: import('../../types/features/students/employment').EmploymentAfterUpdate
+  ) {
+    return this.request<{ success: boolean; message?: string }>('updateEmploymentAfter', {
+      spreadsheetId,
+      std_num,
+      payload
+    });
+  }
+
+  /** 직종 분야 목록 (field 시트) */
+  async getFieldList(spreadsheetId?: string) {
+    return this.request<{ success: boolean; data: import('../../types/features/students/employment').EmploymentField[] }>(
+      'getFieldList',
+      { spreadsheetId }
+    );
+  }
+
+  /** 직종 분야 추가 (관리자 전용) */
+  async createField(
+    spreadsheetId: string,
+    field_num: string,
+    field_name: string,
+    userEmail: string
+  ) {
+    return this.request<{ success: boolean; message?: string }>('createField', {
+      spreadsheetId,
+      field_num,
+      field_name,
+      userEmail
+    });
+  }
+
+  /** 직종 분야 수정 (관리자 전용) */
+  async updateField(
+    spreadsheetId: string,
+    field_num: string,
+    field_name: string,
+    userEmail: string
+  ) {
+    return this.request<{ success: boolean; message?: string }>('updateField', {
+      spreadsheetId,
+      field_num,
+      field_name,
+      userEmail
+    });
+  }
+
+  /** 직종 분야 삭제 (관리자 전용) */
+  async deleteField(spreadsheetId: string, field_num: string, userEmail: string) {
+    return this.request<{ success: boolean; message?: string }>('deleteField', {
+      spreadsheetId,
+      field_num,
+      userEmail
+    });
+  }
+
+  /** 졸업 학년 조회 */
+  async getGraduationGrade(spreadsheetId: string) {
+    return this.request<number>('getGraduationGrade', { spreadsheetId });
+  }
+
+  /** 졸업 학년 설정 (조교만) */
+  async setGraduationGrade(spreadsheetId: string, grade: number, userEmail: string) {
+    return this.request<number>('setGraduationGrade', { spreadsheetId, grade, userEmail });
+  }
+
+  /** 학년 갱신 (재학생만 학년+1, 졸업학년 초과 시 졸업 처리, 유급 제외) */
+  async updateStudentGrades(
+    spreadsheetId: string,
+    params?: { graduationGrade?: number; graduationYear?: number; graduationTerm?: string }
+  ) {
+    const payload: Record<string, unknown> = { spreadsheetId };
+    if (params?.graduationGrade != null) payload.graduationGrade = params.graduationGrade;
+    if (params?.graduationYear != null) payload.graduationYear = params.graduationYear;
+    if (params?.graduationTerm != null) payload.graduationTerm = params.graduationTerm;
+    return this.request<{ updatedCount: number; graduatedCount: number; skippedCount: number }>(
+      'updateStudentGrades',
+      payload
+    );
+  }
+
   // ========== 캐시 무효화 관련 메서드 ==========
 
   /**
@@ -658,6 +774,10 @@ export class ApiClient {
       
       // 기타
       'migrateEmails', 'clearUserCache',
+      // 학생 취업관리
+      'saveEmployment', 'updateEmploymentAfter', 'createField', 'updateField', 'deleteField',
+      // 학년/유급
+      'updateStudentRetained', 'setGraduationGrade', 'updateStudentGrades',
     ];
     return writeActions.includes(action);
   }

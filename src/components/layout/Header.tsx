@@ -12,6 +12,7 @@ interface HeaderProps {
     name: string;
     email: string;
     isAdmin: boolean;
+    userType?: string;
   };
   onLogout?: () => void;
   pageSectionLabel?: string;
@@ -91,13 +92,17 @@ const Header: React.FC<HeaderProps> = ({ onPageChange, pageSectionLabel, current
     }
 
     // 학생 및 교직원 섹션
-    if (['students', 'students_council', 'staff', 'staff_committee'].includes(currentPage)) {
-      return [
+    if (['students', 'students_council', 'students_grade_management', 'staff', 'staff_committee'].includes(currentPage)) {
+      const tabs: SubMenuTab[] = [
         { pageName: 'students', label: '학생' },
         { pageName: 'students_council', label: '학생회' },
         { pageName: 'staff', label: '교직원' },
         { pageName: 'staff_committee', label: '학과 위원회' },
       ];
+      if (userInfo?.userType === 'supp') {
+        tabs.splice(2, 0, { pageName: 'students_grade_management', label: '학년 관리' });
+      }
+      return tabs;
     }
 
     // 구글 서비스 섹션

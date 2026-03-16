@@ -97,6 +97,7 @@ export type PageType =
   | 'proceedings'
   | 'students'
   | 'students_council'
+  | 'students_grade_management'
   | 'staff'
   | 'staff_committee'
   | 'workflow_management'

@@ -115,6 +115,49 @@ export const widgetData = {
             items: []
         }
     },
+    'graduation-summary': {
+        title: '<i class="fas fa-graduation-cap"></i> 졸업 요약',
+        component: 'GraduationSummaryWidget',
+        props: {
+            latestYear: '',
+            latestTerm: '',
+            totalGrads: 0,
+            advanced: 0,
+            employed: 0
+        }
+    },
+    'employment-rate': {
+        title: '<i class="fas fa-briefcase"></i> 취업률',
+        component: 'EmploymentRateWidget',
+        props: {
+            latestYear: '',
+            latestTerm: '',
+            employmentRate: 0,
+            employable: 0
+        }
+    },
+    'graduation-trend': {
+        title: '<i class="fas fa-chart-line"></i> 졸업/취업 트렌드',
+        component: 'GraduationTrendWidget',
+        props: {
+            items: []
+        }
+    },
+    'student-risk': {
+        title: '<i class="fas fa-exclamation-triangle"></i> 관리 필요 학생',
+        component: 'StudentRiskWidget',
+        props: {
+            items: []
+        }
+    },
+    'student-distribution': {
+        title: '<i class="fas fa-chart-pie"></i> 학년·상태 분포',
+        component: 'StudentDistributionWidget',
+        props: {
+            gradeData: [],
+            stateData: []
+        }
+    },
     default: {
         title: '<i class="fas fa-plus"></i> 기본 위젯',
         component: 'DefaultMessage',

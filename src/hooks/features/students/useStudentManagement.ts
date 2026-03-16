@@ -510,7 +510,28 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     });
   };
 
-  // 학생 추가 함수
+  /** 연락처 암호화 (Apps Script encryptEmail API) - 저장 시 사용 */
+  const encryptForSave = async (plain: string): Promise<string> => {
+    if (!plain || !plain.trim()) return plain;
+    if (/^010-\d{4}-\d{4}$/.test(plain)) {
+      const isDev = import.meta.env.DEV;
+      const baseUrl = isDev ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
+      try {
+        const res = await fetch(baseUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'encryptEmail', data: plain })
+        });
+        const json = await res.json();
+        return json.success ? json.data : plain;
+      } catch {
+        return plain;
+      }
+    }
+    return plain;
+  };
+
+  // 학생 추가 함수 (전화번호 암호화 후 저장)
   const addStudent = async (newStudent: StudentWithCouncil) => {
     if (!studentSpreadsheetId) return;
 
@@ -521,12 +542,14 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
         return;
       }
 
+      const phoneToSave = await encryptForSave(newStudent.phone_num || '');
+
       const values = [
         [
           newStudent.no_student,
           newStudent.name,
           newStudent.address,
-          newStudent.phone_num,
+          phoneToSave,
           newStudent.grade,
           newStudent.state,
           newStudent.council
@@ -535,13 +558,13 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
 
       await window.gapi.client.sheets.spreadsheets.values.append({
         spreadsheetId: studentSpreadsheetId,
-        range: 'A:F',
+        range: 'A:G',
         valueInputOption: 'RAW',
         insertDataOption: 'INSERT_ROWS',
         resource: { values }
       });
 
-      // 로컬 상태 업데이트
+      // 로컬 상태 업데이트 (화면에는 복호화된 번호 유지)
       setStudents(prev => [...prev, newStudent]);
       alert('학생이 성공적으로 추가되었습니다.');
 

@@ -9,6 +9,9 @@ export interface Student {
   state: string;
   council: string;
   flunk?: string; // 유급 필드
+  grad_year?: string; // 졸업 연도
+  grad_term?: string; // 졸업 회차 (전기/후기)
+  advanced?: string; // 진학 여부 플래그 (O면 진학)
 }
 
 export interface CouncilPosition {

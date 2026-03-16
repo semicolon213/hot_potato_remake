@@ -199,167 +199,191 @@ function updateStudentRetained(studentId, spreadsheetId, isRetained) {
 }
 
 /**
- * 학생 학년 업데이트 (매년 1월 자동 실행용)
- * 트리거로 실행될 때 한국 시간을 확인하여 1월인 경우에만 실행합니다.
- * 월 단위 타이머로 매월 1일에 실행되도록 설정하면, 1월에만 실제로 학년이 업데이트됩니다.
+ * 졸업 학년 조회 (스크립트 속성에 저장, 기본값 3)
  * @param {string} spreadsheetId - 학생 스프레드시트 ID
+ * @returns {Object} { success, data: number }
+ */
+function getGraduationGrade(spreadsheetId) {
+  try {
+    if (!spreadsheetId) return { success: false, message: '스프레드시트 ID가 필요합니다.' };
+    var key = 'GRADUATION_GRADE_' + spreadsheetId;
+    var val = PropertiesService.getScriptProperties().getProperty(key);
+    var grade = val ? parseInt(val, 10) : 3;
+    if (isNaN(grade) || grade < 1 || grade > 10) grade = 3;
+    return { success: true, data: grade };
+  } catch (e) {
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * 졸업 학년 설정 (조교만 가능)
+ * @param {string} spreadsheetId - 학생 스프레드시트 ID
+ * @param {number} grade - 졸업 학년 (예: 2, 3, 4)
+ * @param {string} userEmail - 요청자 이메일 (조교 여부 확인용)
+ */
+function setGraduationGrade(spreadsheetId, grade, userEmail) {
+  try {
+    if (!spreadsheetId || !userEmail) return { success: false, message: '스프레드시트 ID와 사용자 이메일이 필요합니다.' };
+    if (!isSuppByEmail(userEmail)) return { success: false, message: '조교 권한이 필요합니다.' };
+    var g = parseInt(grade, 10);
+    if (isNaN(g) || g < 1 || g > 10) return { success: false, message: '졸업 학년은 1~10 사이 숫자여야 합니다.' };
+    var key = 'GRADUATION_GRADE_' + spreadsheetId;
+    PropertiesService.getScriptProperties().setProperty(key, String(g));
+    return { success: true, message: '졸업 학년이 저장되었습니다.', data: g };
+  } catch (e) {
+    return { success: false, message: e.message };
+  }
+}
+
+/**
+ * 학생 학년 업데이트 (학년 관리에서 조교가 수동 실행)
+ * - 유급 대상(flunk=O)은 학년 변경 없음
+ * - 휴학·자퇴·졸업은 제외
+ * - 재학 중 유급이 아닌 학생만 학년+1, 졸업학년 초과 시 졸업 처리
+ * @param {string} spreadsheetId - 학생 스프레드시트 ID
+ * @param {number} [graduationGrade] - 졸업 학년 (미전달 시 스크립트 속성 값 사용)
  * @returns {Object} 업데이트 결과
  */
-function updateStudentGrades(spreadsheetId) {
+function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, graduationTerm) {
   try {
-    console.log('📚 학생 학년 업데이트 시작:', { spreadsheetId, date: new Date().toISOString() });
+    console.log('📚 학생 학년 업데이트 시작:', { spreadsheetId, graduationGrade: graduationGrade });
     
     if (!spreadsheetId) {
-      return {
-        success: false,
-        message: '스프레드시트 ID가 필요합니다.'
-      };
+      return { success: false, message: '스프레드시트 ID가 필요합니다.' };
     }
     
-    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
-    const sheetName = 'info'; // 학생 정보 시트 이름
-    const sheet = spreadsheet.getSheetByName(sheetName);
+    var gradGrade = graduationGrade;
+    if (gradGrade == null || isNaN(parseInt(gradGrade, 10))) {
+      var res = getGraduationGrade(spreadsheetId);
+      gradGrade = res.success ? res.data : 3;
+    } else {
+      gradGrade = parseInt(gradGrade, 10);
+      if (isNaN(gradGrade) || gradGrade < 1) gradGrade = 3;
+    }
     
+    var spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    var sheetName = 'info';
+    var sheet = spreadsheet.getSheetByName(sheetName);
     if (!sheet) {
-      return {
-        success: false,
-        message: '학생 정보 시트를 찾을 수 없습니다.'
-      };
+      return { success: false, message: '학생 정보 시트를 찾을 수 없습니다.' };
     }
     
-    // 헤더 행 찾기
-    const headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const studentIdColIndex = headerRow.findIndex(h => 
-      h && (h.toString().includes('학번') || h.toString().includes('no_student') || h.toString().toLowerCase().includes('no'))
-    );
-    const gradeColIndex = headerRow.findIndex(h => 
-      h && (h.toString().includes('학년') || h.toString().includes('grade'))
-    );
-    const stateColIndex = headerRow.findIndex(h => 
-      h && (h.toString().includes('상태') || h.toString().includes('state'))
-    );
-    let retainedColIndex = headerRow.findIndex(h => 
-      h && (h.toString().toLowerCase().includes('flunk') || h.toString().includes('유급') || h.toString().includes('retained') || h.toString().includes('is_retained'))
-    );
+    var headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var studentIdColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().includes('학번') || h.toString().includes('no_student') || h.toString().toLowerCase().includes('no'));
+    });
+    var gradeColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().includes('학년') || h.toString().includes('grade'));
+    });
+    var stateColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().includes('상태') || h.toString().includes('state'));
+    });
+    var retainedColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().toLowerCase().includes('flunk') || h.toString().includes('유급') || h.toString().includes('retained') || h.toString().includes('is_retained'));
+    });
+    var gradYearColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().toLowerCase().includes('grad_year') || h.toString().includes('졸업연도') || h.toString().includes('졸업년도'));
+    });
+    var gradTermColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().toLowerCase().includes('grad_term') || h.toString().includes('졸업구분') || h.toString().includes('전기/후기'));
+    });
+    var advancedColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().toLowerCase().includes('advanced') || h.toString().includes('진학'));
+    });
     
     if (studentIdColIndex === -1 || gradeColIndex === -1 || stateColIndex === -1) {
-      return {
-        success: false,
-        message: '필수 컬럼(학번, 학년, 상태)을 찾을 수 없습니다.'
-      };
+      return { success: false, message: '필수 컬럼(학번, 학년, 상태)을 찾을 수 없습니다.' };
     }
     
-    // 유급 컬럼이 없으면 생성 (H열)
     if (retainedColIndex === -1) {
-      const newColIndex = 8; // H열
+      var newColIndex = 8;
       sheet.getRange(1, newColIndex).setValue('flunk');
-      retainedColIndex = newColIndex - 1; // 0-based index
-      console.log('✅ 유급 컬럼 추가됨 (H열)');
+      retainedColIndex = newColIndex - 1;
+    }
+    // 졸업 연도/구분/진학 컬럼이 없으면 뒤에 추가
+    var lastCol = sheet.getLastColumn();
+    if (gradYearColIndex === -1) {
+      lastCol += 1;
+      sheet.getRange(1, lastCol).setValue('grad_year');
+      gradYearColIndex = lastCol - 1;
+    }
+    if (gradTermColIndex === -1) {
+      lastCol += 1;
+      sheet.getRange(1, lastCol).setValue('grad_term');
+      gradTermColIndex = lastCol - 1;
+    }
+    if (advancedColIndex === -1) {
+      lastCol += 1;
+      sheet.getRange(1, lastCol).setValue('advanced');
+      advancedColIndex = lastCol - 1;
     }
     
-    // 데이터 읽기
-    const data = sheet.getDataRange().getValues();
-    let updatedCount = 0;
-    let graduatedCount = 0;
-    let skippedCount = 0;
-    let retainedResetCount = 0;
+    var data = sheet.getDataRange().getValues();
+    var updatedCount = 0;
+    var graduatedCount = 0;
+    var skippedCount = 0;
     
-    // 1단계: 모든 학생의 유급 여부 초기화 (졸업, 휴학 제외)
-    console.log('🔄 유급 여부 초기화 시작...');
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const studentId = row[studentIdColIndex];
-      const currentState = String(row[stateColIndex] || '').trim();
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var studentId = row[studentIdColIndex];
+      var currentGrade = String(row[gradeColIndex] || '').trim();
+      var currentState = String(row[stateColIndex] || '').trim();
+      var retainedValue = String(row[retainedColIndex] || '').trim();
+      var existingGradYear = String(row[gradYearColIndex] || '').trim();
+      var existingGradTerm = String(row[gradTermColIndex] || '').trim();
       
-      // 학번이 없으면 건너뛰기
-      if (!studentId || String(studentId).trim() === '') {
-        continue;
-      }
+      if (!studentId || String(studentId).trim() === '') continue;
       
-      // 졸업하거나 휴학인 학생은 유급 여부 초기화하지 않음
-      if (currentState === '졸업' || currentState === '휴학') {
-        continue;
-      }
-      
-      // 유급 여부 초기화 (빈 값으로 설정)
-      const currentRetainedValue = String(row[retainedColIndex] || '').trim();
-      if (currentRetainedValue !== '') {
-        sheet.getRange(i + 1, retainedColIndex + 1).setValue('');
-        retainedResetCount++;
-        console.log('🔄 유급 여부 초기화:', { studentId });
-      }
-    }
-    console.log('✅ 유급 여부 초기화 완료:', retainedResetCount, '명');
-    
-    // 2단계: 학년 업데이트 (유급이 초기화되었으므로 이제 유급 체크는 하지 않음)
-    console.log('📚 학년 업데이트 시작...');
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const studentId = row[studentIdColIndex];
-      const currentGrade = String(row[gradeColIndex] || '').trim();
-      const currentState = String(row[stateColIndex] || '').trim();
-      
-      // 학번이 없으면 건너뛰기
-      if (!studentId || String(studentId).trim() === '') {
-        continue;
-      }
-      
-      // 상태가 휴학인 학생은 건너뛰기 (유급은 이미 초기화됨)
-      if (currentState === '휴학') {
+      if (currentState === '휴학' || currentState === '자퇴') {
         skippedCount++;
-        console.log('⏭️ 건너뛰기:', { studentId, reason: '휴학' });
+        continue;
+      }
+      if (currentState === '졸업') continue;
+      
+      if (retainedValue === 'O' || retainedValue === 'TRUE' || retainedValue === '1') {
+        // 이번 학년도에 유급 처리된 학생: 학년은 그대로 두고, 유급 표시는 초기화
+        sheet.getRange(i + 1, retainedColIndex + 1).setValue('');
+        skippedCount++;
         continue;
       }
       
-      // 학년이 숫자가 아니면 건너뛰기
-      const gradeNum = parseInt(currentGrade);
+      var gradeNum = parseInt(currentGrade, 10);
       if (isNaN(gradeNum)) {
         skippedCount++;
         continue;
       }
       
-      // 3학년인 경우 졸업 처리
-      if (gradeNum === 3) {
-        // 학년을 "-"로 표기하고 상태를 "졸업"으로 변경
+      if (gradeNum >= gradGrade) {
+        // 이번 실행에서 새로 졸업 처리되는 경우에만 졸업 연도/구분 설정
         sheet.getRange(i + 1, gradeColIndex + 1).setValue('-');
         sheet.getRange(i + 1, stateColIndex + 1).setValue('졸업');
+        if (!existingGradYear && graduationYear) {
+          sheet.getRange(i + 1, gradYearColIndex + 1).setValue(String(graduationYear));
+        }
+        if (!existingGradTerm && graduationTerm) {
+          sheet.getRange(i + 1, gradTermColIndex + 1).setValue(String(graduationTerm));
+        }
         graduatedCount++;
-        console.log('🎓 졸업 처리:', { studentId, previousGrade: gradeNum });
       } else {
-        // 학년 +1
-        const newGrade = gradeNum + 1;
-        sheet.getRange(i + 1, gradeColIndex + 1).setValue(String(newGrade));
+        sheet.getRange(i + 1, gradeColIndex + 1).setValue(String(gradeNum + 1));
         updatedCount++;
-        console.log('📈 학년 업데이트:', { studentId, previousGrade: gradeNum, newGrade: newGrade });
       }
     }
     
-    console.log('✅ 학생 학년 업데이트 완료:', {
-      retainedReset: retainedResetCount,
-      updated: updatedCount,
-      graduated: graduatedCount,
-      skipped: skippedCount,
-      total: data.length - 1
-    });
-    
     return {
       success: true,
-      message: `학년 업데이트 완료: ${retainedResetCount}명 유급 여부 초기화, ${updatedCount}명 학년 증가, ${graduatedCount}명 졸업 처리, ${skippedCount}명 건너뛰기`,
+      message: '학년 갱신 완료. ' + updatedCount + '명 학년 증가, ' + graduatedCount + '명 졸업, ' + skippedCount + '명 제외(휴학/자퇴/유급 등).',
       data: {
-        retainedResetCount: retainedResetCount,
         updatedCount: updatedCount,
         graduatedCount: graduatedCount,
         skippedCount: skippedCount,
-        totalStudents: data.length - 1
+        graduationGrade: gradGrade
       }
     };
-    
   } catch (error) {
     console.error('❌ 학생 학년 업데이트 실패:', error);
-    return {
-      success: false,
-      message: '학년 업데이트 중 오류가 발생했습니다: ' + error.message
-    };
+    return { success: false, message: '학년 업데이트 중 오류가 발생했습니다: ' + error.message };
   }
 }
 

@@ -72,6 +72,8 @@ const DEFAULT_SHEET: Record<string, string> = {
   CONFIG_TAG: 'tag',
   CONFIG_DASHBOARD: 'dashboard',
   CONFIG_SCHEDULE: 'schedule',
+  EMPLOYMENT: 'employment',
+  FIELD: 'field',
 };
 
 const DEFAULT_GROUP_EMAIL: Record<string, string> = {
@@ -113,6 +115,8 @@ export const ENV_CONFIG = {
   CALENDAR_SHEET_NAME: SHEET.DEFAULT ?? '시트1',
   STUDENT_SHEET_NAME: SHEET.INFO ?? 'info',
   STUDENT_ISSUE_SHEET_NAME: SHEET.ISSUE ?? 'std_issue',
+  STUDENT_EMPLOYMENT_SHEET_NAME: SHEET.EMPLOYMENT ?? 'employment',
+  STUDENT_FIELD_SHEET_NAME: SHEET.FIELD ?? 'field',
   STAFF_INFO_SHEET_NAME: SHEET.INFO ?? 'info',
   STAFF_COMMITTEE_SHEET_NAME: SHEET.COMMITTEE ?? 'committee',
   DASHBOARD_SHEET_NAME: SHEET.CONFIG_DASHBOARD ?? 'dashboard',

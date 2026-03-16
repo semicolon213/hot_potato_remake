@@ -359,6 +359,121 @@
   border: 2px dashed #dee2e6;
 }
 
+.employment-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.employment-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg-gray-alt);
+  border-radius: 8px;
+  font-size: 14px;
+  color: #495057;
+}
+
+.employment-question-list {
+  margin: 0 0 12px 0;
+  padding: 10px 12px;
+  background: var(--bg-gray-alt);
+  border-radius: 8px;
+  list-style: none;
+  font-size: 14px;
+}
+
+.employment-question-list li {
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.employment-question-list li:last-child {
+  border-bottom: none;
+}
+
+.employment-question-key {
+  font-weight: 600;
+  color: #333;
+}
+
+.employment-question-value {
+  color: #555;
+}
+
+.employment-question-empty {
+  padding: 10px 12px;
+  background: var(--bg-gray-alt);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 12px;
+}
+
+.employment-question-hint {
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  color: #888;
+}
+
+.employment-question-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.employment-section .employment-question-key {
+  flex: 0 0 120px;
+  min-width: 0;
+}
+
+.employment-section .employment-question-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.employment-question-remove {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #666;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.employment-question-remove:hover {
+  background: #f8f9fa;
+  color: #c00;
+}
+
+.employment-question-add {
+  margin-top: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: #555;
+  background: #f5f5f5;
+  border: 1px dashed #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.employment-question-add:hover {
+  background: #eee;
+  color: #333;
+}
+
 .issues-grid {
   display: flex;
   flex-direction: column;

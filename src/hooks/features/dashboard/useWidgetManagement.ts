@@ -143,6 +143,46 @@ const allWidgetOptions = [
     allowedRoles: ['std_council', 'professor', 'supp'], // 집행부, 교수, 조교만
     requiresAccountingAccess: true, // 장부 접근 권한 필요
   },
+  {
+    id: "26",
+    type: "graduation-summary",
+    icon: "fas fa-graduation-cap",
+    title: "졸업 요약",
+    description: "졸업/진학 현황 요약",
+    allowedRoles: ['supp', 'professor'],
+  },
+  {
+    id: "27",
+    type: "employment-rate",
+    icon: "fas fa-briefcase",
+    title: "취업률",
+    description: "졸업 회차 기준 취업률",
+    allowedRoles: ['supp', 'professor'],
+  },
+  {
+    id: "28",
+    type: "graduation-trend",
+    icon: "fas fa-chart-line",
+    title: "졸업 트렌드",
+    description: "졸업/진학 추이",
+    allowedRoles: ['supp', 'professor'],
+  },
+  {
+    id: "29",
+    type: "student-risk",
+    icon: "fas fa-exclamation-triangle",
+    title: "위험군 학생",
+    description: "유급·휴학·자퇴 등 관리 필요 학생",
+    allowedRoles: ['supp', 'professor'],
+  },
+  {
+    id: "30",
+    type: "student-distribution",
+    icon: "fas fa-chart-pie",
+    title: "학년·상태 분포",
+    description: "재학생 학년·상태 분포",
+    allowedRoles: ['supp', 'professor'],
+  },
 ];
 
 // 사용자 역할에 따라 위젯 옵션 필터링
@@ -903,9 +943,13 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               if (ids.studentSpreadsheetId) {
                 const students = await fetchStudents(ids.studentSpreadsheetId);
                 
-                // 상태별, 학년별로 그룹화
-                // 유급은 flunk 필드로 확인 (flunk가 'O'이면 유급, 빈칸이면 유급 아님)
+                // 상태별, 학년별로 그룹화 (기존 학생 요약)
                 const statusGradeMap: Record<string, Record<string, number>> = {};
+                const gradeCounts: Record<string, number> = {};
+                const stateCounts: Record<string, number> = {};
+                const gradCohorts: Record<string, { year: string; term: string; total: number; advanced: number }> = {};
+                const riskStudents: { no: string; name: string; grade: string; state: string; flunk?: string }[] = [];
+
                 students.forEach(s => {
                   const grade = s.grade || '1';
                   
@@ -924,6 +968,39 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
                     statusGradeMap[status] = {};
                   }
                   statusGradeMap[status][grade] = (statusGradeMap[status][grade] || 0) + 1;
+
+                  // 학년/상태 분포 집계
+                  if (grade) gradeCounts[grade] = (gradeCounts[grade] || 0) + 1;
+                  if (status) stateCounts[status] = (stateCounts[status] || 0) + 1;
+
+                  // 위험군: 유급/휴학/자퇴
+                  if (isFlunk || status === '휴학' || status === '자퇴') {
+                    riskStudents.push({
+                      no: s.no_student,
+                      name: s.name,
+                      grade: s.grade,
+                      state: status,
+                      flunk: s.flunk
+                    });
+                  }
+
+                  // 졸업 회차별 집계 (년도 기준, 진학자 포함/제외 정보만)
+                  if (s.state === '졸업' && s.grad_year) {
+                    const term = s.grad_term || '';
+                    const key = `${s.grad_year}-${term}`;
+                    if (!gradCohorts[key]) {
+                      gradCohorts[key] = {
+                        year: s.grad_year,
+                        term,
+                        total: 0,
+                        advanced: 0,
+                      };
+                    }
+                    gradCohorts[key].total += 1;
+                    if (s.advanced && s.advanced.toString().trim().toUpperCase() === 'O') {
+                      gradCohorts[key].advanced += 1;
+                    }
+                  }
                 });
                 
                 // rawData 생성 (상태별, 학년별 학생 수)
@@ -946,17 +1023,125 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
                   { label: '3학년', value: `${enrolledByGrade['3'] || 0}명` },
                   { label: '4학년', value: `${enrolledByGrade['4'] || 0}명` },
                 ];
+
+                // 졸업 회차별 요약 (년도별 기준, 학번 매칭 없이)
+                const cohortKeys = Object.keys(gradCohorts).sort(); // 오래된 순
+                const latestKey = cohortKeys.length > 0 ? cohortKeys[cohortKeys.length - 1] : null;
+                const latestCohort = latestKey ? gradCohorts[latestKey] : null;
+
+                const graduationSummaryProps = latestCohort ? {
+                  latestYear: latestCohort.year,
+                  latestTerm: latestCohort.term,
+                  totalGrads: latestCohort.total,
+                  advanced: latestCohort.advanced,
+                  // 아직 취업 여부는 학생 데이터에 없으므로 0/미정으로 두고, 분모(졸업생 기준)만 맞춰둠
+                  employed: 0,
+                } : {
+                  latestYear: '',
+                  latestTerm: '',
+                  totalGrads: 0,
+                  advanced: 0,
+                  employed: 0,
+                };
+
+                const employmentRateProps = latestCohort ? {
+                  latestYear: latestCohort.year,
+                  latestTerm: latestCohort.term,
+                  employmentRate: 0, // 취업자 수는 별도 취업 테이블 연동 후 계산 예정
+                  employable: latestCohort.total - latestCohort.advanced, // 진학 제외 분모
+                } : {
+                  latestYear: '',
+                  latestTerm: '',
+                  employmentRate: 0,
+                  employable: 0,
+                };
+
+                const graduationTrendItems = cohortKeys.map(k => {
+                  const c = gradCohorts[k];
+                  return {
+                    label: `${c.year}${c.term ? ' ' + c.term : ''}`,
+                    grads: c.total,
+                    employed: 0,
+                    rate: 0,
+                  };
+                });
+
+                const gradeData = Object.entries(gradeCounts).map(([grade, count]) => ({
+                  grade,
+                  count,
+                }));
+
+                const stateData = Object.entries(stateCounts).map(([state, count]) => ({
+                  state,
+                  count,
+                }));
+
+                const riskItems = riskStudents.slice(0, 20);
                 
-                // rawData를 위젯에 저장하기 위해 별도로 처리
-                if (studentSummaryWidget) {
-                  setWidgets(prevWidgets => prevWidgets.map(w => 
-                    w.id === studentSummaryWidget.id 
-                      ? { ...w, props: { ...w.props, items: studentSummaryItems, rawData: studentSummaryRawData, selectedStatus: w.props.selectedStatus || '재학' } }
-                      : w
-                  ));
-                  // studentSummaryItems는 null로 설정하여 중복 업데이트 방지
-                  studentSummaryItems = null;
-                }
+                // 여러 학생 관련 위젯에 한 번에 데이터 주입
+                setWidgets(prevWidgets => prevWidgets.map(w => {
+                  if (w.id === (studentSummaryWidget && studentSummaryWidget.id)) {
+                    return {
+                      ...w,
+                      props: {
+                        ...w.props,
+                        items: studentSummaryItems,
+                        rawData: studentSummaryRawData,
+                        selectedStatus: w.props.selectedStatus || '재학',
+                      }
+                    };
+                  }
+                  if (w.type === 'graduation-summary') {
+                    return {
+                      ...w,
+                      props: {
+                        ...w.props,
+                        ...graduationSummaryProps,
+                      }
+                    };
+                  }
+                  if (w.type === 'employment-rate') {
+                    return {
+                      ...w,
+                      props: {
+                        ...w.props,
+                        ...employmentRateProps,
+                      }
+                    };
+                  }
+                  if (w.type === 'graduation-trend') {
+                    return {
+                      ...w,
+                      props: {
+                        ...w.props,
+                        items: graduationTrendItems,
+                      }
+                    };
+                  }
+                  if (w.type === 'student-distribution') {
+                    return {
+                      ...w,
+                      props: {
+                        ...w.props,
+                        gradeData,
+                        stateData,
+                      }
+                    };
+                  }
+                  if (w.type === 'student-risk') {
+                    return {
+                      ...w,
+                      props: {
+                        ...w.props,
+                        items: riskItems,
+                      }
+                    };
+                  }
+                  return w;
+                }));
+
+                // studentSummaryItems는 null로 설정하여 중복 업데이트 방지
+                studentSummaryItems = null;
               }
               delete errorWidgetsRef.current['student-summary'];
             } catch (error: any) {

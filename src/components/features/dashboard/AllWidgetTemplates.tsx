@@ -79,6 +79,192 @@ export const DefaultMessage = ({ message, onButtonClick }: { message: string, on
     </div>
 );
 
+// 졸업 요약 위젯
+export const GraduationSummaryWidget = ({
+  latestYear,
+  latestTerm,
+  totalGrads,
+  advanced,
+  employed,
+}: {
+  latestYear?: string;
+  latestTerm?: string;
+  totalGrads?: number;
+  advanced?: number;
+  employed?: number;
+}) => {
+  if (!latestYear) {
+    return (
+      <div className="widget-content">
+        <p>졸업 데이터가 없습니다.</p>
+      </div>
+    );
+  }
+  const total = totalGrads ?? 0;
+  const adv = advanced ?? 0;
+  const employable = total - adv;
+  return (
+    <div className="widget-content">
+      <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
+        {latestYear}년 {latestTerm || ''} 졸업
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 12, color: '#888' }}>졸업생</div>
+          <div style={{ fontSize: 20, fontWeight: 600 }}>{total}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#888' }}>진학</div>
+          <div style={{ fontSize: 20, fontWeight: 600 }}>{adv}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#888' }}>취업 대상(졸업-진학)</div>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{employable}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#888' }}>취업 (추후 연동)</div>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{employed ?? 0}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 취업률 카드 위젯 (분모는 졸업-진학, 취업자 수는 추후 취업관리 연동)
+export const EmploymentRateWidget = ({
+  latestYear,
+  latestTerm,
+  employmentRate,
+  employable,
+}: {
+  latestYear?: string;
+  latestTerm?: string;
+  employmentRate?: number;
+  employable?: number;
+}) => {
+  if (!latestYear) {
+    return (
+      <div className="widget-content">
+        <p>취업률을 계산할 졸업 회차가 없습니다.</p>
+      </div>
+    );
+  }
+  const rate = employmentRate ?? 0;
+  return (
+    <div className="widget-content">
+      <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
+        {latestYear}년 {latestTerm || ''} 취업률
+      </div>
+      <div style={{ fontSize: 32, fontWeight: 700, marginBottom: 4 }}>
+        {rate}%
+      </div>
+      <div style={{ fontSize: 12, color: '#888' }}>
+        분모: 졸업생 - 진학 ({employable ?? 0}명 기준)
+      </div>
+      <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
+        ※ 실제 취업자 수는 취업관리 테이블 연동 후 반영
+      </div>
+    </div>
+  );
+};
+
+// 졸업 회차별 트렌드 차트
+export const GraduationTrendWidget = ({
+  items,
+}: {
+  items: { label: string; grads: number; employed: number; rate: number }[];
+}) => {
+  if (!items || items.length === 0) {
+    return (
+      <div className="widget-content">
+        <p>트렌드 데이터가 없습니다.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="widget-content" style={{ height: 220 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={items}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="label" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Bar dataKey="grads" name="졸업생" fill="#8884d8" />
+          <Bar dataKey="employed" name="취업" fill="#82ca9d" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+// 위험군/관리 필요 학생 리스트
+export const StudentRiskWidget = ({
+  items,
+}: {
+  items: { no: string; name: string; grade: string; state: string; flunk?: string }[];
+}) => (
+  <div className="widget-content">
+    {(!items || items.length === 0) ? (
+      <p>현재 표시할 관리 필요 학생이 없습니다.</p>
+    ) : (
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        {items.map((s) => (
+          <li key={s.no} style={{ padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>
+              {s.name} ({s.no})
+            </div>
+            <div style={{ fontSize: 12, color: '#666' }}>
+              {s.grade}학년 · {s.state} {s.flunk && s.flunk.toString().trim() ? '· 유급' : ''}
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+);
+
+// 학년·상태 분포 차트
+export const StudentDistributionWidget = ({
+  gradeData,
+  stateData,
+}: {
+  gradeData: { grade: string; count: number }[];
+  stateData: { state: string; count: number }[];
+}) => {
+  const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7f50', '#a4de6c'];
+
+  return (
+    <div className="widget-content" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ height: 160 }}>
+        <div style={{ fontSize: 12, marginBottom: 4 }}>학년 분포</div>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={gradeData} dataKey="count" nameKey="grade" outerRadius={60} label>
+              {gradeData.map((entry, index) => (
+                <Cell key={entry.grade} fill={colors[index % colors.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{ height: 160 }}>
+        <div style={{ fontSize: 12, marginBottom: 4 }}>상태 분포</div>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={stateData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="state" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="count" fill="#82ca9d" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
 /**
  * 이벤트 목록을 표시하는 위젯 컴포넌트입니다.
  * @param {object} props - 컴포넌트 props

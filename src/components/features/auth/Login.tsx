@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../hooks/features/auth/useAuth';
 import { lastUserManager } from '../../../utils/auth/lastUserManager';
+import { apiClient } from '../../../utils/api/apiClient';
+import type { EmploymentRow, EmploymentField } from '../../../types/features/students/employment';
 
 // 타입 정의
 interface User {
@@ -23,6 +25,26 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [refreshKey, setRefreshKey] = useState<number>(0);
   /** 제거 확인 중인 계정 이메일 (이 상태일 때만 '제거' 버튼 클릭으로 실제 제거) */
   const [removingEmail, setRemovingEmail] = useState<string | null>(null);
+
+  /** 취업관리 모달 열림 여부 (로그인 카드와 별도로 모달로 띄움) */
+  const [isEmploymentModalOpen, setIsEmploymentModalOpen] = useState(false);
+  const [employmentStep, setEmploymentStep] = useState<1 | 2>(1);
+  const [employmentVerify, setEmploymentVerify] = useState({ std_num: '', name: '', phone: '' });
+  const [employmentForm, setEmploymentForm] = useState<Partial<EmploymentRow>>({
+    is_major: false,
+    field_num: '',
+    com_name: '',
+    occ_category: '',
+    question: ''
+  });
+  const [employmentError, setEmploymentError] = useState<string | null>(null);
+  const [employmentLoading, setEmploymentLoading] = useState(false);
+  const [fieldList, setFieldList] = useState<EmploymentField[]>([]);
+  const [employmentSaved, setEmploymentSaved] = useState(false);
+  /** 취업 정보 2단계: 'before' | 'after' */
+  const [employmentFormTab, setEmploymentFormTab] = useState<'before' | 'after'>('before');
+  /** 질문 남기기: 개별 입력 후 저장 시 JSON으로 저장 */
+  const [employmentQuestionEntries, setEmploymentQuestionEntries] = useState<{ key: string; value: string }[]>([{ key: '', value: '' }]);
 
   const {
     loginState,
@@ -59,6 +81,131 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleCancelRemove = (e: React.MouseEvent) => {
     e.stopPropagation();
     setRemovingEmail(null);
+  };
+
+  // 취업관리: 직종 목록 로드 (2단계 진입 시)
+  useEffect(() => {
+    if (!isEmploymentModalOpen || employmentStep !== 2) return;
+    let cancelled = false;
+    (async () => {
+      const res = await apiClient.getFieldList(undefined);
+      if (!cancelled && res.success && res.data) setFieldList(res.data);
+    })();
+    return () => { cancelled = true; };
+  }, [isEmploymentModalOpen, employmentStep]);
+
+  /** 질문 JSON 문자열을 개별 항목 배열로 파싱 (기존 데이터 불러올 때 사용) */
+  const parseQuestionToItems = (question: string): { key: string; value: string }[] => {
+    const raw = String(question || '').trim();
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed !== 'object' || parsed === null) return [];
+      return Object.entries(parsed).map(([k, v]) => ({ key: k, value: String(v ?? '') }));
+    } catch {
+      return [{ key: '질문', value: raw }];
+    }
+  };
+
+  const handleEmploymentVerify = async () => {
+    const { std_num, name, phone } = employmentVerify;
+    if (!std_num.trim() || !name.trim() || !phone.trim()) {
+      setEmploymentError('학번, 이름, 전화번호를 모두 입력해주세요.');
+      return;
+    }
+    setEmploymentError(null);
+    setEmploymentLoading(true);
+    try {
+      const res = await apiClient.validateStudentForEmployment({
+        std_num: std_num.trim(),
+        name: name.trim(),
+        phone: phone.trim()
+      });
+      if (res.success) {
+        setEmploymentStep(2);
+        setEmploymentForm(prev => ({ ...prev, std_num: std_num.trim() }));
+        // 기존 입력 정보가 있으면 불러와서 폼에 채움
+        const existingRes = await apiClient.getEmploymentByStdNum(undefined, std_num.trim());
+        if (existingRes.success && existingRes.data) {
+          const data = existingRes.data;
+          setEmploymentForm(prev => ({
+            ...prev,
+            std_num: std_num.trim(),
+            is_major: data.is_major ?? false,
+            field_num: data.field_num ?? '',
+            com_name: data.com_name ?? '',
+            occ_category: data.occ_category ?? ''
+          }));
+          const entries = parseQuestionToItems(data.question ?? '');
+          setEmploymentQuestionEntries(entries.length > 0 ? entries : [{ key: '', value: '' }]);
+        } else {
+          setEmploymentQuestionEntries([{ key: '', value: '' }]);
+        }
+      } else {
+        setEmploymentError(res.message || '본인 확인에 실패했습니다.');
+      }
+    } catch (e) {
+      setEmploymentError('확인 중 오류가 발생했습니다.');
+    } finally {
+      setEmploymentLoading(false);
+    }
+  };
+
+  const handleEmploymentSubmit = async () => {
+    if (!employmentForm.std_num) return;
+    setEmploymentError(null);
+    setEmploymentLoading(true);
+    try {
+      const questionObj: Record<string, string> = {};
+      employmentQuestionEntries.forEach(({ key, value }) => {
+        const k = key.trim();
+        if (k) questionObj[k] = value.trim();
+      });
+      const questionToSave = Object.keys(questionObj).length > 0 ? JSON.stringify(questionObj) : '';
+      const payload: EmploymentRow = {
+        std_num: employmentForm.std_num,
+        is_major: employmentForm.is_major ?? false,
+        field_num: employmentForm.field_num ?? '',
+        com_name: employmentForm.com_name ?? '',
+        occ_category: employmentForm.occ_category ?? '',
+        question: questionToSave
+      };
+      const res = await apiClient.saveEmployment(undefined, payload);
+      if (res.success) {
+        setEmploymentSaved(true);
+      } else {
+        setEmploymentError(res.message || '저장에 실패했습니다.');
+      }
+    } catch (e) {
+      setEmploymentError('저장 중 오류가 발생했습니다.');
+    } finally {
+      setEmploymentLoading(false);
+    }
+  };
+
+  const resetEmploymentView = () => {
+    setIsEmploymentModalOpen(false);
+    setEmploymentStep(1);
+    setEmploymentFormTab('before');
+    setEmploymentVerify({ std_num: '', name: '', phone: '' });
+    setEmploymentForm({ is_major: false, field_num: '', com_name: '', occ_category: '', question: '' });
+    setEmploymentQuestionEntries([{ key: '', value: '' }]);
+    setEmploymentError(null);
+    setEmploymentSaved(false);
+  };
+
+  const addEmploymentQuestionEntry = () => {
+    setEmploymentQuestionEntries(prev => [...prev, { key: '', value: '' }]);
+  };
+
+  const updateEmploymentQuestionEntry = (index: number, field: 'key' | 'value', value: string) => {
+    setEmploymentQuestionEntries(prev =>
+      prev.map((entry, i) => (i === index ? { ...entry, [field]: value } : entry))
+    );
+  };
+
+  const removeEmploymentQuestionEntry = (index: number) => {
+    setEmploymentQuestionEntries(prev => (prev.length > 1 ? prev.filter((_, i) => i !== index) : [{ key: '', value: '' }]));
   };
 
   return (
@@ -188,6 +335,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   </>
                 )}
               </button>
+              <button
+                type="button"
+                className="employment-entry-btn"
+                onClick={() => setIsEmploymentModalOpen(true)}
+              >
+                취업관리 (로그인 없이 입력)
+              </button>
             </div>
           ) : loginState.showRegistrationForm ? (
           <div className="signup-section">
@@ -311,6 +465,194 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         ) : null}
         </div>
       </div>
+
+      {/* 취업 정보 입력 모달 (기존 모달 패턴) */}
+      {isEmploymentModalOpen && (
+        <div className="employment-modal-overlay" onClick={resetEmploymentView}>
+          <div className="employment-modal" onClick={e => e.stopPropagation()}>
+            <div className="employment-modal-header">
+              <h3>취업 정보 입력</h3>
+              <button type="button" className="employment-modal-close" onClick={resetEmploymentView} aria-label="닫기">
+                ×
+              </button>
+            </div>
+            <div className="employment-modal-body">
+              {employmentSaved ? (
+                <div className="employment-done">
+                  <p>취업 정보가 저장되었습니다.</p>
+                  <button type="button" className="employment-modal-btn primary" onClick={resetEmploymentView}>
+                    닫기
+                  </button>
+                </div>
+              ) : employmentStep === 1 ? (
+                <>
+                  <p className="employment-hint">학번·이름·전화번호로 본인 확인 후 취업 정보를 입력할 수 있습니다.</p>
+                  <div className="employment-form-group">
+                    <label>학번 *</label>
+                    <input
+                      type="text"
+                      value={employmentVerify.std_num}
+                      onChange={e => setEmploymentVerify(prev => ({ ...prev, std_num: e.target.value }))}
+                      placeholder="학번"
+                      className="employment-input"
+                    />
+                  </div>
+                  <div className="employment-form-group">
+                    <label>이름 *</label>
+                    <input
+                      type="text"
+                      value={employmentVerify.name}
+                      onChange={e => setEmploymentVerify(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="이름"
+                      className="employment-input"
+                    />
+                  </div>
+                  <div className="employment-form-group">
+                    <label>전화번호 *</label>
+                    <input
+                      type="text"
+                      value={employmentVerify.phone}
+                      onChange={e => setEmploymentVerify(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="010-1234-5678"
+                      className="employment-input"
+                    />
+                  </div>
+                  {employmentError && (
+                    <div className="employment-error" onClick={() => setEmploymentError(null)}>{employmentError}</div>
+                  )}
+                  <button
+                    type="button"
+                    className="employment-modal-btn primary"
+                    disabled={employmentLoading}
+                    onClick={handleEmploymentVerify}
+                  >
+                    {employmentLoading ? '확인 중...' : '본인 확인'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="employment-hint">취업 전/후 정보를 탭에서 입력해주세요.</p>
+                  <div className="employment-tabs">
+                    <button
+                      type="button"
+                      className={`employment-tab ${employmentFormTab === 'before' ? 'active' : ''}`}
+                      onClick={() => setEmploymentFormTab('before')}
+                    >
+                      취업 전
+                    </button>
+                    <button
+                      type="button"
+                      className={`employment-tab ${employmentFormTab === 'after' ? 'active' : ''}`}
+                      onClick={() => setEmploymentFormTab('after')}
+                    >
+                      취업 후
+                    </button>
+                  </div>
+                  <div className="employment-tab-content">
+                    {employmentFormTab === 'before' && (
+                      <>
+                        <div className="employment-form-group">
+                          <label className="employment-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={employmentForm.is_major ?? false}
+                              onChange={e => setEmploymentForm(prev => ({ ...prev, is_major: e.target.checked }))}
+                              className="employment-checkbox"
+                            />
+                            <span>전공 취업</span>
+                          </label>
+                        </div>
+                        <div className="employment-form-group">
+                          <label>직종 (희망 분야)</label>
+                          <select
+                            value={employmentForm.field_num ?? ''}
+                            onChange={e => setEmploymentForm(prev => ({ ...prev, field_num: e.target.value }))}
+                            className="employment-input"
+                          >
+                            <option value="">선택하세요</option>
+                            {fieldList.map(f => (
+                              <option key={f.field_num} value={f.field_num}>{f.field_name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    )}
+                    {employmentFormTab === 'after' && (
+                      <>
+                        <div className="employment-form-group">
+                          <label>회사명</label>
+                          <input
+                            type="text"
+                            value={employmentForm.com_name ?? ''}
+                            onChange={e => setEmploymentForm(prev => ({ ...prev, com_name: e.target.value }))}
+                            placeholder="회사명"
+                            className="employment-input"
+                          />
+                        </div>
+                        <div className="employment-form-group">
+                          <label>직종</label>
+                          <input
+                            type="text"
+                            value={employmentForm.occ_category ?? ''}
+                            onChange={e => setEmploymentForm(prev => ({ ...prev, occ_category: e.target.value }))}
+                            placeholder="직종"
+                            className="employment-input"
+                          />
+                        </div>
+                        <div className="employment-form-group">
+                          <label>질문 남기기</label>
+                          <p className="employment-hint small">각 질문과 내용을 입력한 뒤 저장하면 JSON으로 저장됩니다.</p>
+                          {employmentQuestionEntries.map((entry, idx) => (
+                            <div key={idx} className="employment-question-row">
+                              <input
+                                type="text"
+                                value={entry.key}
+                                onChange={e => updateEmploymentQuestionEntry(idx, 'key', e.target.value)}
+                                placeholder="질문 제목"
+                                className="employment-input employment-question-key"
+                              />
+                              <input
+                                type="text"
+                                value={entry.value}
+                                onChange={e => updateEmploymentQuestionEntry(idx, 'value', e.target.value)}
+                                placeholder="내용"
+                                className="employment-input employment-question-value"
+                              />
+                              <button
+                                type="button"
+                                className="employment-question-remove"
+                                onClick={() => removeEmploymentQuestionEntry(idx)}
+                                title="삭제"
+                                aria-label="삭제"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                          <button type="button" className="employment-question-add" onClick={addEmploymentQuestionEntry}>
+                            + 질문 추가
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {employmentError && (
+                    <div className="employment-error" onClick={() => setEmploymentError(null)}>{employmentError}</div>
+                  )}
+                  <button
+                    type="button"
+                    className="employment-modal-btn primary"
+                    disabled={employmentLoading}
+                    onClick={handleEmploymentSubmit}
+                  >
+                    {employmentLoading ? '저장 중...' : '저장'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

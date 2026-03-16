@@ -3,6 +3,7 @@ import { fetchStudentIssues, addStudentIssue, type StudentIssue } from '../../ut
 import { getSheetData } from 'papyrus-db';
 import type { Student, StudentWithCouncil } from '../../types/features/students/student';
 import type { CareerItem } from '../../types/features/staff';
+import type { EmploymentRow, EmploymentAfterUpdate, EmploymentField } from '../../types/features/students/employment';
 import './StudentDetailModal.css';
 import { ENV_CONFIG } from '../../config/environment';
 import { apiClient } from '../../utils/api/apiClient';
@@ -51,10 +52,18 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   mainClassifications = [],
   otherClassifications = [],
 }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'issues'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'issues' | 'employment'>('info');
   const [isEditing, setIsEditing] = useState(isAdding);
   const [editedStudent, setEditedStudent] = useState<StudentWithCouncil | null>(isAdding ? emptyStaff : student);
   const [issues, setIssues] = useState<StudentIssue[]>([]);
+  const [employment, setEmployment] = useState<EmploymentRow | null>(null);
+  const [employmentLoading, setEmploymentLoading] = useState(false);
+  const [employmentAfterEdit, setEmploymentAfterEdit] = useState<EmploymentAfterUpdate>({ com_name: '', occ_category: '', question: '' });
+  const [employmentSaving, setEmploymentSaving] = useState(false);
+  /** 질문 남기기 개별 입력 (저장 시 JSON으로 합침) */
+  const [employmentQuestionEntries, setEmploymentQuestionEntries] = useState<{ key: string; value: string }[]>([{ key: '', value: '' }]);
+  /** 직종 분야 목록 (field_num → field_name 표시용) */
+  const [employmentFieldList, setEmploymentFieldList] = useState<EmploymentField[]>([]);
   const [newIssue, setNewIssue] = useState<Omit<StudentIssue, 'id'>>({
     no_member: '',
     date_issue: '',
@@ -63,7 +72,6 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     content_issue: ''
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [isRetained, setIsRetained] = useState(false); // 유급 여부
   const [isGradeOther, setIsGradeOther] = useState(false);
   const [customGrade, setCustomGrade] = useState('');
   const [isStateOther, setIsStateOther] = useState(false);
@@ -244,8 +252,6 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             level_issue: '',
             content_issue: ''
           });
-          // 유급 정보 로드
-          await loadRetainedStatus();
           loadStudentIssues();
         };
         
@@ -326,49 +332,100 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     }
   };
 
-  // 유급 정보 로드
-  const loadRetainedStatus = async () => {
+  // 취업관리: 학번으로 취업 정보 로드 + 직종 분야 목록 로드
+  const loadEmployment = async () => {
     if (!student || !studentSpreadsheetId) return;
-    
+    setEmploymentLoading(true);
     try {
-      const response = await apiClient.request('getStudentRetainedStatus', {
-        studentId: student.no_student,
-        spreadsheetId: studentSpreadsheetId
-      });
-      
-      if (response.success && response.data) {
-        const retainedValue = response.data.isRetained;
-        setIsRetained(retainedValue === 'O' || retainedValue === true || retainedValue === 'TRUE');
+      const [empRes, fieldRes] = await Promise.all([
+        apiClient.getEmploymentByStdNum(studentSpreadsheetId, student.no_student),
+        apiClient.getFieldList(studentSpreadsheetId)
+      ]);
+      if (fieldRes.success && fieldRes.data) {
+        setEmploymentFieldList(fieldRes.data);
+      } else {
+        setEmploymentFieldList([]);
       }
-    } catch (error) {
-      console.error('유급 정보 로드 실패:', error);
+      const res = empRes;
+      if (res.success && res.data) {
+        setEmployment(res.data);
+        setEmploymentAfterEdit({
+          com_name: res.data.com_name ?? '',
+          occ_category: res.data.occ_category ?? '',
+          question: res.data.question ?? ''
+        });
+        const entries = parseQuestionToItems(res.data.question ?? '');
+        setEmploymentQuestionEntries(entries.length > 0 ? entries : [{ key: '', value: '' }]);
+      } else {
+        setEmployment(null);
+        setEmploymentAfterEdit({ com_name: '', occ_category: '', question: '' });
+        setEmploymentQuestionEntries([{ key: '', value: '' }]);
+      }
+    } catch (e) {
+      console.error('취업 정보 로드 실패:', e);
+      setEmployment(null);
+    } finally {
+      setEmploymentLoading(false);
     }
   };
 
-  // 유급 여부 업데이트
-  const handleRetainedChange = async (checked: boolean) => {
-    if (!student || !studentSpreadsheetId) return;
-    
-    setIsRetained(checked);
-    
+  /** 질문 JSON 문자열을 파싱해 개별 항목 배열로 반환 (표시용) */
+  const parseQuestionToItems = (question: string): { key: string; value: string }[] => {
+    const raw = String(question || '').trim();
+    if (!raw) return [];
     try {
-      const response = await apiClient.request('updateStudentRetained', {
-        studentId: student.no_student,
-        spreadsheetId: studentSpreadsheetId,
-        isRetained: checked
+      const parsed = JSON.parse(raw);
+      if (typeof parsed !== 'object' || parsed === null) return [];
+      return Object.entries(parsed).map(([k, v]) => ({ key: k, value: String(v ?? '') }));
+    } catch {
+      return [{ key: '질문', value: raw }];
+    }
+  };
+
+  const addEmploymentQuestionEntry = () => {
+    setEmploymentQuestionEntries(prev => [...prev, { key: '', value: '' }]);
+  };
+
+  const updateEmploymentQuestionEntry = (index: number, field: 'key' | 'value', value: string) => {
+    setEmploymentQuestionEntries(prev =>
+      prev.map((entry, i) => (i === index ? { ...entry, [field]: value } : entry))
+    );
+  };
+
+  const removeEmploymentQuestionEntry = (index: number) => {
+    setEmploymentQuestionEntries(prev => (prev.length > 1 ? prev.filter((_, i) => i !== index) : [{ key: '', value: '' }]));
+  };
+
+  // 취업 후만 저장 (학생관리에서 수정, 질문은 개별 입력을 JSON으로 합쳐 저장)
+  const handleSaveEmploymentAfter = async () => {
+    if (!student || !studentSpreadsheetId) return;
+    setEmploymentSaving(true);
+    try {
+      const questionObj: Record<string, string> = {};
+      employmentQuestionEntries.forEach(({ key, value }) => {
+        const k = key.trim();
+        if (k) questionObj[k] = value.trim();
       });
-      
-      if (response.success) {
-        // 성공 메시지는 생략 (조용히 업데이트)
-        console.log('유급 정보 업데이트 성공:', checked ? '유급' : '정상');
+      const questionToSave = Object.keys(questionObj).length > 0 ? JSON.stringify(questionObj) : '';
+      const payload: EmploymentAfterUpdate = {
+        com_name: employmentAfterEdit.com_name,
+        occ_category: employmentAfterEdit.occ_category,
+        question: questionToSave
+      };
+      const res = await apiClient.updateEmploymentAfter(studentSpreadsheetId, student.no_student, payload);
+      if (res.success) {
+        setEmployment(prev => prev ? { ...prev, com_name: payload.com_name, occ_category: payload.occ_category, question: payload.question } : null);
+        setEmploymentAfterEdit(prev => ({ ...prev, question: questionToSave }));
+        const entries = parseQuestionToItems(questionToSave);
+        setEmploymentQuestionEntries(entries.length > 0 ? entries : [{ key: '', value: '' }]);
       } else {
-        alert('유급 정보 업데이트에 실패했습니다.');
-        setIsRetained(!checked); // 롤백
+        alert(res.message || '저장에 실패했습니다.');
       }
-    } catch (error) {
-      console.error('유급 정보 업데이트 실패:', error);
-      alert('유급 정보 업데이트에 실패했습니다.');
-      setIsRetained(!checked); // 롤백
+    } catch (e) {
+      console.error('취업 후 저장 실패:', e);
+      alert('저장에 실패했습니다.');
+    } finally {
+      setEmploymentSaving(false);
     }
   };
 
@@ -671,6 +728,17 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               onClick={() => setActiveTab('issues')}
             >
               특이사항
+            </button>
+          )}
+          {mode === 'student' && (
+            <button 
+              className={`tab-btn ${activeTab === 'employment' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('employment');
+                loadEmployment();
+              }}
+            >
+              취업관리
             </button>
           )}
         </div>
@@ -1177,23 +1245,6 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       />
                     </div>
 
-                    {/* 유급 여부 체크박스 (조교만 보이게) */}
-                    {isSupp && !isAdding && (
-                      <div className="form-group">
-                        <label>유급 여부</label>
-                        <div className="checkbox-wrapper">
-                          <input
-                            type="checkbox"
-                            checked={isRetained}
-                            onChange={(e) => handleRetainedChange(e.target.checked)}
-                            id="retained-checkbox"
-                          />
-                          <label htmlFor="retained-checkbox" className="checkbox-label">
-                            유급으로 표시
-                          </label>
-                        </div>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -1322,6 +1373,95 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'employment' && (
+            <div className="employment-section">
+              <h3>취업관리</h3>
+              {employmentLoading ? (
+                <div className="loading">취업 정보를 불러오는 중...</div>
+              ) : !employment ? (
+                <div className="no-issues">등록된 취업 정보가 없습니다.</div>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label>취업 전</label>
+                    <div className="employment-readonly">
+                      <span>{employment.is_major ? '전공 취업' : '비전공 취업'}</span>
+                      <span>
+                        직종: {employment.field_num
+                          ? (employmentFieldList.find(f => f.field_num === employment.field_num)?.field_name ?? employment.field_num)
+                          : '-'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>회사명 (취업 후)</label>
+                    <input
+                      type="text"
+                      value={employmentAfterEdit.com_name}
+                      onChange={e => setEmploymentAfterEdit(prev => ({ ...prev, com_name: e.target.value }))}
+                      placeholder="회사명"
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>직종 (취업 후)</label>
+                    <input
+                      type="text"
+                      value={employmentAfterEdit.occ_category}
+                      onChange={e => setEmploymentAfterEdit(prev => ({ ...prev, occ_category: e.target.value }))}
+                      placeholder="직종"
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>질문 남기기</label>
+                    <p className="employment-question-hint">각 질문과 내용을 입력한 뒤 저장하면 JSON으로 저장됩니다.</p>
+                    {employmentQuestionEntries.map((entry, idx) => (
+                      <div key={idx} className="employment-question-row">
+                        <input
+                          type="text"
+                          value={entry.key}
+                          onChange={e => updateEmploymentQuestionEntry(idx, 'key', e.target.value)}
+                          placeholder="질문 제목"
+                          className="form-input employment-question-key"
+                        />
+                        <input
+                          type="text"
+                          value={entry.value}
+                          onChange={e => updateEmploymentQuestionEntry(idx, 'value', e.target.value)}
+                          placeholder="내용"
+                          className="form-input employment-question-value"
+                        />
+                        <button
+                          type="button"
+                          className="employment-question-remove"
+                          onClick={() => removeEmploymentQuestionEntry(idx)}
+                          title="삭제"
+                          aria-label="삭제"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" className="employment-question-add" onClick={addEmploymentQuestionEntry}>
+                      + 질문 추가
+                    </button>
+                  </div>
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="add-btn"
+                      disabled={employmentSaving}
+                      onClick={handleSaveEmploymentAfter}
+                    >
+                      {employmentSaving ? '저장 중...' : '취업 후 저장'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

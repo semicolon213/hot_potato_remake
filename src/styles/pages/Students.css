@@ -1339,3 +1339,255 @@
   color: var(--text-dark);
   white-space: nowrap;
 }
+
+/* 직종 분야 관리 버튼 */
+.field-management-btn {
+  margin-right: 8px;
+}
+
+/* 직종 분야 관리 모달 */
+.field-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.field-modal {
+  background: var(--bg-white, #fff);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  min-width: 420px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.field-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.field-modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.field-modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.field-modal-close:hover {
+  color: #333;
+}
+
+.field-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.field-add-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.field-input,
+.field-input-inline {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.field-input-inline {
+  width: 140px;
+}
+
+.field-add-btn,
+.field-save-btn,
+.field-cancel-btn,
+.field-edit-btn,
+.field-delete-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.field-add-btn,
+.field-save-btn,
+.field-edit-btn {
+  background: var(--sidebar-primary, #1a1a1a);
+  color: #fff;
+}
+
+.field-add-btn:hover:not(:disabled),
+.field-save-btn:hover:not(:disabled),
+.field-edit-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.field-add-btn:disabled,
+.field-save-btn:disabled,
+.field-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field-cancel-btn {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.field-delete-btn {
+  background: transparent;
+  color: #c00;
+  border-color: #c00;
+}
+
+.field-actions {
+  white-space: nowrap;
+}
+
+.field-actions button + button {
+  margin-left: 6px;
+}
+
+.field-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.field-table th,
+.field-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color, #eee);
+}
+
+.field-table th {
+  font-weight: 600;
+  color: #555;
+}
+
+.field-loading {
+  text-align: center;
+  padding: 24px;
+  color: #666;
+}
+
+/* 학년 관리 (조교 전용) */
+.grade-management-section {
+  max-width: 900px;
+}
+.grade-management-forbidden {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-light);
+}
+.grade-management-block {
+  margin-bottom: 2rem;
+}
+.grade-management-block h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+.grade-management-desc {
+  margin: 0 0 1rem 0;
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+.grade-management-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.grade-management-row label { margin-right: 0.25rem; }
+.grade-management-row select {
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--sidebar-radius-sm);
+  border: 1px solid var(--border-color);
+}
+.retained-search-row { margin-bottom: 0.75rem; }
+.retained-search-row .search-input {
+  width: 100%;
+  max-width: 320px;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--sidebar-radius-sm);
+  border: 1px solid var(--border-color);
+}
+.retained-search-results { margin-bottom: 1rem; }
+.retained-search-label, .retained-list-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.retained-search-results ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--sidebar-radius-sm);
+  max-height: 200px;
+  overflow-y: auto;
+}
+.retained-search-results li {
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+.retained-search-results li:last-child { border-bottom: none; }
+.retained-badge {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+.retained-add-btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.retained-list-wrap {
+  margin-top: 0.5rem;
+}
+.retained-confirm-list {
+  list-style: none;
+  margin: 0.5rem 0 1rem 0;
+  padding: 0.5rem 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.retained-confirm-list li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.grade-update-btn { margin-top: 0.5rem; }
+.grade-confirm-modal .field-modal-body p { margin: 0 0 1rem 0; }
+.grade-confirm-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}

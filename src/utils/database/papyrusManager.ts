@@ -1258,6 +1258,9 @@ export const fetchStudents = async (spreadsheetId?: string): Promise<Student[]> 
             state: row[5] || '',
             council: row[6] || '',
             flunk: row[7] || '', // 유급 필드 (H열)
+            grad_year: row[8] || '', // 졸업 연도 (I열, 없으면 빈 값)
+            grad_term: row[9] || '', // 졸업 회차 (J열, 전기/후기)
+            advanced: row[10] || '', // 진학 여부 (K열, O면 진학)
         }));
 
         console.log(`👥 학생 목록 파싱 완료: ${rawStudents.length}명, 일괄 복호화 시작...`);
