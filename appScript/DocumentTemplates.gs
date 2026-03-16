@@ -479,11 +479,44 @@ function deleteSharedTemplate(req) {
  */
 function getSharedTemplates() {
   try {
-    var folderPath = getTemplateFolderPath();
-    var folderRes = findOrCreateFolder(folderPath);
+    // CONFIG에서 기본 경로 가져오기
+    var basePath = getTemplateFolderPath();
+    var rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    var documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || 'document';
+    var templateFolderName = PropertiesService.getScriptProperties().getProperty('TEMPLATE_FOLDER_NAME') || 'shared_forms';
+
+    // 여러 가능한 경로를 시도 (getTemplatesFromFolder와 동일한 전략)
+    var possiblePaths = [
+      basePath,
+      rootFolderName + '/' + documentFolderName + '/' + templateFolderName,
+      rootFolderName.replace(' ', '_') + '/' + documentFolderName + '/' + templateFolderName,
+      documentFolderName + '/' + templateFolderName,
+      templateFolderName
+    ];
+
+    console.log('📂 getSharedTemplates - possiblePaths:', JSON.stringify(possiblePaths));
+
+    var folderRes = null;
+    var usedPath = null;
+    for (var i = 0; i < possiblePaths.length; i++) {
+      var path = possiblePaths[i];
+      if (!path) continue;
+      console.log('📂 getSharedTemplates - try path:', path);
+      var res = findOrCreateFolder(path);
+      console.log('📂 getSharedTemplates - result for', path, ':', JSON.stringify(res && res.debug ? res.debug : res));
+      if (res && res.success && res.data && res.data.id) {
+        folderRes = res;
+        usedPath = path;
+        break;
+      }
+    }
+
     if (!folderRes || !folderRes.success || !folderRes.data || !folderRes.data.id) {
+      console.warn('⚠️ getSharedTemplates - 모든 경로에서 양식 폴더를 찾을 수 없습니다.');
       return { success: false, message: '양식 폴더를 찾을 수 없습니다.' };
     }
+
+    console.log('✅ getSharedTemplates - using folderPath:', usedPath, 'id:', folderRes.data.id);
     
     // 메타데이터(properties) 포함하여 API 호출 (Drive API v2 호환)
     var files;

@@ -216,7 +216,8 @@ export class ApiClient {
           console.warn(`⚠️ API 응답 실패:`, {
             action,
             message: result.message,
-            error: result.error
+            error: result.error,
+            debug: (result as any).debug || (result as any).debugInfo
           });
         }
 
