@@ -41,8 +41,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [employmentLoading, setEmploymentLoading] = useState(false);
   const [fieldList, setFieldList] = useState<EmploymentField[]>([]);
   const [employmentSaved, setEmploymentSaved] = useState(false);
-  /** 취업 정보 2단계: 'before' | 'after' */
-  const [employmentFormTab, setEmploymentFormTab] = useState<'before' | 'after'>('before');
+  /** 취업 정보 2단계: 'before' | 'after' | 'question' */
+  const [employmentFormTab, setEmploymentFormTab] = useState<'before' | 'after' | 'question'>('before');
   /** 질문 남기기: 개별 입력 후 저장 시 JSON으로 저장 */
   const [employmentQuestionEntries, setEmploymentQuestionEntries] = useState<{ key: string; value: string }[]>([{ key: '', value: '' }]);
 
@@ -531,7 +531,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </>
               ) : (
                 <>
-                  <p className="employment-hint">취업 전/후 정보를 탭에서 입력해주세요.</p>
+                  <p className="employment-hint">취업 전/후 정보와 질문을 탭에서 나누어 입력해주세요.</p>
                   <div className="employment-tabs">
                     <button
                       type="button"
@@ -546,6 +546,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                       onClick={() => setEmploymentFormTab('after')}
                     >
                       취업 후
+                    </button>
+                    <button
+                      type="button"
+                      className={`employment-tab ${employmentFormTab === 'question' ? 'active' : ''}`}
+                      onClick={() => setEmploymentFormTab('question')}
+                    >
+                      질문
                     </button>
                   </div>
                   <div className="employment-tab-content">
@@ -599,41 +606,43 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             className="employment-input"
                           />
                         </div>
-                        <div className="employment-form-group">
-                          <label>질문 남기기</label>
-                          <p className="employment-hint small">각 질문과 내용을 입력한 뒤 저장하면 JSON으로 저장됩니다.</p>
-                          {employmentQuestionEntries.map((entry, idx) => (
-                            <div key={idx} className="employment-question-row">
-                              <input
-                                type="text"
-                                value={entry.key}
-                                onChange={e => updateEmploymentQuestionEntry(idx, 'key', e.target.value)}
-                                placeholder="질문 제목"
-                                className="employment-input employment-question-key"
-                              />
-                              <input
-                                type="text"
-                                value={entry.value}
-                                onChange={e => updateEmploymentQuestionEntry(idx, 'value', e.target.value)}
-                                placeholder="내용"
-                                className="employment-input employment-question-value"
-                              />
-                              <button
-                                type="button"
-                                className="employment-question-remove"
-                                onClick={() => removeEmploymentQuestionEntry(idx)}
-                                title="삭제"
-                                aria-label="삭제"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))}
-                          <button type="button" className="employment-question-add" onClick={addEmploymentQuestionEntry}>
-                            + 질문 추가
-                          </button>
-                        </div>
                       </>
+                    )}
+                    {employmentFormTab === 'question' && (
+                      <div className="employment-form-group">
+                        <label>질문 남기기</label>
+                        <p className="employment-hint small">각 질문과 내용을 입력한 뒤 저장하면 JSON으로 저장됩니다.</p>
+                        {employmentQuestionEntries.map((entry, idx) => (
+                          <div key={idx} className="employment-question-row">
+                            <input
+                              type="text"
+                              value={entry.key}
+                              onChange={e => updateEmploymentQuestionEntry(idx, 'key', e.target.value)}
+                              placeholder="질문 제목"
+                              className="employment-input employment-question-key"
+                            />
+                            <input
+                              type="text"
+                              value={entry.value}
+                              onChange={e => updateEmploymentQuestionEntry(idx, 'value', e.target.value)}
+                              placeholder="내용"
+                              className="employment-input employment-question-value"
+                            />
+                            <button
+                              type="button"
+                              className="employment-question-remove"
+                              onClick={() => removeEmploymentQuestionEntry(idx)}
+                              title="삭제"
+                              aria-label="삭제"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        <button type="button" className="employment-question-add" onClick={addEmploymentQuestionEntry}>
+                          + 질문 추가
+                        </button>
+                      </div>
                     )}
                   </div>
                   {employmentError && (
