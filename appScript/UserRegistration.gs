@@ -15,8 +15,18 @@ function submitRegistrationRequest(req) {
   try {
     console.log('📝 사용자 등록 요청 처리 시작:', req);
     
-    const { name, email, studentId, phone, department, role, userType } = req;
-    console.log('📝 추출된 데이터:', { name, email, studentId, phone, department, role, userType });
+    const { name, email, studentId, phone, department, role, userType, isAdmin, adminKey } = req;
+    console.log('📝 추출된 데이터:', {
+      name,
+      email,
+      studentId,
+      phone,
+      department,
+      role,
+      userType,
+      isAdmin,
+      hasAdminKey: !!String(adminKey || '').trim()
+    });
     
     // 필수 필드 검증
     if (!name || !email || !studentId) {
@@ -67,12 +77,35 @@ function submitRegistrationRequest(req) {
       };
     }
     
+    // 프론트/백엔드 호환 관리자 요청 플래그
+    // - 신규: req.isAdmin (boolean)
+    // - 구버전 호환: req.role === 'admin'
+    const requestedAdmin = (isAdmin === true || String(isAdmin).toLowerCase() === 'true' || role === 'admin');
+
+    // 관리자 가입 요청 시 서버에서도 키 재검증
+    if (requestedAdmin) {
+      if (!String(adminKey || '').trim()) {
+        return {
+          success: false,
+          message: '관리자 가입 요청에는 관리자 키가 필요합니다.'
+        };
+      }
+
+      const isValidAdminKey = verifyAdminKey(String(adminKey || '').trim());
+      if (!isValidAdminKey) {
+        return {
+          success: false,
+          message: '유효하지 않은 관리자 키입니다.'
+        };
+      }
+    }
+
     // 기존 사용자 행 업데이트
     const updateResult = addUserToSpreadsheet({
       name: name,
       email: email,
       student_id: studentId,
-      isAdmin: role === 'admin' || false,
+      isAdmin: requestedAdmin,
       groupRole: userType || 'student'
     });
     
