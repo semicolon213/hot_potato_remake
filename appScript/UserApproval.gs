@@ -7,6 +7,31 @@
 // ===== 사용자 승인 관련 함수들 =====
 
 /**
+ * 사용자 row의 승인 상태 읽기 (approval / Approval 호환)
+ * @param {Object} user
+ * @returns {string}
+ */
+function getUserApprovalStatus(user) {
+  return String(
+    (user && (user.approval !== undefined ? user.approval : user.Approval)) || ''
+  ).trim().toUpperCase();
+}
+
+/**
+ * 헤더에서 승인 컬럼 인덱스 찾기 (approval / Approval 호환)
+ * @param {string[]} header
+ * @returns {number}
+ */
+function findApprovalColumnIndex(header) {
+  if (!header || !header.length) return -1;
+  let idx = header.indexOf('approval');
+  if (idx !== -1) return idx;
+  idx = header.indexOf('Approval');
+  if (idx !== -1) return idx;
+  return header.findIndex((h) => String(h || '').toLowerCase().includes('approval'));
+}
+
+/**
  * 모든 사용자 목록 조회 (승인 대기 + 승인된 사용자)
  * @returns {Object} 모든 사용자 목록
  */
@@ -74,9 +99,9 @@ function getAllUsers() {
           return user.user_type || 'student';
         })(),
         isAdmin: user.is_admin === 'O',
-        isApproved: user.Approval === 'O',
+        isApproved: getUserApprovalStatus(user) === 'O',
         requestDate: user.approval_date || new Date().toISOString().split('T')[0],
-        approvalDate: user.Approval === 'O' ? user.approval_date : null
+        approvalDate: getUserApprovalStatus(user) === 'O' ? user.approval_date : null
       };
     });
     
@@ -84,9 +109,9 @@ function getAllUsers() {
     console.log('👥 사용자 데이터 샘플:', users.slice(0, 2)); // 처음 2개 사용자만 로그
     
     // 승인 상태별로 분류
-    const pendingUsers = users.filter(user => user.Approval === 'X');
-    const approvedUsers = users.filter(user => user.Approval === 'O');
-    const rejectedUsers = users.filter(user => user.Approval === '' || user.Approval === null || user.Approval === undefined);
+    const pendingUsers = users.filter(user => getUserApprovalStatus(user) === 'X');
+    const approvedUsers = users.filter(user => getUserApprovalStatus(user) === 'O');
+    const rejectedUsers = users.filter(user => getUserApprovalStatus(user) === '');
     
     console.log('👥 승인 대기 중:', pendingUsers.length);
     console.log('👥 승인된 사용자:', approvedUsers.length);
@@ -181,8 +206,8 @@ function getPendingUsers() {
       };
     });
     
-    // 승인 대기 중인 사용자만 필터링 (Approval 컬럼이 'X'인 경우)
-    const pendingUsers = users.filter(user => user.Approval === 'X');
+    // 승인 대기 중인 사용자만 필터링 (approval/Approval 컬럼이 'X'인 경우)
+    const pendingUsers = users.filter(user => getUserApprovalStatus(user) === 'X');
     
     console.log('👥 승인 대기 중인 사용자 수:', pendingUsers.length);
     
@@ -262,22 +287,22 @@ function approveUser(studentId) {
       };
     }
     
-    // Approval 컬럼 확인
-    if (user.Approval === 'O') {
+    // approval/Approval 컬럼 확인
+    if (getUserApprovalStatus(user) === 'O') {
       return {
         success: false,
         message: '이미 승인된 사용자입니다.'
       };
     }
     
-    // Approval 컬럼을 'O'로 업데이트하고 approval_date 설정
-    const approvalColumnIndex = header.indexOf('Approval');
+    // approval/Approval 컬럼을 'O'로 업데이트하고 approval_date 설정
+    const approvalColumnIndex = findApprovalColumnIndex(header);
     const dateColumnIndex = header.indexOf('approval_date');
     
     if (approvalColumnIndex !== -1) {
       const sheet = spreadsheet.getSheetByName(sheetName);
       
-      // Approval 컬럼 업데이트
+      // approval/Approval 컬럼 업데이트
       sheet.getRange(user.rowIndex, approvalColumnIndex + 1).setValue('O');
       
       // approval_date 컬럼 업데이트 (현재 날짜)
@@ -293,6 +318,7 @@ function approveUser(studentId) {
         message: '사용자가 승인되었습니다.',
         user: {
           ...user,
+          approval: 'O',
           Approval: 'O',
           approval_date: new Date().toISOString().split('T')[0]
         }
@@ -300,7 +326,7 @@ function approveUser(studentId) {
     } else {
       return {
         success: false,
-        message: 'Approval 컬럼을 찾을 수 없습니다.'
+        message: 'approval/Approval 컬럼을 찾을 수 없습니다.'
       };
     }
     
@@ -591,10 +617,10 @@ function handleApprovePinnedAnnouncement(req) {
     const data = sheet.getDataRange().getValues();
     const header = data[0];
     const idIndex = header.indexOf('no_member');
-    const approvalIndex = header.indexOf('Approval');
+    const approvalIndex = findApprovalColumnIndex(header);
 
     if (idIndex === -1 || approvalIndex === -1) {
-      return { success: false, message: '필수 컬럼(no_member, Approval)을 찾을 수 없습니다.' };
+      return { success: false, message: '필수 컬럼(no_member, approval/Approval)을 찾을 수 없습니다.' };
     }
 
     for (let i = 1; i < data.length; i++) {

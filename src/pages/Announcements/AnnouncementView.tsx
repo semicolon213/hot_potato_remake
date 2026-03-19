@@ -7,8 +7,7 @@ import TiptapEditor from '../../components/ui/TiptapEditor';
 import { apiClient } from '../../utils/api/apiClient';
 import type { UsersListResponse } from '../../types/api/apiResponses';
 import { API_ACTIONS } from '../../config/api';
-import { ENV_CONFIG } from '../../config/environment';
-import { incrementViewCount } from '../../utils/database/papyrusManager';
+import { getNoticeSpreadsheetApiFields, incrementViewCount } from '../../utils/database/papyrusManager';
 import { formatDateToYYYYMMDD } from '../../utils/helpers/timeUtils';
 import { useNotification } from '../../hooks/ui/useNotification';
 import { NotificationModal } from '../../components/ui/NotificationModal';
@@ -222,7 +221,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
 
     try {
       const response = await apiClient.request(API_ACTIONS.REQUEST_PINNED_ANNOUNCEMENT, {
-        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
+        ...getNoticeSpreadsheetApiFields(),
         announcementId: post.id,
         userId: user.studentId
       });

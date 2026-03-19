@@ -15,6 +15,39 @@ function getNoticeSheetName() {
 }
 
 /**
+ * 공지 데이터가 있는 탭(시트) 찾기
+ * 우선순위: 요청 sheetName(프론트 .env) → NOTICE_SHEET_NAME → '시트1' → 첫 번째 시트
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet
+ * @param {Object} req
+ * @returns {GoogleAppsScript.Spreadsheet.Sheet|null}
+ */
+function resolveNoticeSheet_(spreadsheet, req) {
+  if (!spreadsheet) return null;
+  var candidates = [];
+  var fromReq = req && req.sheetName != null ? String(req.sheetName).trim() : '';
+  if (!fromReq && req && req.noticeSheetName != null) {
+    fromReq = String(req.noticeSheetName).trim();
+  }
+  if (fromReq) candidates.push(fromReq);
+  var fromProp = getNoticeSheetName();
+  if (fromProp && candidates.indexOf(fromProp) === -1) {
+    candidates.push(fromProp);
+  }
+  if (candidates.indexOf('시트1') === -1) {
+    candidates.push('시트1');
+  }
+  var i;
+  for (i = 0; i < candidates.length; i++) {
+    var nm = candidates[i];
+    if (!nm) continue;
+    var sh = spreadsheet.getSheetByName(nm);
+    if (sh) return sh;
+  }
+  var sheets = spreadsheet.getSheets();
+  return sheets && sheets.length ? sheets[0] : null;
+}
+
+/**
  * 사용자 시트 이름 가져오기 (스크립트 속성)
  * @returns {string} 시트 이름
  */
@@ -29,16 +62,91 @@ function getUserSheetName() {
  */
 function getAnnouncementSpreadsheet(spreadsheetName) {
   try {
-    const files = DriveApp.getFilesByName(spreadsheetName);
-    if (files.hasNext()) {
-      const file = files.next();
-      return SpreadsheetApp.openById(file.getId());
+    const props = PropertiesService.getScriptProperties();
+    const configuredNoticeName = props.getProperty('NOTICE_SPREADSHEET_NAME') || '';
+    const fallbackNoticeName = props.getProperty('SPREADSHEET_NAME_NOTICE') || '';
+
+    const candidateNames = [configuredNoticeName, fallbackNoticeName, spreadsheetName, 'notice']
+      .map(v => String(v || '').trim())
+      .filter((v, i, arr) => !!v && arr.indexOf(v) === i);
+
+    // 1) 이름으로 직접 검색
+    for (let i = 0; i < candidateNames.length; i++) {
+      const files = DriveApp.getFilesByName(candidateNames[i]);
+      if (files.hasNext()) {
+        const file = files.next();
+        return SpreadsheetApp.openById(file.getId());
+      }
     }
-    throw new Error(`스프레드시트를 찾을 수 없습니다: ${spreadsheetName}`);
+
+    // 2) 프로젝트 루트 하위 notice 폴더에서 첫 번째 스프레드시트 검색 (이름 불일치 fallback)
+    const rootFolderName = props.getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    const rootFolders = DriveApp.getFoldersByName(rootFolderName);
+    if (rootFolders.hasNext()) {
+      const rootFolder = rootFolders.next();
+      const noticeFolderCandidates = ['notice', props.getProperty('NOTICE_FOLDER_NAME') || '']
+        .map(v => String(v || '').trim())
+        .filter((v, i, arr) => !!v && arr.indexOf(v) === i);
+
+      for (let j = 0; j < noticeFolderCandidates.length; j++) {
+        const noticeFolders = rootFolder.getFoldersByName(noticeFolderCandidates[j]);
+        if (!noticeFolders.hasNext()) continue;
+        const noticeFolder = noticeFolders.next();
+        const noticeFiles = noticeFolder.getFilesByType(MimeType.GOOGLE_SHEETS);
+        if (noticeFiles.hasNext()) {
+          const noticeFile = noticeFiles.next();
+          return SpreadsheetApp.openById(noticeFile.getId());
+        }
+      }
+    }
+
+    throw new Error(`스프레드시트를 찾을 수 없습니다: ${spreadsheetName} (candidates: ${candidateNames.join(', ')})`);
   } catch (error) {
     console.error('공지사항 스프레드시트 가져오기 오류:', error);
     throw error;
   }
+}
+
+/**
+ * 요청에 spreadsheetId가 있으면 우선 openById, 실패 시 spreadsheetName(또는 notice)으로 탐색
+ * @param {Object} req
+ * @returns {GoogleAppsScript.Spreadsheet.Spreadsheet}
+ */
+function openAnnouncementSpreadsheetFromRequest_(req) {
+  var spreadsheetId = req && req.spreadsheetId != null ? String(req.spreadsheetId).trim() : '';
+  var spreadsheetName = req && req.spreadsheetName != null ? String(req.spreadsheetName).trim() : '';
+  if (spreadsheetId) {
+    try {
+      return SpreadsheetApp.openById(spreadsheetId);
+    } catch (e) {
+      console.warn('spreadsheetId로 공지 스프레드시트 열기 실패, 이름 탐색으로 폴백:', e);
+    }
+  }
+  var nameForLookup = spreadsheetName || 'notice';
+  return getAnnouncementSpreadsheet(nameForLookup);
+}
+
+/**
+ * 공지 스프레드시트 참조: ID 또는 이름 중 하나 필요
+ * @param {Object} req
+ * @returns {boolean}
+ */
+function hasAnnouncementSheetRef_(req) {
+  var id = req && req.spreadsheetId != null ? String(req.spreadsheetId).trim() : '';
+  var name = req && req.spreadsheetName != null ? String(req.spreadsheetName).trim() : '';
+  return !!id || !!name;
+}
+
+/**
+ * user 시트 승인 컬럼 호환 체크 (approval / Approval)
+ * @param {Object} userRow
+ * @returns {boolean}
+ */
+function isApprovedUser_(userRow) {
+  var status = String(
+    (userRow && (userRow.approval !== undefined ? userRow.approval : userRow.Approval)) || ''
+  ).trim().toUpperCase();
+  return status === 'O';
 }
 
 /**
@@ -70,7 +178,7 @@ function getUserByEmail(email) {
         user[key] = row[index];
       });
       
-      if (encryptedVariants.includes(user.google_member) && user.Approval === 'O') {
+      if (encryptedVariants.includes(user.google_member) && isApprovedUser_(user)) {
         return {
           no_member: user.no_member,
           user_type: user.user_type,
@@ -84,6 +192,54 @@ function getUserByEmail(email) {
     return null;
   } catch (error) {
     console.error('사용자 정보 가져오기 오류:', error);
+    return null;
+  }
+}
+
+/**
+ * 사용자 정보 가져오기 (학번/교번 no_member)
+ * @param {string} memberId
+ * @returns {Object|null}
+ */
+function getUserByMemberId(memberId) {
+  try {
+    const targetId = String(memberId || '').trim();
+    if (!targetId) return null;
+
+    const spreadsheet = getHpMemberSpreadsheet();
+    if (!spreadsheet) return null;
+
+    const sheetName = getUserSheetName();
+    const data = getSheetData(spreadsheet.getId(), sheetName, 'A:G');
+    if (!data || data.length <= 1) return null;
+
+    const header = data[0];
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const user = {};
+      header.forEach((key, index) => {
+        user[key] = row[index];
+      });
+
+      if (String(user.no_member || '').trim() === targetId && isApprovedUser_(user)) {
+        let decrypted = '';
+        try {
+          decrypted = user.google_member ? decryptEmailMain(user.google_member) : '';
+        } catch (e) {
+          decrypted = '';
+        }
+        return {
+          no_member: user.no_member,
+          user_type: user.user_type,
+          name_member: user.name_member,
+          email: decrypted,
+          is_admin: user.is_admin === 'O'
+        };
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('학번 기반 사용자 조회 오류:', error);
     return null;
   }
 }
@@ -116,7 +272,7 @@ function getUserList() {
         user[key] = row[index];
       });
       
-      if (user.no_member && user.name_member && user.Approval === 'O') {
+      if (user.no_member && user.name_member && isApprovedUser_(user)) {
         users.push({
           id: user.no_member,
           name: user.name_member,
@@ -225,11 +381,11 @@ function canReadAnnouncement(announcement, userId, userType) {
  */
 function getAnnouncements(req) {
   try {
-    const { spreadsheetName, userId, userType } = req;
+    const { spreadsheetName, spreadsheetId, userId, userType } = req;
     
-    console.log(`DEBUG getAnnouncements: Received request - spreadsheetName: "${spreadsheetName}", userId: "${userId}", userType: "${userType}"`);
+    console.log(`DEBUG getAnnouncements: Received request - spreadsheetId: "${spreadsheetId || ''}", spreadsheetName: "${spreadsheetName || ''}", userId: "${userId}", userType: "${userType}"`);
     
-    if (!spreadsheetName || !userId || !userType) {
+    if (!hasAnnouncementSheetRef_(req) || !userId || !userType) {
       console.log(`DEBUG getAnnouncements: Missing required parameters`);
       return {
         success: false,
@@ -238,18 +394,18 @@ function getAnnouncements(req) {
       };
     }
     
-    const spreadsheet = getAnnouncementSpreadsheet(spreadsheetName);
-    const sheetName = getNoticeSheetName();
-    const sheet = spreadsheet.getSheetByName(sheetName);
-    
+    const spreadsheet = openAnnouncementSpreadsheetFromRequest_(req);
+    const sheet = resolveNoticeSheet_(spreadsheet, req);
+
     if (!sheet) {
       return {
         success: false,
-        message: `시트를 찾을 수 없습니다: ${sheetName}`,
-        announcements: []
+        message: '공지 스프레드시트에서 데이터 탭을 찾을 수 없습니다. (.env 시트명 또는 NOTICE_SHEET_NAME)',
+        announcements: [],
+        debug: { availableSheets: spreadsheet.getSheets().map(function (s) { return s.getName(); }) }
       };
     }
-    
+
     const data = sheet.getDataRange().getValues();
     if (!data || data.length <= 1) {
       return {
@@ -375,7 +531,26 @@ function getAnnouncements(req) {
  * @returns {string} 처리된 HTML 콘텐츠
  */
 function processAndUploadImages_(content) {
-  const FOLDER_ID = '1nXDKPPjHZVQu_qqng4O5vu1sSahDXNpD'; // 이미지를 저장할 Google Drive 폴더 ID
+  const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+  const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || 'document';
+  const noticeAttachFolderName = PropertiesService.getScriptProperties().getProperty('NOTICE_ATTACH_FOLDER_NAME') || 'attached_file';
+  const noticeAttachPath = `${rootFolderName}/${documentFolderName}/${noticeAttachFolderName}`;
+
+  let folderId = null;
+  try {
+    // DocumentFolder.gs의 공용 경로 기반 폴더 해석 함수 재사용
+    if (typeof findOrCreateFolder === 'function') {
+      const folderResult = findOrCreateFolder(noticeAttachPath);
+      if (folderResult && folderResult.success && folderResult.data && folderResult.data.id) {
+        folderId = folderResult.data.id;
+      }
+    }
+  } catch (folderError) {
+    console.warn('공지 본문 이미지 폴더 경로 해석 실패:', folderError);
+  }
+
+  // 경로 해석 실패 시 기존 기본 동작(드라이브 루트)로 폴백
+  const targetFolder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
   const imgRegex = /<img src="(data:image\/([^;]+);base64,([^"]+))"[^>]*>/g;
   
   let processedContent = content;
@@ -390,8 +565,7 @@ function processAndUploadImages_(content) {
       const decodedData = Utilities.base64Decode(base64Data, Utilities.Charset.UTF_8);
       const blob = Utilities.newBlob(decodedData, mimeType, `announcement-image-${new Date().getTime()}.png`);
       
-      const folder = DriveApp.getFolderById(FOLDER_ID);
-      const file = folder.createFile(blob);
+      const file = targetFolder.createFile(blob);
       
       // 파일을 공개적으로 접근 가능하도록 설정
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -422,8 +596,11 @@ function createAnnouncement(req) {
   try {
     const { 
       spreadsheetName, 
+      spreadsheetId,
       writerEmail, 
+      writerId,
       writerName, 
+      userType,
       title, 
       content, 
       fileNotice, 
@@ -431,15 +608,18 @@ function createAnnouncement(req) {
       isPinned 
     } = req;
     
-    if (!spreadsheetName || !writerEmail || !title || !content) {
+    if (!hasAnnouncementSheetRef_(req) || !writerEmail || !title || !content) {
       return {
         success: false,
         message: '필수 파라미터가 누락되었습니다.'
       };
     }
     
-    // 사용자 정보 확인
-    const user = getUserByEmail(writerEmail);
+    // 사용자 정보 확인 (이메일 우선, 실패 시 학번 fallback)
+    let user = getUserByEmail(writerEmail);
+    if (!user && writerId) {
+      user = getUserByMemberId(writerId);
+    }
     if (!user) {
       return {
         success: false,
@@ -448,24 +628,24 @@ function createAnnouncement(req) {
     }
     
     // 작성 권한 확인
-    if (!canCreateAnnouncement(user.user_type)) {
+    const effectiveUserType = String(user.user_type || userType || '').trim();
+    if (!canCreateAnnouncement(effectiveUserType)) {
       return {
         success: false,
         message: '학생은 공지사항을 작성할 수 없습니다.'
       };
     }
     
-    const spreadsheet = getAnnouncementSpreadsheet(spreadsheetName);
-    const sheetName = getNoticeSheetName();
-    const sheet = spreadsheet.getSheetByName(sheetName);
-    
+    const spreadsheet = openAnnouncementSpreadsheetFromRequest_(req);
+    const sheet = resolveNoticeSheet_(spreadsheet, req);
+
     if (!sheet) {
       return {
         success: false,
-        message: `시트를 찾을 수 없습니다: ${sheetName}`
+        message: '공지 스프레드시트에서 데이터 탭을 찾을 수 없습니다. (.env 시트명 또는 NOTICE_SHEET_NAME)'
       };
     }
-    
+
     // 새 공지 번호 생성 (기존 최대값 + 1)
     const data = sheet.getDataRange().getValues();
     let maxId = 0;
@@ -533,6 +713,7 @@ function updateAnnouncement(req) {
   try {
     const { 
       spreadsheetName, 
+      spreadsheetId,
       announcementId, 
       userId, 
       title, 
@@ -542,24 +723,23 @@ function updateAnnouncement(req) {
       isPinned 
     } = req;
     
-    if (!spreadsheetName || !announcementId || !userId) {
+    if (!hasAnnouncementSheetRef_(req) || !announcementId || !userId) {
       return {
         success: false,
         message: '필수 파라미터가 누락되었습니다.'
       };
     }
     
-    const spreadsheet = getAnnouncementSpreadsheet(spreadsheetName);
-    const sheetName = getNoticeSheetName();
-    const sheet = spreadsheet.getSheetByName(sheetName);
-    
+    const spreadsheet = openAnnouncementSpreadsheetFromRequest_(req);
+    const sheet = resolveNoticeSheet_(spreadsheet, req);
+
     if (!sheet) {
       return {
         success: false,
-        message: `시트를 찾을 수 없습니다: ${sheetName}`
+        message: '공지 스프레드시트에서 데이터 탭을 찾을 수 없습니다. (.env 시트명 또는 NOTICE_SHEET_NAME)'
       };
     }
-    
+
     const data = sheet.getDataRange().getValues();
     if (!data || data.length <= 1) {
       return {
@@ -567,13 +747,13 @@ function updateAnnouncement(req) {
         message: '공지사항 데이터를 찾을 수 없습니다.'
       };
     }
-    
+
     const header = data[0];
     const headerMap = {};
     header.forEach((h, index) => {
       headerMap[h] = index;
     });
-    
+
     // 공지사항 찾기
     let targetRowIndex = -1;
     let announcement = null;
@@ -663,23 +843,22 @@ function updateAnnouncement(req) {
  */
 function deleteAnnouncement(req) {
   try {
-    const { spreadsheetName, announcementId, userId } = req;
+    const { spreadsheetName, spreadsheetId, announcementId, userId } = req;
     
-    if (!spreadsheetName || !announcementId || !userId) {
+    if (!hasAnnouncementSheetRef_(req) || !announcementId || !userId) {
       return {
         success: false,
         message: '필수 파라미터가 누락되었습니다.'
       };
     }
     
-    const spreadsheet = getAnnouncementSpreadsheet(spreadsheetName);
-    const sheetName = getNoticeSheetName();
-    const sheet = spreadsheet.getSheetByName(sheetName);
+    const spreadsheet = openAnnouncementSpreadsheetFromRequest_(req);
+    const sheet = resolveNoticeSheet_(spreadsheet, req);
     
     if (!sheet) {
       return {
         success: false,
-        message: `시트를 찾을 수 없습니다: ${sheetName}`
+        message: '공지 스프레드시트에서 데이터 탭을 찾을 수 없습니다. (.env 시트명 또는 NOTICE_SHEET_NAME)'
       };
     }
     
@@ -785,26 +964,32 @@ function deleteAnnouncement(req) {
  */
 function incrementViewCount(req) {
   try {
-    const { spreadsheetName, announcementId } = req;
+    const { announcementId } = req;
     
-    if (!spreadsheetName || !announcementId) {
+    if (!announcementId) {
       return {
         success: false,
         message: '필수 파라미터가 누락되었습니다.'
       };
     }
     
-    const spreadsheet = getAnnouncementSpreadsheet(spreadsheetName);
-    const sheetName = getNoticeSheetName();
-    const sheet = spreadsheet.getSheetByName(sheetName);
-    
-    if (!sheet) {
+    if (!hasAnnouncementSheetRef_(req)) {
       return {
         success: false,
-        message: `시트를 찾을 수 없습니다: ${sheetName}`
+        message: '필수 파라미터가 누락되었습니다.'
       };
     }
     
+    const spreadsheet = openAnnouncementSpreadsheetFromRequest_(req);
+    const sheet = resolveNoticeSheet_(spreadsheet, req);
+
+    if (!sheet) {
+      return {
+        success: false,
+        message: '공지 스프레드시트에서 데이터 탭을 찾을 수 없습니다. (.env 시트명 또는 NOTICE_SHEET_NAME)'
+      };
+    }
+
     const data = sheet.getDataRange().getValues();
     if (!data || data.length <= 1) {
       return {
@@ -812,13 +997,13 @@ function incrementViewCount(req) {
         message: '공지사항 데이터를 찾을 수 없습니다.'
       };
     }
-    
+
     const header = data[0];
     const headerMap = {};
     header.forEach((h, index) => {
       headerMap[h] = index;
     });
-    
+
     // 공지사항 찾기
     let targetRowIndex = -1;
     for (let i = 1; i < data.length; i++) {
@@ -877,23 +1062,22 @@ function incrementViewCount(req) {
  */
 function requestPinnedAnnouncement(req) {
   try {
-    const { spreadsheetName, announcementId, userId } = req;
+    const { spreadsheetName, spreadsheetId, announcementId, userId } = req;
     
-    if (!spreadsheetName || !announcementId || !userId) {
+    if (!hasAnnouncementSheetRef_(req) || !announcementId || !userId) {
       return {
         success: false,
         message: '필수 파라미터가 누락되었습니다.'
       };
     }
     
-    const spreadsheet = getAnnouncementSpreadsheet(spreadsheetName);
-    const sheetName = getNoticeSheetName();
-    const sheet = spreadsheet.getSheetByName(sheetName);
+    const spreadsheet = openAnnouncementSpreadsheetFromRequest_(req);
+    const sheet = resolveNoticeSheet_(spreadsheet, req);
     
     if (!sheet) {
       return {
         success: false,
-        message: `시트를 찾을 수 없습니다: ${sheetName}`
+        message: '공지 스프레드시트에서 데이터 탭을 찾을 수 없습니다. (.env 시트명 또는 NOTICE_SHEET_NAME)'
       };
     }
     
@@ -956,14 +1140,14 @@ function requestPinnedAnnouncement(req) {
 function approvePinnedAnnouncement(req) {
   try {
     // approvalAction을 사용 (action은 라우팅용으로 사용되므로)
-    const { spreadsheetName, announcementId, approvalAction } = req;
+    const { spreadsheetName, spreadsheetId, announcementId, approvalAction } = req;
     const action = approvalAction; // 'approve' or 'reject'
     
-    if (!spreadsheetName || !announcementId || !action) {
+    if (!hasAnnouncementSheetRef_(req) || !announcementId || !action) {
       return {
         success: false,
         message: '필수 파라미터가 누락되었습니다.',
-        debug: { spreadsheetName, announcementId, approvalAction, action }
+        debug: { spreadsheetName, spreadsheetId, announcementId, approvalAction, action }
       };
     }
     
@@ -975,22 +1159,21 @@ function approvePinnedAnnouncement(req) {
       };
     }
     
-    const spreadsheet = getAnnouncementSpreadsheet(spreadsheetName);
-    const sheetName = getNoticeSheetName();
-    const sheet = spreadsheet.getSheetByName(sheetName);
-    
+    const spreadsheet = openAnnouncementSpreadsheetFromRequest_(req);
+    const sheet = resolveNoticeSheet_(spreadsheet, req);
+
     if (!sheet) {
       return {
         success: false,
-        message: `시트를 찾을 수 없습니다: ${sheetName}`,
-        debug: { 
-          spreadsheetName, 
-          sheetName, 
+        message: '공지 스프레드시트에서 데이터 탭을 찾을 수 없습니다. (.env 시트명 또는 NOTICE_SHEET_NAME)',
+        debug: {
+          spreadsheetName,
+          spreadsheetId,
           availableSheets: spreadsheet.getSheets().map(s => s.getName())
         }
       };
     }
-    
+
     const data = sheet.getDataRange().getValues();
     if (!data || data.length <= 1) {
       return {
@@ -998,30 +1181,30 @@ function approvePinnedAnnouncement(req) {
         message: '공지사항 데이터를 찾을 수 없습니다.'
       };
     }
-    
+
     const header = data[0];
     const headerMap = {};
     header.forEach((h, index) => {
       headerMap[h] = index;
     });
-    
+
     // 공지사항 찾기
     let targetRowIndex = -1;
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       const noticeId = row[headerMap['no_notice']];
-      
+
       // no_notice가 비어있으면 건너뛰기
       if (!noticeId || noticeId === '') {
         continue;
       }
-      
+
       if (String(noticeId) === String(announcementId)) {
         targetRowIndex = i + 1; // 시트 행 번호 (1-based)
         break;
       }
     }
-    
+
     if (targetRowIndex === -1) {
       // 디버깅: 찾은 공지사항 ID 목록
       const foundIds = [];
@@ -1099,9 +1282,9 @@ function approvePinnedAnnouncement(req) {
  */
 function getPinnedAnnouncementRequests(req) {
   try {
-    const { spreadsheetName } = req;
+    const { spreadsheetName, spreadsheetId } = req;
     
-    if (!spreadsheetName) {
+    if (!hasAnnouncementSheetRef_(req)) {
       return {
         success: false,
         message: '필수 파라미터가 누락되었습니다.',
@@ -1109,18 +1292,17 @@ function getPinnedAnnouncementRequests(req) {
       };
     }
     
-    const spreadsheet = getAnnouncementSpreadsheet(spreadsheetName);
-    const sheetName = getNoticeSheetName();
-    const sheet = spreadsheet.getSheetByName(sheetName);
-    
+    const spreadsheet = openAnnouncementSpreadsheetFromRequest_(req);
+    const sheet = resolveNoticeSheet_(spreadsheet, req);
+
     if (!sheet) {
       return {
         success: false,
-        message: `시트를 찾을 수 없습니다: ${sheetName}`,
+        message: '공지 스프레드시트에서 데이터 탭을 찾을 수 없습니다. (.env 시트명 또는 NOTICE_SHEET_NAME)',
         requests: []
       };
     }
-    
+
     const data = sheet.getDataRange().getValues();
     if (!data || data.length <= 1) {
       return {
@@ -1129,7 +1311,7 @@ function getPinnedAnnouncementRequests(req) {
         message: '승인 대기 중인 고정 공지가 없습니다.'
       };
     }
-    
+
     const header = data[0];
     const headerMap = {};
     header.forEach((h, index) => {

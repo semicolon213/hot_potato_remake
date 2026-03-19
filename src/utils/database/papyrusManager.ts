@@ -49,6 +49,7 @@ let calendarStudentSpreadsheetId: string | null = null;
 let studentSpreadsheetId: string | null = null;
 let staffSpreadsheetId: string | null = null;
 let accountingFolderId: string | null = null;
+let announcementAttachmentFolderId: string | null = null;
 
 /**
  * @brief 스프레드시트 ID 전역 변수 초기화
@@ -71,6 +72,23 @@ export const clearSpreadsheetIds = (): void => {
     staffSpreadsheetId = null;
     accountingFolderId = null;
     console.log('🧹 스프레드시트 ID 전역 변수 초기화 완료');
+};
+
+/** 초기화 시 조회해 둔 공지 스프레드시트 ID (관리자 패널·직접 API 호출용) */
+export const getCachedAnnouncementSpreadsheetId = (): string | null => announcementSpreadsheetId;
+
+/**
+ * 공지 관련 Apps Script 요청에 공통으로 넣는 스프레드시트 참조 (초기 조회 ID 우선, 이름은 폴백)
+ * @param spreadsheetIdOverride addAnnouncement 등에서 인자로 받은 ID가 모듈 변수보다 우선할 때 사용
+ */
+export const getNoticeSpreadsheetApiFields = (spreadsheetIdOverride?: string | null) => {
+    const id = spreadsheetIdOverride ?? announcementSpreadsheetId;
+    return {
+        ...(id ? { spreadsheetId: id } : {}),
+        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME,
+        /** 공지 스프레드시트 안의 탭 이름 (.env VITE_SHEET_NAME.DEFAULT → ANNOUNCEMENT_SHEET_NAME) */
+        sheetName: ENV_CONFIG.ANNOUNCEMENT_SHEET_NAME
+    };
 };
 
 /**
@@ -353,7 +371,7 @@ export const fetchAnnouncements = async (userId: string, userType: string): Prom
         console.log(`Fetching announcements via Apps Script API for user: ${userId}, type: ${userType}`);
         
         const response = await apiClient.request('getAnnouncements', {
-            spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME에서 온 공지 스프레드시트명
+            ...getNoticeSpreadsheetApiFields(),
             userId: userId,
             userType: userType
         });
@@ -407,6 +425,66 @@ const dataURLtoBlob = (dataurl: string) => {
     return new Blob([u8arr], {type: mime});
 };
 
+const escapeDriveQueryValue = (value: string): string => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+const findOrCreateFolderByName = async (folderName: string, parentFolderId: string): Promise<string> => {
+    const safeName = escapeDriveQueryValue(folderName);
+    const existing = await window.gapi.client.drive.files.list({
+        q: `'${parentFolderId}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name)',
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true
+    });
+
+    const existingId = existing.result.files?.[0]?.id;
+    if (existingId) return existingId;
+
+    const created = await window.gapi.client.drive.files.create({
+        resource: {
+            name: folderName,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentFolderId]
+        },
+        fields: 'id',
+        supportsAllDrives: true
+    });
+
+    const createdId = created.result.id;
+    if (!createdId) {
+        throw new Error(`폴더 생성에 실패했습니다: ${folderName}`);
+    }
+    return createdId;
+};
+
+const getAnnouncementAttachmentFolderId = async (): Promise<string> => {
+    if (announcementAttachmentFolderId) return announcementAttachmentFolderId;
+
+    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME || 'hot_potato_remake';
+    const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME || 'document';
+    const attachFolderName = ENV_CONFIG.NOTICE_ATTACH_FOLDER_NAME || 'attached_file';
+
+    // 1) 프로젝트 루트는 드라이브 루트에서 검색 (없으면 생성)
+    const rootSafeName = escapeDriveQueryValue(rootFolderName);
+    const rootSearch = await window.gapi.client.drive.files.list({
+        q: `'root' in parents and name='${rootSafeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id, name)',
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true
+    });
+
+    let rootFolderId = rootSearch.result.files?.[0]?.id;
+    if (!rootFolderId) {
+        rootFolderId = await findOrCreateFolderByName(rootFolderName, 'root');
+    }
+
+    // 2) ROOT/DOCUMENT/NOTICE_ATTACH 경로 보장
+    const documentFolderId = await findOrCreateFolderByName(documentFolderName, rootFolderId);
+    const attachFolderId = await findOrCreateFolderByName(attachFolderName, documentFolderId);
+
+    announcementAttachmentFolderId = attachFolderId;
+    return attachFolderId;
+};
+
 // [MERGE] File 2의 uploadFileToDrive 헬퍼 함수
 const uploadFileToDrive = async (file: File): Promise<{ name: string, url: string }> => {
     const token = tokenManager.get();
@@ -414,7 +492,7 @@ const uploadFileToDrive = async (file: File): Promise<{ name: string, url: strin
         throw new Error('Google Access Token not found or expired');
     }
 
-    const folderId = '1nXDKPPjHZVQu_qqng4O5vu1sSahDXNpD'; // TODO: 환경변수로 분리 검토 (하드코딩된 Drive 폴더 ID)
+    const folderId = await getAnnouncementAttachmentFolderId();
 
     const fileMetadata = {
         name: file.name,
@@ -501,7 +579,7 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
             const fullImgTag = match[0]; // The entire <img ...> tag
             const base64Src = match[1]; // The base64 data URL
             const blob = dataURLtoBlob(base64Src);
-            const folderId = '1nXDKPPjHZVQu_qqng4O5vu1sSahDXNpD'; // TODO: 환경변수로 분리 검토 (하드코딩된 Drive 폴더 ID)
+            const folderId = await getAnnouncementAttachmentFolderId();
 
             const fileMetadata = {
                 name: `announcement-image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -625,9 +703,11 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
         let response;
         try {
             response = await apiClient.request('createAnnouncement', {
-                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
+                ...getNoticeSpreadsheetApiFields(announcementSpreadsheetId),
                 writerEmail: postData.writerEmail,
+                writerId: postData.writer_id,
                 writerName: postData.author,
+                userType: postData.userType || 'student',
                 title: postData.title,
                 content: finalContent,
                 fileNotice: fileNotice,
@@ -655,7 +735,7 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
         // 고정 공지 요청 (isPinned가 true이고 fix_notice가 '-'가 아닌 경우)
         if (postData.isPinned && response.data?.announcementId) {
             await apiClient.request('requestPinnedAnnouncement', {
-                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
+                ...getNoticeSpreadsheetApiFields(announcementSpreadsheetId),
                 announcementId: response.data.announcementId,
                 userId: postData.writer_id
             });
@@ -679,7 +759,7 @@ export const incrementViewCount = async (announcementId: string): Promise<void> 
         }
 
         const response = await apiClient.request('incrementAnnouncementView', {
-            spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
+            ...getNoticeSpreadsheetApiFields(),
             announcementId: announcementId
         });
 
@@ -787,7 +867,7 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
         let response;
         try {
             response = await apiClient.request('updateAnnouncement', {
-                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
+                ...getNoticeSpreadsheetApiFields(),
                 announcementId: announcementId,
                 userId: userId,
                 title: postData.title,
@@ -808,7 +888,7 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
         if (postData.isPinned && response.success) {
             try {
                 await apiClient.request('requestPinnedAnnouncement', {
-                    spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
+                    ...getNoticeSpreadsheetApiFields(),
                     announcementId: announcementId,
                     userId: userId
                 });
@@ -869,7 +949,7 @@ export const deleteAnnouncement = async (spreadsheetId: string, announcementId: 
         let response;
         try {
             response = await apiClient.request('deleteAnnouncement', {
-                spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
+                ...getNoticeSpreadsheetApiFields(),
                 announcementId: announcementId,
                 userId: userId
             });

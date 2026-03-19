@@ -27,7 +27,7 @@ type EmailStatus = 'idle' | 'sending' | 'success' | 'error';
 import { fetchAllUsers, sendAdminKeyEmail, approveUserWithGroup, rejectUser, clearUserCache } from '../../../utils/api/adminApi';
 import { apiClient } from '../../../utils/api/apiClient';
 import { API_ACTIONS } from '../../../config/api';
-import { ENV_CONFIG } from '../../../config/environment';
+import { getNoticeSpreadsheetApiFields } from '../../../utils/database/papyrusManager';
 import type { ApiResponse } from '../../../config/api';
 import { tokenManager } from '../../../utils/auth/tokenManager';
 
@@ -50,7 +50,7 @@ export const useAdminPanel = () => {
     try {
       console.log('📌 고정 공지 승인 요청 목록 로딩 시작');
       const response = await apiClient.request(API_ACTIONS.GET_PINNED_ANNOUNCEMENT_REQUESTS, {
-        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
+        ...getNoticeSpreadsheetApiFields()
       });
 
       if (response.success) {
@@ -81,7 +81,7 @@ export const useAdminPanel = () => {
       console.log('📌 고정 공지 승인 요청:', announcementId);
 
       const response = await apiClient.request(API_ACTIONS.APPROVE_PINNED_ANNOUNCEMENT, {
-        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
+        ...getNoticeSpreadsheetApiFields(),
         announcementId: announcementId,
         approvalAction: 'approve'
       });
@@ -114,7 +114,7 @@ export const useAdminPanel = () => {
       console.log('📌 고정 공지 거절 요청:', announcementId);
 
       const response = await apiClient.request(API_ACTIONS.APPROVE_PINNED_ANNOUNCEMENT, {
-        spreadsheetName: ENV_CONFIG.ANNOUNCEMENT_SPREADSHEET_NAME, // ENV v2: NOTICE_SPREADSHEET_NAME 매핑
+        ...getNoticeSpreadsheetApiFields(),
         announcementId: announcementId,
         approvalAction: 'reject'
       });
