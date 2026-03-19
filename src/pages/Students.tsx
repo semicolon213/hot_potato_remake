@@ -43,6 +43,7 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
     handleExcelUpload,
     getAllYears,
     addStudent, // 학생 추가 함수
+    updateStudent,
     deleteStudent,
     getCouncilTableData,
     studentColumns,
@@ -216,14 +217,19 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
     setSelectedStudent(null);
   };
 
-  // 학생 정보 업데이트 핸들러
-  const handleStudentUpdate = async () => {
-    // 데이터 다시 로드
-    if (studentSpreadsheetId) {
-      await fetchStudents();
+  // 학생 정보 업데이트 핸들러 (실제 스프레드시트 저장)
+  const handleStudentUpdate = async (updatedStudent: StudentWithCouncil) => {
+    const targetNo = selectedStudent?.no_student || updatedStudent.no_student;
+    const success = await updateStudent(targetNo, updatedStudent);
+    if (!success) {
+      alert('저장에 실패했습니다.');
+      return;
     }
+    alert('저장되었습니다.');
     setIsModalOpen(false);
     setSelectedStudent(null);
+    // 백그라운드 재조회로 최종 동기화 (UI는 이미 즉시 반영됨)
+    void fetchStudents();
   };
 
   const handleDeleteStudent = (studentToDelete: StudentWithCouncil) => {

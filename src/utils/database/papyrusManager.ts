@@ -1334,6 +1334,74 @@ export const deleteStudent = async (spreadsheetId: string, studentNo: string): P
     }
 };
 
+/**
+ * @brief 학생 업데이트 (A~G)
+ * - row 탐색은 `studentNo`(기존 학번)으로 수행
+ * - 저장 시 전화번호는 010-XXXX-XXXX 형태면 Apps Script로 암호화 후 저장
+ */
+export const updateStudent = async (
+    spreadsheetId: string,
+    studentNo: string,
+    student: Student
+): Promise<void> => {
+    try {
+        const effectiveSpreadsheetId = spreadsheetId || studentSpreadsheetId;
+        if (!effectiveSpreadsheetId) {
+            throw new Error('Student spreadsheet ID not found');
+        }
+
+        setupPapyrusAuth();
+
+        const sheetName = ENV_CONFIG.STUDENT_SHEET_NAME;
+        const data = await getSheetData(effectiveSpreadsheetId, sheetName);
+
+        if (!data || !data.values || data.values.length === 0) {
+            throw new Error('시트에서 데이터를 찾을 수 없습니다.');
+        }
+
+        const rowIndex = data.values.findIndex((row: string[]) => row[0] === studentNo);
+        if (rowIndex === -1) {
+            throw new Error('해당 학생을 시트에서 찾을 수 없습니다.');
+        }
+
+        const phoneToSave = await encryptValue(student.phone_num || '');
+
+        const range = `${sheetName}!A${rowIndex + 1}:G${rowIndex + 1}`;
+        const values = [[
+            student.no_student,
+            student.name,
+            student.address,
+            phoneToSave,
+            student.grade,
+            student.state,
+            student.council
+        ]];
+
+        const gapi = window.gapi;
+        await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: effectiveSpreadsheetId,
+            range,
+            valueInputOption: 'RAW',
+            resource: { values }
+        });
+
+        // 캐시 무효화 및 백그라운드 갱신
+        try {
+            const dataSyncService = getDataSyncService();
+            const cacheKeys = [
+                generateCacheKey('students', 'fetchStudents', { spreadsheetId: effectiveSpreadsheetId }),
+                'students:fetchStudents:*'
+            ];
+            await dataSyncService.invalidateAndRefresh(cacheKeys);
+        } catch (cacheError) {
+            console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+        }
+    } catch (error) {
+        console.error('Error updating student:', error);
+        throw error;
+    }
+};
+
 export const fetchStaff = async (): Promise<Staff[]> => {
     const cacheManager = getCacheManager();
     const action = 'fetchStaff';
@@ -1774,6 +1842,25 @@ const decryptValuesBatch = async (encryptedValues: string[]): Promise<string[]> 
   } catch (error) {
     console.warn('일괄 복호화 실패:', error);
     return encryptedValues;
+  }
+};
+
+/**
+ * 암호화 헬퍼 함수 (단일 값)
+ * - 학생 연락처(010-XXXX-XXXX)처럼 평문일 때만 암호화 시도
+ */
+const encryptValue = async (plainValue: string): Promise<string> => {
+  const v = String(plainValue || '').trim();
+  if (!v) return '';
+  if (!/^010-\d{4}-\d{4}$/.test(v)) return v;
+  try {
+    const { apiClient } = await import('../api/apiClient');
+    const response = await apiClient.request<{ success: boolean; data: string }>('encryptEmail', { data: v });
+    if (response.success && response.data) return response.data as string;
+    return v;
+  } catch (error) {
+    console.warn('암호화 실패:', error);
+    return v;
   }
 };
 

@@ -7,7 +7,11 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { fetchStudents as fetchStudentsFromPapyrus, deleteStudent as deleteStudentFromPapyrus } from '../../../utils/database/papyrusManager';
+import {
+  fetchStudents as fetchStudentsFromPapyrus,
+  deleteStudent as deleteStudentFromPapyrus,
+  updateStudent as updateStudentFromPapyrus
+} from '../../../utils/database/papyrusManager';
 import { ENV_CONFIG } from '../../../config/environment';
 import type { Student, StudentWithCouncil, CouncilPosition } from '../../../types/features/students/student';
 
@@ -587,6 +591,31 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     }
   };
 
+  const updateStudent = async (originalStudentNo: string, updatedStudent: StudentWithCouncil): Promise<boolean> => {
+    if (!studentSpreadsheetId) return false;
+
+    try {
+      await updateStudentFromPapyrus(studentSpreadsheetId, originalStudentNo, updatedStudent);
+
+      // 즉시 UI 반영 (새로고침 전에도 변경값 표시)
+      setStudents(prev =>
+        prev.map((s) =>
+          s.no_student === originalStudentNo
+            ? {
+                ...updatedStudent,
+                parsedCouncil: parseCouncil(updatedStudent.council)
+              }
+            : s
+        )
+      );
+
+      return true;
+    } catch (error) {
+      console.error('학생 정보 업데이트 실패:', error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (studentSpreadsheetId) {
       fetchStudents();
@@ -609,6 +638,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     downloadExcelTemplate,
     handleExcelUpload,
     addStudent, // addStudent 추가
+    updateStudent,
     deleteStudent,
     fetchStudents,
     getCouncilByYear,
