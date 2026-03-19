@@ -2,6 +2,7 @@
 
 import React, { useRef } from 'react';
 import { FaDownload, FaFileDownload, FaUpload } from 'react-icons/fa';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 
 interface StudentActionButtonsProps {
   onExportCSV: () => void;
@@ -31,7 +32,7 @@ const StudentActionButtons: React.FC<StudentActionButtonsProps> = ({
         }
       } catch (error) {
         console.error('파일 업로드 실패:', error);
-        alert('파일 업로드에 실패했습니다.');
+        notifyGlobal('파일 업로드에 실패했습니다.', 'error');
       }
     }
   };

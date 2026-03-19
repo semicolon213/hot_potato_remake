@@ -323,6 +323,7 @@ function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, gra
     var updatedCount = 0;
     var graduatedCount = 0;
     var skippedCount = 0;
+    var graduatedStudents = [];
     
     for (var i = 1; i < data.length; i++) {
       var row = data[i];
@@ -364,6 +365,11 @@ function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, gra
         if (!existingGradTerm && graduationTerm) {
           sheet.getRange(i + 1, gradTermColIndex + 1).setValue(String(graduationTerm));
         }
+        graduatedStudents.push({
+          no_student: String(studentId),
+          name: String(row[1] || ''),
+          grade: String(currentGrade || '')
+        });
         graduatedCount++;
       } else {
         sheet.getRange(i + 1, gradeColIndex + 1).setValue(String(gradeNum + 1));
@@ -378,12 +384,227 @@ function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, gra
         updatedCount: updatedCount,
         graduatedCount: graduatedCount,
         skippedCount: skippedCount,
-        graduationGrade: gradGrade
+        graduationGrade: gradGrade,
+        graduatedStudents: graduatedStudents
       }
     };
   } catch (error) {
     console.error('❌ 학생 학년 업데이트 실패:', error);
     return { success: false, message: '학년 업데이트 중 오류가 발생했습니다: ' + error.message };
+  }
+}
+
+/**
+ * 선택한 학생만 학년 갱신/졸업 처리
+ * @param {string} spreadsheetId
+ * @param {Array<string>} studentIds
+ * @param {number} graduationGrade
+ * @param {number|string} graduationYear
+ * @param {string} graduationTerm
+ */
+function updateStudentGradesSelected(spreadsheetId, studentIds, graduationGrade, graduationYear, graduationTerm) {
+  try {
+    if (!spreadsheetId) return { success: false, message: '스프레드시트 ID가 필요합니다.' };
+    if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+      return { success: false, message: '갱신할 학생을 선택해주세요.' };
+    }
+
+    var selectedSet = {};
+    studentIds.forEach(function(id) { selectedSet[String(id).trim()] = true; });
+
+    var gradGrade = graduationGrade;
+    if (gradGrade == null || isNaN(parseInt(gradGrade, 10))) {
+      var res = getGraduationGrade(spreadsheetId);
+      gradGrade = res.success ? res.data : 3;
+    } else {
+      gradGrade = parseInt(gradGrade, 10);
+      if (isNaN(gradGrade) || gradGrade < 1) gradGrade = 3;
+    }
+
+    var spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    var sheetName = 'info';
+    var sheet = spreadsheet.getSheetByName(sheetName);
+    if (!sheet) return { success: false, message: '학생 정보 시트를 찾을 수 없습니다.' };
+
+    var headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var studentIdColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().includes('학번') || h.toString().includes('no_student') || h.toString().toLowerCase().includes('no'));
+    });
+    var gradeColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().includes('학년') || h.toString().includes('grade'));
+    });
+    var stateColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().includes('상태') || h.toString().includes('state'));
+    });
+    var retainedColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().toLowerCase().includes('flunk') || h.toString().includes('유급') || h.toString().includes('retained') || h.toString().includes('is_retained'));
+    });
+    var gradYearColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().toLowerCase().includes('grad_year') || h.toString().includes('졸업연도') || h.toString().includes('졸업년도'));
+    });
+    var gradTermColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().toLowerCase().includes('grad_term') || h.toString().includes('졸업구분') || h.toString().includes('전기/후기'));
+    });
+    var advancedColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().toLowerCase().includes('advanced') || h.toString().includes('진학'));
+    });
+
+    if (studentIdColIndex === -1 || gradeColIndex === -1 || stateColIndex === -1) {
+      return { success: false, message: '필수 컬럼(학번, 학년, 상태)을 찾을 수 없습니다.' };
+    }
+
+    if (retainedColIndex === -1) {
+      var newColIndex = 8;
+      sheet.getRange(1, newColIndex).setValue('flunk');
+      retainedColIndex = newColIndex - 1;
+    }
+    var lastCol = sheet.getLastColumn();
+    if (gradYearColIndex === -1) {
+      lastCol += 1;
+      sheet.getRange(1, lastCol).setValue('grad_year');
+      gradYearColIndex = lastCol - 1;
+    }
+    if (gradTermColIndex === -1) {
+      lastCol += 1;
+      sheet.getRange(1, lastCol).setValue('grad_term');
+      gradTermColIndex = lastCol - 1;
+    }
+    if (advancedColIndex === -1) {
+      lastCol += 1;
+      sheet.getRange(1, lastCol).setValue('advanced');
+      advancedColIndex = lastCol - 1;
+    }
+
+    var data = sheet.getDataRange().getValues();
+    var updatedCount = 0;
+    var graduatedCount = 0;
+    var skippedCount = 0;
+    var graduatedStudents = [];
+    var touchedCount = 0;
+
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var studentId = String(row[studentIdColIndex] || '').trim();
+      if (!studentId || !selectedSet[studentId]) continue;
+
+      touchedCount++;
+      var currentGrade = String(row[gradeColIndex] || '').trim();
+      var currentState = String(row[stateColIndex] || '').trim();
+      var retainedValue = String(row[retainedColIndex] || '').trim();
+      var existingGradYear = String(row[gradYearColIndex] || '').trim();
+      var existingGradTerm = String(row[gradTermColIndex] || '').trim();
+
+      if (currentState === '휴학' || currentState === '자퇴' || currentState === '졸업') {
+        skippedCount++;
+        continue;
+      }
+      if (retainedValue === 'O' || retainedValue === 'TRUE' || retainedValue === '1') {
+        sheet.getRange(i + 1, retainedColIndex + 1).setValue('');
+        skippedCount++;
+        continue;
+      }
+
+      var gradeNum = parseInt(currentGrade, 10);
+      if (isNaN(gradeNum)) {
+        skippedCount++;
+        continue;
+      }
+
+      if (gradeNum >= gradGrade) {
+        sheet.getRange(i + 1, gradeColIndex + 1).setValue('-');
+        sheet.getRange(i + 1, stateColIndex + 1).setValue('졸업');
+        if (!existingGradYear && graduationYear) {
+          sheet.getRange(i + 1, gradYearColIndex + 1).setValue(String(graduationYear));
+        }
+        if (!existingGradTerm && graduationTerm) {
+          sheet.getRange(i + 1, gradTermColIndex + 1).setValue(String(graduationTerm));
+        }
+        graduatedStudents.push({
+          no_student: String(studentId),
+          name: String(row[1] || ''),
+          grade: String(currentGrade || '')
+        });
+        graduatedCount++;
+      } else {
+        sheet.getRange(i + 1, gradeColIndex + 1).setValue(String(gradeNum + 1));
+        updatedCount++;
+      }
+    }
+
+    return {
+      success: true,
+      message: '선택 갱신 완료. 대상 ' + touchedCount + '명 중 ' + updatedCount + '명 학년 증가, ' + graduatedCount + '명 졸업, ' + skippedCount + '명 제외.',
+      data: {
+        touchedCount: touchedCount,
+        updatedCount: updatedCount,
+        graduatedCount: graduatedCount,
+        skippedCount: skippedCount,
+        graduationGrade: gradGrade,
+        graduatedStudents: graduatedStudents
+      }
+    };
+  } catch (error) {
+    console.error('❌ 선택 학생 학년 업데이트 실패:', error);
+    return { success: false, message: '선택 학생 학년 업데이트 중 오류가 발생했습니다: ' + error.message };
+  }
+}
+
+/**
+ * 이번에 졸업 처리된 학생들 중 진학자 표시 반영
+ * @param {string} spreadsheetId
+ * @param {Array<string>} graduatedStudentIds - 이번 졸업 대상 전체
+ * @param {Array<string>} advancedStudentIds - 진학 처리할 학생
+ */
+function setGraduatedAdvanced(spreadsheetId, graduatedStudentIds, advancedStudentIds) {
+  try {
+    if (!spreadsheetId) return { success: false, message: '스프레드시트 ID가 필요합니다.' };
+    if (!graduatedStudentIds || !Array.isArray(graduatedStudentIds) || graduatedStudentIds.length === 0) {
+      return { success: false, message: '졸업 대상 학생 목록이 필요합니다.' };
+    }
+
+    var gradSet = {};
+    graduatedStudentIds.forEach(function(id) { gradSet[String(id).trim()] = true; });
+    var advSet = {};
+    (advancedStudentIds || []).forEach(function(id) { advSet[String(id).trim()] = true; });
+
+    var spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    var sheet = spreadsheet.getSheetByName('info');
+    if (!sheet) return { success: false, message: '학생 정보 시트를 찾을 수 없습니다.' };
+
+    var headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var studentIdColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().includes('학번') || h.toString().includes('no_student') || h.toString().toLowerCase().includes('no'));
+    });
+    var advancedColIndex = headerRow.findIndex(function(h) {
+      return h && (h.toString().toLowerCase().includes('advanced') || h.toString().includes('진학'));
+    });
+    if (studentIdColIndex === -1) return { success: false, message: '학번 컬럼을 찾을 수 없습니다.' };
+    if (advancedColIndex === -1) {
+      var newCol = sheet.getLastColumn() + 1;
+      sheet.getRange(1, newCol).setValue('advanced');
+      advancedColIndex = newCol - 1;
+    }
+
+    var data = sheet.getDataRange().getValues();
+    var updatedCount = 0;
+    for (var i = 1; i < data.length; i++) {
+      var sid = String(data[i][studentIdColIndex] || '').trim();
+      if (!sid || !gradSet[sid]) continue;
+      sheet.getRange(i + 1, advancedColIndex + 1).setValue(advSet[sid] ? 'O' : '');
+      updatedCount++;
+    }
+
+    return {
+      success: true,
+      message: '진학 여부가 반영되었습니다.',
+      data: {
+        updatedCount: updatedCount,
+        advancedCount: (advancedStudentIds || []).length
+      }
+    };
+  } catch (error) {
+    console.error('❌ 진학 여부 반영 실패:', error);
+    return { success: false, message: '진학 여부 반영 중 오류가 발생했습니다: ' + error.message };
   }
 }
 

@@ -1335,7 +1335,7 @@ export const deleteStudent = async (spreadsheetId: string, studentNo: string): P
 };
 
 /**
- * @brief 학생 업데이트 (A~G)
+ * @brief 학생 업데이트 (A~K, 기존값 보존)
  * - row 탐색은 `studentNo`(기존 학번)으로 수행
  * - 저장 시 전화번호는 010-XXXX-XXXX 형태면 Apps Script로 암호화 후 저장
  */
@@ -1364,9 +1364,28 @@ export const updateStudent = async (
             throw new Error('해당 학생을 시트에서 찾을 수 없습니다.');
         }
 
-        const phoneToSave = await encryptValue(student.phone_num || '');
+        const existingRow = data.values[rowIndex] as string[] | undefined;
+        const existingFlunk = existingRow?.[7] || '';
+        const existingGradYear = existingRow?.[8] || '';
+        const existingGradTerm = existingRow?.[9] || '';
+        const existingAdvanced = existingRow?.[10] || '';
 
-        const range = `${sheetName}!A${rowIndex + 1}:G${rowIndex + 1}`;
+        const phoneToSave = await encryptValue(student.phone_num || '');
+        const advancedToSave =
+            String(student.state || '').trim() === '진학'
+                ? 'O'
+                : (student.advanced ?? existingAdvanced);
+
+        const gradYearToSave =
+            student.grad_year != null
+                ? String(student.grad_year).trim()
+                : String(existingGradYear || '').trim();
+        const gradTermToSave =
+            student.grad_term != null
+                ? String(student.grad_term).trim()
+                : String(existingGradTerm || '').trim();
+
+        const range = `${sheetName}!A${rowIndex + 1}:K${rowIndex + 1}`;
         const values = [[
             student.no_student,
             student.name,
@@ -1374,7 +1393,11 @@ export const updateStudent = async (
             phoneToSave,
             student.grade,
             student.state,
-            student.council
+            student.council,
+            existingFlunk,
+            gradYearToSave,
+            gradTermToSave,
+            advancedToSave
         ]];
 
         const gapi = window.gapi;

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { BiEdit, BiTrash } from 'react-icons/bi';
 import { NotificationModal, ConfirmModal } from '../../ui/NotificationModal';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 
 interface Props {
     activeTab: string;
@@ -81,7 +82,7 @@ export function CategoryTabs({
             if (onShowNotification) {
                 onShowNotification("최대 10개의 개인 태그만 추가할 수 있습니다.", "warning");
             } else {
-                alert("최대 10개의 개인 태그만 추가할 수 있습니다.");
+                notifyGlobal("최대 10개의 개인 태그만 추가할 수 있습니다.", "warning");
             }
             // 알림 후 포커스 복원
             setTimeout(() => {
@@ -95,7 +96,7 @@ export function CategoryTabs({
             if (onShowNotification) {
                 onShowNotification("태그 이름은 최대 8글자까지 가능합니다.", "warning");
             } else {
-                alert("태그 이름은 최대 8글자까지 가능합니다.");
+                notifyGlobal("태그 이름은 최대 8글자까지 가능합니다.", "warning");
             }
             // 알림 후 포커스 복원
             setTimeout(() => {
@@ -115,7 +116,7 @@ export function CategoryTabs({
             if (onShowNotification) {
                 onShowNotification("기본 태그는 관리자만 추가할 수 있습니다.", "warning");
             } else {
-                alert("기본 태그는 관리자만 추가할 수 있습니다.");
+                notifyGlobal("기본 태그는 관리자만 추가할 수 있습니다.", "warning");
             }
             setIsAddingStatic(false);
             return;
@@ -128,7 +129,7 @@ export function CategoryTabs({
             if (onShowNotification) {
                 onShowNotification("태그 이름은 최대 8글자까지 가능합니다.", "warning");
             } else {
-                alert("태그 이름은 최대 8글자까지 가능합니다.");
+                notifyGlobal("태그 이름은 최대 8글자까지 가능합니다.", "warning");
             }
             // 알림 후 포커스 복원
             setTimeout(() => {
@@ -141,7 +142,7 @@ export function CategoryTabs({
             if (onShowNotification) {
                 onShowNotification("이미 존재하는 기본 태그입니다.", "warning");
             } else {
-                alert("이미 존재하는 기본 태그입니다.");
+                notifyGlobal("이미 존재하는 기본 태그입니다.", "warning");
             }
             // 알림 후 포커스 복원
             setTimeout(() => {
@@ -168,7 +169,7 @@ export function CategoryTabs({
                     if (onShowNotification) {
                         onShowNotification("기본 태그는 관리자만 수정할 수 있습니다.", "warning");
                     } else {
-                        alert("기본 태그는 관리자만 수정할 수 있습니다.");
+                        notifyGlobal("기본 태그는 관리자만 수정할 수 있습니다.", "warning");
                     }
                     setEditingTag(null);
                     setEditingText("");
@@ -179,7 +180,7 @@ export function CategoryTabs({
                     if (onShowNotification) {
                         onShowNotification("태그 이름은 최대 8글자까지 가능합니다.", "warning");
                     } else {
-                        alert("태그 이름은 최대 8글자까지 가능합니다.");
+                        notifyGlobal("태그 이름은 최대 8글자까지 가능합니다.", "warning");
                     }
                     return;
                 }
@@ -191,7 +192,7 @@ export function CategoryTabs({
                     if (onShowNotification) {
                         onShowNotification("태그 이름은 최대 8글자까지 가능합니다.", "warning");
                     } else {
-                        alert("태그 이름은 최대 8글자까지 가능합니다.");
+                        notifyGlobal("태그 이름은 최대 8글자까지 가능합니다.", "warning");
                     }
                     return;
                 }

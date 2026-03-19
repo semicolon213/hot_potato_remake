@@ -229,6 +229,111 @@ function getStatusMessage(status) {
 }
 
 /**
+ * 현재 관리자 키 조회
+ * 우선순위:
+ * 1) 기존 CONFIG(getConfig('admin_key'))
+ * 2) admin_keys 시트 A2 값
+ * @returns {string}
+ */
+function getCurrentAdminKey() {
+  // 1) 기존 CONFIG 경로
+  try {
+    if (typeof getConfig === 'function') {
+      const keyFromConfig = getConfig('admin_key');
+      if (keyFromConfig && String(keyFromConfig).trim()) {
+        return String(keyFromConfig).trim();
+      }
+    }
+  } catch (configError) {
+    console.warn('⚠️ getConfig(admin_key) 조회 실패:', configError);
+  }
+
+  // 2) admin_keys 시트 fallback
+  try {
+    let spreadsheet = null;
+    if (typeof getHpMemberSpreadsheet === 'function') {
+      spreadsheet = getHpMemberSpreadsheet();
+    } else if (typeof getSpreadsheetId === 'function') {
+      const spreadsheetId = getSpreadsheetId();
+      if (spreadsheetId) spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    }
+    if (!spreadsheet) return '';
+
+    const sheet = spreadsheet.getSheetByName('admin_keys');
+    if (!sheet) return '';
+    const value = sheet.getRange('A2').getValue();
+    return value ? String(value).trim() : '';
+  } catch (sheetError) {
+    console.warn('⚠️ admin_keys 시트 조회 실패:', sheetError);
+    return '';
+  }
+}
+
+/**
+ * 이메일/검증용 관리자 키 조회 (복호화 우선)
+ * - admin_keys 시트 A2(암호문), D2(layers_used) 기준으로 복호화 시도
+ * - 복호화 실패 시 raw 키 반환
+ * @returns {{plainKey: string, rawKey: string, layersUsed: string}}
+ */
+function getCurrentAdminKeyForUse() {
+  const rawKey = getCurrentAdminKey();
+  if (!rawKey) return { plainKey: '', rawKey: '', layersUsed: '' };
+
+  try {
+    let spreadsheet = null;
+    if (typeof getHpMemberSpreadsheet === 'function') {
+      spreadsheet = getHpMemberSpreadsheet();
+    } else if (typeof getSpreadsheetId === 'function') {
+      const spreadsheetId = getSpreadsheetId();
+      if (spreadsheetId) spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    }
+    if (!spreadsheet) return { plainKey: rawKey, rawKey: rawKey, layersUsed: '' };
+
+    const sheet = spreadsheet.getSheetByName('admin_keys');
+    if (!sheet) return { plainKey: rawKey, rawKey: rawKey, layersUsed: '' };
+
+    const row = sheet.getRange('A2:D2').getValues()[0] || [];
+    const keyFromSheet = String(row[0] || '').trim() || rawKey;
+    const layersUsed = String(row[3] || '').trim();
+    // 레이어 정보가 없으면 복호화 불가
+    if (!layersUsed) return { plainKey: '', rawKey: keyFromSheet, layersUsed: '' };
+
+    // 레이어명 표기 오차 보정
+    const normalizeLayerName = function(layer) {
+      const l = String(layer || '').trim();
+      if (!l) return '';
+      const lower = l.toLowerCase();
+      if (lower === 'randominsen' || lower === 'randominsert' || lower === 'randominsrt') return 'RandomInsert';
+      if (lower === 'railfence') return 'RailFence';
+      if (lower === 'bitshift') return 'BitShift';
+      if (lower === 'rot13') return 'ROT13';
+      if (lower === 'multiencode') return 'MultiEncode';
+      return l;
+    };
+
+    const layerArray = layersUsed.split(',').map(function(layer) { return normalizeLayerName(layer); }).filter(function(v) { return !!v; });
+    if (layerArray.length === 0) return { plainKey: '', rawKey: keyFromSheet, layersUsed: layersUsed };
+
+    // 복호화(역순)
+    var decryptedKey = keyFromSheet;
+    for (var i = layerArray.length - 1; i >= 0; i--) {
+      decryptedKey = applyDecryption(decryptedKey, layerArray[i], '');
+    }
+    decryptedKey = String(decryptedKey || '').trim();
+
+    // 평문 관리자 키 형식이 아니면 실패로 처리 (암호문 메일 발송 방지)
+    if (!decryptedKey || !decryptedKey.startsWith('ADMIN_')) {
+      return { plainKey: '', rawKey: keyFromSheet, layersUsed: layerArray.join(', ') };
+    }
+
+    return { plainKey: decryptedKey, rawKey: keyFromSheet, layersUsed: layerArray.join(', ') };
+  } catch (error) {
+    console.warn('⚠️ 관리자 키 복호화 조회 실패:', error);
+    return { plainKey: '', rawKey: rawKey, layersUsed: '' };
+  }
+}
+
+/**
  * 관리자 키 검증
  * @param {string} adminKey - 관리자 키
  * @returns {Object} 검증 결과
@@ -244,10 +349,12 @@ function verifyAdminKey(adminKey) {
       };
     }
     
-    // CONFIG에서 관리자 키 가져오기
-    const validAdminKey = getConfig('admin_key');
+    // CONFIG 또는 admin_keys 시트에서 관리자 키 가져오기
+    const keyInfo = getCurrentAdminKeyForUse();
+    const validAdminKey = keyInfo.plainKey;
+    const rawAdminKey = keyInfo.rawKey;
     
-    if (adminKey === validAdminKey) {
+    if (adminKey === validAdminKey || adminKey === rawAdminKey) {
       return {
         success: true,
         message: '관리자 키가 유효합니다.'
@@ -284,13 +391,14 @@ function sendAdminKeyEmail(userEmail) {
       };
     }
     
-    // CONFIG에서 관리자 키 가져오기
-    const adminKey = getConfig('admin_key');
+    // CONFIG 또는 admin_keys 시트에서 관리자 키 가져오기
+    const keyInfo = getCurrentAdminKeyForUse();
+    const adminKey = keyInfo.plainKey;
     
     if (!adminKey) {
       return {
         success: false,
-        message: '관리자 키를 찾을 수 없습니다.'
+        message: '관리자 키 복호화에 실패했습니다. 레이어 정보(layers_used)를 확인해주세요.'
       };
     }
     

@@ -715,6 +715,52 @@ function doPost(e) {
           .setMimeType(ContentService.MimeType.JSON);
       }
     }
+    // 선택 학생 학년 업데이트 (학년 관리에서 선택 실행)
+    if (req.action === 'updateStudentGradesSelected') {
+      console.log('📚 선택 학생 학년 업데이트 요청:', req);
+      try {
+        const result = updateStudentGradesSelected(
+          req.spreadsheetId,
+          req.studentIds || [],
+          req.graduationGrade,
+          req.graduationYear,
+          req.graduationTerm
+        );
+        return ContentService
+          .createTextOutput(JSON.stringify(result))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('❌ 선택 학생 학년 업데이트 오류:', error);
+        return ContentService
+          .createTextOutput(JSON.stringify({
+            success: false,
+            message: '선택 학생 학년 업데이트 중 오류가 발생했습니다: ' + error.message
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    // 이번 졸업 대상 진학 여부 반영
+    if (req.action === 'setGraduatedAdvanced') {
+      console.log('🎓 졸업 대상 진학 반영 요청:', req);
+      try {
+        const result = setGraduatedAdvanced(
+          req.spreadsheetId,
+          req.graduatedStudentIds || [],
+          req.advancedStudentIds || []
+        );
+        return ContentService
+          .createTextOutput(JSON.stringify(result))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch (error) {
+        console.error('❌ 졸업 대상 진학 반영 오류:', error);
+        return ContentService
+          .createTextOutput(JSON.stringify({
+            success: false,
+            message: '졸업 대상 진학 반영 중 오류가 발생했습니다: ' + error.message
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
 
     // ===== 학생 취업관리 (로그인 없이 / 학생관리 탭) =====
     if (req.action === 'validateStudentForEmployment') {

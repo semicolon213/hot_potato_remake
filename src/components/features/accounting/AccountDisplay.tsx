@@ -12,6 +12,7 @@ import { apiClient } from '../../../utils/api/apiClient';
 import { UserMultiSelect } from './UserMultiSelect';
 import type { Account } from '../../../types/features/accounting';
 import type { UserNameResponse, UsersListResponse } from '../../../types/api/apiResponses';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 import './accounting.css';
 
 interface AccountDisplayProps {
@@ -186,11 +187,11 @@ export const AccountDisplay: React.FC<AccountDisplayProps> = ({
       // 계정 정보 새로고침
       await loadAccount();
       setIsEditModalOpen(false);
-      alert('서브 관리자 목록이 성공적으로 업데이트되었습니다.');
+      notifyGlobal('서브 관리자 목록이 성공적으로 업데이트되었습니다.', 'success');
     } catch (err: unknown) {
       console.error('❌ 서브 관리자 업데이트 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '서브 관리자 목록 업데이트에 실패했습니다.';
-      alert(errorMessage);
+      notifyGlobal(errorMessage, 'error');
     } finally {
       setIsSaving(false);
     }

@@ -16,6 +16,7 @@ import {
 import { useAppState } from '../../core/useAppState';
 import { ENV_CONFIG } from '../../../config/environment';
 import type { Committee, CareerItem } from '../../../types/features/staff';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 
 interface CommitteeFilters {
   sortation: string; // 위원회의 'sortation'에 해당
@@ -214,7 +215,7 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
       XLSX.writeFile(wb, `위원회일괄입력_양식_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (error) {
       console.error('양식 다운로드 실패:', error);
-      alert('양식 다운로드에 실패했습니다.');
+      notifyGlobal('양식 다운로드에 실패했습니다.', 'error');
     }
   };
 
@@ -324,11 +325,11 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
           }
 
           if (errors.length > 0) {
-            alert(`오류가 발생했습니다:\n${errors.join('\n')}`);
+            notifyGlobal(`오류가 발생했습니다:\n${errors.join('\n')}`, 'error', 5000);
           }
 
           if (duplicates.length > 0) {
-            alert(`중복된 위원회 구성원이 발견되었습니다: ${duplicates.join(', ')}`);
+            notifyGlobal(`중복된 위원회 구성원이 발견되었습니다: ${duplicates.join(', ')}`, 'warning', 5000);
           }
 
           if (newCommitteeList.length > 0 && staffSpreadsheetId) {
@@ -341,7 +342,7 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
               }
               
               await fetchCommittee();
-              alert(`${newCommitteeList.length}명의 위원회 구성원이 추가되었습니다.`);
+              notifyGlobal(`${newCommitteeList.length}명의 위원회 구성원이 추가되었습니다.`, 'success');
             } catch (err) {
               console.error('위원회 추가 실패:', err);
               reject(err);
@@ -350,7 +351,7 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
               setIsLoading(false);
             }
           } else if (newCommitteeList.length === 0) {
-            alert('추가할 위원회 구성원이 없습니다.');
+            notifyGlobal('추가할 위원회 구성원이 없습니다.', 'warning');
           }
 
           resolve();

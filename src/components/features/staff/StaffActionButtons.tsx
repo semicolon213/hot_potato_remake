@@ -7,6 +7,7 @@
  */
 
 import React, { useRef } from 'react';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 
 interface StaffActionButtonsProps {
   onExportCSV: () => void;
@@ -38,7 +39,7 @@ const StaffActionButtons: React.FC<StaffActionButtonsProps> = ({
         }
       } catch (error) {
         console.error('파일 업로드 실패:', error);
-        alert('파일 업로드에 실패했습니다.');
+        notifyGlobal('파일 업로드에 실패했습니다.', 'error');
       }
     }
   };

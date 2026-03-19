@@ -7,6 +7,8 @@ import type { EmploymentRow, EmploymentAfterUpdate, EmploymentField } from '../.
 import './StudentDetailModal.css';
 import { ENV_CONFIG } from '../../config/environment';
 import { apiClient } from '../../utils/api/apiClient';
+import { useNotification } from '../../hooks/ui/useNotification';
+import { NotificationModal } from './NotificationModal';
 
 type ModalMode = 'student' | 'staff' | 'committee';
 
@@ -52,6 +54,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   mainClassifications = [],
   otherClassifications = [],
 }) => {
+  const { notification, showNotification, hideNotification } = useNotification();
   const [activeTab, setActiveTab] = useState<'info' | 'issues' | 'employment'>('info');
   const [isEditing, setIsEditing] = useState(isAdding);
   const [editedStudent, setEditedStudent] = useState<StudentWithCouncil | null>(isAdding ? emptyStaff : student);
@@ -80,6 +83,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const [customLevel, setCustomLevel] = useState('');
   const [isTypeOther, setIsTypeOther] = useState(false);
   const [customType, setCustomType] = useState('');
+  const [studentCouncilEntries, setStudentCouncilEntries] = useState<Array<{ year: string; position: string }>>([]);
   const isSupp = user?.userType === 'supp'; // 조교 여부
 
   const handleDelete = () => {
@@ -241,10 +245,12 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         // 연락처 복호화 후 학생 데이터 설정
         const loadStudentData = async () => {
           const decryptedPhone = await decryptPhone(student.phone_num);
+          const parsedCouncilEntries = parseStudentCouncilEntries(student.council || '');
           setEditedStudent({ 
             ...student, 
             phone_num: decryptedPhone 
           });
+          setStudentCouncilEntries(parsedCouncilEntries.length > 0 ? parsedCouncilEntries : [{ year: '', position: '' }]);
           setNewIssue({
             no_member: student.no_student,
             date_issue: '',
@@ -256,6 +262,9 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         };
         
         loadStudentData();
+      }
+      if (isAdding && mode === 'student') {
+        setStudentCouncilEntries([{ year: '', position: '' }]);
       }
           }
         }, [student, isOpen, isAdding, user]);
@@ -300,7 +309,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     
                       } else if (editedStudent && mode === 'student') {
     
-                        const standardStates = ["재학", "휴학", "졸업", "자퇴"];
+                        const standardStates = ["재학", "휴학", "졸업", "진학", "자퇴"];
     
                         if (editedStudent.state && !standardStates.includes(editedStudent.state)) {
     
@@ -419,11 +428,11 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         const entries = parseQuestionToItems(questionToSave);
         setEmploymentQuestionEntries(entries.length > 0 ? entries : [{ key: '', value: '' }]);
       } else {
-        alert(res.message || '저장에 실패했습니다.');
+        showNotification(res.message || '저장에 실패했습니다.', 'error');
       }
     } catch (e) {
       console.error('취업 후 저장 실패:', e);
-      alert('저장에 실패했습니다.');
+      showNotification('저장에 실패했습니다.', 'error');
     } finally {
       setEmploymentSaving(false);
     }
@@ -447,6 +456,47 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     if (!editedStudent || !Array.isArray(editedStudent.career)) return;
     const newCareer = editedStudent.career.filter((_, i) => i !== index);
     setEditedStudent(prev => prev ? { ...prev, career: newCareer } : null);
+  };
+
+  const parseStudentCouncilEntries = (rawCouncil: string): Array<{ year: string; position: string }> => {
+    const raw = String(rawCouncil || '').trim();
+    if (!raw) return [];
+    return raw
+      .split('/')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => {
+        const withYearWord = item.match(/^(\d{2,4})\s*년\s+(.+)$/);
+        if (withYearWord) return { year: withYearWord[1], position: withYearWord[2].trim() };
+        const withSpace = item.match(/^(\d{2,4})\s+(.+)$/);
+        if (withSpace) return { year: withSpace[1], position: withSpace[2].trim() };
+        return { year: '', position: item };
+      });
+  };
+
+  const serializeStudentCouncilEntries = (entries: Array<{ year: string; position: string }>): string => {
+    return entries
+      .map((entry) => {
+        const year = String(entry.year || '').trim();
+        const position = String(entry.position || '').trim();
+        if (!year && !position) return '';
+        if (year && position) return `${year} ${position}`;
+        return position;
+      })
+      .filter(Boolean)
+      .join('/');
+  };
+
+  const updateStudentCouncilEntry = (index: number, field: 'year' | 'position', value: string) => {
+    setStudentCouncilEntries((prev) => prev.map((entry, i) => (i === index ? { ...entry, [field]: value } : entry)));
+  };
+
+  const addStudentCouncilEntry = () => {
+    setStudentCouncilEntries((prev) => [...prev, { year: '', position: '' }]);
+  };
+
+  const removeStudentCouncilEntry = (index: number) => {
+    setStudentCouncilEntries((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : [{ year: '', position: '' }]));
   };
 
   const handleSave = async () => {
@@ -477,16 +527,25 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
                         }
 
-                      }    // 연락처와 이메일 유효성 검사
+                        studentToSave.council = serializeStudentCouncilEntries(studentCouncilEntries);
+
+                      }
+
+    // 학생: 상태가 '진학'이면 advanced 플래그를 O로 강제 설정 (취업률 계산 등에서 제외용)
+    if (mode === 'student' && String(studentToSave.state || '').trim() === '진학') {
+      (studentToSave as any).advanced = 'O';
+    }
+
+    // 연락처와 이메일 유효성 검사
     if (mode === 'staff' || mode === 'committee' || mode === 'student') {
       const phone = studentToSave.phone_num;
       if (!/^\d{3}-\d{3,4}-\d{4}$/.test(phone)) {
-        alert('연락처는 하이픈(-)을 포함한 12~13자리 숫자로 입력해야 합니다.');
+        showNotification('연락처는 하이픈(-)을 포함한 12~13자리 숫자로 입력해야 합니다.', 'warning');
         return;
       }
       // 이메일 유효성 검사는 교직원/위원회 모드에서만 적용
       if ((mode === 'staff' || mode === 'committee') && !studentToSave.email.includes('@')) {
-        alert('이메일 형식이 올바르지 않습니다. "@"를 포함해야 합니다.');
+        showNotification('이메일 형식이 올바르지 않습니다. "@"를 포함해야 합니다.', 'warning');
         return;
       }
     }
@@ -504,7 +563,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       for (const field of requiredFields) {
         const value = studentToSave[field.key as keyof StudentWithCouncil];
         if (typeof value !== 'string' || !value.trim()) {
-          alert(`${field.name}은(는) 필수 입력 항목입니다.`);
+          showNotification(`${field.name}은(는) 필수 입력 항목입니다.`, 'warning');
           return; // 저장 중단
         }
       }
@@ -523,7 +582,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       for (const field of requiredFields) {
         const value = studentToSave[field.key as keyof StudentWithCouncil];
         if (typeof value !== 'string' || !value.trim()) {
-          alert(`${field.name}은(는) 필수 입력 항목입니다.`);
+          showNotification(`${field.name}은(는) 필수 입력 항목입니다.`, 'warning');
           return; // 저장 중단
         }
       }
@@ -542,8 +601,20 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       for (const field of requiredFields) {
         const value = studentToSave[field.key as keyof StudentWithCouncil];
         if (typeof value !== 'string' || !value.trim()) {
-          alert(`${field.name}은(는) 필수 입력 항목입니다.`);
+          showNotification(`${field.name}은(는) 필수 입력 항목입니다.`, 'warning');
           return; // 저장 중단
+        }
+      }
+
+      const stateValue = String(studentToSave.state || '').trim();
+      if (stateValue === '졸업' || stateValue === '진학') {
+        if (!String(studentToSave.grad_year || '').trim()) {
+          showNotification('졸업년도는 필수 입력 항목입니다.', 'warning');
+          return;
+        }
+        if (!String(studentToSave.grad_term || '').trim()) {
+          showNotification('졸업구분(전기/후기)은 필수 입력 항목입니다.', 'warning');
+          return;
         }
       }
     }
@@ -565,30 +636,30 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const handleAddIssue = async () => {
     // Updated validation for type_issue
     if (!isTypeOther && !newIssue.type_issue) {
-      alert('유형을 선택해주세요.');
+      showNotification('유형을 선택해주세요.', 'warning');
       return;
     }
     if (isTypeOther && !customType.trim()) {
-      alert('유형을 직접 입력해주세요.');
+      showNotification('유형을 직접 입력해주세요.', 'warning');
       return;
     }
     // Updated validation for level_issue
     if (!isLevelOther && !newIssue.level_issue) {
-      alert('주의도를 선택해주세요.');
+      showNotification('주의도를 선택해주세요.', 'warning');
       return;
     }
     if (isLevelOther && !customLevel.trim()) {
-      alert('주의도를 직접 입력해주세요.');
+      showNotification('주의도를 직접 입력해주세요.', 'warning');
       return;
     }
     if (!newIssue.content_issue.trim()) {
-      alert('내용을 입력해주세요.');
+      showNotification('내용을 입력해주세요.', 'warning');
       return;
     }
 
     try {
       if (!studentSpreadsheetId) {
-        alert('학생 스프레드시트 ID를 찾을 수 없습니다.');
+        showNotification('학생 스프레드시트 ID를 찾을 수 없습니다.', 'error');
         return;
       }
 
@@ -621,16 +692,26 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       setIsLevelOther(false);
       setCustomLevel('');
       
-      alert('특이사항이 성공적으로 추가되었습니다.');
+      showNotification('특이사항이 성공적으로 추가되었습니다.', 'success');
     } catch (error) {
       console.error('특이사항 추가 실패:', error);
-      alert('특이사항 추가에 실패했습니다.');
+      showNotification('특이사항 추가에 실패했습니다.', 'error');
     }
   };
 
   const handleInputChange = (field: keyof StudentWithCouncil, value: string) => {
     if (!editedStudent) return;
-    setEditedStudent(prev => prev ? { ...prev, [field]: value } : null);
+    setEditedStudent(prev => {
+      if (!prev) return null;
+      const next = { ...prev, [field]: value } as StudentWithCouncil;
+      if (field === 'state' && (value === '졸업' || value === '진학')) {
+        const now = new Date();
+        const autoTerm = now.getMonth() + 1 <= 2 || now.getMonth() + 1 >= 9 ? '전기' : '후기';
+        if (!String(next.grad_year || '').trim()) next.grad_year = String(now.getFullYear());
+        if (!String(next.grad_term || '').trim()) next.grad_term = autoTerm;
+      }
+      return next;
+    });
   };
 
 
@@ -1206,6 +1287,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                         <option value="재학">재학</option>
                         <option value="휴학">휴학</option>
                         <option value="졸업">졸업</option>
+                        <option value="진학">진학</option>
                         <option value="자퇴">자퇴</option>
                         <option value="직접 입력">직접 입력</option>
                       </select>
@@ -1221,6 +1303,37 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       )}
                     </div>
 
+                    {(editedStudent.state === '졸업' || editedStudent.state === '진학') && (
+                      <>
+                        <div className="form-group">
+                          <label>졸업년도</label>
+                          <input
+                            type="number"
+                            value={editedStudent.grad_year || ''}
+                            onChange={(e) => handleInputChange('grad_year', e.target.value)}
+                            disabled={!isEditing}
+                            onFocus={handleInputFocus}
+                            placeholder="예: 2026"
+                            min="1900"
+                            max="2999"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>졸업구분</label>
+                          <select
+                            value={editedStudent.grad_term || ''}
+                            onChange={(e) => handleInputChange('grad_term', e.target.value)}
+                            disabled={!isEditing}
+                            onFocus={handleInputFocus}
+                          >
+                            <option value="">선택하세요</option>
+                            <option value="전기">전기</option>
+                            <option value="후기">후기</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
+
                     <div className="form-group full-width">
                       <label>주소<span style={{color: 'red'}}>*</span></label>
                       <input
@@ -1235,14 +1348,53 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
                     <div className="form-group full-width">
                       <label>학생회 직책</label>
-                      <input
-                        type="text"
-                        value={editedStudent.council}
-                        onChange={(e) => handleInputChange('council', e.target.value)}
-                        disabled={!isEditing}
-                        placeholder="예: 25 기획부장/24 총무부장"
-                        onFocus={handleInputFocus}
-                      />
+                      {isEditing ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {(studentCouncilEntries.length > 0 ? studentCouncilEntries : [{ year: '', position: '' }]).map((entry, idx) => (
+                            <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <input
+                                type="text"
+                                value={entry.year}
+                                onChange={(e) => updateStudentCouncilEntry(idx, 'year', e.target.value)}
+                                placeholder="년도 (예: 25 또는 2025)"
+                                onFocus={handleInputFocus}
+                                style={{ maxWidth: 180 }}
+                              />
+                              <input
+                                type="text"
+                                value={entry.position}
+                                onChange={(e) => updateStudentCouncilEntry(idx, 'position', e.target.value)}
+                                placeholder="보직 (예: 기획부장)"
+                                onFocus={handleInputFocus}
+                              />
+                              <button
+                                type="button"
+                                className="field-cancel-btn"
+                                onClick={() => removeStudentCouncilEntry(idx)}
+                                title="삭제"
+                              >
+                                제거
+                              </button>
+                            </div>
+                          ))}
+                          <div>
+                            <button type="button" className="field-save-btn" onClick={addStudentCouncilEntry}>
+                              + 직책 추가
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {(parseStudentCouncilEntries(editedStudent.council || '').length > 0
+                            ? parseStudentCouncilEntries(editedStudent.council || '')
+                            : [{ year: '', position: '' }]
+                          ).map((entry, idx) => (
+                            <div key={idx} style={{ color: '#333', fontSize: 14 }}>
+                              {entry.year ? `${entry.year}년 ` : ''}{entry.position || '-'}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                   </>
@@ -1465,7 +1617,14 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
             </div>
           )}
         </div>
-              </div>
+      </div>
+      <NotificationModal
+        isOpen={notification.isOpen}
+        message={notification.message}
+        type={notification.type}
+        onClose={hideNotification}
+        duration={notification.duration}
+      />
             </div>
           </>
         );};

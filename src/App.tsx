@@ -54,6 +54,7 @@ import { OfflineBanner } from './components/ui/OfflineBanner';
 import LoadingProgress from './components/ui/LoadingProgress';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { useAuthStore } from './hooks/features/auth/useAuthStore';
+import { subscribeGlobalNotification } from './utils/ui/globalNotification';
 
 /**
  * @brief 메인 애플리케이션 컴포넌트
@@ -150,6 +151,7 @@ const App: React.FC = () => {
   const {
     notification,
     confirm,
+    showNotification,
     hideNotification,
     hideConfirm,
     handleConfirm
@@ -210,6 +212,13 @@ const App: React.FC = () => {
     handleLogout();
     showNotification('세션이 만료되었습니다. 다시 로그인해주세요.', 'warning');
   });
+
+  useEffect(() => {
+    const unsubscribe = subscribeGlobalNotification(({ message, type, duration }) => {
+      showNotification(message, type || 'info', duration ?? 3000);
+    });
+    return unsubscribe;
+  }, [showNotification]);
 
   // 토큰 만료 체크 및 자동 갱신/로그아웃
   useEffect(() => {

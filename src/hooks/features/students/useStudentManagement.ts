@@ -14,6 +14,7 @@ import {
 } from '../../../utils/database/papyrusManager';
 import { ENV_CONFIG } from '../../../config/environment';
 import type { Student, StudentWithCouncil, CouncilPosition } from '../../../types/features/students/student';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 
 /**
  * @brief 학생 관리 커스텀 훅
@@ -363,7 +364,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
       XLSX.writeFile(wb, `학생일괄입력_양식_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (error) {
       console.error('양식 다운로드 실패:', error);
-      alert('양식 다운로드에 실패했습니다.');
+      notifyGlobal('양식 다운로드에 실패했습니다.', 'error');
     }
   };
 
@@ -462,11 +463,11 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
           }
 
           if (errors.length > 0) {
-            alert(`오류가 발생했습니다:\n${errors.join('\n')}`);
+            notifyGlobal(`오류가 발생했습니다:\n${errors.join('\n')}`, 'error', 5000);
           }
 
           if (duplicates.length > 0) {
-            alert(`중복된 학번이 발견되었습니다: ${duplicates.join(', ')}`);
+            notifyGlobal(`중복된 학번이 발견되었습니다: ${duplicates.join(', ')}`, 'warning', 5000);
           }
 
           // Google Sheets에 추가
@@ -491,12 +492,12 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
 
             // 로컬 상태 업데이트
             setStudents(prev => [...prev, ...newStudents]);
-            alert(`${newStudents.length}명의 학생이 추가되었습니다.`);
+            notifyGlobal(`${newStudents.length}명의 학생이 추가되었습니다.`, 'success');
             
             // 데이터 새로고침
             await fetchStudents();
           } else if (newStudents.length === 0) {
-            alert('추가할 학생이 없습니다.');
+            notifyGlobal('추가할 학생이 없습니다.', 'warning');
           }
 
           resolve();
@@ -542,7 +543,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     try {
       // 중복 검증 (학번 기준)
       if (students.some(s => s.no_student === newStudent.no_student)) {
-        alert(`이미 존재하는 학번입니다: ${newStudent.no_student}`);
+        notifyGlobal(`이미 존재하는 학번입니다: ${newStudent.no_student}`, 'warning');
         return;
       }
 
@@ -570,11 +571,11 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
 
       // 로컬 상태 업데이트 (화면에는 복호화된 번호 유지)
       setStudents(prev => [...prev, newStudent]);
-      alert('학생이 성공적으로 추가되었습니다.');
+      notifyGlobal('학생이 성공적으로 추가되었습니다.', 'success');
 
     } catch (error) {
       console.error('학생 추가 실패:', error);
-      alert('학생 추가에 실패했습니다.');
+      notifyGlobal('학생 추가에 실패했습니다.', 'error');
     }
   };
 
@@ -584,10 +585,10 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     try {
       await deleteStudentFromPapyrus(studentSpreadsheetId, studentNo);
       setStudents(prev => prev.filter(s => s.no_student !== studentNo));
-      alert('학생이 성공적으로 삭제되었습니다.');
+      notifyGlobal('학생이 성공적으로 삭제되었습니다.', 'success');
     } catch (error) {
       console.error('학생 삭제 실패:', error);
-      alert('학생 삭제에 실패했습니다.');
+      notifyGlobal('학생 삭제에 실패했습니다.', 'error');
     }
   };
 
@@ -616,6 +617,19 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     }
   };
 
+  const setStudentRetainedLocal = (studentId: string, isRetained: boolean) => {
+    setStudents(prev =>
+      prev.map((s) =>
+        s.no_student === studentId
+          ? {
+              ...s,
+              flunk: isRetained ? 'O' : ''
+            }
+          : s
+      )
+    );
+  };
+
   useEffect(() => {
     if (studentSpreadsheetId) {
       fetchStudents();
@@ -639,6 +653,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     handleExcelUpload,
     addStudent, // addStudent 추가
     updateStudent,
+    setStudentRetainedLocal,
     deleteStudent,
     fetchStudents,
     getCouncilByYear,

@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FaChevronLeft, FaChevronRight, FaPlus } from 'react-icons/fa';
 import { useStudentManagement } from '../hooks/features/students/useStudentManagement';
 import StudentDetailModal from '../components/ui/StudentDetailModal';
+import { useNotification } from '../hooks/ui/useNotification';
+import { NotificationModal } from '../components/ui/NotificationModal';
 import {
   StudentHeader,
   StudentActionButtons,
@@ -25,6 +27,7 @@ interface StudentsProps {
 }
 
 const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initialTab = 'list', onPageChange }) => {
+  const { notification, showNotification, hideNotification } = useNotification();
   const isSupp = user?.userType === 'supp';
   const {
     students,
@@ -44,6 +47,7 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
     getAllYears,
     addStudent, // 학생 추가 함수
     updateStudent,
+    setStudentRetainedLocal,
     deleteStudent,
     getCouncilTableData,
     studentColumns,
@@ -77,6 +81,12 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
   const [graduationGradeLoading, setGraduationGradeLoading] = useState(false);
   const [gradeUpdateConfirmOpen, setGradeUpdateConfirmOpen] = useState(false);
   const [gradeUpdateRunning, setGradeUpdateRunning] = useState(false);
+  const [gradeUpdateGraduationTerm, setGradeUpdateGraduationTerm] = useState<'전기' | '후기'>('전기');
+  const [gradeUpdateMode, setGradeUpdateMode] = useState<'all' | 'selected'>('all');
+  const [selectedGradeUpdateIds, setSelectedGradeUpdateIds] = useState<string[]>([]);
+  const [graduatedCandidates, setGraduatedCandidates] = useState<Array<{ no_student: string; name: string; grade: string }>>([]);
+  const [selectedAdvancedIds, setSelectedAdvancedIds] = useState<string[]>([]);
+  const [advancedSaving, setAdvancedSaving] = useState(false);
   const [retainedSearchTerm, setRetainedSearchTerm] = useState('');
   const [retainedSaving, setRetainedSaving] = useState<string | null>(null);
 
@@ -222,14 +232,12 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
     const targetNo = selectedStudent?.no_student || updatedStudent.no_student;
     const success = await updateStudent(targetNo, updatedStudent);
     if (!success) {
-      alert('저장에 실패했습니다.');
+      showNotification('저장에 실패했습니다.', 'error');
       return;
     }
-    alert('저장되었습니다.');
+    showNotification('저장되었습니다.', 'success');
     setIsModalOpen(false);
     setSelectedStudent(null);
-    // 백그라운드 재조회로 최종 동기화 (UI는 이미 즉시 반영됨)
-    void fetchStudents();
   };
 
   const handleDeleteStudent = (studentToDelete: StudentWithCouncil) => {
@@ -268,9 +276,9 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
         setNewFieldNum('');
         setNewFieldName('');
         loadFieldList();
-      } else alert(res.message || '추가에 실패했습니다.');
+      } else showNotification(res.message || '추가에 실패했습니다.', 'error');
     } catch (e) {
-      alert('추가에 실패했습니다.');
+      showNotification('추가에 실패했습니다.', 'error');
     } finally {
       setFieldSaving(false);
     }
@@ -285,9 +293,9 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
         setEditingFieldNum(null);
         setEditingFieldName('');
         loadFieldList();
-      } else alert(res.message || '수정에 실패했습니다.');
+      } else showNotification(res.message || '수정에 실패했습니다.', 'error');
     } catch (e) {
-      alert('수정에 실패했습니다.');
+      showNotification('수정에 실패했습니다.', 'error');
     } finally {
       setFieldSaving(false);
     }
@@ -299,9 +307,9 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
     try {
       const res = await apiClient.deleteField(studentSpreadsheetId, field_num, userEmail);
       if (res.success) loadFieldList();
-      else alert(res.message || '삭제에 실패했습니다.');
+      else showNotification(res.message || '삭제에 실패했습니다.', 'error');
     } catch (e) {
-      alert('삭제에 실패했습니다.');
+      showNotification('삭제에 실패했습니다.', 'error');
     } finally {
       setFieldSaving(false);
     }
@@ -314,12 +322,12 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
     try {
       const res = await apiClient.setGraduationGrade(studentSpreadsheetId, graduationGrade, userEmail);
       if (res.success) {
-        alert('졸업 학년이 저장되었습니다.');
+        showNotification('졸업 학년이 저장되었습니다.', 'success');
       } else {
-        alert(res.message || '저장에 실패했습니다.');
+        showNotification(res.message || '저장에 실패했습니다.', 'error');
       }
     } catch (e) {
-      alert('저장에 실패했습니다.');
+      showNotification('저장에 실패했습니다.', 'error');
     } finally {
       setGraduationGradeLoading(false);
     }
@@ -335,10 +343,13 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
         spreadsheetId: studentSpreadsheetId,
         isRetained
       });
-      if (res.success) await fetchStudents();
-      else alert(res.message || '변경에 실패했습니다.');
+      if (res.success) {
+        // 즉시 UI 반영
+        setStudentRetainedLocal(studentId, isRetained);
+      }
+      else showNotification(res.message || '변경에 실패했습니다.', 'error');
     } catch (e) {
-      alert('변경에 실패했습니다.');
+      showNotification('변경에 실패했습니다.', 'error');
     } finally {
       setRetainedSaving(null);
     }
@@ -351,25 +362,61 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
     try {
       const now = new Date();
       const year = now.getFullYear();
-      const term = now.getMonth() + 1 <= 2 || now.getMonth() + 1 >= 9 ? '전기' : '후기'; // 대략 1~2,9~12 전기 / 나머지 후기
-      const res = await apiClient.updateStudentGrades(studentSpreadsheetId, {
-        graduationGrade,
-        graduationYear: year,
-        graduationTerm: term
-      });
+      const term = gradeUpdateGraduationTerm;
+      const res = gradeUpdateMode === 'selected'
+        ? await apiClient.updateStudentGradesSelected(
+            studentSpreadsheetId,
+            selectedGradeUpdateIds,
+            {
+              graduationGrade,
+              graduationYear: year,
+              graduationTerm: term
+            }
+          )
+        : await apiClient.updateStudentGrades(studentSpreadsheetId, {
+            graduationGrade,
+            graduationYear: year,
+            graduationTerm: term
+          });
       if (res.success) {
-        alert(res.message || '학년 갱신이 완료되었습니다.');
+        showNotification(res.message || '학년 갱신이 완료되었습니다.', 'success');
         setGradeUpdateConfirmOpen(false);
+        const graduated = (res.data as any)?.graduatedStudents as Array<{ no_student: string; name: string; grade: string }> | undefined;
+        setGraduatedCandidates(graduated || []);
+        // 이번 졸업자 중 미리 체크한 진학 대상자는 자동 반영
+        const graduatedIds = (graduated || []).map(s => s.no_student);
+        const advancedIdsToApply = selectedAdvancedIds.filter(id => graduatedIds.includes(id));
+        if (graduatedIds.length > 0 && advancedIdsToApply.length > 0) {
+          setAdvancedSaving(true);
+          try {
+            await apiClient.setGraduatedAdvanced(studentSpreadsheetId, graduatedIds, advancedIdsToApply);
+          } catch (err) {
+            console.error('진학 여부 자동 반영 실패:', err);
+          } finally {
+            setAdvancedSaving(false);
+          }
+        }
+        setSelectedGradeUpdateIds([]);
         await fetchStudents();
       } else {
-        alert(res.message || '학년 갱신에 실패했습니다.');
+        showNotification(res.message || '학년 갱신에 실패했습니다.', 'error');
       }
     } catch (e) {
-      alert('학년 갱신에 실패했습니다.');
+      showNotification('학년 갱신에 실패했습니다.', 'error');
     } finally {
       setGradeUpdateRunning(false);
     }
   };
+
+  const toggleSelectedGradeUpdateId = (id: string) => {
+    setSelectedGradeUpdateIds(prev => (prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]));
+  };
+
+  const toggleAdvancedId = (id: string) => {
+    setSelectedAdvancedIds(prev => (prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]));
+  };
+
+  // 진학 여부는 학년 갱신 직후(졸업 처리된 학생 대상으로) 자동 반영합니다.
 
   const retainedList = useMemo(() => {
     return students.filter(s => {
@@ -377,6 +424,19 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
       return f && (String(f).trim().toUpperCase() === 'O' || String(f).trim() === 'TRUE' || String(f).trim() === '1');
     });
   }, [students]);
+
+  const predictedGraduates = useMemo(() => {
+    return students.filter(s => {
+      const state = String(s.state || '').trim();
+      if (state === '휴학' || state === '자퇴' || state === '졸업') return false;
+      const isRetained =
+        s.flunk && (String(s.flunk).trim().toUpperCase() === 'O' || String(s.flunk).trim() === 'TRUE' || String(s.flunk).trim() === '1');
+      if (isRetained) return false;
+      const g = parseInt(String(s.grade || '').trim(), 10);
+      if (Number.isNaN(g)) return false;
+      return g >= graduationGrade;
+    }).map(s => ({ no_student: s.no_student, name: s.name, grade: s.grade }));
+  }, [students, graduationGrade]);
   const searchForRetained = useMemo(() => {
     if (!retainedSearchTerm.trim()) return [];
     const term = retainedSearchTerm.trim().toLowerCase();
@@ -561,13 +621,86 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
               <div className="grade-management-block">
                 <h3>학년 갱신</h3>
                 <p className="grade-management-desc">재학생(휴학·유급·자퇴 제외)의 학년을 1씩 올리고, 졸업 학년을 넘긴 학생은 졸업 처리합니다. 유급 대상은 위 목록에서 최종 확인 후 진행하세요.</p>
+                <div className="retained-search-row" style={{ marginBottom: 12 }}>
+                  <label style={{ marginRight: 12 }}>
+                    <input
+                      type="radio"
+                      name="gradeUpdateMode"
+                      checked={gradeUpdateMode === 'all'}
+                      onChange={() => setGradeUpdateMode('all')}
+                    /> 전체 갱신
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="gradeUpdateMode"
+                      checked={gradeUpdateMode === 'selected'}
+                      onChange={() => setGradeUpdateMode('selected')}
+                    /> 선택 갱신
+                  </label>
+                </div>
+                {gradeUpdateMode === 'selected' && (
+                  <div className="retained-list-wrap" style={{ marginBottom: 12 }}>
+                    <span className="retained-list-label">갱신 대상 선택 ({selectedGradeUpdateIds.length}명)</span>
+                    <ul className="retained-confirm-list" style={{ maxHeight: 220, overflowY: 'auto' }}>
+                      {students.filter(s => s.state !== '휴학' && s.state !== '자퇴').map((s) => (
+                        <li key={s.no_student}>
+                          <label style={{ cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedGradeUpdateIds.includes(s.no_student)}
+                              onChange={() => toggleSelectedGradeUpdateId(s.no_student)}
+                              style={{ marginRight: 8 }}
+                            />
+                            {s.name} ({s.no_student}) {s.grade}학년 · {s.state}
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="student-add-button grade-update-btn"
+                  disabled={gradeUpdateMode === 'selected' && selectedGradeUpdateIds.length === 0}
                   onClick={() => setGradeUpdateConfirmOpen(true)}
                 >
-                  학년 갱신 실행
+                  {gradeUpdateMode === 'selected' ? '선택 학생 갱신 실행' : '학년 갱신 실행'}
                 </button>
+              </div>
+              <div className="grade-management-block">
+                <h3>진학 대상자 (이번 갱신 예상 졸업자)</h3>
+                <p className="grade-management-desc">이번 학년 갱신에서 졸업 처리될 것으로 예상되는 학생 중, 진학하는 학생을 미리 체크해두면 갱신 완료 후 자동으로 진학(advanced=O) 처리합니다.</p>
+                <div className="retained-list-wrap">
+                  <span className="retained-list-label">예상 졸업 대상 ({predictedGraduates.length}명)</span>
+                  {predictedGraduates.length === 0 ? (
+                    <div style={{ color: '#666', fontSize: 13 }}>예상 졸업 대상이 없습니다.</div>
+                  ) : (
+                    <ul className="retained-confirm-list" style={{ maxHeight: 240, overflowY: 'auto' }}>
+                      {predictedGraduates.map((s) => (
+                        <li key={s.no_student}>
+                          <label style={{ cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedAdvancedIds.includes(s.no_student)}
+                              onChange={() => toggleAdvancedId(s.no_student)}
+                              style={{ marginRight: 8 }}
+                            />
+                            {s.name} ({s.no_student}) {s.grade}학년
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {advancedSaving && (
+                  <div style={{ color: '#666', fontSize: 13, marginTop: 8 }}>진학 여부 자동 반영 중...</div>
+                )}
+                {graduatedCandidates.length > 0 && (
+                  <div style={{ color: '#666', fontSize: 13, marginTop: 8 }}>
+                    이번 갱신에서 실제 졸업 처리된 인원: {graduatedCandidates.length}명
+                  </div>
+                )}
               </div>
               {gradeUpdateConfirmOpen && (
                 <div className="field-modal-overlay" onClick={() => !gradeUpdateRunning && setGradeUpdateConfirmOpen(false)}>
@@ -577,7 +710,33 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
                       <button type="button" className="field-modal-close" onClick={() => !gradeUpdateRunning && setGradeUpdateConfirmOpen(false)}>×</button>
                     </div>
                     <div className="field-modal-body">
-                      <p>아래 유급 대상은 학년이 올라가지 않습니다. 재학생만 학년이 +1 되며, 졸업 학년({graduationGrade}학년)을 넘긴 학생은 졸업 처리됩니다.</p>
+                      <p>
+                        {gradeUpdateMode === 'selected'
+                          ? `선택한 학생(${selectedGradeUpdateIds.length}명)만 갱신합니다.`
+                          : '전체 재학생을 갱신합니다.'}
+                        {' '}아래 유급 대상은 학년이 올라가지 않습니다. 재학생만 학년이 +1 되며, 졸업 학년({graduationGrade}학년)을 넘긴 학생은 졸업 처리됩니다.
+                      </p>
+                      <div className="retained-search-row" style={{ marginBottom: 12 }}>
+                        <strong style={{ marginRight: 12 }}>졸업구분</strong>
+                        <label style={{ marginRight: 12 }}>
+                          <input
+                            type="radio"
+                            name="gradeUpdateGraduationTerm"
+                            checked={gradeUpdateGraduationTerm === '전기'}
+                            onChange={() => setGradeUpdateGraduationTerm('전기')}
+                            disabled={gradeUpdateRunning}
+                          /> 전기
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            name="gradeUpdateGraduationTerm"
+                            checked={gradeUpdateGraduationTerm === '후기'}
+                            onChange={() => setGradeUpdateGraduationTerm('후기')}
+                            disabled={gradeUpdateRunning}
+                          /> 후기
+                        </label>
+                      </div>
                       <div className="retained-list-wrap">
                         <strong>유급 대상 ({retainedList.length}명)</strong>
                         <ul className="retained-confirm-list">
@@ -773,6 +932,13 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
           </div>
         </div>
       )}
+      <NotificationModal
+        isOpen={notification.isOpen}
+        message={notification.message}
+        type={notification.type}
+        onClose={hideNotification}
+        duration={notification.duration}
+      />
     </div>
   );
 };

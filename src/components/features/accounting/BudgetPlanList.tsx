@@ -14,6 +14,7 @@ import type { LedgerInfo } from '../../../types/features/accounting';
 import { CreateBudgetPlanModal } from './CreateBudgetPlanModal';
 import { BudgetPlanDetail } from './BudgetPlanDetail';
 import type { BudgetPlan, Account } from '../../../types/features/accounting';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 import './accounting.css';
 
 interface BudgetPlanListProps {
@@ -238,11 +239,11 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       
       await reviewBudgetPlan(spreadsheetId, budgetId, reviewerEmail);
       await loadBudgetPlans();
-      alert('검토가 완료되었습니다.');
+      notifyGlobal('검토가 완료되었습니다.', 'success');
     } catch (err: unknown) {
       console.error('❌ 검토 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '검토 처리에 실패했습니다.';
-      alert(errorMessage);
+      notifyGlobal(errorMessage, 'error');
     }
   };
 
@@ -265,11 +266,11 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       
       await approveBudgetPlan(spreadsheetId, budgetId, approverId);
       await loadBudgetPlans();
-      alert('승인이 완료되었습니다.');
+      notifyGlobal('승인이 완료되었습니다.', 'success');
     } catch (err: unknown) {
       console.error('❌ 승인 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '승인 처리에 실패했습니다.';
-      alert(errorMessage);
+      notifyGlobal(errorMessage, 'error');
     }
   };
 
@@ -287,7 +288,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      alert('반려 사유를 입력해주세요.');
+      notifyGlobal('반려 사유를 입력해주세요.', 'warning');
       return;
     }
 
@@ -305,11 +306,11 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       await rejectBudgetPlan(spreadsheetId, rejectingBudgetId, rejectReason, rejecterEmail);
       await loadBudgetPlans();
       handleCloseRejectModal();
-      alert('반려가 완료되었습니다.');
+      notifyGlobal('반려가 완료되었습니다.', 'success');
     } catch (err: unknown) {
       console.error('❌ 반려 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '반려 처리에 실패했습니다.';
-      alert(errorMessage);
+      notifyGlobal(errorMessage, 'error');
     }
   };
 
@@ -325,10 +326,10 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       
       await executeBudgetPlan(spreadsheetId, budgetId, userInfo.studentId || userInfo.email || 'unknown');
       await loadBudgetPlans();
-      alert('예산 계획이 성공적으로 집행되었습니다.');
+      notifyGlobal('예산 계획이 성공적으로 집행되었습니다.', 'success');
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '집행 처리에 실패했습니다.';
-      alert(errorMessage);
+      notifyGlobal(errorMessage, 'error');
     }
   };
 
@@ -356,11 +357,11 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       const deleterId = userInfo.email || userInfo.studentId || currentUserEmail;
       await deleteBudgetPlan(spreadsheetId, budgetId, deleterId);
       await loadBudgetPlans();
-      alert('예산 계획이 삭제되었습니다.');
+      notifyGlobal('예산 계획이 삭제되었습니다.', 'success');
     } catch (err: unknown) {
       console.error('❌ 삭제 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '삭제 처리에 실패했습니다.';
-      alert(errorMessage);
+      notifyGlobal(errorMessage, 'error');
     }
   };
 

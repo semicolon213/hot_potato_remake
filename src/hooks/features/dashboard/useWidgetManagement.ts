@@ -12,6 +12,7 @@ import { getFolderIdByName, getSheetsInFolder } from "../../../utils/google/driv
 import { ENV_CONFIG } from '../../../config/environment';
 import { apiClient } from "../../../utils/api/apiClient";
 import { tokenManager } from '../../../utils/auth/tokenManager';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 
 /**
  * 위젯의 데이터 구조를 정의하는 인터페이스입니다.
@@ -1678,7 +1679,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
     const canHaveMultiple = widgetsWithSelection.includes(type);
 
     if (!canHaveMultiple && widgets.some(w => w.id === option.id)) {
-      alert("이미 추가된 위젯입니다.");
+      notifyGlobal("이미 추가된 위젯입니다.", 'warning');
       return;
     }
 
@@ -1750,7 +1751,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       const response = await apiClient.request('getAccountingFolderId', {});
       
       if (!response.success || !response.data?.accountingFolderId) {
-        alert("회계 폴더를 찾을 수 없습니다.");
+        notifyGlobal("회계 폴더를 찾을 수 없습니다.", 'error');
         return;
       }
 
@@ -1759,7 +1760,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       // 회계 폴더 내 모든 장부 폴더 가져오기
       const gapi = window.gapi;
       if (!gapi || !gapi.client || !gapi.client.drive) {
-        alert("Google Drive API가 초기화되지 않았습니다.");
+        notifyGlobal("Google Drive API가 초기화되지 않았습니다.", 'error');
         return;
       }
 
@@ -1770,7 +1771,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       });
 
       if (!driveResponse.result.files || driveResponse.result.files.length === 0) {
-        alert("장부 폴더를 찾을 수 없습니다.");
+        notifyGlobal("장부 폴더를 찾을 수 없습니다.", 'error');
         return;
       }
 
@@ -1797,18 +1798,18 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         setAccountingSheets(allSheets);
         setIsSheetModalOpen(true);
       } else {
-        alert("장부 폴더에 시트 파일이 없습니다.");
+        notifyGlobal("장부 폴더에 시트 파일이 없습니다.", 'warning');
       }
     } catch (error) {
       console.error("Error opening sheet selection modal:", error);
-      alert("오류가 발생했습니다. 콘솔을 확인해주세요.");
+      notifyGlobal("오류가 발생했습니다. 콘솔을 확인해주세요.", 'error');
     }
   };
 
   const handleSheetSelect = async (sheet: { id: string; name: string; ledgerName?: string }) => {
     if (!selectedWidgetId) {
       console.error("No widget ID selected");
-      alert("위젯 ID가 선택되지 않았습니다.");
+      notifyGlobal("위젯 ID가 선택되지 않았습니다.", 'warning');
       return;
     }
 
@@ -1823,7 +1824,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       const gapi = window.gapi;
       if (!gapi || !gapi.client) {
         console.error("Google API가 초기화되지 않았습니다.");
-        alert("Google API가 초기화되지 않았습니다. 페이지를 새로고침해주세요.");
+        notifyGlobal("Google API가 초기화되지 않았습니다. 페이지를 새로고침해주세요.", 'error');
         setIsSheetModalOpen(false);
         setSelectedWidgetId(null);
         return;
@@ -1834,7 +1835,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         const validToken = tokenManager.get();
         if (!validToken) {
           console.error("Google Access Token이 없거나 만료되었습니다.");
-          alert("Google 인증이 필요합니다. 다시 로그인해주세요.");
+          notifyGlobal("Google 인증이 필요합니다. 다시 로그인해주세요.", 'warning');
           setIsSheetModalOpen(false);
           setSelectedWidgetId(null);
           return;
@@ -1842,7 +1843,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         gapi.client.setToken({ access_token: validToken });
       } catch (tokenError) {
         console.error("토큰 설정 실패:", tokenError);
-        alert("인증 토큰 설정에 실패했습니다. 다시 로그인해주세요.");
+        notifyGlobal("인증 토큰 설정에 실패했습니다. 다시 로그인해주세요.", 'error');
         setIsSheetModalOpen(false);
         setSelectedWidgetId(null);
         return;
@@ -1877,7 +1878,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       console.log("Fetched accounting data (categories):", data);
 
       if (data === null) {
-        alert("장부 데이터를 가져올 수 없습니다. 시트에 접근 권한이 있는지 확인해주세요.");
+        notifyGlobal("장부 데이터를 가져올 수 없습니다. 시트에 접근 권한이 있는지 확인해주세요.", 'error');
         setIsSheetModalOpen(false);
         setSelectedWidgetId(null);
         return;
@@ -2093,7 +2094,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         error: error,
         stack: error?.stack
       });
-      alert(`시트 선택 중 오류가 발생했습니다: ${errorMessage}`);
+      notifyGlobal(`시트 선택 중 오류가 발생했습니다: ${errorMessage}`, 'error');
       setIsSheetModalOpen(false);
       setSelectedWidgetId(null);
     }

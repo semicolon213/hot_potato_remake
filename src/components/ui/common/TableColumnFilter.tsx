@@ -54,15 +54,20 @@ const TableColumnFilter: React.FC<TableColumnFilterProps> = ({
     transform: 'translateX(-50%)'
   });
 
-  // 위치 조정: 페이지 경계를 벗어나면 자동 조정
+  // 위치 조정: 페이지 경계/상단 고정 헤더를 벗어나면 자동 조정
   useEffect(() => {
     if (isOpen && popupRef.current) {
       const popup = popupRef.current;
       const popupWidth = popup.offsetWidth;
+      const popupHeight = popup.offsetHeight;
       const viewportWidth = window.innerWidth;
-      const padding = 16; // 화면 가장자리 여백
+      const viewportHeight = window.innerHeight;
+      const padding = 16; // 우측/하단 가장자리 여백
+      const leftSafeArea = 96; // 좌측 사이드바 + 여백
+      const topSafeArea = 88; // 상단 메뉴바/헤더 가림 방지 여백
 
       let newLeft = position.left;
+      let newTop = position.top;
       let newTransform = 'translateX(-50%)';
 
       // 오른쪽 경계를 벗어나는 경우
@@ -70,14 +75,23 @@ const TableColumnFilter: React.FC<TableColumnFilterProps> = ({
         newLeft = viewportWidth - padding;
         newTransform = 'translateX(-100%)';
       }
-      // 왼쪽 경계를 벗어나는 경우
-      else if (position.left - popupWidth / 2 < padding) {
-        newLeft = padding;
+      // 왼쪽(사이드바) 경계를 벗어나는 경우
+      else if (position.left - popupWidth / 2 < leftSafeArea) {
+        newLeft = leftSafeArea;
         newTransform = 'translateX(0)';
       }
 
+      // 하단을 벗어나면 클릭 헤더 위쪽으로 배치
+      if (newTop + popupHeight > viewportHeight - padding) {
+        newTop = Math.max(topSafeArea, position.top - popupHeight - 8);
+      }
+      // 상단 고정 메뉴바 영역 침범 방지
+      if (newTop < topSafeArea) {
+        newTop = topSafeArea;
+      }
+
       setAdjustedPosition({
-        top: position.top,
+        top: newTop,
         left: newLeft,
         transform: newTransform
       });
@@ -136,7 +150,7 @@ const TableColumnFilter: React.FC<TableColumnFilterProps> = ({
         top: `${adjustedPosition.top}px`,
         left: `${adjustedPosition.left}px`,
         transform: adjustedPosition.transform,
-        zIndex: 10000,
+        zIndex: 2147483647,
       }}
     >
       <div className="filter-popup-content">

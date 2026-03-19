@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 import { ENV_CONFIG } from '../../config/environment';
 import { tokenManager } from '../auth/tokenManager';
+import { notifyGlobal } from '../ui/globalNotification';
 
 const GOOGLE_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID; // ENV v2: VITE_GOOGLE_CLIENT_ID에서 읽는 클라이언트 ID
 
@@ -98,7 +99,7 @@ export const getSheetIdByName = async (name: string): Promise<string | null> => 
       localStorage.setItem(`spreadsheet_id_${name}`, fileId);
       return fileId;
     } else {
-      alert(`Spreadsheet with name "${name}" not found.`);
+      notifyGlobal(`Spreadsheet with name "${name}" not found.`, 'error');
       return null;
     }
   } catch (error) {

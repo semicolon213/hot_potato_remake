@@ -10,6 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash } from 'react-icons/fa';
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../../../utils/database/accountingManager';
 import type { Category } from '../../../types/features/accounting';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 import './accounting.css';
 
 interface CategoryManagementProps {
@@ -164,7 +165,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
     } catch (err: unknown) {
       console.error('❌ 카테고리 삭제 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '카테고리 삭제에 실패했습니다.';
-      alert(errorMessage);
+      notifyGlobal(errorMessage, 'error');
       setError(errorMessage);
     } finally {
       setIsLoading(false);

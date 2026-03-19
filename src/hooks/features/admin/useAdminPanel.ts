@@ -25,7 +25,6 @@ interface PinnedAnnouncementRequest {
 
 type EmailStatus = 'idle' | 'sending' | 'success' | 'error';
 import { fetchAllUsers, sendAdminKeyEmail, approveUserWithGroup, rejectUser, clearUserCache } from '../../../utils/api/adminApi';
-import { sendEmailWithGmailAPI } from '../../../utils/api/gmailApi';
 import { apiClient } from '../../../utils/api/apiClient';
 import { API_ACTIONS } from '../../../config/api';
 import { ENV_CONFIG } from '../../../config/environment';
@@ -453,16 +452,11 @@ export const useAdminPanel = () => {
         return;
       }
       
-      // 백엔드에서 복호화된 키와 이메일 템플릿 가져오기
+      // 백엔드에서 관리자 키 이메일 전송 처리
       const result = await sendAdminKeyEmail(emailToSend, adminAccessToken) as ApiResponse<{
         adminKey: string;
         encryptedKey: string;
         layersUsed: number;
-        emailTemplate: {
-          to: string;
-          subject: string;
-          html: string;
-        };
       }>;
       
       console.log('백엔드 응답:', result);
@@ -472,25 +466,11 @@ export const useAdminPanel = () => {
       console.log('사용된 레이어:', result.layersUsed);
       
       if (result.success) {
-        console.log('이메일 템플릿:', result.emailTemplate);
-        
-        // 이메일 템플릿을 사용하여 Gmail API로 이메일 전송
-        try {
-          if (result.emailTemplate) {
-            await sendEmailWithGmailAPI(result.emailTemplate);
-          } else {
-            throw new Error('이메일 템플릿이 없습니다.');
-          }
-          setMessage('관리자 키가 이메일로 전송되었습니다!');
-          setEmailToSend('');
-          setEmailStatus('success');
-        } catch (gmailError) {
-          console.error('Gmail API 전송 실패:', gmailError);
-          setMessage('Gmail API 전송에 실패했습니다: ' + (gmailError as Error).message);
-          setEmailStatus('error');
-        }
+        setMessage(result.message || '관리자 키가 이메일로 전송되었습니다!');
+        setEmailToSend('');
+        setEmailStatus('success');
       } else {
-        const errorMessage = result && typeof result === 'object' && 'error' in result ? String(result.error) : '알 수 없는 오류';
+        const errorMessage = result.message || (result && typeof result === 'object' && 'error' in result ? String(result.error) : '알 수 없는 오류');
         setMessage('이메일 전송에 실패했습니다: ' + errorMessage);
         setEmailStatus('error');
       }

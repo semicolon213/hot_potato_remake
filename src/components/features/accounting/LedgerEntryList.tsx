@@ -12,6 +12,7 @@ import { LedgerExportModal } from './LedgerExportModal';
 import TableColumnFilter, { type SortDirection, type FilterOption } from '../../ui/common/TableColumnFilter';
 import { FaDownload, FaPlus, FaFilter, FaTimes, FaEdit, FaTrash, FaPaperclip } from 'react-icons/fa';
 import type { LedgerEntry, LedgerEntryFilter, Account, Category, CreateLedgerEntryRequest, UpdateLedgerEntryRequest } from '../../../types/features/accounting';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 import './accounting.css';
 
 interface LedgerEntryListProps {
@@ -400,7 +401,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
     }
 
     if (!selectedAccountId) {
-      alert('통장 정보를 찾을 수 없습니다.');
+      notifyGlobal('통장 정보를 찾을 수 없습니다.', 'error');
       return;
     }
 
@@ -416,7 +417,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       console.error('❌ 장부 항목 삭제 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '장부 항목 삭제에 실패했습니다.';
       setError(errorMessage);
-      alert('장부 항목 삭제에 실패했습니다: ' + errorMessage);
+      notifyGlobal('장부 항목 삭제에 실패했습니다: ' + errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }

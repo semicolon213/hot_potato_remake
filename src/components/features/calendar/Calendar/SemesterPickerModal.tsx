@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import useCalendarContext, { type DateRange, type CustomPeriod } from '../../../../hooks/features/calendar/useCalendarContext';
+import { notifyGlobal } from '../../../../utils/ui/globalNotification';
 
 interface SemesterPickerModalProps {
     isOpen: boolean;
@@ -40,7 +41,7 @@ const SemesterPickerModal: React.FC<SemesterPickerModalProps> = ({ isOpen, onClo
 
     const handleAddCustomPeriod = () => {
         if (!newPeriodName.trim()) {
-            alert('추가할 항목의 이름을 입력해주세요.');
+            notifyGlobal('추가할 항목의 이름을 입력해주세요.', 'warning');
             return;
         }
         const newPeriod = {
@@ -133,7 +134,7 @@ const SemesterPickerModal: React.FC<SemesterPickerModalProps> = ({ isOpen, onClo
         try {
             for (const p of customPeriods) {
                 if (!p.period.start || !p.period.end) {
-                    alert(`'${p.name}' 기간의 시작일과 종료일을 모두 설정해주세요.`);
+                    notifyGlobal(`'${p.name}' 기간의 시작일과 종료일을 모두 설정해주세요.`, 'warning');
                     return;
                 }
             }
@@ -148,7 +149,7 @@ const SemesterPickerModal: React.FC<SemesterPickerModalProps> = ({ isOpen, onClo
             for (const item of allPeriods) {
                 const { start, end } = item.period;
                 if (start && end && start > end) {
-                    alert(`'${item.name}' 기간의 종료일은 시작일보다 빠를 수 없습니다.`);
+                    notifyGlobal(`'${item.name}' 기간의 종료일은 시작일보다 빠를 수 없습니다.`, 'warning');
                     return;
                 }
             }
@@ -163,7 +164,7 @@ const SemesterPickerModal: React.FC<SemesterPickerModalProps> = ({ isOpen, onClo
             onClose();
         } catch (error) {
             console.error("학사일정 저장 중 오류 발생:", error);
-            alert("학사일정 저장 중 오류가 발생했습니다. 자세한 내용은 콘솔을 확인해주세요.");
+            notifyGlobal("학사일정 저장 중 오류가 발생했습니다. 자세한 내용은 콘솔을 확인해주세요.", 'error');
         }
     };
 

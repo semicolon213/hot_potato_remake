@@ -15,6 +15,7 @@ import {
 } from '../../../utils/database/papyrusManager';
 import { ENV_CONFIG } from '../../../config/environment';
 import type { StaffMember } from '../../../types/features/staff';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 
 interface StaffFilters {
   grade: string; // 교직원의 'pos'에 해당
@@ -231,7 +232,7 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
       XLSX.writeFile(wb, `교직원일괄입력_양식_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (error) {
       console.error('양식 다운로드 실패:', error);
-      alert('양식 다운로드에 실패했습니다.');
+      notifyGlobal('양식 다운로드에 실패했습니다.', 'error');
     }
   };
 
@@ -322,11 +323,11 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
           }
 
           if (errors.length > 0) {
-            alert(`오류가 발생했습니다:\n${errors.join('\n')}`);
+            notifyGlobal(`오류가 발생했습니다:\n${errors.join('\n')}`, 'error', 5000);
           }
 
           if (duplicates.length > 0) {
-            alert(`중복된 교번이 발견되었습니다: ${duplicates.join(', ')}`);
+            notifyGlobal(`중복된 교번이 발견되었습니다: ${duplicates.join(', ')}`, 'warning', 5000);
           }
 
           if (newStaffList.length > 0 && staffSpreadsheetId) {
@@ -339,7 +340,7 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
               }
               
               await fetchStaff();
-              alert(`${newStaffList.length}명의 교직원이 추가되었습니다.`);
+              notifyGlobal(`${newStaffList.length}명의 교직원이 추가되었습니다.`, 'success');
             } catch (err) {
               console.error('교직원 추가 실패:', err);
               reject(err);
@@ -348,7 +349,7 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
               setIsLoading(false);
             }
           } else if (newStaffList.length === 0) {
-            alert('추가할 교직원이 없습니다.');
+            notifyGlobal('추가할 교직원이 없습니다.', 'warning');
           }
 
           resolve();

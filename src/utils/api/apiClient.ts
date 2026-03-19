@@ -741,10 +741,50 @@ export class ApiClient {
     if (params?.graduationGrade != null) payload.graduationGrade = params.graduationGrade;
     if (params?.graduationYear != null) payload.graduationYear = params.graduationYear;
     if (params?.graduationTerm != null) payload.graduationTerm = params.graduationTerm;
-    return this.request<{ updatedCount: number; graduatedCount: number; skippedCount: number }>(
+    return this.request<{
+      updatedCount: number;
+      graduatedCount: number;
+      skippedCount: number;
+      graduatedStudents?: Array<{ no_student: string; name: string; grade: string }>;
+    }>(
       'updateStudentGrades',
       payload
     );
+  }
+
+  /** 선택 학생만 학년 갱신 */
+  async updateStudentGradesSelected(
+    spreadsheetId: string,
+    studentIds: string[],
+    params?: { graduationGrade?: number; graduationYear?: number; graduationTerm?: string }
+  ) {
+    const payload: Record<string, unknown> = { spreadsheetId, studentIds };
+    if (params?.graduationGrade != null) payload.graduationGrade = params.graduationGrade;
+    if (params?.graduationYear != null) payload.graduationYear = params.graduationYear;
+    if (params?.graduationTerm != null) payload.graduationTerm = params.graduationTerm;
+    return this.request<{
+      touchedCount: number;
+      updatedCount: number;
+      graduatedCount: number;
+      skippedCount: number;
+      graduatedStudents?: Array<{ no_student: string; name: string; grade: string }>;
+    }>('updateStudentGradesSelected', payload);
+  }
+
+  /** 이번 졸업 대상 중 진학자 표시 반영 */
+  async setGraduatedAdvanced(
+    spreadsheetId: string,
+    graduatedStudentIds: string[],
+    advancedStudentIds: string[]
+  ) {
+    return this.request<{
+      updatedCount: number;
+      advancedCount: number;
+    }>('setGraduatedAdvanced', {
+      spreadsheetId,
+      graduatedStudentIds,
+      advancedStudentIds
+    });
   }
 
   // ========== 캐시 무효화 관련 메서드 ==========

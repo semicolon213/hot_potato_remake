@@ -10,6 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { getBudgetPlans, updateBudgetPlanDetails } from '../../../utils/database/accountingBudgetManager';
 import { getCategories, getAccounts } from '../../../utils/database/accountingManager';
 import type { BudgetPlan, BudgetPlanDetail, Category, Account } from '../../../types/features/accounting';
+import { notifyGlobal } from '../../../utils/ui/globalNotification';
 import './accounting.css';
 
 interface BudgetPlanDetailProps {
@@ -158,7 +159,7 @@ export const BudgetPlanDetail: React.FC<BudgetPlanDetailProps> = ({
       await updateBudgetPlanDetails(spreadsheetId, budgetId, { details });
       setHasChanges(false);
       onSave();
-      alert('예산 항목이 저장되었습니다.\n상세 항목이 수정되어 승인 요청 상태로 변경되었습니다.');
+      notifyGlobal('예산 항목이 저장되었습니다.\n상세 항목이 수정되어 승인 요청 상태로 변경되었습니다.', 'success');
     } catch (err: unknown) {
       console.error('❌ 예산 항목 저장 오류:', err);
       
