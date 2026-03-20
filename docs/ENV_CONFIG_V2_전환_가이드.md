@@ -1,5 +1,7 @@
 # ENV_CONFIG → ENV_CONFIG_V2 전환 가이드
 
+> 전체 문서 목차: [docs/README.md](./README.md)
+
 env(ver.2).txt 기준의 `environmentV2.ts`에 있는 **ENV_CONFIG_V2**를 **ENV_CONFIG**로 쓰려 할 때, 무엇이 바뀌고 어떻게 수정하면 되는지 정리한 문서입니다.
 
 ---

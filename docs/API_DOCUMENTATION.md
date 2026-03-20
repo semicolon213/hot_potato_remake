@@ -1,5 +1,7 @@
 # Hot Potato API 문서
 
+> 전체 문서 목차: [docs/README.md](./README.md)
+
 ## 📚 개요
 
 Hot Potato 프로젝트의 주요 API 및 컴포넌트 인터페이스 문서입니다.

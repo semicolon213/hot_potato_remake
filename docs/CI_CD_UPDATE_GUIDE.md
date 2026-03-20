@@ -1,6 +1,8 @@
-# 🔄 CI/CD React 19 업데이트 가이드
+# CI/CD React 19 업데이트 가이드
 
-## 📋 업데이트된 CI/CD 설정
+> 전체 문서 목차: [docs/README.md](./README.md)
+
+## 업데이트된 CI/CD 설정
 
 ### ✅ 주요 변경사항
 

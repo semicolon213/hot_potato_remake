@@ -1,6 +1,8 @@
-# 🔍 CI/CD 검증 기준 명세서
+# CI/CD 검증 기준 명세서
 
-## 📋 검증 단계별 기준
+> 전체 문서 목차: [docs/README.md](./README.md)
+
+## 검증 단계별 기준
 
 ### 1️⃣ **코드 품질 검사 (Quality Check)**
 

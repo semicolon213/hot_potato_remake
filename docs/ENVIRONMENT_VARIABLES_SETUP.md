@@ -1,5 +1,7 @@
 # 환경변수 및 Apps Script Properties 설정 가이드
 
+> 전체 문서 목차: [docs/README.md](./README.md)
+
 ## 📋 개요
 이 문서는 프로젝트의 환경변수와 Apps Script Properties 설정 방법을 안내합니다.
 

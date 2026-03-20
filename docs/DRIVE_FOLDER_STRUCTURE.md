@@ -1,5 +1,7 @@
 # Google Drive 폴더 구조
 
+> 전체 문서 목차: [docs/README.md](./README.md)
+
 Hot Potato ERP의 Google Drive 폴더 및 스프레드시트 구조를 정의합니다.
 
 ---

@@ -1,5 +1,7 @@
 # clasp 가이드 - Apps Script 로컬 개발 및 배포
 
+> 전체 문서 목차: [docs/README.md](./README.md)
+
 이 문서는 `appScript` 폴더의 Google Apps Script 코드를 clasp로 로컬에서 관리하고 배포하는 방법을 안내합니다.
 
 ---

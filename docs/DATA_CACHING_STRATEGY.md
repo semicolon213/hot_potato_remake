@@ -1,4 +1,15 @@
-# 데이터 캐싱 전략 및 백그라운드 동기화 구현 계획
+# 데이터 캐싱 전략 및 백그라운드 동기화
+
+## 빠른 참고 (요약)
+
+- **목적**: Apps Script 호출 감소, 오프라인·재방문 시 체감 속도 개선.
+- **핵심 코드**: `src/utils/cache/`, `src/utils/api/apiClient.ts`, 쓰기 후 무효화·`DataSyncService` 연동.
+- **저장소**: 메모리 + IndexedDB(및 기획서에 명시된 localStorage 등) — 아래 본문에 단계별 상세.
+- **문서 목차**: [docs/README.md](./README.md)에서 다른 가이드와 함께 보기.
+
+아래부터는 **구현 계획·단계·API 목록 등 전체 기록**입니다. 일상 개발에는 위 요약 + `apiClient`의 `CACHEABLE_ACTIONS` / `getWriteCacheKeys` 정도만 알아도 충분합니다.
+
+---
 
 > **✅ 구현 상태**: Phase 1-6 모두 구현 완료 (2025년 1월)
 > 
