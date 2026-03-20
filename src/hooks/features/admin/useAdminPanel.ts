@@ -27,9 +27,10 @@ type EmailStatus = 'idle' | 'sending' | 'success' | 'error';
 import { fetchAllUsers, sendAdminKeyEmail, approveUserWithGroup, rejectUser, clearUserCache } from '../../../utils/api/adminApi';
 import { apiClient } from '../../../utils/api/apiClient';
 import { API_ACTIONS } from '../../../config/api';
-import { getNoticeSpreadsheetApiFields } from '../../../utils/database/papyrusManager';
+import { fetchAnnouncements, getNoticeSpreadsheetApiFields } from '../../../utils/database/papyrusManager';
 import type { ApiResponse } from '../../../config/api';
 import { tokenManager } from '../../../utils/auth/tokenManager';
+import { useAppDataStore } from '../../../stores/appDataStore';
 
 export const useAdminPanel = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -44,6 +45,18 @@ export const useAdminPanel = () => {
   const [debugInfo, setDebugInfo] = useState('');
   
   const { user, setUser } = useAuthStore();
+  const setAnnouncements = useAppDataStore((s) => s.setAnnouncements);
+
+  /** 관리자가 시트만 바꾼 경우 메인 앱 공지 목록(Zustand)이 안 바뀌므로 강제 갱신 */
+  const refreshMainAnnouncementsList = async () => {
+    if (!user?.studentId || !user?.userType) return;
+    try {
+      const list = await fetchAnnouncements(user.studentId, user.userType, { forceRefresh: true });
+      setAnnouncements(list);
+    } catch (e) {
+      console.error('공지 목록 갱신 실패 (관리자 승인 후):', e);
+    }
+  };
 
   // 고정 공지 승인 요청 목록 가져오기
   const loadPinnedAnnouncementRequests = async () => {
@@ -90,10 +103,8 @@ export const useAdminPanel = () => {
 
       if (response.success) {
         setMessage('고정 공지가 승인되었습니다.');
-        // 목록 새로고침 (약간의 지연 후)
-        setTimeout(async () => {
-          await loadPinnedAnnouncementRequests();
-        }, 500);
+        await refreshMainAnnouncementsList();
+        await loadPinnedAnnouncementRequests();
       } else {
         setMessage(response.message || '고정 공지 승인에 실패했습니다.');
       }
@@ -123,10 +134,8 @@ export const useAdminPanel = () => {
 
       if (response.success) {
         setMessage('고정 공지가 거절되었습니다.');
-        // 목록 새로고침 (약간의 지연 후)
-        setTimeout(async () => {
-          await loadPinnedAnnouncementRequests();
-        }, 500);
+        await refreshMainAnnouncementsList();
+        await loadPinnedAnnouncementRequests();
       } else {
         setMessage(response.message || '고정 공지 거절에 실패했습니다.');
       }

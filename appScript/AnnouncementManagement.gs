@@ -531,10 +531,12 @@ function getAnnouncements(req) {
  * @returns {string} 처리된 HTML 콘텐츠
  */
 function processAndUploadImages_(content) {
-  const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
-  const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || 'document';
-  const noticeAttachFolderName = PropertiesService.getScriptProperties().getProperty('NOTICE_ATTACH_FOLDER_NAME') || 'attached_file';
-  const noticeAttachPath = `${rootFolderName}/${documentFolderName}/${noticeAttachFolderName}`;
+  const props = PropertiesService.getScriptProperties();
+  const rootFolderName = props.getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+  // 문서(document)가 아니라 공지(notice) 하위 — InitialSetup: notice/attached_file 과 동일
+  const noticeParentFolderName = props.getProperty('NOTICE_ATTACH_PARENT_FOLDER_NAME') || 'notice';
+  const noticeAttachFolderName = props.getProperty('NOTICE_ATTACH_FOLDER_NAME') || 'attached_file';
+  const noticeAttachPath = `${rootFolderName}/${noticeParentFolderName}/${noticeAttachFolderName}`;
 
   let folderId = null;
   try {

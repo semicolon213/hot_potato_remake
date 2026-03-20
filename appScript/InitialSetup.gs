@@ -669,6 +669,9 @@ function setScriptProperties() {
       'TEMPLATE_FOLDER_NAME': 'shared_forms',
       'SHARED_DOCUMENT_FOLDER_NAME': 'shared_documents',
       'PERSONAL_TEMPLATE_FOLDER_NAME': 'personal_forms',
+      // 공지 첨부·본문 이미지: ROOT/notice/attached_file (프론트·processAndUploadImages_와 경로 통일)
+      'NOTICE_ATTACH_PARENT_FOLDER_NAME': 'notice',
+      'NOTICE_ATTACH_FOLDER_NAME': 'attached_file',
       
       // 시트 이름 설정
       'SHEET_NAME_USER': 'user',

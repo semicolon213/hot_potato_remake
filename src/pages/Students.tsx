@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FaChevronLeft, FaChevronRight, FaPlus } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaExclamationTriangle, FaPlus, FaSearch } from 'react-icons/fa';
 import { useStudentManagement } from '../hooks/features/students/useStudentManagement';
 import StudentDetailModal from '../components/ui/StudentDetailModal';
 import { useNotification } from '../hooks/ui/useNotification';
@@ -416,7 +416,7 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
     setSelectedAdvancedIds(prev => (prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]));
   };
 
-  // 진학 여부는 학년 갱신 직후(졸업 처리된 학생 대상으로) 자동 반영합니다.
+  // 진학 체크는 갱신「실행 전」 UI에서만 가능. 갱신 API 성공 직후 졸업자 ID와 교차해 진학(O) 자동 반영.
 
   const retainedList = useMemo(() => {
     return students.filter(s => {
@@ -515,16 +515,31 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
               <p>학년 관리 메뉴는 조교 권한이 있는 사용자만 이용할 수 있습니다.</p>
             </div>
           ) : (
-            <>
-              <div className="grade-management-block">
-                <h3>졸업 학년 설정</h3>
-                <p className="grade-management-desc">전문대 2·3학년, 전공심화 등에 따라 졸업 학년을 선택하세요.</p>
-                <div className="grade-management-row">
-                  <label>졸업 학년</label>
+            <div className="grade-management-page">
+              <header className="grade-management-page__intro">
+                <h2 className="grade-management-page__title">학년 관리</h2>
+                <p className="grade-management-page__lead">
+                  <strong>1</strong> 졸업 학년 저장 → <strong>2</strong> 유급 정리 → <strong>3</strong> 진학 표시(선택, <em>갱신 전</em>) → <strong>4</strong> 학년 갱신 실행 순입니다. 진학 체크는 갱신 버튼을 누르기 <strong>전</strong>에 완료해야 반영됩니다.
+                </p>
+              </header>
+
+              <div className="grade-management-stack">
+              <section className="grade-mgmt-card" aria-labelledby="gm-title-1">
+                <div className="grade-mgmt-card__top">
+                  <span className="grade-mgmt-step" aria-hidden>1</span>
+                  <div className="grade-mgmt-card__titles">
+                    <h3 id="gm-title-1" className="grade-mgmt-card__title">졸업 학년 설정</h3>
+                  </div>
+                </div>
+                <p className="grade-mgmt-card__desc">전문대 2·3학년, 전공심화 등 학칙에 맞는 졸업 학년을 지정합니다.</p>
+                <div className="grade-mgmt-inline-form">
+                  <label htmlFor="graduation-grade-select" className="grade-mgmt-label">졸업 학년</label>
                   <select
+                    id="graduation-grade-select"
                     value={graduationGrade}
                     onChange={(e) => setGraduationGradeState(Number(e.target.value))}
                     disabled={graduationGradeLoading}
+                    className="grade-mgmt-select"
                   >
                     {[2, 3, 4, 5, 6].map((g) => (
                       <option key={g} value={g}>{g}학년</option>
@@ -532,41 +547,52 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
                   </select>
                   <button
                     type="button"
-                    className="student-add-button"
+                    className="grade-mgmt-btn grade-mgmt-btn--primary"
                     disabled={graduationGradeLoading}
                     onClick={handleSaveGraduationGrade}
                   >
                     {graduationGradeLoading ? '저장 중...' : '저장'}
                   </button>
                 </div>
-              </div>
-              <div className="grade-management-block">
-                <h3>유급 대상</h3>
-                <p className="grade-management-desc">유급 대상은 학년 갱신 시 학년이 올라가지 않습니다. 학생을 검색해 추가/제거하세요.</p>
-                <div className="retained-search-row">
+              </section>
+
+              <section className="grade-mgmt-card" aria-labelledby="gm-title-2">
+                <div className="grade-mgmt-card__top">
+                  <span className="grade-mgmt-step" aria-hidden>2</span>
+                  <div className="grade-mgmt-card__titles">
+                    <h3 id="gm-title-2" className="grade-mgmt-card__title">유급 대상</h3>
+                    <p className="grade-mgmt-card__subtitle">갱신 시 학년이 오르지 않는 학생만 여기에 둡니다.</p>
+                  </div>
+                </div>
+                <div className="grade-mgmt-search">
+                  <FaSearch className="grade-mgmt-search__icon" aria-hidden />
                   <input
                     type="text"
-                    placeholder="이름 또는 학번으로 검색"
+                    placeholder="이름 또는 학번 검색"
                     value={retainedSearchTerm}
                     onChange={(e) => setRetainedSearchTerm(e.target.value)}
-                    className="search-input"
+                    className="grade-mgmt-search__input"
+                    aria-label="유급 대상 추가를 위한 학생 검색"
                   />
                 </div>
                 {retainedSearchTerm.trim() && (
-                  <div className="retained-search-results">
-                    <span className="retained-search-label">검색 결과 (유급 추가)</span>
+                  <div className="retained-search-results grade-mgmt-search-results">
+                    <span className="retained-search-label">검색 결과 — 유급 추가</span>
                     <ul>
                       {searchForRetained.map((s) => {
                         const isRetained = retainedList.some(r => r.no_student === s.no_student);
                         return (
                           <li key={s.no_student}>
-                            {s.name} ({s.no_student}) {s.grade}학년 · {s.state}
+                            <span className="grade-mgmt-search-hit">
+                              <strong>{s.name}</strong>
+                              <span className="grade-mgmt-meta">{s.no_student} · {s.grade}학년 · {s.state}</span>
+                            </span>
                             {isRetained ? (
-                              <span className="retained-badge">유급</span>
+                              <span className="retained-badge grade-mgmt-pill">유급 등록됨</span>
                             ) : (
                               <button
                                 type="button"
-                                className="retained-add-btn"
+                                className="grade-mgmt-btn grade-mgmt-btn--sm grade-mgmt-btn--ghost"
                                 disabled={retainedSaving === s.no_student}
                                 onClick={() => handleSetRetained(s.no_student, true)}
                               >
@@ -579,21 +605,29 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
                     </ul>
                   </div>
                 )}
-                <div className="retained-list-wrap">
-                  <span className="retained-list-label">현재 유급 대상 ({retainedList.length}명)</span>
-                  <table className="field-table">
+                <div className="retained-list-wrap grade-mgmt-table-block">
+                  <div className="grade-mgmt-table-head">
+                    <span className="retained-list-label">현재 유급 대상</span>
+                    <span className="grade-mgmt-count-pill">{retainedList.length}명</span>
+                  </div>
+                  <div className="grade-mgmt-table-scroll">
+                  <table className="field-table grade-mgmt-table">
                     <thead>
                       <tr>
                         <th>학번</th>
                         <th>이름</th>
                         <th>학년</th>
                         <th>상태</th>
-                        <th></th>
+                        <th className="grade-mgmt-table__actions">관리</th>
                       </tr>
                     </thead>
                     <tbody>
                       {retainedList.length === 0 ? (
-                        <tr><td colSpan={5}>유급 대상이 없습니다.</td></tr>
+                        <tr className="grade-mgmt-table__empty-row">
+                          <td colSpan={5}>
+                            <div className="grade-mgmt-empty">유급 대상이 없습니다. 위 검색으로 학생을 추가하세요.</div>
+                          </td>
+                        </tr>
                       ) : (
                         retainedList.map((s) => (
                           <tr key={s.no_student}>
@@ -604,7 +638,7 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
                             <td>
                               <button
                                 type="button"
-                                className="field-cancel-btn"
+                                className="grade-mgmt-btn grade-mgmt-btn--sm grade-mgmt-btn--danger-ghost"
                                 disabled={retainedSaving === s.no_student}
                                 onClick={() => handleSetRetained(s.no_student, false)}
                               >
@@ -616,91 +650,126 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
                       )}
                     </tbody>
                   </table>
-                </div>
-              </div>
-              <div className="grade-management-block">
-                <h3>학년 갱신</h3>
-                <p className="grade-management-desc">재학생(휴학·유급·자퇴 제외)의 학년을 1씩 올리고, 졸업 학년을 넘긴 학생은 졸업 처리합니다. 유급 대상은 위 목록에서 최종 확인 후 진행하세요.</p>
-                <div className="retained-search-row" style={{ marginBottom: 12 }}>
-                  <label style={{ marginRight: 12 }}>
-                    <input
-                      type="radio"
-                      name="gradeUpdateMode"
-                      checked={gradeUpdateMode === 'all'}
-                      onChange={() => setGradeUpdateMode('all')}
-                    /> 전체 갱신
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="gradeUpdateMode"
-                      checked={gradeUpdateMode === 'selected'}
-                      onChange={() => setGradeUpdateMode('selected')}
-                    /> 선택 갱신
-                  </label>
-                </div>
-                {gradeUpdateMode === 'selected' && (
-                  <div className="retained-list-wrap" style={{ marginBottom: 12 }}>
-                    <span className="retained-list-label">갱신 대상 선택 ({selectedGradeUpdateIds.length}명)</span>
-                    <ul className="retained-confirm-list" style={{ maxHeight: 220, overflowY: 'auto' }}>
-                      {students.filter(s => s.state !== '휴학' && s.state !== '자퇴').map((s) => (
-                        <li key={s.no_student}>
-                          <label style={{ cursor: 'pointer' }}>
-                            <input
-                              type="checkbox"
-                              checked={selectedGradeUpdateIds.includes(s.no_student)}
-                              onChange={() => toggleSelectedGradeUpdateId(s.no_student)}
-                              style={{ marginRight: 8 }}
-                            />
-                            {s.name} ({s.no_student}) {s.grade}학년 · {s.state}
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
                   </div>
-                )}
-                <button
-                  type="button"
-                  className="student-add-button grade-update-btn"
-                  disabled={gradeUpdateMode === 'selected' && selectedGradeUpdateIds.length === 0}
-                  onClick={() => setGradeUpdateConfirmOpen(true)}
-                >
-                  {gradeUpdateMode === 'selected' ? '선택 학생 갱신 실행' : '학년 갱신 실행'}
-                </button>
-              </div>
-              <div className="grade-management-block">
-                <h3>진학 대상자 (이번 갱신 예상 졸업자)</h3>
-                <p className="grade-management-desc">이번 학년 갱신에서 졸업 처리될 것으로 예상되는 학생 중, 진학하는 학생을 미리 체크해두면 갱신 완료 후 자동으로 진학(advanced=O) 처리합니다.</p>
-                <div className="retained-list-wrap">
-                  <span className="retained-list-label">예상 졸업 대상 ({predictedGraduates.length}명)</span>
+                </div>
+              </section>
+
+              <section className="grade-mgmt-card grade-mgmt-card--muted" aria-labelledby="gm-title-3">
+                <div className="grade-mgmt-card__top">
+                  <span className="grade-mgmt-step" aria-hidden>3</span>
+                  <div className="grade-mgmt-card__titles">
+                    <h3 id="gm-title-3" className="grade-mgmt-card__title">진학 대상 (예상 졸업자)</h3>
+                    <p className="grade-mgmt-card__subtitle">
+                      이번 갱신에서 졸업 처리될 것으로 예상되는 학생 중, <strong>진학하는 사람만</strong> 미리 체크하세요. 체크는 <strong>학년 갱신 실행 전</strong>에 끝내야 하며, 갱신이 끝나는 시점에 실제 졸업자 명단과 맞춰 진학(O)이 자동 반영됩니다.
+                    </p>
+                  </div>
+                </div>
+                <div className="retained-list-wrap grade-mgmt-picker-wrap">
+                  <div className="grade-mgmt-table-head">
+                    <span className="retained-list-label">예상 졸업 대상</span>
+                    <span className="grade-mgmt-count-pill">{predictedGraduates.length}명</span>
+                  </div>
                   {predictedGraduates.length === 0 ? (
-                    <div style={{ color: '#666', fontSize: 13 }}>예상 졸업 대상이 없습니다.</div>
+                    <div className="grade-mgmt-empty">예상 졸업 대상이 없습니다. (졸업 학년·재학 상태에 따라 표시됩니다)</div>
                   ) : (
-                    <ul className="retained-confirm-list" style={{ maxHeight: 240, overflowY: 'auto' }}>
+                    <ul className="retained-confirm-list grade-mgmt-check-list">
                       {predictedGraduates.map((s) => (
                         <li key={s.no_student}>
-                          <label style={{ cursor: 'pointer' }}>
+                          <label className="grade-mgmt-check-label">
                             <input
                               type="checkbox"
                               checked={selectedAdvancedIds.includes(s.no_student)}
                               onChange={() => toggleAdvancedId(s.no_student)}
-                              style={{ marginRight: 8 }}
                             />
-                            {s.name} ({s.no_student}) {s.grade}학년
+                            <span><strong>{s.name}</strong> <span className="grade-mgmt-meta">{s.no_student} · {s.grade}학년</span></span>
                           </label>
                         </li>
                       ))}
                     </ul>
                   )}
                 </div>
-                {advancedSaving && (
-                  <div style={{ color: '#666', fontSize: 13, marginTop: 8 }}>진학 여부 자동 반영 중...</div>
-                )}
-                {graduatedCandidates.length > 0 && (
-                  <div style={{ color: '#666', fontSize: 13, marginTop: 8 }}>
-                    이번 갱신에서 실제 졸업 처리된 인원: {graduatedCandidates.length}명
+              </section>
+
+              <section className="grade-mgmt-card grade-mgmt-card--emphasis" aria-labelledby="gm-title-4">
+                <div className="grade-mgmt-card__top">
+                  <span className="grade-mgmt-step grade-mgmt-step--accent" aria-hidden>4</span>
+                  <div className="grade-mgmt-card__titles">
+                    <h3 id="gm-title-4" className="grade-mgmt-card__title">학년 갱신</h3>
+                    <p className="grade-mgmt-card__subtitle">재학생 학년 +1, 졸업 학년 초과 시 졸업 처리(휴학·자퇴 등은 규칙에 따라 제외).</p>
+                  </div>
+                </div>
+                <div
+                  className="grade-mgmt-mode-toggle"
+                  role="radiogroup"
+                  aria-label="학년 갱신 범위"
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={gradeUpdateMode === 'all'}
+                    className={`grade-mgmt-mode-btn${gradeUpdateMode === 'all' ? ' is-selected' : ''}`}
+                    onClick={() => setGradeUpdateMode('all')}
+                  >
+                    전체 갱신
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={gradeUpdateMode === 'selected'}
+                    className={`grade-mgmt-mode-btn${gradeUpdateMode === 'selected' ? ' is-selected' : ''}`}
+                    onClick={() => setGradeUpdateMode('selected')}
+                  >
+                    선택 갱신
+                  </button>
+                </div>
+                {gradeUpdateMode === 'selected' && (
+                  <div className="retained-list-wrap grade-mgmt-picker-wrap">
+                    <div className="grade-mgmt-table-head">
+                      <span className="retained-list-label">갱신 대상 선택</span>
+                      <span className="grade-mgmt-count-pill">{selectedGradeUpdateIds.length}명</span>
+                    </div>
+                    <ul className="retained-confirm-list grade-mgmt-check-list">
+                      {students.filter(s => s.state !== '휴학' && s.state !== '자퇴').map((s) => (
+                        <li key={s.no_student}>
+                          <label className="grade-mgmt-check-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedGradeUpdateIds.includes(s.no_student)}
+                              onChange={() => toggleSelectedGradeUpdateId(s.no_student)}
+                            />
+                            <span><strong>{s.name}</strong> <span className="grade-mgmt-meta">{s.no_student} · {s.grade}학년 · {s.state}</span></span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
+                <div className="grade-mgmt-warning" role="status">
+                  <FaExclamationTriangle className="grade-mgmt-warning__icon" aria-hidden />
+                  <div>
+                    <strong className="grade-mgmt-warning__title">실행 전 확인</strong>
+                    <p className="grade-mgmt-warning__text">
+                      되돌리기 어렵습니다. 유급 목록·졸업 학년·갱신 범위·<strong>진학 체크(3단계)</strong>를 확인한 뒤 진행하세요.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="grade-mgmt-btn grade-mgmt-btn--run"
+                  disabled={gradeUpdateMode === 'selected' && selectedGradeUpdateIds.length === 0}
+                  onClick={() => setGradeUpdateConfirmOpen(true)}
+                >
+                  {gradeUpdateMode === 'selected' ? '선택 학생 학년 갱신…' : '학년 갱신 실행…'}
+                </button>
+                {advancedSaving && (
+                  <p className="grade-mgmt-footnote">진학 여부 자동 반영 중…</p>
+                )}
+                {graduatedCandidates.length > 0 && (
+                  <p className="grade-mgmt-footnote">
+                    직전 갱신에서 실제 졸업 처리: <strong>{graduatedCandidates.length}명</strong>
+                  </p>
+                )}
+              </section>
               </div>
               {gradeUpdateConfirmOpen && (
                 <div className="field-modal-overlay" onClick={() => !gradeUpdateRunning && setGradeUpdateConfirmOpen(false)}>
@@ -714,7 +783,7 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
                         {gradeUpdateMode === 'selected'
                           ? `선택한 학생(${selectedGradeUpdateIds.length}명)만 갱신합니다.`
                           : '전체 재학생을 갱신합니다.'}
-                        {' '}아래 유급 대상은 학년이 올라가지 않습니다. 재학생만 학년이 +1 되며, 졸업 학년({graduationGrade}학년)을 넘긴 학생은 졸업 처리됩니다.
+                        {' '}아래 유급 대상은 학년이 올라가지 않습니다. 재학생만 학년이 +1 되며, 졸업 학년({graduationGrade}학년)을 넘긴 학생은 졸업 처리됩니다. 진학 체크(3단계)는 이미 반영되었는지 확인하세요.
                       </p>
                       <div className="retained-search-row" style={{ marginBottom: 12 }}>
                         <strong style={{ marginRight: 12 }}>졸업구분</strong>
@@ -751,15 +820,15 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
                       </div>
                       <div className="grade-confirm-actions">
                         <button type="button" className="field-cancel-btn" disabled={gradeUpdateRunning} onClick={() => setGradeUpdateConfirmOpen(false)}>취소</button>
-                        <button type="button" className="field-save-btn" disabled={gradeUpdateRunning} onClick={handleRunGradeUpdate}>
-                          {gradeUpdateRunning ? '처리 중...' : '완료'}
+                        <button type="button" className="field-save-btn grade-mgmt-modal-confirm" disabled={gradeUpdateRunning} onClick={handleRunGradeUpdate}>
+                          {gradeUpdateRunning ? '처리 중...' : '학년 갱신 실행'}
                         </button>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
       )}

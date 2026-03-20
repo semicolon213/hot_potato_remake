@@ -356,7 +356,11 @@ export const initializeSpreadsheetIds = async (): Promise<{
 };
 
 // 공지사항 관련 함수들 (앱스크립트 API 사용)
-export const fetchAnnouncements = async (userId: string, userType: string): Promise<Post[]> => {
+export const fetchAnnouncements = async (
+    userId: string,
+    userType: string,
+    opts?: { forceRefresh?: boolean }
+): Promise<Post[]> => {
     try {
         if (!announcementSpreadsheetId) {
             console.warn('Announcement spreadsheet ID not found');
@@ -366,6 +370,16 @@ export const fetchAnnouncements = async (userId: string, userType: string): Prom
         if (!userId || !userType) {
             console.warn('User ID or User Type not provided');
             return [];
+        }
+
+        if (opts?.forceRefresh) {
+            try {
+                const cm = getCacheManager();
+                await cm.invalidate('announcements:getAnnouncements:*');
+                await cm.invalidate('announcements:fetchAnnouncements:*');
+            } catch (e) {
+                console.warn('공지 목록 캐시 무효화 실패 (계속 진행):', e);
+            }
         }
 
         console.log(`Fetching announcements via Apps Script API for user: ${userId}, type: ${userType}`);
@@ -460,7 +474,7 @@ const getAnnouncementAttachmentFolderId = async (): Promise<string> => {
     if (announcementAttachmentFolderId) return announcementAttachmentFolderId;
 
     const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME || 'hot_potato_remake';
-    const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME || 'document';
+    const noticeParentFolderName = ENV_CONFIG.NOTICE_ATTACH_PARENT_FOLDER_NAME || 'notice';
     const attachFolderName = ENV_CONFIG.NOTICE_ATTACH_FOLDER_NAME || 'attached_file';
 
     // 1) 프로젝트 루트는 드라이브 루트에서 검색 (없으면 생성)
@@ -477,9 +491,9 @@ const getAnnouncementAttachmentFolderId = async (): Promise<string> => {
         rootFolderId = await findOrCreateFolderByName(rootFolderName, 'root');
     }
 
-    // 2) ROOT/DOCUMENT/NOTICE_ATTACH 경로 보장
-    const documentFolderId = await findOrCreateFolderByName(documentFolderName, rootFolderId);
-    const attachFolderId = await findOrCreateFolderByName(attachFolderName, documentFolderId);
+    // 2) ROOT/NOTICE_PARENT/NOTICE_ATTACH (InitialSetup의 notice/attached_file과 동일)
+    const noticeParentId = await findOrCreateFolderByName(noticeParentFolderName, rootFolderId);
+    const attachFolderId = await findOrCreateFolderByName(attachFolderName, noticeParentId);
 
     announcementAttachmentFolderId = attachFolderId;
     return attachFolderId;
@@ -937,9 +951,10 @@ export const deleteAnnouncement = async (spreadsheetId: string, announcementId: 
         
         let rollback: (() => Promise<void>) | null = null;
         try {
+            const idNorm = String(announcementId);
             rollback = await apiClient.optimisticUpdate<Post[]>('deleteAnnouncement', cacheKeys, (cachedData) => {
                 if (!cachedData || !Array.isArray(cachedData)) return cachedData;
-                return cachedData.filter(post => post.id !== announcementId);
+                return cachedData.filter((post) => String(post.id) !== idNorm);
             });
         } catch (optimisticError) {
             console.warn('⚠️ 낙관적 업데이트 실패 (계속 진행):', optimisticError);

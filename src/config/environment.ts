@@ -44,6 +44,8 @@ const DEFAULT_FOLER: Record<string, string> = {
   WORKFLOW: 'workflow',
   ACCOUNT: 'account',
   ACCOUNT_EVIDENCE: 'evidence',
+  /** 공지 첨부·본문 이미지 저장: ROOT 바로 아래 (InitialSetup의 notice/attached_file과 동일) */
+  NOTICE_PARENT: 'notice',
   NOTICE_ATTACH: 'attached_file',
 };
 
@@ -151,6 +153,8 @@ export const ENV_CONFIG = {
   PERSONAL_TEMPLATE_FOLDER_NAME: FOLER.P_TEMP ?? 'personal_forms',
   ACCOUNTING_FOLDER_NAME: FOLER.ACCOUNT ?? 'account',
   EVIDENCE_FOLDER_NAME: FOLER.ACCOUNT_EVIDENCE ?? 'evidence',
+  /** 공지 첨부 상위 폴더 (예: hot_potato_remake/notice/attached_file 의 notice) */
+  NOTICE_ATTACH_PARENT_FOLDER_NAME: FOLER.NOTICE_PARENT ?? 'notice',
   NOTICE_ATTACH_FOLDER_NAME: FOLER.NOTICE_ATTACH ?? 'attached_file',
 
   // 개인 설정 파일 이름

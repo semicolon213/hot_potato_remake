@@ -10,13 +10,21 @@ import type { Post, Event } from '../types/app';
 interface AppDataState {
   announcements: Post[];
   calendarEvents: Event[];
-  setAnnouncements: (v: Post[]) => void;
-  setCalendarEvents: (v: Event[]) => void;
+  setAnnouncements: (v: Post[] | ((prev: Post[]) => Post[])) => void;
+  setCalendarEvents: (v: Event[] | ((prev: Event[]) => Event[])) => void;
 }
 
 export const useAppDataStore = create<AppDataState>((set) => ({
   announcements: [],
   calendarEvents: [],
-  setAnnouncements: (announcements) => set({ announcements }),
-  setCalendarEvents: (calendarEvents) => set({ calendarEvents }),
+  setAnnouncements: (announcements) =>
+    set((state) => ({
+      announcements:
+        typeof announcements === 'function' ? announcements(state.announcements) : announcements,
+    })),
+  setCalendarEvents: (calendarEvents) =>
+    set((state) => ({
+      calendarEvents:
+        typeof calendarEvents === 'function' ? calendarEvents(state.calendarEvents) : calendarEvents,
+    })),
 }));

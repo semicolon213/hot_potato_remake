@@ -1496,36 +1496,384 @@
 
 /* 학년 관리 (조교 전용) */
 .grade-management-section {
-  max-width: 900px;
+  max-width: 720px;
+  margin: 0 auto;
 }
 .grade-management-forbidden {
   padding: 2rem;
   text-align: center;
   color: var(--text-light);
 }
+
+/* 페이지 뼈대 */
+.grade-management-page {
+  padding-bottom: 2rem;
+}
+.grade-management-page__intro {
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-color, #e8e8e8);
+}
+.grade-management-page__title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-dark, #111);
+}
+.grade-management-page__lead {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text-medium, #555);
+}
+.grade-management-page__lead strong {
+  color: var(--text-dark, #111);
+  font-weight: 700;
+}
+.grade-management-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* 카드 */
+.grade-mgmt-card {
+  background: var(--bg-panel, #fff);
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 12px;
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.grade-mgmt-card--muted {
+  background: var(--sidebar-hover-bg, #fafafa);
+  border-style: dashed;
+  box-shadow: none;
+}
+.grade-mgmt-card--emphasis {
+  border-color: var(--text-dark, #1a1a1a);
+  border-width: 2px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+.grade-mgmt-card__top {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  margin-bottom: 0.65rem;
+}
+.grade-mgmt-step {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--text-dark, #111);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.grade-mgmt-step--accent {
+  background: #b45309;
+}
+.grade-mgmt-card__titles {
+  min-width: 0;
+}
+.grade-mgmt-card__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-dark, #111);
+  letter-spacing: -0.01em;
+}
+.grade-mgmt-card__subtitle {
+  margin: 0.35rem 0 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-light, #666);
+}
+.grade-mgmt-card__desc {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-medium, #555);
+}
+
+/* 폼 · 버튼 */
+.grade-mgmt-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+}
+.grade-mgmt-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-dark, #111);
+}
+.grade-mgmt-select {
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #ccc);
+  font-size: 0.9rem;
+  min-width: 7rem;
+  background: #fff;
+}
+.grade-mgmt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color, #ccc);
+  background: #fff;
+  color: var(--text-dark, #111);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.grade-mgmt-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.grade-mgmt-btn--primary {
+  background: var(--text-dark, #111);
+  color: #fff;
+  border-color: var(--text-dark, #111);
+}
+.grade-mgmt-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.grade-mgmt-btn--sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+}
+.grade-mgmt-btn--ghost {
+  background: transparent;
+}
+.grade-mgmt-btn--ghost:hover:not(:disabled) {
+  background: var(--sidebar-hover-bg, #f0f0f0);
+}
+.grade-mgmt-btn--danger-ghost {
+  border-color: #c53030;
+  color: #c53030;
+  background: transparent;
+}
+.grade-mgmt-btn--danger-ghost:hover:not(:disabled) {
+  background: #fff5f5;
+}
+.grade-mgmt-btn--run {
+  margin-top: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  background: var(--text-dark, #111);
+  color: #fff;
+  border-color: var(--text-dark, #111);
+}
+.grade-mgmt-btn--run:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* 검색 */
+.grade-mgmt-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 100%;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 10px;
+  background: #fff;
+  margin-bottom: 0.75rem;
+}
+.grade-mgmt-search__icon {
+  flex-shrink: 0;
+  opacity: 0.45;
+  font-size: 0.9rem;
+}
+.grade-mgmt-search__input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+  background: transparent;
+}
+.grade-mgmt-search-results {
+  margin-bottom: 0.75rem;
+}
+.grade-mgmt-search-hit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.grade-mgmt-meta {
+  font-size: 0.8rem;
+  color: var(--text-light, #666);
+}
+.grade-mgmt-pill {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: var(--sidebar-hover-bg, #eee);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* 테이블 영역 */
+.grade-mgmt-table-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.grade-mgmt-count-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--text-dark, #111);
+  color: #fff;
+}
+.grade-mgmt-table-scroll {
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.grade-mgmt-table {
+  margin: 0;
+}
+.grade-mgmt-table th,
+.grade-mgmt-table td {
+  font-size: 0.875rem;
+}
+.grade-mgmt-table__actions {
+  width: 5rem;
+  text-align: right;
+}
+.grade-mgmt-table__empty-row td {
+  border-bottom: none;
+}
+.grade-mgmt-empty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--text-light, #666);
+  line-height: 1.5;
+}
+
+/* 모드 토글 */
+.grade-mgmt-mode-toggle {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--border-color, #e8e8e8);
+  gap: 2px;
+  margin-bottom: 1rem;
+}
+.grade-mgmt-mode-btn {
+  border: none;
+  background: transparent;
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-medium, #555);
+  transition: background 0.15s, color 0.15s;
+}
+.grade-mgmt-mode-btn.is-selected {
+  background: #fff;
+  color: var(--text-dark, #111);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* 체크 리스트 */
+.grade-mgmt-picker-wrap {
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+.grade-mgmt-check-list {
+  margin: 0 0 0 0;
+  padding: 0.35rem 0.65rem;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 10px;
+  background: #fff;
+}
+.grade-mgmt-check-list li {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border-color, #eee);
+}
+.grade-mgmt-check-list li:last-child {
+  border-bottom: none;
+}
+.grade-mgmt-check-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+.grade-mgmt-check-label input {
+  margin-top: 0.2rem;
+}
+
+/* 경고 */
+.grade-mgmt-warning {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.85rem 1rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+  border-radius: 10px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+}
+.grade-mgmt-warning__icon {
+  flex-shrink: 0;
+  color: #b45309;
+  margin-top: 0.1rem;
+}
+.grade-mgmt-warning__title {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+  color: #92400e;
+}
+.grade-mgmt-warning__text {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #78350f;
+}
+.grade-mgmt-footnote {
+  margin: 0.65rem 0 0 0;
+  font-size: 0.8rem;
+  color: var(--text-light, #666);
+}
+
+/* 모달 확인 버튼 강조 */
+.grade-mgmt-modal-confirm {
+  font-weight: 700;
+}
+
+/* 레거시 / 공통 */
 .grade-management-block {
   margin-bottom: 2rem;
-}
-.grade-management-block h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.1rem;
 }
 .grade-management-desc {
   margin: 0 0 1rem 0;
   color: var(--text-light);
   font-size: 0.9rem;
-}
-.grade-management-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-.grade-management-row label { margin-right: 0.25rem; }
-.grade-management-row select {
-  padding: 0.4rem 0.75rem;
-  border-radius: var(--sidebar-radius-sm);
-  border: 1px solid var(--border-color);
 }
 .retained-search-row { margin-bottom: 0.75rem; }
 .retained-search-row .search-input {
@@ -1537,17 +1885,17 @@
 }
 .retained-search-results { margin-bottom: 1rem; }
 .retained-search-label, .retained-list-label {
-  display: block;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
+  color: var(--text-dark, #111);
 }
 .retained-search-results ul {
   list-style: none;
-  margin: 0;
+  margin: 0.5rem 0 0 0;
   padding: 0;
   border: 1px solid var(--border-color);
-  border-radius: var(--sidebar-radius-sm);
+  border-radius: 10px;
   max-height: 200px;
   overflow-y: auto;
 }
@@ -1564,11 +1912,6 @@
   font-size: 0.8rem;
   color: var(--text-light);
 }
-.retained-add-btn {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
 .retained-list-wrap {
   margin-top: 0.5rem;
 }
@@ -1583,7 +1926,6 @@
   padding: 0.35rem 0;
   border-bottom: 1px solid var(--border-color);
 }
-.grade-update-btn { margin-top: 0.5rem; }
 .grade-confirm-modal .field-modal-body p { margin: 0 0 1rem 0; }
 .grade-confirm-actions {
   display: flex;

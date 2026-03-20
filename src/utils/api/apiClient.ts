@@ -812,6 +812,11 @@ export class ApiClient {
       // 사용자 관리
       'approveUserWithGroup', 'rejectUser', 'addUsersToSpreadsheet',
       'requestPinnedAnnouncementApproval',
+      'requestPinnedAnnouncement',
+      'createAnnouncement',
+      'updateAnnouncement',
+      'deleteAnnouncement',
+      'approvePinnedAnnouncement',
       
       // 기타
       'migrateEmails', 'clearUserCache',
@@ -972,7 +977,12 @@ export class ApiClient {
       'approveUserWithGroup': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
       'rejectUser': () => ['users:getPendingUsers:*'],
       'addUsersToSpreadsheet': () => ['users:getAllUsers:*'],
-      'requestPinnedAnnouncementApproval': () => ['announcements:fetchAnnouncements:*'],
+      'requestPinnedAnnouncementApproval': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
+      'requestPinnedAnnouncement': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
+      'createAnnouncement': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
+      'updateAnnouncement': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
+      'deleteAnnouncement': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
+      'approvePinnedAnnouncement': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
     };
     
     const getKeys = cacheKeyMap[action];

@@ -53,6 +53,7 @@ export const ENV_CONFIG = {
   PERSONAL_TEMPLATE_FOLDER_NAME: 'personal_forms',
   ACCOUNTING_FOLDER_NAME: 'account',
   EVIDENCE_FOLDER_NAME: 'evidence',
+  NOTICE_ATTACH_PARENT_FOLDER_NAME: 'notice',
   NOTICE_ATTACH_FOLDER_NAME: 'attached_file',
 
   PERSONAL_CONFIG_FILE_NAME: 'user_config',

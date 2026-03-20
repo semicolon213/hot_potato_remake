@@ -174,9 +174,11 @@ const PageRenderer: React.FC<PageRendererProps> = ({
               if (user?.studentId && user?.userType) {
                 try {
                   const { fetchAnnouncements } = await import('../../utils/database/papyrusManager');
-                  const updated = await fetchAnnouncements(user.studentId, user.userType);
+                  const updated = await fetchAnnouncements(user.studentId, user.userType, {
+                    forceRefresh: true,
+                  });
                   // 선택된 공지사항도 업데이트
-                  const updatedPost = updated.find(a => a.id === selectedAnnouncement?.id);
+                  const updatedPost = updated.find(a => String(a.id) === String(selectedAnnouncement?.id));
                   if (updatedPost) {
                     onSelectAnnouncement(updatedPost);
                   }

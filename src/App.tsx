@@ -495,7 +495,9 @@ const App: React.FC = () => {
       });
 
       // 5. 서버 응답 성공 시, 전체 공지사항 목록을 다시 가져와서 UI 업데이트
-      const updatedAnnouncements = await fetchAnnouncements(user.studentId, user.userType);
+      const updatedAnnouncements = await fetchAnnouncements(user.studentId, user.userType, {
+        forceRefresh: true,
+      });
       setAnnouncements(updatedAnnouncements);
 
     } catch (error) {
@@ -547,8 +549,9 @@ const App: React.FC = () => {
     const originalAnnouncements = announcements;
 
     // Optimistically update the local state
+    const idNorm = String(announcementId);
     const updatedAnnouncements = announcements.map(post => {
-      if (post.id === announcementId) {
+      if (String(post.id) === idNorm) {
         return {
           ...post,
           title: postData.title,
@@ -564,7 +567,9 @@ const App: React.FC = () => {
       await updateAnnouncement(announcementId, user.studentId, postData);
       // Re-fetch to get the final content with attachment links
       if (user.userType) {
-        const refreshedAnnouncements = await fetchAnnouncements(user.studentId, user.userType);
+        const refreshedAnnouncements = await fetchAnnouncements(user.studentId, user.userType, {
+          forceRefresh: true,
+        });
         setAnnouncements(refreshedAnnouncements);
       }
     } catch (error) {
@@ -581,10 +586,11 @@ const App: React.FC = () => {
     }
 
     const originalAnnouncements = announcements;
+    const idNorm = String(announcementId);
 
     // Optimistically update the UI
     const updatedAnnouncements = announcements.map(post => {
-      if (post.id === announcementId) {
+      if (String(post.id) === idNorm) {
         return {
           ...post,
           isPinned: false,
@@ -596,10 +602,11 @@ const App: React.FC = () => {
     setAnnouncements(updatedAnnouncements);
 
     try {
+      const target = announcements.find((a) => String(a.id) === idNorm);
       // 고정 해제: isPinned를 false로 설정
       await updateAnnouncement(announcementId, user.studentId, {
-        title: announcements.find(a => a.id === announcementId)?.title || '',
-        content: announcements.find(a => a.id === announcementId)?.content || '',
+        title: target?.title || '',
+        content: target?.content || '',
         attachments: [],
         existingAttachments: [],
         isPinned: false
@@ -607,7 +614,9 @@ const App: React.FC = () => {
 
       // 목록 새로고침
       if (user.userType) {
-        const refreshedAnnouncements = await fetchAnnouncements(user.studentId, user.userType);
+        const refreshedAnnouncements = await fetchAnnouncements(user.studentId, user.userType, {
+          forceRefresh: true,
+        });
         setAnnouncements(refreshedAnnouncements);
       }
     } catch (error) {
@@ -623,9 +632,10 @@ const App: React.FC = () => {
       return;
     }
 
+    const idNorm = String(announcementId);
     const originalAnnouncements = announcements;
-    // Optimistically update the UI
-    setAnnouncements(announcements.filter(a => a.id !== announcementId));
+    // Optimistically update the UI (ID는 시트에서 숫자/문자 혼용 가능 → 문자열로 통일)
+    setAnnouncements((prev) => prev.filter((a) => String(a.id) !== idNorm));
     handlePageChange('announcements');
 
     try {
@@ -635,7 +645,9 @@ const App: React.FC = () => {
       await deleteAnnouncement(announcementSpreadsheetId, announcementId, user.studentId);
       // 삭제 성공 후 목록 새로고침
       if (user.userType) {
-        const refreshedAnnouncements = await fetchAnnouncements(user.studentId, user.userType);
+        const refreshedAnnouncements = await fetchAnnouncements(user.studentId, user.userType, {
+          forceRefresh: true,
+        });
         setAnnouncements(refreshedAnnouncements);
       }
     } catch (error) {
