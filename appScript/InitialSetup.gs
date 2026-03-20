@@ -666,6 +666,8 @@ function setScriptProperties() {
       'DOCUMENT_FOLDER_NAME': 'document',
       'ACCOUNT_FOLDER_NAME': 'account',
       'WORKFLOW_FOLDER_NAME': 'workflow',
+      // 회계 장부 하위 증빙 폴더 기본명 (웹앱 .env ACCOUNT_EVIDENCE 기본 evidence 와 맞춤; 웹에서 생성 시 요청값 우선)
+      'EVIDENCE_FOLDER_NAME': 'evidence',
       'TEMPLATE_FOLDER_NAME': 'shared_forms',
       'SHARED_DOCUMENT_FOLDER_NAME': 'shared_documents',
       'PERSONAL_TEMPLATE_FOLDER_NAME': 'personal_forms',

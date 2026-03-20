@@ -35,7 +35,7 @@ const Accounting: React.FC<AccountingProps> = ({ onPageChange }) => {
 
   const handleCreateSuccess = () => {
     setIsCreateModalOpen(false);
-    refreshLedgers();
+    void refreshLedgers(false, true);
   };
 
   // 통계 계산

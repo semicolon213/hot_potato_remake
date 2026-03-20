@@ -538,7 +538,9 @@ function doPost(e) {
     if (req.action === 'createLedger') {
       console.log('📁 장부 생성 요청:', req);
       try {
-        const result = createLedgerStructure(req);
+        const ledgerReq = flattenCreateLedgerRequest_(req);
+        console.log('📁 장부 생성 정규화 params (data 병합):', ledgerReq);
+        const result = createLedgerStructure(ledgerReq);
         return ContentService
           .createTextOutput(JSON.stringify(result))
           .setMimeType(ContentService.MimeType.JSON);
@@ -858,12 +860,24 @@ function doPost(e) {
 
 // ===== 요청 데이터 파싱 =====
 function parseRequest(e) {
+  // 쿼리 문자열(e.parameter)을 먼저 담고, JSON 본문으로 덮어씀 (본문 우선).
+  // 이전에는 본문 후에 쿼리로 덮어써서 evidenceFolderName 등이 빈 쿼리값으로 지워질 수 있었음.
   let req = {};
+  
+  if (e.parameter) {
+    for (const key in e.parameter) {
+      if (Object.prototype.hasOwnProperty.call(e.parameter, key)) {
+        req[key] = e.parameter[key];
+      }
+    }
+  }
   
   if (e.postData && e.postData.contents) {
     try {
-      // JSON 형태의 요청 처리
-      req = JSON.parse(e.postData.contents);
+      const body = JSON.parse(e.postData.contents);
+      if (body && typeof body === 'object' && !Array.isArray(body)) {
+        req = Object.assign({}, req, body);
+      }
     } catch (jsonError) {
       try {
         // URL 인코딩된 형태의 요청 처리
@@ -876,20 +890,24 @@ function parseRequest(e) {
         }
       } catch (urlError) {
         console.error('요청 파싱 오류:', urlError);
-        req = {};
       }
     }
   }
   
-  // 쿼리 파라미터도 추가
-  if (e.parameter) {
-    for (const key in e.parameter) {
-      if (e.parameter.hasOwnProperty(key)) {
-        req[key] = e.parameter[key];
-      }
-    }
+  return req;
+}
+
+/**
+ * createLedger: { data: { ...필드 } } 형태도 지원 (본문 필드가 data 안에만 있을 때)
+ * @param {Object} req
+ * @returns {Object}
+ */
+function flattenCreateLedgerRequest_(req) {
+  if (!req || typeof req !== 'object') return req;
+  var nested = req.data;
+  if (nested != null && typeof nested === 'object' && !Array.isArray(nested)) {
+    return Object.assign({}, nested, req);
   }
-  
   return req;
 }
 

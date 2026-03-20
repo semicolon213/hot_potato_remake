@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getLedgerInfo } from '../../../utils/google/accountingFolderManager';
 import { apiClient } from '../../../utils/api/apiClient';
+import { ENV_CONFIG } from '../../../config/environment';
 import { getCacheManager } from '../../../utils/cache/cacheManager';
 import { generateCacheKey } from '../../../utils/cache/cacheUtils';
 import type { LedgerInfo, CreateLedgerRequest, LedgerResponse } from '../../../types/features/accounting';
@@ -33,14 +34,15 @@ export const useLedgerManagement = () => {
 
   /**
    * 장부 목록 새로고침. silent=true면 로딩 UI 없이 백그라운드 갱신(캐시 우선 표시 후 사용).
+   * forceRefresh=true면 getLedgerList 캐시를 먼저 비움(생성·삭제 직후 목록이 안 바뀔 때).
    */
-  const refreshLedgers = useCallback(async (silent = false) => {
+  const refreshLedgers = useCallback(async (silent = false, forceRefresh = false) => {
     if (!silent) {
       setIsLoading(true);
       setError(null);
     }
     try {
-      const response = await apiClient.getLedgerList();
+      const response = await apiClient.getLedgerList({ forceRefresh });
       if (response.success && response.data) {
         setLedgers(toLedgerInfoList(response.data));
       } else {
@@ -74,19 +76,22 @@ export const useLedgerManagement = () => {
       
       const response = await apiClient.createLedger({
         ledgerName: request.ledgerName,
-        creatorEmail: userInfo.email || '',
+        accountName: request.accountName,
+        initialBalance: request.initialBalance,
+        creatorEmail: userInfo.email || request.creatorEmail || '',
         accessUsers: request.accessUsers,
         accessGroups: request.accessGroups,
         mainManagerEmail: request.mainManagerEmail,
-        subManagerEmails: request.subManagerEmails
+        subManagerEmails: request.subManagerEmails,
+        evidenceFolderName: ENV_CONFIG.EVIDENCE_FOLDER_NAME || 'evidence',
       });
 
       if (!response.success) {
         throw new Error(response.message || '장부 생성에 실패했습니다.');
       }
 
-      // 장부 목록 새로고침
-      await refreshLedgers();
+      // 장부 목록 새로고침 (캐시된 목록이 남지 않도록)
+      await refreshLedgers(false, true);
       
       return response.data;
       

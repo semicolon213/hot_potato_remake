@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSearch, FaTags } from 'react-icons/fa';
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../../../utils/database/accountingManager';
 import type { Category } from '../../../types/features/accounting';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
@@ -28,8 +28,12 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [editCategoryName, setEditCategoryName] = useState('');
   const [editCategoryDescription, setEditCategoryDescription] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  /** 목록 최초/재조회 로딩 (테이블 스켈레톤) */
+  const [listLoading, setListLoading] = useState(true);
+  /** 추가·수정·삭제 중 (모달 버튼만 비활성화, 테이블은 유지) */
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -37,12 +41,16 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
   }, [spreadsheetId]);
 
   const loadCategories = async () => {
+    setListLoading(true);
+    setListError(null);
     try {
       const categoriesData = await getCategories(spreadsheetId);
       setCategories(categoriesData);
     } catch (err) {
       console.error('❌ 카테고리 로드 오류:', err);
-      setError('카테고리를 불러오는데 실패했습니다.');
+      setListError('카테고리를 불러오는데 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setListLoading(false);
     }
   };
 
@@ -58,7 +66,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
     setError(null);
 
     try {
@@ -83,7 +91,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       const errorMessage = err instanceof Error ? err.message : '카테고리 추가에 실패했습니다.';
       setError(errorMessage);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -155,7 +163,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
     setError(null);
 
     try {
@@ -168,7 +176,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       notifyGlobal(errorMessage, 'error');
       setError(errorMessage);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -185,58 +193,164 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
     (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  const openAddModal = () => {
+    setError(null);
+    setIsAddModalOpen(true);
+  };
+
+  const isSearchNoResults =
+    !listLoading &&
+    !listError &&
+    categories.length > 0 &&
+    filteredCategories.length === 0 &&
+    searchTerm.trim() !== '';
+
+  const isEmptyList =
+    !listLoading && !listError && categories.length === 0;
+
   return (
     <>
-      <div className="category-table-wrapper">
-        <table className="category-table">
-          <thead>
-            <tr>
-              <th className="col-category-name">카테고리 이름</th>
-              <th className="col-category-description">설명</th>
-              <th className="col-category-usage">사용 횟수</th>
-              <th className="col-category-actions">작업</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 10 }).map((_, index) => (
-                <tr key={`loading-${index}`}>
-                  <td className="cell-category-name"></td>
-                  <td className="cell-category-description"></td>
-                  <td className="cell-category-usage"></td>
-                  <td className="cell-category-actions"></td>
+      <div className="category-management-panel">
+        <div className="category-management-header">
+          <div className="category-management-title-block">
+            <h2>카테고리 관리</h2>
+            <p className="category-management-subtitle">
+              장부 항목·예산을 묶어서 볼 분류를 만듭니다. 항목 추가 시 카테고리를 선택하게 됩니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="add-category-btn add-category-btn--primary"
+            onClick={openAddModal}
+          >
+            <FaPlus aria-hidden />
+            카테고리 추가
+          </button>
+        </div>
+
+        <div className="category-toolbar">
+          <div className="category-search">
+            <FaSearch className="category-search-icon" aria-hidden />
+            <input
+              type="search"
+              placeholder="이름 또는 설명으로 검색"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="카테고리 검색"
+              disabled={listLoading || !!listError}
+            />
+          </div>
+          {searchTerm.trim() !== '' && (
+            <button
+              type="button"
+              className="category-search-reset"
+              onClick={() => setSearchTerm('')}
+              disabled={listLoading}
+            >
+              검색 지우기
+            </button>
+          )}
+        </div>
+
+        {listError && (
+          <div className="category-list-error" role="alert">
+            <span>{listError}</span>
+            <button type="button" className="category-retry-btn" onClick={() => void loadCategories()}>
+              다시 시도
+            </button>
+          </div>
+        )}
+
+        <div className={`category-table-wrapper ${isSaving ? 'category-table-wrapper--dimmed' : ''}`}>
+          {listError && categories.length === 0 ? (
+            <div className="category-empty-state category-empty-state--muted category-empty-state--compact">
+              <p className="category-empty-state-text category-empty-state-text--solo">
+                목록을 불러오지 못했습니다. 상단 안내에 따라 <strong>다시 시도</strong>를 눌러 주세요.
+              </p>
+            </div>
+          ) : listLoading ? (
+            <table className="category-table category-table--loading" aria-busy="true">
+              <thead>
+                <tr>
+                  <th className="col-category-name">카테고리 이름</th>
+                  <th className="col-category-description">설명</th>
+                  <th className="col-category-usage">사용 횟수</th>
+                  <th className="col-category-actions">작업</th>
                 </tr>
-              ))
-            ) : filteredCategories.length === 0 ? (
-              Array.from({ length: 10 }).map((_, index) => (
-                <tr key={`empty-${index}`}>
-                  <td className="cell-category-name"></td>
-                  <td className="cell-category-description"></td>
-                  <td className="cell-category-usage"></td>
-                  <td className="cell-category-actions"></td>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={`sk-${index}`} className="category-skeleton-row">
+                    <td><span className="category-skeleton-cell" /></td>
+                    <td><span className="category-skeleton-cell category-skeleton-cell--long" /></td>
+                    <td><span className="category-skeleton-cell category-skeleton-cell--short" /></td>
+                    <td><span className="category-skeleton-cell category-skeleton-cell--short" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : isEmptyList ? (
+            <div className="category-empty-state">
+              <div className="category-empty-state-icon" aria-hidden>
+                <FaTags />
+              </div>
+              <h3 className="category-empty-state-title">첫 카테고리를 만들어 보세요</h3>
+              <p className="category-empty-state-text">
+                MT·회식·소모품처럼 팀에 맞는 이름으로 정리하면 장부와 예산이 한결 보기 쉬워집니다.
+              </p>
+              <button type="button" className="add-category-btn add-category-btn--primary" onClick={openAddModal}>
+                <FaPlus aria-hidden />
+                카테고리 추가
+              </button>
+            </div>
+          ) : isSearchNoResults ? (
+            <div className="category-empty-state category-empty-state--muted">
+              <div className="category-empty-state-icon category-empty-state-icon--muted" aria-hidden>
+                <FaSearch />
+              </div>
+              <h3 className="category-empty-state-title">검색 결과가 없습니다</h3>
+              <p className="category-empty-state-text">
+                &ldquo;{searchTerm}&rdquo;에 맞는 카테고리가 없습니다. 다른 단어로 검색하거나 검색을 지워 주세요.
+              </p>
+              <button type="button" className="category-search-reset category-search-reset--standalone" onClick={() => setSearchTerm('')}>
+                검색 초기화
+              </button>
+            </div>
+          ) : (
+            <table className="category-table">
+              <thead>
+                <tr>
+                  <th className="col-category-name">카테고리 이름</th>
+                  <th className="col-category-description">설명</th>
+                  <th className="col-category-usage">사용 횟수</th>
+                  <th className="col-category-actions">작업</th>
                 </tr>
-              ))
-            ) : (
-              <>
+              </thead>
+              <tbody>
                 {filteredCategories.map(category => (
                   <tr key={category.categoryId}>
                     <td className="cell-category-name">{category.categoryName}</td>
-                    <td className="cell-category-description">{category.description || ''}</td>
-                    <td className="cell-category-usage">{category.usageCount}회</td>
+                    <td className="cell-category-description">{category.description || '—'}</td>
+                    <td className="cell-category-usage">
+                      <span className="category-usage-pill">{category.usageCount}회</span>
+                    </td>
                     <td className="cell-category-actions">
                       <div className="category-actions">
                         <button
+                          type="button"
                           onClick={() => handleEditCategory(category)}
                           className="btn-edit"
                           title="수정"
+                          disabled={isSaving}
                         >
                           <FaEdit />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteCategory(category)}
                           className="btn-delete"
                           title="삭제"
-                          disabled={category.usageCount > 0}
+                          disabled={category.usageCount > 0 || isSaving}
                         >
                           <FaTrash />
                         </button>
@@ -244,18 +358,10 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
                     </td>
                   </tr>
                 ))}
-                {filteredCategories.length < 10 && Array.from({ length: 10 - filteredCategories.length }).map((_, index) => (
-                  <tr key={`empty-${index}`}>
-                    <td className="cell-category-name"></td>
-                    <td className="cell-category-description"></td>
-                    <td className="cell-category-usage"></td>
-                    <td className="cell-category-actions"></td>
-                  </tr>
-                ))}
-              </>
-            )}
-          </tbody>
-        </table>
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       {/* 카테고리 추가 모달 */}
@@ -313,17 +419,17 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
               <button
                 type="button"
                 onClick={handleCloseModal}
-                disabled={isLoading}
+                disabled={isSaving}
                 className="btn-cancel"
               >
                 취소
               </button>
               <button
                 onClick={handleAddCategory}
-                disabled={isLoading || !newCategoryName.trim()}
+                disabled={isSaving || !newCategoryName.trim()}
                 className="btn-primary"
               >
-                {isLoading ? (
+                {isSaving ? (
                   <>
                     <span className="spinner"></span>
                     추가 중...
@@ -393,17 +499,17 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
               <button
                 type="button"
                 onClick={handleCloseEditModal}
-                disabled={isLoading}
+                disabled={isSaving}
                 className="btn-cancel"
               >
                 취소
               </button>
               <button
                 onClick={handleUpdateCategory}
-                disabled={isLoading || !editCategoryName.trim()}
+                disabled={isSaving || !editCategoryName.trim()}
                 className="btn-primary"
               >
-                {isLoading ? (
+                {isSaving ? (
                   <>
                     <span className="spinner"></span>
                     수정 중...

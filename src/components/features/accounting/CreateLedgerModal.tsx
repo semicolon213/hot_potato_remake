@@ -141,7 +141,8 @@ export const CreateLedgerModal: React.FC<CreateLedgerModalProps> = ({
         accessUsers: request.accessUsers,
         accessGroups: request.accessGroups,
         mainManagerEmail: request.mainManagerEmail,
-        subManagerEmails: request.subManagerEmails
+        subManagerEmails: request.subManagerEmails,
+        evidenceFolderName: ENV_CONFIG.EVIDENCE_FOLDER_NAME || 'evidence',
       });
 
       if (!response.success) {

@@ -1,4 +1,5 @@
 import { API_CONFIG, API_ACTIONS } from '../../config/api';
+import { ENV_CONFIG } from '../../config/environment';
 import type {
   SpreadsheetIdsResponse,
   StaticTagsResponse,
@@ -397,11 +398,29 @@ export class ApiClient {
     accessGroups: string[];
     mainManagerEmail: string;
     subManagerEmails: string[];
+    /** VITE_FOLER_NAME.ACCOUNT_EVIDENCE — 장부 하위 증빙 폴더명 (GAS와 동일해야 함) */
+    evidenceFolderName?: string;
   }) {
-    return this.request('createLedger', data);
+    // 호출처에서 빠져도 .env ACCOUNT_EVIDENCE가 항상 전달되도록 (GAS 스크립트 속성 증빙만 쓰이는 문제 방지)
+    const evidenceFolderName =
+      data.evidenceFolderName != null && String(data.evidenceFolderName).trim() !== ''
+        ? String(data.evidenceFolderName).trim()
+        : (ENV_CONFIG.EVIDENCE_FOLDER_NAME || 'evidence');
+    return this.request('createLedger', {
+      ...data,
+      evidenceFolderName,
+      accountEvidence: evidenceFolderName,
+    });
   }
 
-  async getLedgerList() {
+  async getLedgerList(options?: { forceRefresh?: boolean }) {
+    if (options?.forceRefresh) {
+      try {
+        await getCacheManager().invalidate('accounting:getLedgerList:*');
+      } catch (e) {
+        console.warn('장부 목록 캐시 무효화 실패 (계속 진행):', e);
+      }
+    }
     return this.request<{ success: boolean; data: LedgerResponse[] }>('getLedgerList', {});
   }
 

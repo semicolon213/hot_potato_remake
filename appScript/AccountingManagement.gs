@@ -4,6 +4,79 @@
  * Hot Potato Accounting Management System
  */
 
+// ===== 증빙 하위 폴더 이름 (.env VITE_FOLER_NAME.ACCOUNT_EVIDENCE 와 동기화) =====
+
+/**
+ * 웹앱 요청 필드 → 스크립트 속성 EVIDENCE_FOLDER_NAME → 기본 evidence
+ * (요청에 camelCase/snake_case/별칭 accountEvidence 모두 허용. 예전 속성값이 '증빙'이면 요청 없을 때만 그 이름이 쓰임.)
+ * @param {Object} params - createLedger 요청 본문
+ * @returns {string}
+ */
+function getEvidenceFolderNameFromParams_(params) {
+  var p = params || {};
+  var candidates = [
+    p.evidenceFolderName,
+    p.evidence_folder_name,
+    p.accountEvidence,
+    p.account_evidence,
+    p.ACCOUNT_EVIDENCE
+  ];
+  if (p.data != null && typeof p.data === 'object') {
+    candidates.push(p.data.evidenceFolderName);
+    candidates.push(p.data.evidence_folder_name);
+    candidates.push(p.data.accountEvidence);
+    candidates.push(p.data.account_evidence);
+    candidates.push(p.data.ACCOUNT_EVIDENCE);
+  }
+  var i;
+  for (i = 0; i < candidates.length; i++) {
+    if (candidates[i] != null && String(candidates[i]).trim() !== '') {
+      return String(candidates[i]).trim();
+    }
+  }
+  var prop = PropertiesService.getScriptProperties().getProperty('EVIDENCE_FOLDER_NAME');
+  if (prop && String(prop).trim()) {
+    return String(prop).trim();
+  }
+  return 'evidence';
+}
+
+/**
+ * 장부 폴더 하위에서 증빙 폴더 탐색 (현재 설정명 → 레거시 '증빙' → 'evidence')
+ * @param {GoogleAppsScript.Drive.Folder} ledgerFolder
+ * @param {Object} params - getLedgerList 는 {};
+ * @returns {GoogleAppsScript.Drive.Folder|null}
+ */
+function findEvidenceSubFolderInLedger_(ledgerFolder, params) {
+  var primary = getEvidenceFolderNameFromParams_(params || {});
+  var tryNames = [primary];
+  if (tryNames.indexOf('증빙') === -1) tryNames.push('증빙');
+  if (tryNames.indexOf('evidence') === -1) tryNames.push('evidence');
+  var subs = [];
+  var it = ledgerFolder.getFolders();
+  while (it.hasNext()) {
+    subs.push(it.next());
+  }
+  for (var i = 0; i < tryNames.length; i++) {
+    var want = tryNames[i];
+    for (var j = 0; j < subs.length; j++) {
+      if (subs[j].getName() === want) return subs[j];
+    }
+  }
+  return null;
+}
+
+/**
+ * 회계 최상위에 잘못 올라간 증빙 전용 폴더처럼 보이는 이름인지 (목록에서 제외)
+ * @param {string} folderName
+ * @returns {boolean}
+ */
+function isLikelyMisplacedEvidenceRootFolder_(folderName) {
+  if (folderName === '증빙' || folderName === 'evidence') return true;
+  var p = PropertiesService.getScriptProperties().getProperty('EVIDENCE_FOLDER_NAME');
+  return !!(p && String(p).trim() === folderName);
+}
+
 // ===== 회계 폴더 초기화 =====
 
 /**
@@ -457,10 +530,14 @@ function createLedgerStructure(params) {
     
     console.log('✅ 스프레드시트 생성:', spreadsheetId);
     
-    // 4. 증빙 폴더 생성
-    const evidenceFolder = ledgerFolder.createFolder('증빙');
+    // 4. 증빙 폴더 생성 (프론트 evidenceFolderName / 스크립트 속성 EVIDENCE_FOLDER_NAME)
+    const evidenceFolderLabel = getEvidenceFolderNameFromParams_(params);
+    console.log('📌 증빙 폴더 적용 이름:', evidenceFolderLabel,
+      '| 요청 evidenceFolderName:', params.evidenceFolderName,
+      '| 스크립트속성 EVIDENCE_FOLDER_NAME:', PropertiesService.getScriptProperties().getProperty('EVIDENCE_FOLDER_NAME'));
+    const evidenceFolder = ledgerFolder.createFolder(evidenceFolderLabel);
     const evidenceFolderId = evidenceFolder.getId();
-    console.log('✅ 증빙 폴더 생성:', evidenceFolderId);
+    console.log('✅ 증빙 폴더 생성:', evidenceFolderLabel, evidenceFolderId);
     
     // 5. 권한 설정
     // 접근 권한 대상: 생성자 + 주관리인 + 별도 관리인 + 지정된 사용자
@@ -521,6 +598,7 @@ function createLedgerStructure(params) {
         ledgerFolderId: ledgerFolderId,
         spreadsheetId: spreadsheetId,
         evidenceFolderId: evidenceFolderId,
+        resolvedEvidenceFolderName: evidenceFolderLabel,
         permissionResult: {
           folder: folderPermissionResult,
           spreadsheet: spreadsheetPermissionResult,
@@ -558,8 +636,8 @@ function getLedgerList() {
       const folder = folders.next();
       const folderName = folder.getName();
       
-      // 증빙 폴더는 제외
-      if (folderName === '증빙') {
+      // 증빙 전용 이름으로 잘못 만든 최상위 폴더는 제외
+      if (isLikelyMisplacedEvidenceRootFolder_(folderName)) {
         continue;
       }
       
@@ -577,17 +655,9 @@ function getLedgerList() {
         }
       }
       
-      // 증빙 폴더 찾기
-      const subFolders = folder.getFolders();
-      let evidenceFolderId = null;
-      
-      while (subFolders.hasNext()) {
-        const subFolder = subFolders.next();
-        if (subFolder.getName() === '증빙') {
-          evidenceFolderId = subFolder.getId();
-          break;
-        }
-      }
+      // 증빙 폴더 찾기 (환경/레거시 이름 호환)
+      const evidenceSub = findEvidenceSubFolderInLedger_(folder, {});
+      const evidenceFolderId = evidenceSub ? evidenceSub.getId() : null;
       
       ledgers.push({
         folderId: folder.getId(),
