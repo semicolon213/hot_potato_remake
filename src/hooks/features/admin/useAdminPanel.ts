@@ -300,7 +300,7 @@ export const useAdminPanel = () => {
       const result = await approveUserWithGroup(studentId, groupRole);
       
       if (result.success) {
-        setMessage('사용자가 승인되었습니다. 그룹스 관리자에게 알림이 전송되었습니다.');
+        setMessage(result.message || '사용자가 승인되었습니다.');
         
         // 즉시 로컬 상태 업데이트 (UI 즉시 반영)
         const approvedUser = users.find(u => u.studentId === studentId);
@@ -335,7 +335,7 @@ export const useAdminPanel = () => {
         await loadUsers();
         console.log('사용자 목록 새로고침 완료');
       } else {
-        setMessage(result.error || '사용자 승인에 실패했습니다.');
+        setMessage(result.message || result.error || '사용자 승인에 실패했습니다.');
       }
       
     } catch (error) {

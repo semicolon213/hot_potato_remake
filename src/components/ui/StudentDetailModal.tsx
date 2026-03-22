@@ -5,7 +5,6 @@ import type { Student, StudentWithCouncil } from '../../types/features/students/
 import type { CareerItem } from '../../types/features/staff';
 import type { EmploymentRow, EmploymentAfterUpdate, EmploymentField } from '../../types/features/students/employment';
 import './StudentDetailModal.css';
-import { ENV_CONFIG } from '../../config/environment';
 import { apiClient } from '../../utils/api/apiClient';
 import { useNotification } from '../../hooks/ui/useNotification';
 import { NotificationModal } from './NotificationModal';
@@ -111,33 +110,9 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     }
 
     try {
-      // 개발 환경에서는 프록시 사용, 프로덕션에서는 직접 URL 사용
-      const isDevelopment = import.meta.env.DEV;
-      const baseUrl = isDevelopment ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
-      
-      const requestBody = {
-        action: 'decryptEmail',
-        data: encryptedPhone
-      };
-      console.log('복호화 요청 데이터:', { baseUrl, requestBody });
-      
-      const response = await fetch(baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      console.log('복호화 응답 상태:', response.status);
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('복호화 응답 데이터:', result);
-        return result.success ? result.data : encryptedPhone;
-      } else {
-        console.error('복호화 응답 실패:', response.status, response.statusText);
-      }
+      const result = await apiClient.request<string>('decryptEmail', { data: encryptedPhone });
+      console.log('복호화 응답 데이터:', result);
+      return result.success && result.data ? result.data : encryptedPhone;
     } catch (error) {
       console.error('연락처 복호화 실패:', error);
     }
@@ -160,40 +135,12 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     }
 
     try {
-      // 개발 환경에서는 프록시 사용, 프로덕션에서는 직접 URL 사용
-      const isDevelopment = import.meta.env.DEV;
-      const baseUrl = isDevelopment ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
-      
-      console.log('🔗 사용하는 URL:', baseUrl);
-      console.log('🔗 ENV_CONFIG.APP_SCRIPT_URL:', ENV_CONFIG.APP_SCRIPT_URL);
-      console.log('🔗 개발환경 여부:', isDevelopment);
-      
-      const requestBody = {
-        action: 'encryptEmail',
-        data: phone
-      };
-      console.log('암호화 요청 데이터:', { baseUrl, requestBody });
-      
-      const response = await fetch(baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      console.log('암호화 응답 상태:', response.status);
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('암호화 응답 데이터:', result);
-        if (result.debug) {
-          console.log('🔍 디버그 정보:', result.debug);
-        }
-        return result.success ? result.data : phone;
-      } else {
-        console.error('암호화 응답 실패:', response.status, response.statusText);
+      const result = await apiClient.request<string>('encryptEmail', { data: phone });
+      console.log('암호화 응답 데이터:', result);
+      if (result.debug) {
+        console.log('🔍 디버그 정보:', result.debug);
       }
+      return result.success && result.data ? result.data : phone;
     } catch (error) {
       console.error('연락처 암호화 실패:', error);
     }

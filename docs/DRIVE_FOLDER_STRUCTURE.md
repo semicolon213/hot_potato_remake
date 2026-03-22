@@ -44,8 +44,7 @@ hot_potato_remake/                    # 루트 폴더
 │   ├── notice                        # 공지 스프레드시트
 │   └── attached_file/                # 공지 첨부파일
 │
-├── account/                          # 회계
-│   └── evidence/                     # 회계 증빙 자료
+├── account/                          # 회계 (장부별 폴더 생성 시 evidence 하위 폴더도 해당 장부 안에 생성됨)
 │
 ├── workflow/                         # 워크플로우(결재)
 │   ├── workflow                      # 워크플로우 스프레드시트
@@ -79,7 +78,7 @@ hot_potato_remake/                    # 루트 폴더
 | 폴더 | 용도 |
 |------|------|
 | `notice` | 공지사항 게시판, 첨부파일 |
-| `account` | 회계 장부, 증빙 자료 |
+| `account` | 회계 장부 (장부 생성 시 evidence 폴더가 해당 장부 내에 생성됨) |
 | `workflow` | 결재 워크플로우, 결재 문서 |
 | `document` | 공유 문서/양식, 문서 태그 |
 | `professor` | 교수 전용 캘린더 |
@@ -126,9 +125,9 @@ hot_potato_remake/                    # 루트 폴더
 | 시트명 | 용도 | 주요 필드 |
 |--------|------|-----------|
 | `user` | 회원 정보 | no_member, user_type, name_member, google_member, Approval, is_admin, approval_date |
-| `group_management_log` | 그룹 관리 로그 | - |
-| `admin_keys` | 관리자 키 | - |
-| `admin_keys_backup` | 관리자 키 백업 | - |
+| `admin_keys` | 관리자 키 | encrypted_key, created_at, status, layers_used |
+| `admin_keys_backup` | 관리자 키 백업 | encrypted_key, created_at, status, layers_used |
+| `group_management_log` | 그룹 관리 로그 | 학번, 사용자 이메일, 사용자 이름, 그룹스 이메일, 그룹스 이름, 그룹스 역할, 상태, 승인일 |
 
 ### 4.2 user_setting (개인 드라이브)
 
@@ -169,8 +168,10 @@ hot_potato_remake/                    # 루트 폴더
 
 | 시트명 | 용도 | 주요 필드 |
 |--------|------|-----------|
-| `info` | 학생 정보 | no, name, address, phone_num, grade, state, council, flunk |
+| `info` | 학생 정보 | no, name, address, phone_num, grade, state, council, flunk, grad_year, grad_term, advanced |
 | `std_issue` | 학생 이슈 | no_member, date_issue, type_issue, level_issue, content_issue |
+| `employment` | 취업 정보 | std_num, is_major, field_num, com_name, occ_category, question |
+| `field` | 직종 분야 | field_num, field_name |
 
 ### 4.8 staff (assistant/)
 

@@ -65,15 +65,20 @@ export class ApiClient {
   private dataSyncService: any = null; // DataSyncService 인스턴스 (나중에 주입)
 
   constructor() {
-    // 개발: Vite 프록시, 프로덕션: Netlify Functions 프록시
-    const isDev = typeof window !== 'undefined' && import.meta && import.meta.env ? import.meta.env.DEV : false;
-    this.baseUrl = isDev ? '/api' : '/.netlify/functions/proxy';
+    // 개발(localhost): Vite 프록시 /api → Apps Script
+    // 배포(Netlify): Netlify Functions /.netlify/functions/proxy → Apps Script
+    const isLocal = typeof window !== 'undefined' && (
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      import.meta?.env?.DEV === true
+    );
+    this.baseUrl = isLocal ? '/api' : '/.netlify/functions/proxy';
     this.defaultTimeout = API_CONFIG.TIMEOUT;
     this.defaultRetries = API_CONFIG.MAX_RETRIES;
     
     console.log('API 클라이언트 초기화 (프록시 사용):', {
       baseUrl: this.baseUrl,
-      isDev,
+      isLocal,
       timeout: this.defaultTimeout,
       retries: this.defaultRetries
     });

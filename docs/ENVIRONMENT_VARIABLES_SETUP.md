@@ -51,29 +51,60 @@
 값: 시트1
 ```
 
+#### 선택 스크립트 속성 (그룹스 이메일, 워크스페이스 자동 멤버 추가용)
+
+워크스페이스에서 사용자 승인 시 그룹스에 자동 멤버 추가를 위해 그룹 이메일을 설정합니다.  
+VITE_GROUP_EMAIL과 동일한 JSON 형식을 사용할 수 있습니다.
+
+```
+키: GROUP_EMAIL_JSON
+값: {"STUDENT":"student_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","ADJ_PROFESSOR":"adj_professor_hp@googlegroups.com","ASSISTANT":"assistant_hp@googlegroups.com"}
+```
+
+또는 역할키 형식:
+```
+값: {"student":"student_hp@...", "std_council":"...", "supp":"...", "professor":"...", "ad_professor":"..."}
+```
+
+> 워크스페이스 환경 + Admin SDK 권한이 있으면 사용자 승인 시 그룹스에 자동으로 멤버를 추가합니다.  
+> 설정하지 않으면 CONFIG.gs의 기본 매핑을 사용합니다.
+
 ### 방법 2: 코드로 일괄 설정 함수 만들기
 
 Apps Script 에디터에 아래 함수를 추가하고 실행하세요:
 
 ```javascript
 // 임시 설정 함수 (한 번 실행 후 삭제해도 됨)
+// ※ initializeSystem() 실행 시 setScriptProperties가 자동으로 호출되므로, 
+//    초기화 후에는 이 함수를 수동 실행할 필요가 없을 수 있습니다.
 function setupScriptProperties() {
   const properties = {
     'ROOT_FOLDER_NAME': 'hot_potato_remake',
     'DOCUMENT_FOLDER_NAME': 'document',
     'SHARED_DOCUMENT_FOLDER_NAME': 'shared_documents',
     'PERSONAL_TEMPLATE_FOLDER_NAME': 'personal_forms',
+    'TEMPLATE_FOLDER_NAME': 'shared_forms',
+    'ACCOUNT_FOLDER_NAME': 'account',
+    'WORKFLOW_FOLDER_NAME': 'workflow',
+    'EVIDENCE_FOLDER_NAME': 'evidence',
+    'NOTICE_FOLDER_NAME': 'notice',
+    'NOTICE_ATTACH_PARENT_FOLDER_NAME': 'notice',
+    'NOTICE_ATTACH_FOLDER_NAME': 'attached_file',
     'SHEET_NAME_USER': 'user',
     'SHEET_NAME_ADMIN_KEYS': 'admin_keys',
+    'NOTICE_SHEET_NAME': '시트1',
+    'NOTICE_SPREADSHEET_NAME': 'notice',
     'STATIC_TAG_SPREADSHEET_NAME': 'static_tag',
-    'STATIC_TAG_SHEET_NAME': '시트1'
+    'STATIC_TAG_SHEET_NAME': '시트1',
+    'WORKFLOW_SPREADSHEET_NAME': 'workflow',
+    'GROUP_EMAIL_JSON': '{"STUDENT":"student_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","ADJ_PROFESSOR":"adj_professor_hp@googlegroups.com","ASSISTANT":"assistant_hp@googlegroups.com"}'
   };
   
   const scriptProperties = PropertiesService.getScriptProperties();
   
   Object.keys(properties).forEach(key => {
     scriptProperties.setProperty(key, properties[key]);
-    console.log(`✅ 설정 완료: ${key} = ${properties[key]}`);
+    console.log(`✅ 설정 완료: ${key} = ${key === 'GROUP_EMAIL_JSON' ? '(JSON)' : properties[key]}`);
   });
   
   console.log('✅ 모든 스크립트 속성 설정 완료!');

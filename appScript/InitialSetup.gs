@@ -7,6 +7,15 @@
  */
 
 /**
+ * 스크립트 속성만 초기화 (폴더/시트 생성 없이)
+ * 기존 값이 있으면 유지, 없으면 기본값 설정.
+ * ROOT_FOLDER_ID, SPREADSHEET_ID는 initializeSystem 실행 시에만 설정됨.
+ */
+function setupScriptPropertiesOnly() {
+  return setScriptProperties(null, null);
+}
+
+/**
  * 시스템 초기 세팅 실행
  * @returns {Object} 초기화 결과
  */
@@ -14,6 +23,7 @@ function initializeSystem() {
   try {
     console.log('🚀 시스템 초기 세팅 시작');
     
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
     const results = {
       success: true,
       folders: [],
@@ -37,8 +47,8 @@ function initializeSystem() {
     const spreadsheetResults = createSpreadsheets(rootFolder, folderStructure);
     results.spreadsheets.push(...spreadsheetResults);
     
-    // 4. 스크립트 속성 설정
-    const propertiesResult = setScriptProperties();
+    // 4. 스크립트 속성 설정 (루트 폴더 ID, hp_member ID 전달)
+    const propertiesResult = setScriptProperties(rootFolder.getId(), spreadsheetResults);
     results.properties = propertiesResult;
     
     // 에러가 있으면 success를 false로 설정
@@ -111,8 +121,7 @@ function createFolderStructure(rootFolder) {
   const noticeSubFolders = ['attached_file'];
   const workflowSubFolders = ['attached_file'];
   
-  // account 하위 (증빙)
-  const accountSubFolders = ['evidence'];
+  // account 하위: evidence는 장부 생성 시 해당 장부 폴더 안에 자동 생성됨
   
   // 루트 직하위 폴더 생성
   const createdFolders = {};
@@ -166,18 +175,6 @@ function createFolderStructure(rootFolder) {
     });
   }
   
-  // account/evidence
-  if (createdFolders['account']) {
-    accountSubFolders.forEach(folderName => {
-      try {
-        const folder = getOrCreateFolder(createdFolders['account'], folderName);
-        folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/account/${folderName}` });
-        console.log(`✅ 폴더 생성: account/${folderName}`);
-      } catch (error) {
-        console.error(`❌ 폴더 생성 실패: account/${folderName}`, error);
-      }
-    });
-  }
   
   // 역할별 폴더 하위 폴더 생성 (스프레드시트가 들어갈 폴더는 생성하지 않음 - 스프레드시트 생성 시 자동 생성)
   // 여기서는 폴더만 생성하므로 스킵
@@ -335,20 +332,20 @@ function createSpreadsheetInFolder(folder, spreadsheetName, sheetConfigs) {
   folder.addFile(spreadsheetFile);
   DriveApp.getRootFolder().removeFile(spreadsheetFile);
   
-  // 기본 시트 삭제 (시트1이 아닌 경우)
-  const sheets = spreadsheet.getSheets();
-  if (sheets.length > 0 && sheets[0].getName() === '시트1') {
-    // 첫 번째 시트가 시트1이고, sheetConfigs에 시트1이 없으면 삭제
-    const hasSheet1 = sheetConfigs.some(config => config.name === '시트1');
-    if (!hasSheet1) {
-      spreadsheet.deleteSheet(sheets[0]);
-    }
-  }
-  
-  // 시트 생성 및 헤더 설정
+  // 시트 생성 및 헤더 설정 (먼저 실행 - 삭제 전에 다른 시트가 필요)
   sheetConfigs.forEach(config => {
     ensureSheetWithHeaders(spreadsheet, config.name, config.headers);
   });
+  
+  // 기본 시트 삭제 (시트1이 sheetConfigs에 없고, 다른 시트가 있을 때만)
+  const sheets = spreadsheet.getSheets();
+  const hasSheet1 = sheetConfigs.some(config => config.name === '시트1');
+  if (!hasSheet1 && sheets.length > 1) {
+    const sheet1 = sheets.find(function(s) { return s.getName() === '시트1'; });
+    if (sheet1) {
+      spreadsheet.deleteSheet(sheet1);
+    }
+  }
   
   console.log(`✅ 스프레드시트 생성 완료: ${spreadsheetName}`);
   return { name: spreadsheetName, id: spreadsheetId, created: true };
@@ -428,18 +425,41 @@ function createNoticeSheetConfig() {
  * @returns {Array} 시트 설정 배열
  */
 function createHpMemberSheetConfig() {
-  return [{
-    name: 'user',
-    headers: [
-      'no_member',
-      'user_type',
-      'name_member',
-      'google_member',
-      'Approval',
-      'is_admin',
-      'approval_date'
-    ]
-  }];
+  return [
+    {
+      name: 'user',
+      headers: [
+        'no_member',
+        'user_type',
+        'name_member',
+        'google_member',
+        'Approval',
+        'is_admin',
+        'approval_date'
+      ]
+    },
+    {
+      name: 'admin_keys',
+      headers: ['encrypted_key', 'created_at', 'status', 'layers_used']
+    },
+    {
+      name: 'admin_keys_backup',
+      headers: ['encrypted_key', 'created_at', 'status', 'layers_used']
+    },
+    {
+      name: 'group_management_log',
+      headers: [
+        '학번',
+        '사용자 이메일',
+        '사용자 이름',
+        '그룹스 이메일',
+        '그룹스 이름',
+        '그룹스 역할',
+        '상태',
+        '승인일'
+      ]
+    }
+  ];
 }
 
 /**
@@ -564,7 +584,10 @@ function createStudentSheetConfig() {
         'grade',
         'state',
         'council',
-        'flunk'
+        'flunk',
+        'grad_year',
+        'grad_term',
+        'advanced'
       ]
     },
     {
@@ -576,6 +599,14 @@ function createStudentSheetConfig() {
         'level_issue',
         'content_issue'
       ]
+    },
+    {
+      name: 'employment',
+      headers: ['std_num', 'is_major', 'field_num', 'com_name', 'occ_category', 'question']
+    },
+    {
+      name: 'field',
+      headers: ['field_num', 'field_name']
     }
   ];
 }
@@ -644,9 +675,11 @@ function getSharedDocumentFolderName() {
 
 /**
  * 스크립트 속성 설정
+ * @param {string} [rootFolderId] - 루트 폴더 ID (SpreadsheetUtils 등에서 사용)
+ * @param {Array} [spreadsheetResults] - 생성된 스프레드시트 결과 (hp_member ID 설정용)
  * @returns {Object} 설정 결과
  */
-function setScriptProperties() {
+function setScriptProperties(rootFolderId, spreadsheetResults) {
   try {
     console.log('⚙️ 스크립트 속성 설정 시작');
     const properties = PropertiesService.getScriptProperties();
@@ -674,18 +707,23 @@ function setScriptProperties() {
       // 공지 첨부·본문 이미지: ROOT/notice/attached_file (프론트·processAndUploadImages_와 경로 통일)
       'NOTICE_ATTACH_PARENT_FOLDER_NAME': 'notice',
       'NOTICE_ATTACH_FOLDER_NAME': 'attached_file',
+      'NOTICE_FOLDER_NAME': 'notice',
       
-      // 시트 이름 설정
+      // 스프레드시트/시트 이름 설정
       'SHEET_NAME_USER': 'user',
       'SHEET_NAME_ADMIN_KEYS': 'admin_keys',
       'NOTICE_SHEET_NAME': '시트1',
+      'NOTICE_SPREADSHEET_NAME': 'notice',
       
       // 스태틱 태그 설정
       'STATIC_TAG_SPREADSHEET_NAME': 'static_tag',
       'STATIC_TAG_SHEET_NAME': '시트1',
       
       // 워크플로우 설정
-      'WORKFLOW_SPREADSHEET_NAME': 'workflow'
+      'WORKFLOW_SPREADSHEET_NAME': 'workflow',
+      
+      // 그룹스 워크스페이스 자동 멤버 추가용 (.env VITE_GROUP_EMAIL과 동일 JSON)
+      'GROUP_EMAIL_JSON': '{"STUDENT":"student_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","ADJ_PROFESSOR":"adj_professor_hp@googlegroups.com","ASSISTANT":"assistant_hp@googlegroups.com"}'
     };
     
     const setProperties = {};
@@ -696,10 +734,33 @@ function setScriptProperties() {
       if (!existingValue) {
         properties.setProperty(key, value);
         setProperties[key] = value;
-        console.log(`✅ 스크립트 속성 설정: ${key} = ${value}`);
+        console.log('✅ 스크립트 속성 설정: ' + key + ' = ' + value);
       } else {
-        console.log(`ℹ️ 스크립트 속성 이미 존재: ${key} = ${existingValue}`);
+        console.log('ℹ️ 스크립트 속성 이미 존재: ' + key + ' = ' + existingValue);
         setProperties[key] = existingValue;
+      }
+    }
+    
+    // ROOT_FOLDER_ID 설정 (SpreadsheetUtils에서 루트 폴더 탐색용)
+    if (rootFolderId) {
+      const existingRootId = properties.getProperty('ROOT_FOLDER_ID');
+      if (!existingRootId) {
+        properties.setProperty('ROOT_FOLDER_ID', rootFolderId);
+        setProperties['ROOT_FOLDER_ID'] = rootFolderId;
+        console.log('✅ ROOT_FOLDER_ID 설정: ' + rootFolderId);
+      }
+    }
+    
+    // SPREADSHEET_ID 설정 (hp_member - getHpMemberSpreadsheet에서 사용)
+    if (spreadsheetResults && Array.isArray(spreadsheetResults)) {
+      const hpMember = spreadsheetResults.find(function(r) { return r.name === 'hp_member'; });
+      if (hpMember && hpMember.id) {
+        const existingSpreadsheetId = properties.getProperty('SPREADSHEET_ID');
+        if (!existingSpreadsheetId) {
+          properties.setProperty('SPREADSHEET_ID', hpMember.id);
+          setProperties['SPREADSHEET_ID'] = hpMember.id;
+          console.log('✅ SPREADSHEET_ID (hp_member) 설정: ' + hpMember.id);
+        }
       }
     }
     

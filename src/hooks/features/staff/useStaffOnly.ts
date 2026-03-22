@@ -13,7 +13,7 @@ import {
   updateStaff as updateStaffInPapyrus,
   deleteStaff as deleteStaffFromPapyrus
 } from '../../../utils/database/papyrusManager';
-import { ENV_CONFIG } from '../../../config/environment';
+import { apiClient } from '../../../utils/api/apiClient';
 import type { StaffMember } from '../../../types/features/staff';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
 
@@ -38,29 +38,16 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
   }>({ key: null, direction: 'asc' });
 
 
-  // 데이터 암호화 (통합 App Script API 사용)
+  // 데이터 암호화 (통합 App Script API 사용 - apiClient 통해 프록시 경유)
   const encryptData = useCallback(async (dataItem: StaffMember) => {
     try {
-      const isDevelopment = import.meta.env.DEV;
-      const baseUrl = isDevelopment ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
-
       const encryptedStaff = { ...dataItem };
       
       // 전화번호 암호화
       if (dataItem.tel && dataItem.tel.trim() !== '') {
         try {
-          const response = await fetch(baseUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'encryptEmail', data: dataItem.tel })
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
-              encryptedStaff.tel = result.data;
-            }
-          }
+          const result = await apiClient.request<string>('encryptEmail', { data: dataItem.tel });
+          if (result.success && result.data) encryptedStaff.tel = result.data;
         } catch (error) {
           console.warn('전화번호 암호화 실패:', error);
         }
@@ -69,15 +56,8 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
       // 연락처(휴대전화) 암호화
       if (dataItem.phone && dataItem.phone.trim() !== '') {
         try {
-          const response = await fetch(baseUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'encryptEmail', data: dataItem.phone })
-          });
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success) encryptedStaff.phone = result.data;
-          }
+          const result = await apiClient.request<string>('encryptEmail', { data: dataItem.phone });
+          if (result.success && result.data) encryptedStaff.phone = result.data;
         } catch (error) {
           console.warn('연락처 암호화 실패:', error);
         }
@@ -86,18 +66,8 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
       // 이메일 암호화
       if (dataItem.email && dataItem.email.trim() !== '') {
         try {
-          const response = await fetch(baseUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'encryptEmail', data: dataItem.email })
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
-              encryptedStaff.email = result.data;
-            }
-          }
+          const result = await apiClient.request<string>('encryptEmail', { data: dataItem.email });
+          if (result.success && result.data) encryptedStaff.email = result.data;
         } catch (error) {
           console.warn('이메일 암호화 실패:', error);
         }

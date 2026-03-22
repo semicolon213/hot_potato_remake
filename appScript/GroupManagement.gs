@@ -2,9 +2,35 @@
  * @file GroupManagement.gs
  * @brief 그룹스 관리 모듈
  * @details Google Groups 권한 관리 및 알림 기능을 담당합니다.
+ * 워크스페이스 환경에서는 Admin SDK로 자동 멤버 추가, 아닌 경우 관리자 알림 이메일 전송.
  * @author Hot Potato Team
  * @date 2024
  */
+
+/**
+ * Admin SDK로 그룹에 멤버 추가 (워크스페이스 전용)
+ * @param {string} userEmail - 추가할 사용자 이메일
+ * @param {string} groupEmail - 그룹 이메일
+ * @returns {{ success: boolean, error?: string }}
+ */
+function addMemberToGroupViaAdminApi(userEmail, groupEmail) {
+  try {
+    if (typeof AdminDirectory === 'undefined' || !AdminDirectory.Members) {
+      return { success: false, error: 'Admin SDK를 사용할 수 없습니다.' };
+    }
+    const member = { email: userEmail, role: 'MEMBER' };
+    AdminDirectory.Members.insert(member, groupEmail);
+    console.log('✅ Admin API로 그룹 멤버 추가 완료:', userEmail, '->', groupEmail);
+    return { success: true };
+  } catch (e) {
+    if (e.message && (e.message.indexOf('Member already exists') >= 0 || e.message.indexOf('memberAlreadyExists') >= 0)) {
+      console.log('✅ 이미 그룹 멤버임, 성공으로 간주:', userEmail);
+      return { success: true };
+    }
+    console.warn('⚠️ Admin API 그룹 멤버 추가 실패:', e.message);
+    return { success: false, error: e.message };
+  }
+}
 
 /**
  * 그룹스 권한과 함께 사용자 승인
@@ -50,32 +76,43 @@ function approveUserWithGroup(studentId, groupRole) {
       // 3. 사용자 이메일 복호화
       const userEmail = decryptEmailMain(approvalResult.user.google_member);
       
-      // 4. 그룹스 관리자에게 알림 이메일 전송
-      const emailResult = sendGroupNotificationEmail({
-        groupEmail: groupEmail,
-        groupName: groupName,
-        userEmail: userEmail,
-        userName: approvalResult.user.name_member,
-        studentId: studentId,
-        groupRole: groupRole
-      });
+      // 4. 워크스페이스 환경: Admin API로 자동 멤버 추가 시도
+      const addResult = addMemberToGroupViaAdminApi(userEmail, groupEmail);
+      let status = 'NOTIFICATION_SENT';
+      let resultMessage = '사용자가 승인되었습니다. 그룹스 관리자에게 알림이 전송되었습니다.';
+      
+      if (addResult.success) {
+        status = 'MEMBER_ADDED';
+        resultMessage = '사용자가 승인되었습니다. 그룹스에 자동으로 추가되었습니다.';
+      } else {
+        // 비워크스페이스 또는 Admin API 미사용: 그룹스 관리자에게 수동 추가 알림 전송
+        sendGroupNotificationEmail({
+          groupEmail: groupEmail,
+          groupName: groupName,
+          userEmail: userEmail,
+          userName: approvalResult.user.name_member,
+          studentId: studentId,
+          groupRole: groupRole
+        });
+      }
       
       // 5. 그룹스 관리 로그 기록
       logGroupManagement({
         studentId: studentId,
         userEmail: userEmail,
+        userName: approvalResult.user.name_member,
         groupEmail: groupEmail,
         groupName: groupName,
         groupRole: groupRole,
-        status: 'NOTIFICATION_SENT',
+        status: status,
         approvalDate: new Date().toISOString().split('T')[0]
       });
       
-      console.log('✅ 사용자 승인 및 그룹스 권한 설정 완료:', studentId);
+      console.log('✅ 사용자 승인 및 그룹스 권한 설정 완료:', studentId, status);
       
       return {
         success: true,
-        message: '사용자가 승인되었습니다. 그룹스 관리자에게 알림이 전송되었습니다.',
+        message: resultMessage,
         user: approvalResult.user,
         groupInfo: {
           groupEmail: groupEmail,

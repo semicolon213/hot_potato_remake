@@ -12,7 +12,7 @@ import {
   deleteStudent as deleteStudentFromPapyrus,
   updateStudent as updateStudentFromPapyrus
 } from '../../../utils/database/papyrusManager';
-import { ENV_CONFIG } from '../../../config/environment';
+import { apiClient } from '../../../utils/api/apiClient';
 import type { Student, StudentWithCouncil, CouncilPosition } from '../../../types/features/students/student';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
 
@@ -97,33 +97,9 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     }
 
     try {
-      // 개발 환경에서는 프록시 사용, 프로덕션에서는 직접 URL 사용
-      const isDevelopment = import.meta.env.DEV;
-      const baseUrl = isDevelopment ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
-      
-      const requestBody = {
-        action: 'decryptEmail',
-        data: encryptedPhone
-      };
-
-      console.log('전화번호 복호화 요청:', { baseUrl, requestBody });
-
-      const response = await fetch(baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('전화번호 복호화 성공:', result);
-        return result.success ? result.data : encryptedPhone;
-      } else {
-        console.error('전화번호 복호화 응답 실패:', response.status, response.statusText);
-        return encryptedPhone;
-      }
+      const result = await apiClient.request<string>('decryptEmail', { data: encryptedPhone });
+      console.log('전화번호 복호화 성공:', result);
+      return result.success && result.data ? result.data : encryptedPhone;
     } catch (error) {
       console.error('전화번호 복호화 실패:', error);
       return encryptedPhone;
@@ -515,20 +491,13 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     });
   };
 
-  /** 연락처 암호화 (Apps Script encryptEmail API) - 저장 시 사용 */
+  /** 연락처 암호화 (Apps Script encryptEmail API) - 저장 시 사용, apiClient 통해 프록시 경유 */
   const encryptForSave = async (plain: string): Promise<string> => {
     if (!plain || !plain.trim()) return plain;
     if (/^010-\d{4}-\d{4}$/.test(plain)) {
-      const isDev = import.meta.env.DEV;
-      const baseUrl = isDev ? '/api' : (ENV_CONFIG.APP_SCRIPT_URL || '');
       try {
-        const res = await fetch(baseUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'encryptEmail', data: plain })
-        });
-        const json = await res.json();
-        return json.success ? json.data : plain;
+        const res = await apiClient.request<string>('encryptEmail', { data: plain });
+        return res.success && res.data ? res.data : plain;
       } catch {
         return plain;
       }

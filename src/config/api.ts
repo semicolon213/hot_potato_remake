@@ -9,6 +9,20 @@
 import { ENV_CONFIG } from './environment';
 
 /**
+ * API 요청 base URL
+ * - 개발(npm run dev:web, netlify dev): /api → Vite proxy → Apps Script
+ * - 배포(Netlify): /.netlify/functions/proxy → Netlify Function → Apps Script
+ */
+export const getApiBaseUrl = (): string => {
+  const isLocal = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    import.meta?.env?.DEV === true
+  );
+  return isLocal ? '/api' : '/.netlify/functions/proxy';
+};
+
+/**
  * @brief API 설정 객체
  * @details API 호출에 필요한 기본 설정들을 포함합니다.
  */

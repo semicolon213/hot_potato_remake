@@ -38,6 +38,11 @@
         "userSymbol": "AdminGroupsSettings",
         "version": "v1",
         "serviceId": "groupssettings"
+      },
+      {
+        "userSymbol": "AdminDirectory",
+        "version": "v1",
+        "serviceId": "admin"
       }
     ]
   },

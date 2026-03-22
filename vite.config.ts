@@ -7,28 +7,32 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const appScriptUrl = env.VITE_APP_SCRIPT_URL || process.env.VITE_APP_SCRIPT_URL
 
+  const proxyConfig = (pathRewrite: (path: string) => string) => ({
+    target: appScriptUrl,
+    changeOrigin: true,
+    secure: false,
+    followRedirects: true,
+    rewrite: pathRewrite,
+    configure: (proxy: { on: (e: string, fn: (...a: unknown[]) => void) => void }) => {
+      proxy.on('error', (err: unknown) => {
+        console.log('🚨 프록시 에러:', err);
+      });
+      proxy.on('proxyReq', (...args: unknown[]) => {
+        const [proxyReq, req] = args as [{ path?: string }, { method?: string; url?: string }];
+        console.log('📤 프록시 요청:', req?.method, req?.url, '→', proxyReq?.path);
+      });
+      proxy.on('proxyRes', (...args: unknown[]) => {
+        const [proxyRes, req] = args as [{ statusCode?: number }, { url?: string }];
+        console.log('📥 프록시 응답:', proxyRes?.statusCode, req?.url);
+      });
+    },
+  });
+
   const proxy = appScriptUrl
     ? {
-        '/api': {
-          target: appScriptUrl,
-          changeOrigin: true,
-          secure: false,
-          followRedirects: true,
-          rewrite: (path: string) => path.replace(/^\/api/, ''),
-          configure: (proxy: { on: (e: string, fn: (...a: unknown[]) => void) => void }) => {
-            proxy.on('error', (err: unknown) => {
-              console.log('🚨 프록시 에러:', err);
-            });
-            proxy.on('proxyReq', (...args: unknown[]) => {
-              const [proxyReq, req] = args as [{ path?: string }, { method?: string; url?: string }];
-              console.log('📤 프록시 요청:', req?.method, req?.url, '→', proxyReq?.path);
-            });
-            proxy.on('proxyRes', (...args: unknown[]) => {
-              const [proxyRes, req] = args as [{ statusCode?: number }, { url?: string }];
-              console.log('📥 프록시 응답:', proxyRes?.statusCode, req?.url);
-            });
-          },
-        },
+        '/api': proxyConfig((path) => path.replace(/^\/api/, '')),
+        // netlify 배포 경로도 로컬에서 동작하도록 동일 프록시 적용
+        '/.netlify/functions/proxy': proxyConfig(() => ''),
       }
     : undefined
 

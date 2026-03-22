@@ -2126,30 +2126,61 @@ export const fetchCommitteeFromPapyrus = async (spreadsheetId: string): Promise<
     }
 
     const headers = data.values[0] as string[];
-    // 먼저 암호화된 데이터를 파싱
+    console.log('👥 위원회 스프레드시트 헤더:', headers);
+
+    // 먼저 암호화된 데이터를 파싱 (헤더 정규화로 tel, email 등 매핑 보장)
     const rawCommitteeData: Committee[] = data.values.slice(1).map((row: string[]) => {
-      const committee: Record<string, unknown> = {};
+      const committee: Partial<Committee> & Record<string, unknown> = {};
       headers.forEach((header: string, index: number) => {
-        committee[header] = row[index];
+        const value = row[index];
+        const normalizedHeader = header?.trim().toLowerCase();
+
+        // 헤더 정규화 (한글/영문 혼용 시트 호환)
+        if (normalizedHeader === 'sortation' || normalizedHeader === '위원회구분' || normalizedHeader === '위원회 구분') {
+          committee.sortation = value || '';
+        } else if (normalizedHeader === 'name' || normalizedHeader === '이름' || normalizedHeader === '성명') {
+          committee.name = value || '';
+        } else if (normalizedHeader === 'tel' || normalizedHeader === '연락처' || normalizedHeader === '전화번호' || normalizedHeader === '내선번호') {
+          committee.tel = value || '';
+        } else if (normalizedHeader === 'email' || normalizedHeader === '이메일' || normalizedHeader === '메일') {
+          committee.email = value || '';
+        } else if (normalizedHeader === 'position' || normalizedHeader === '직책') {
+          committee.position = value || '';
+        } else if (normalizedHeader === 'career' || normalizedHeader === '경력') {
+          committee.career = value || '';
+        } else if (normalizedHeader === 'company_name' || normalizedHeader === '업체명') {
+          committee.company_name = value || '';
+        } else if (normalizedHeader === 'company_position' || normalizedHeader === '직위') {
+          committee.company_position = value || '';
+        } else if (normalizedHeader === 'location' || normalizedHeader === '소재지') {
+          committee.location = value || '';
+        } else if (normalizedHeader === 'is_family' || normalizedHeader === '가족회사여부') {
+          committee.is_family = value === 'true' || value === 'O' || value === 'Y';
+        } else if (normalizedHeader === 'representative' || normalizedHeader === '대표자') {
+          committee.representative = value || '';
+        } else if (normalizedHeader === 'note' || normalizedHeader === '비고') {
+          committee.note = value || '';
+        } else {
+          (committee as Record<string, unknown>)[header] = value;
+        }
       });
 
-            // career 필드가 문자열일 경우 JSON으로 파싱 (더욱 안전하게)
-            let parsedCareer: CommitteeType['career'] = [];
-            if (committee.career && typeof committee.career === 'string') {
-                try {
-                    const parsed = JSON.parse(committee.career);
-                    if (Array.isArray(parsed)) {
-                        parsedCareer = parsed;
-                    }
-                } catch (e) {
-                    console.error('경력 정보 파싱 실패:', e);
-                    // 파싱 실패 시 빈 배열로 유지
-                }
-            }
-            committee.career = parsedCareer;
+      // career 필드가 문자열일 경우 JSON으로 파싱
+      let parsedCareer: CommitteeType['career'] = [];
+      if (committee.career && typeof committee.career === 'string') {
+        try {
+          const parsed = JSON.parse(committee.career);
+          if (Array.isArray(parsed)) {
+            parsedCareer = parsed;
+          }
+        } catch (e) {
+          console.error('경력 정보 파싱 실패:', e);
+        }
+      }
+      committee.career = parsedCareer;
 
-            return committee as Committee;
-        });
+      return committee as Committee;
+    });
 
     console.log(`👥 위원회 목록 파싱 완료: ${rawCommitteeData.length}개, 일괄 복호화 시작...`);
     

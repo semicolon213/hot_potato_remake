@@ -521,7 +521,7 @@
     const GROUP_ROLE_MAPPING = {
         'ad_professor': {
             name: '겸임교원',
-            email: 'ad_professor_hp@googlegroups.com',
+            email: 'adj_professor_hp@googlegroups.com',
             description: '뜨거운 감자 겸임 교원'
         },
         'professor': {
@@ -531,7 +531,7 @@
         },
         'supp': {
             name: '조교',
-            email: 'hp_supp@googlegroups.com',
+            email: 'assistant_hp@googlegroups.com',
             description: '뜨거운 감자 조교 그룹'
         },
         'std_council': {
@@ -571,12 +571,52 @@
         return AVAILABLE_GROUP_ROLES;
     }
     
+    // VITE_GROUP_EMAIL 키 → 그룹 역할 매핑
+    const ENV_GROUP_KEY_TO_ROLE = {
+        'STUDENT': 'student',
+        'COUNCIL': 'std_council',
+        'PROFESSOR': 'professor',
+        'ADJ_PROFESSOR': 'ad_professor',
+        'ASSISTANT': 'supp'
+    };
+    
+    /**
+     * 스크립트 속성에서 그룹 이메일 매핑 조회 (GROUP_EMAIL_JSON)
+     * 형식1(역할키): {"student":"xxx@...", "std_council":"...", "supp":"...", "professor":"...", "ad_professor":"..."}
+     * 형식2(VITE_GROUP_EMAIL): {"STUDENT":"...", "COUNCIL":"...", "PROFESSOR":"...", "ADJ_PROFESSOR":"...", "ASSISTANT":"..."}
+     * @returns {Object|null} 역할별 이메일 객체 (role -> email) 또는 null
+     */
+    function getGroupEmailFromScriptProperties() {
+        try {
+            const json = PropertiesService.getScriptProperties().getProperty('GROUP_EMAIL_JSON');
+            if (!json || json.trim() === '') return null;
+            const parsed = JSON.parse(json);
+            if (typeof parsed !== 'object' || parsed === null) return null;
+            const result = {};
+            for (const k in parsed) {
+                if (parsed[k] && typeof parsed[k] === 'string') {
+                    const role = ENV_GROUP_KEY_TO_ROLE[k] || k;
+                    result[role] = parsed[k].trim();
+                }
+            }
+            return Object.keys(result).length > 0 ? result : null;
+        } catch (e) {
+            console.warn('GROUP_EMAIL_JSON 파싱 실패:', e);
+            return null;
+        }
+    }
+    
     /**
      * 그룹스 역할에 따른 이메일 반환
+     * 스크립트 속성 GROUP_EMAIL_JSON이 있으면 우선 사용, 없으면 기본 매핑 사용
      * @param {string} role - 그룹스 역할
      * @returns {string} 그룹스 이메일
      */
     function getGroupEmailByRole(role) {
+        const fromProps = getGroupEmailFromScriptProperties();
+        if (fromProps && fromProps[role]) {
+            return fromProps[role];
+        }
         return GROUP_ROLE_MAPPING[role]?.email || '';
     }
     

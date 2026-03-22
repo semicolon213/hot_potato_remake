@@ -5,12 +5,22 @@
 [build.environment]
   NODE_VERSION = "18"
 
-# Netlify Functions 설정
+# Netlify Functions 설정 (배포 시 Apps Script 프록시)
 [functions]
   directory = "netlify/functions"
+  # 환경변수: Netlify 대시보드에서 VITE_APP_SCRIPT_URL 또는 APP_SCRIPT_URL 설정
 
-# 환경 변수는 Netlify 대시보드에서 설정하거나
-# 빌드 시 자동으로 VITE_ 접두사가 붙은 변수를 사용할 수 있습니다.
-# 하지만 Functions에서는 process.env를 직접 사용하므로
-# Netlify 대시보드에서 APP_SCRIPT_URL을 설정해야 합니다.
+# netlify dev: 로컬에서 개발+Vite 프록시 테스트 (apiClient는 /api 사용)
+# - 프론트: Vite dev 서버 (import.meta.env.DEV=true → /api)
+# - /api: Vite proxy가 Apps Script로 전달
+[dev]
+  command = "npm run dev:web"
+  port = 8888
+  targetPort = 5173
+
+# SPA 라우팅 (배포 시)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 

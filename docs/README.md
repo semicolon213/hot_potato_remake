@@ -8,6 +8,8 @@
 
 | 하고 싶은 일 | 문서 |
 |-------------|------|
+| **초기 환경 세팅 (Netlify + Google API)** | [초기 세팅 가이드](./INITIAL_SETUP_GUIDE.md) |
+| **Netlify 배포 체크리스트** | [Netlify 배포 체크리스트](./NETLIFY_DEPLOYMENT_CHECKLIST.md) |
 | 처음 세팅·클론·빌드 | [설치 가이드](./INSTALLATION_GUIDE.md) |
 | `.env`·JSON 환경변수 | [환경 변수](./ENVIRONMENT_VARIABLES_SETUP.md), [ENV V2 전환](./ENV_CONFIG_V2_전환_가이드.md) |
 | 웹/Electron 배포·태그 릴리즈 | [배포 가이드](./DEPLOYMENT_GUIDE.md) |
@@ -27,6 +29,7 @@
 
 ### 1. 온보딩
 
+- **INITIAL_SETUP_GUIDE** — Netlify 배포, Google API, Drive 초기화 (처음 세팅 시 필수)
 - **INSTALLATION_GUIDE** — 클론, `npm install`, `dev` / `build`
 - **ENVIRONMENT_VARIABLES_SETUP** + **ENV_CONFIG_V2_전환_가이드** — `VITE_*`, JSON `.env`
 
