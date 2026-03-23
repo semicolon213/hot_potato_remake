@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../hooks/features/auth/useAuth';
 import { lastUserManager } from '../../../utils/auth/lastUserManager';
 import { apiClient } from '../../../utils/api/apiClient';
 import type { EmploymentRow, EmploymentField } from '../../../types/features/students/employment';
-import { LegalDocumentView, type LegalDocType } from './LegalDocumentView';
 
 // 타입 정의
 interface User {
@@ -47,34 +46,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   /** 질문 남기기: 개별 입력 후 저장 시 JSON으로 저장 */
   const [employmentQuestionEntries, setEmploymentQuestionEntries] = useState<{ key: string; value: string }[]>([{ key: '', value: '' }]);
 
-  /** 개인정보처리방침 / 이용약관 (URL ?legal=privacy|terms 동기화, OAuth 동의화면 링크용) */
-  const [legalView, setLegalView] = useState<LegalDocType | null>(null);
-
-  const syncLegalFromUrl = useCallback(() => {
-    const p = new URLSearchParams(window.location.search).get('legal');
-    setLegalView(p === 'privacy' || p === 'terms' ? p : null);
-  }, []);
-
-  useEffect(() => {
-    syncLegalFromUrl();
-    window.addEventListener('popstate', syncLegalFromUrl);
-    return () => window.removeEventListener('popstate', syncLegalFromUrl);
-  }, [syncLegalFromUrl]);
-
-  const openLegal = (type: LegalDocType) => {
-    const u = new URL(window.location.href);
-    u.searchParams.set('legal', type);
-    window.history.pushState({}, '', u.toString());
-    setLegalView(type);
-  };
-
-  const closeLegal = () => {
-    const u = new URL(window.location.href);
-    u.searchParams.delete('legal');
-    window.history.replaceState({}, '', `${u.pathname}${u.search}`);
-    setLegalView(null);
-  };
-
   const {
     loginState,
     formData,
@@ -87,6 +58,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     lastUser,
     lastUsers
   } = useAuth(onLogin);
+
+  /** 구 OAuth 링크(?legal=, ?legal-privacy 등) → 정적 페이지로 이동 */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const legal = params.get('legal');
+    if (legal === 'privacy' || params.has('legal-privacy')) {
+      window.location.replace(`${window.location.origin}/privacy.html`);
+      return;
+    }
+    if (legal === 'terms' || params.has('legal-terms')) {
+      window.location.replace(`${window.location.origin}/terms.html`);
+      return;
+    }
+  }, []);
 
   const handleLogoClick = () => {
     const next = logoClickCount + 1;
@@ -237,10 +222,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setEmploymentQuestionEntries(prev => (prev.length > 1 ? prev.filter((_, i) => i !== index) : [{ key: '', value: '' }]));
   };
 
-  if (legalView) {
-    return <LegalDocumentView type={legalView} onBack={closeLegal} />;
-  }
-
   return (
     <div className="login-container">
       <div className="login-card">
@@ -256,6 +237,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               title=""
             />
             <h1 className="hp-erp-title">HP ERP</h1>
+            <p className="hp-erp-subtitle" aria-label="앱 표시 이름">뜨거운 감자</p>
           </div>
         </div>
         <div className="login-card-right">
@@ -376,15 +358,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 취업관리 (로그인 없이 입력)
               </button>
               <div className="login-legal-links" role="navigation" aria-label="약관">
-                <button type="button" className="login-legal-link" onClick={() => openLegal('privacy')}>
+                <a className="login-legal-link" href="/privacy.html">
                   개인정보처리방침
-                </button>
+                </a>
                 <span className="login-legal-sep" aria-hidden>
                   ·
                 </span>
-                <button type="button" className="login-legal-link" onClick={() => openLegal('terms')}>
+                <a className="login-legal-link" href="/terms.html">
                   이용약관
-                </button>
+                </a>
               </div>
             </div>
           ) : loginState.showRegistrationForm ? (
@@ -506,15 +488,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               )}
             </button>
             <div className="login-legal-links login-legal-links--signup" role="navigation" aria-label="약관">
-              <button type="button" className="login-legal-link" onClick={() => openLegal('privacy')}>
+              <a className="login-legal-link" href="/privacy.html">
                 개인정보처리방침
-              </button>
+              </a>
               <span className="login-legal-sep" aria-hidden>
                 ·
               </span>
-              <button type="button" className="login-legal-link" onClick={() => openLegal('terms')}>
+              <a className="login-legal-link" href="/terms.html">
                 이용약관
-              </button>
+              </a>
             </div>
           </div>
         ) : null}

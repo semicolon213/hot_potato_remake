@@ -89,6 +89,14 @@
   text-align: center;
 }
 
+.hp-erp-subtitle {
+  margin: 8px 0 0;
+  font-size: clamp(15px, 1.6vh, 18px);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  text-align: center;
+}
+
 .logo,
 .login-logo {
   width: 80px;

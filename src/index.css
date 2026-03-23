@@ -614,3 +614,8 @@ filter: brightness(1.1);
 .main-panel.no-header .content {
   grid-row: 1;
 }
+
+/* index.html 정적 약관 바 — 로그인 후(App에서 body 클래스 부여)는 중복 방지로 숨김 */
+body.app-authenticated .site-static-compliance {
+  display: none !important;
+}
