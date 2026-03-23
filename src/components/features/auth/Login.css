@@ -780,6 +780,41 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
+.login-legal-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 20px;
+  font-size: 13px;
+}
+
+.login-legal-links--signup {
+  margin-top: 24px;
+}
+
+.login-legal-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #64748b;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.login-legal-link:hover {
+  color: var(--sidebar-primary, #1e3a5f);
+}
+
+.login-legal-sep {
+  color: #cbd5e1;
+  user-select: none;
+}
+
 /* ===== 취업 정보 입력 모달 (기존 모달 패턴) ===== */
 .employment-modal-overlay {
   position: fixed;

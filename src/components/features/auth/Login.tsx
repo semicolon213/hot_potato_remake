@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../hooks/features/auth/useAuth';
 import { lastUserManager } from '../../../utils/auth/lastUserManager';
 import { apiClient } from '../../../utils/api/apiClient';
 import type { EmploymentRow, EmploymentField } from '../../../types/features/students/employment';
+import { LegalDocumentView, type LegalDocType } from './LegalDocumentView';
 
 // 타입 정의
 interface User {
@@ -45,6 +46,34 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [employmentFormTab, setEmploymentFormTab] = useState<'before' | 'after' | 'question'>('before');
   /** 질문 남기기: 개별 입력 후 저장 시 JSON으로 저장 */
   const [employmentQuestionEntries, setEmploymentQuestionEntries] = useState<{ key: string; value: string }[]>([{ key: '', value: '' }]);
+
+  /** 개인정보처리방침 / 이용약관 (URL ?legal=privacy|terms 동기화, OAuth 동의화면 링크용) */
+  const [legalView, setLegalView] = useState<LegalDocType | null>(null);
+
+  const syncLegalFromUrl = useCallback(() => {
+    const p = new URLSearchParams(window.location.search).get('legal');
+    setLegalView(p === 'privacy' || p === 'terms' ? p : null);
+  }, []);
+
+  useEffect(() => {
+    syncLegalFromUrl();
+    window.addEventListener('popstate', syncLegalFromUrl);
+    return () => window.removeEventListener('popstate', syncLegalFromUrl);
+  }, [syncLegalFromUrl]);
+
+  const openLegal = (type: LegalDocType) => {
+    const u = new URL(window.location.href);
+    u.searchParams.set('legal', type);
+    window.history.pushState({}, '', u.toString());
+    setLegalView(type);
+  };
+
+  const closeLegal = () => {
+    const u = new URL(window.location.href);
+    u.searchParams.delete('legal');
+    window.history.replaceState({}, '', `${u.pathname}${u.search}`);
+    setLegalView(null);
+  };
 
   const {
     loginState,
@@ -208,6 +237,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setEmploymentQuestionEntries(prev => (prev.length > 1 ? prev.filter((_, i) => i !== index) : [{ key: '', value: '' }]));
   };
 
+  if (legalView) {
+    return <LegalDocumentView type={legalView} onBack={closeLegal} />;
+  }
+
   return (
     <div className="login-container">
       <div className="login-card">
@@ -342,6 +375,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               >
                 취업관리 (로그인 없이 입력)
               </button>
+              <div className="login-legal-links" role="navigation" aria-label="약관">
+                <button type="button" className="login-legal-link" onClick={() => openLegal('privacy')}>
+                  개인정보처리방침
+                </button>
+                <span className="login-legal-sep" aria-hidden>
+                  ·
+                </span>
+                <button type="button" className="login-legal-link" onClick={() => openLegal('terms')}>
+                  이용약관
+                </button>
+              </div>
             </div>
           ) : loginState.showRegistrationForm ? (
           <div className="signup-section">
@@ -461,6 +505,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 '가입하기'
               )}
             </button>
+            <div className="login-legal-links login-legal-links--signup" role="navigation" aria-label="약관">
+              <button type="button" className="login-legal-link" onClick={() => openLegal('privacy')}>
+                개인정보처리방침
+              </button>
+              <span className="login-legal-sep" aria-hidden>
+                ·
+              </span>
+              <button type="button" className="login-legal-link" onClick={() => openLegal('terms')}>
+                이용약관
+              </button>
+            </div>
           </div>
         ) : null}
         </div>
