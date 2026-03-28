@@ -2424,6 +2424,12 @@ export const addCommittee = async (spreadsheetId: string, committee: CommitteeTy
             committee.note
         ]];
         await addRow(staffSpreadsheetId, ENV_CONFIG.STAFF_COMMITTEE_SHEET_NAME, newRow);
+
+        try {
+            await getCacheManager().invalidate('staff:fetchCommitteeFromPapyrus:*');
+        } catch (cacheError) {
+            console.warn('위원회 목록 캐시 무효화 실패 (계속 진행):', cacheError);
+        }
     } catch (error) {
         console.error('Error adding committee:', error);
         throw error;
@@ -2485,6 +2491,12 @@ export const updateCommittee = async (spreadsheetId: string, committeeName: stri
             }
         });
 
+        try {
+            await getCacheManager().invalidate('staff:fetchCommitteeFromPapyrus:*');
+        } catch (cacheError) {
+            console.warn('위원회 목록 캐시 무효화 실패 (계속 진행):', cacheError);
+        }
+
     } catch (error) {
         console.error('Error updating committee in papyrusManager:', error);
         throw error;
@@ -2535,6 +2547,12 @@ export const deleteCommittee = async (spreadsheetId: string, committeeName: stri
         }
 
         await deleteRow(effectiveSpreadsheetId, sheetId, rowIndex);
+
+        try {
+            await getCacheManager().invalidate('staff:fetchCommitteeFromPapyrus:*');
+        } catch (cacheError) {
+            console.warn('위원회 목록 캐시 무효화 실패 (계속 진행):', cacheError);
+        }
 
     } catch (error) {
         console.error('Error deleting committee:', error);
