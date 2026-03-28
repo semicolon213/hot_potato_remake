@@ -1314,6 +1314,25 @@ export const deleteCalendarEvent = async (spreadsheetId: string, eventId: string
 };
 
 // 학생 관련 함수들
+export const invalidateStudentsFetchCache = async (spreadsheetId: string): Promise<void> => {
+    if (!spreadsheetId) return;
+    const cacheManager = getCacheManager();
+    const keys = [
+        generateCacheKey('students', 'fetchStudents', { spreadsheetId }),
+        'students:fetchStudents:*',
+    ];
+    try {
+        for (const key of keys) {
+            await cacheManager.invalidate(key);
+        }
+        getDataSyncService().invalidateAndRefresh(keys).catch((err) => {
+            console.warn('⚠️ 학생 목록 백그라운드 갱신 실패:', err);
+        });
+    } catch (e) {
+        console.warn('⚠️ 학생 목록 캐시 무효화 실패 (계속 진행):', e);
+    }
+};
+
 export const fetchStudents = async (spreadsheetId?: string): Promise<Student[]> => {
     const cacheManager = getCacheManager();
     const action = 'fetchStudents';
@@ -1422,6 +1441,12 @@ export const deleteStudent = async (spreadsheetId: string, studentNo: string): P
         await deleteRow(targetSpreadsheetId, sheetId, rowIndex);
 
         console.log(`Student with number ${studentNo} deleted successfully.`);
+
+        try {
+            await invalidateStudentsFetchCache(targetSpreadsheetId);
+        } catch (cacheError) {
+            console.warn('⚠️ 학생 삭제 후 캐시 무효화 실패 (계속 진행):', cacheError);
+        }
 
     } catch (error) {
         console.error('Error deleting student:', error);

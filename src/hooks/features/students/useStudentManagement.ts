@@ -10,7 +10,8 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   fetchStudents as fetchStudentsFromPapyrus,
   deleteStudent as deleteStudentFromPapyrus,
-  updateStudent as updateStudentFromPapyrus
+  updateStudent as updateStudentFromPapyrus,
+  invalidateStudentsFetchCache
 } from '../../../utils/database/papyrusManager';
 import { apiClient } from '../../../utils/api/apiClient';
 import type { Student, StudentWithCouncil, CouncilPosition } from '../../../types/features/students/student';
@@ -466,11 +467,8 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
               resource: { values }
             });
 
-            // 로컬 상태 업데이트
-            setStudents(prev => [...prev, ...newStudents]);
+            await invalidateStudentsFetchCache(studentSpreadsheetId);
             notifyGlobal(`${newStudents.length}명의 학생이 추가되었습니다.`, 'success');
-            
-            // 데이터 새로고침
             await fetchStudents();
           } else if (newStudents.length === 0) {
             notifyGlobal('추가할 학생이 없습니다.', 'warning');
@@ -538,7 +536,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
         resource: { values }
       });
 
-      // 로컬 상태 업데이트 (화면에는 복호화된 번호 유지)
+      await invalidateStudentsFetchCache(studentSpreadsheetId);
       setStudents(prev => [...prev, newStudent]);
       notifyGlobal('학생이 성공적으로 추가되었습니다.', 'success');
 
@@ -598,12 +596,6 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
       )
     );
   };
-
-  useEffect(() => {
-    if (studentSpreadsheetId) {
-      fetchStudents();
-    }
-  }, [studentSpreadsheetId]);
 
   return {
     students,
