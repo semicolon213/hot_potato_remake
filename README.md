@@ -3,7 +3,7 @@
 학과 행정 업무(결재, 문서, 공지, 일정, 학생회비 장부, 학적)를 **Google Workspace 위에서 한곳에 모은 학과용 ERP**입니다.
 서버와 DB 없이 Google Sheets를 데이터베이스로, Apps Script를 백엔드로 씁니다.
 
-**운영 중:** https://yuhancse.netlify.app
+**운영 보류 상태:** https://yuhancse.netlify.app
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
