@@ -27,7 +27,7 @@ export function generateCacheKey(
 
 /**
  * 캐시 TTL (Time To Live) 설정
- * 데이터 유형별 만료 시간 (토큰 만료 시간 고려하여 최대 50분)
+ * 데이터 유형별 만료 시간
  */
 export const CACHE_TTL: Record<string, number> = {
   // 자주 변경되는 데이터 (중요도 높음)
@@ -63,9 +63,9 @@ export const CACHE_TTL: Record<string, number> = {
   'fetchStaffFromPapyrus': 30 * 60 * 1000,    // 30분
   'fetchCommitteeFromPapyrus': 30 * 60 * 1000, // 30분
   
-  // 거의 변경 안 되는 데이터 (토큰 만료 시간 고려하여 45분으로 제한)
-  'getSpreadsheetIds': 45 * 60 * 1000,         // 45분
-  'getAccountingFolderId': 45 * 60 * 1000,     // 45분
+  // 세션과 무관한 ID는 장시간 재사용
+  'getSpreadsheetIds': 6 * 60 * 60 * 1000,     // 6시간
+  'getAccountingFolderId': 6 * 60 * 60 * 1000, // 6시간
   'getAccountingCategories': 45 * 60 * 1000,    // 45분
   'getLedgerList': 45 * 60 * 1000,             // 45분
 };

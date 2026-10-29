@@ -55,6 +55,8 @@ function initializeSystem() {
     if (results.errors.length > 0) {
       results.success = false;
     }
+
+    clearSpreadsheetIdCache();
     
     console.log('✅ 시스템 초기 세팅 완료');
     return results;

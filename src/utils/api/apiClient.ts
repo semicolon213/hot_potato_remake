@@ -63,6 +63,7 @@ export class ApiClient {
   private defaultRetries: number;
   private cacheManager = getCacheManager();
   private dataSyncService: any = null; // DataSyncService 인스턴스 (나중에 주입)
+  private inFlightRequests = new Map<string, Promise<ApiResponse<unknown>>>();
 
   constructor() {
     // 개발(localhost): Vite 프록시 /api → Apps Script
@@ -118,6 +119,12 @@ export class ApiClient {
         console.log('✅ 캐시에서 데이터 로드:', cacheKey);
         return cachedData;
       }
+
+      const inFlightRequest = this.inFlightRequests.get(cacheKey);
+      if (inFlightRequest) {
+        console.log('🔄 진행 중인 API 요청 재사용:', cacheKey);
+        return inFlightRequest as Promise<ApiResponse<T>>;
+      }
     }
 
     // 웹앱용 요청 데이터 형식
@@ -139,110 +146,110 @@ export class ApiClient {
       body: JSON.stringify(requestData)
     };
 
-    // 타임아웃 설정 (더 관대한 설정)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.warn(`API 요청 타임아웃 (${timeout}ms):`, action);
-      controller.abort();
-    }, timeout);
-    requestOptions.signal = controller.signal;
+    const executeRequest = async (): Promise<ApiResponse<T>> => {
+      const isWriteAction = this.isWriteAction(action);
+      let lastError: Error | null = null;
 
-    let lastError: Error | null = null;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.warn(`API 요청 타임아웃 (${timeout}ms):`, action);
+          controller.abort();
+        }, timeout);
 
-    // 재시도 로직
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        console.log(`API 요청 시도 ${attempt + 1}/${retries + 1}:`, {
-          action,
-          data: requestData,
-          url: this.baseUrl
-        });
+        try {
+          console.log(`API 요청 시도 ${attempt + 1}/${retries + 1}:`, {
+            action,
+            url: this.baseUrl
+          });
 
-        const response = await fetch(this.baseUrl, requestOptions);
-        clearTimeout(timeoutId);
+          const response = await fetch(this.baseUrl, {
+            ...requestOptions,
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
 
-        // 429 (Too Many Requests) 에러 처리
-        if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          // Retry-After 헤더가 있으면 그 시간 사용, 없으면 기본값 사용
-          let waitTime: number;
-          if (retryAfter) {
-            const retrySeconds = parseInt(retryAfter, 10);
-            waitTime = retrySeconds * 1000; // 초를 밀리초로 변환
-            console.warn(`⚠️ API 호출 제한 초과 (429). 서버 권장 대기 시간: ${retrySeconds}초 (약 ${Math.round(retrySeconds / 60)}분)`);
-          } else {
-            // Retry-After가 없으면 지수 백오프 사용 (최소 5초, 최대 60초)
-            waitTime = Math.min(Math.pow(2, attempt + 2) * 1000, 60000);
-            console.warn(`⚠️ API 호출 제한 초과 (429). ${Math.round(waitTime / 1000)}초 후 재시도...`);
+          if (response.status === 429) {
+            const retryAfter = response.headers.get('Retry-After');
+            const retrySeconds = retryAfter ? Number.parseInt(retryAfter, 10) : NaN;
+            const waitTime = Number.isFinite(retrySeconds)
+              ? Math.min(retrySeconds * 1000, 60000)
+              : Math.min(Math.pow(2, attempt + 2) * 1000, 60000);
+
+            if (attempt < retries) {
+              console.warn(`⚠️ API 호출 제한 초과 (429). ${Math.round(waitTime / 1000)}초 후 재시도...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              continue;
+            }
+            throw new Error('HTTP 429: API 호출 제한 초과. 잠시 후 다시 시도해주세요.');
           }
-          
-          if (attempt < retries) {
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            continue; // 재시도
-          } else {
-            // 최종 실패 시 안내 메시지
-            const waitMinutes = retryAfter ? Math.round(parseInt(retryAfter, 10) / 60) : 60;
-            const errorMsg = `HTTP 429: API 호출 제한 초과. ${waitMinutes}분 후 다시 시도해주세요.`;
-            console.warn(`⚠️ ${errorMsg}`);
-            throw new Error(errorMsg);
+
+          if (!response.ok) {
+            const responseError = new Error(`HTTP ${response.status}: ${response.statusText}`) as Error & {
+              retryable?: boolean;
+            };
+            responseError.retryable = response.status >= 500;
+            throw responseError;
           }
-        }
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+          const result = await response.json();
 
-        const result = await response.json();
-        
-        // 성공한 응답을 캐시에 저장
-        if (isCacheable && result.success && cacheKey) {
-          const ttl = getCacheTTL(action);
-          await this.cacheManager.set(cacheKey, result as ApiResponse<T>, ttl);
-          console.log('💾 캐시에 데이터 저장:', cacheKey, `TTL: ${ttl / 1000}초`);
-        }
-        
-        // 쓰기 작업 성공 시 자동으로 캐시 무효화
-        if (result.success && this.isWriteAction(action)) {
-          const cacheKeys = this.getCacheKeysToInvalidate(action, data);
-          if (cacheKeys.length > 0 && this.dataSyncService) {
-            // 비동기로 처리하여 응답 지연 최소화
-            this.dataSyncService.invalidateAndRefresh(cacheKeys).catch((err: Error) => {
-              console.warn('캐시 무효화 실패:', err);
+          if (isCacheable && result.success && cacheKey) {
+            const ttl = getCacheTTL(action);
+            await this.cacheManager.set(cacheKey, result as ApiResponse<T>, ttl);
+            console.log('💾 캐시에 데이터 저장:', cacheKey, `TTL: ${ttl / 1000}초`);
+          }
+
+          if (result.success && isWriteAction) {
+            const cacheKeys = this.getCacheKeysToInvalidate(action, data);
+            if (cacheKeys.length > 0 && this.dataSyncService) {
+              this.dataSyncService.invalidateAndRefresh(cacheKeys).catch((err: Error) => {
+                console.warn('캐시 무효화 실패:', err);
+              });
+            }
+          }
+
+          if (result.success) {
+            console.log('✅ API 응답 성공:', {action, message: result.message});
+          } else {
+            console.warn('⚠️ API 응답 실패:', {
+              action,
+              message: result.message,
+              error: result.error
             });
           }
-        }
-        
-        // 성공/실패 여부에 따라 적절한 로그 출력
-        if (result.success) {
-          console.log(`✅ API 응답 성공:`, {
-            action,
-            message: result.message
-          });
-        } else {
-          console.warn(`⚠️ API 응답 실패:`, {
-            action,
-            message: result.message,
-            error: result.error,
-            debug: (result as any).debug || (result as any).debugInfo
-          });
-        }
 
-        return result as ApiResponse<T>;
-      } catch (error) {
-        lastError = error as Error;
-        console.warn(`API 요청 실패 (시도 ${attempt + 1}/${retries + 1}):`, error);
+          return result as ApiResponse<T>;
+        } catch (error) {
+          lastError = error as Error;
+          const retryable = (error as Error & {retryable?: boolean}).retryable !== false;
+          const canRetry = attempt < retries && isCacheable && !isWriteAction && retryable;
+          console.warn(`API 요청 실패 (시도 ${attempt + 1}/${retries + 1}):`, error);
 
-        if (attempt < retries) {
-          // 지수 백오프로 재시도 간격 설정
+          if (!canRetry) throw lastError;
+
           const delay = Math.pow(2, attempt) * 1000;
           console.log(`${delay}ms 후 재시도...`);
           await new Promise(resolve => setTimeout(resolve, delay));
+        } finally {
+          clearTimeout(timeoutId);
         }
       }
-    }
 
-    clearTimeout(timeoutId);
-    throw lastError || new Error('API 요청 실패');
+      throw lastError || new Error('API 요청 실패');
+    };
+
+    const requestPromise = executeRequest();
+    if (!cacheKey) return requestPromise;
+
+    this.inFlightRequests.set(cacheKey, requestPromise as Promise<ApiResponse<unknown>>);
+    try {
+      return await requestPromise;
+    } finally {
+      if (this.inFlightRequests.get(cacheKey) === requestPromise) {
+        this.inFlightRequests.delete(cacheKey);
+      }
+    }
   }
 
   // 사용자 관리 API

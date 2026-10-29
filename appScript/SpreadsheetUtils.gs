@@ -6,91 +6,193 @@
 
 // ===== 스프레드시트 유틸리티 함수들 =====
 
+// 스프레드시트 ID는 거의 바뀌지 않으므로 6시간 보관한다.
+var SHEET_ID_CACHE_TTL_SEC_ = 6 * 60 * 60;
+var SHEET_ID_CACHE_PREFIX_ = 'sheetId:';
+var ROOT_FOLDER_CACHE_KEY_ = 'rootFolderId';
+var SHEET_ID_CACHE_VERSION_PROP_ = 'SHEET_ID_CACHE_VERSION';
+
+// 한 번의 Apps Script 실행 안에서 재사용한다.
+var rootFolderIdMemo_ = null;
+var sheetIdMemo_ = {};
+
+function sheetIdCacheKey_(rootId, name) {
+  var version = PropertiesService.getScriptProperties().getProperty(SHEET_ID_CACHE_VERSION_PROP_) || '0';
+  return SHEET_ID_CACHE_PREFIX_ + version + ':' + rootId + ':' + name;
+}
+
+/**
+ * 프로젝트 루트 폴더 ID
+ * @returns {string|null}
+ */
+function getProjectRootFolderId_() {
+  if (rootFolderIdMemo_) return rootFolderIdMemo_;
+
+  var props = PropertiesService.getScriptProperties();
+  var fromProps = props && props.getProperty('ROOT_FOLDER_ID');
+  if (fromProps) {
+    rootFolderIdMemo_ = fromProps;
+    return rootFolderIdMemo_;
+  }
+
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(ROOT_FOLDER_CACHE_KEY_);
+  if (cached) {
+    rootFolderIdMemo_ = cached;
+    return rootFolderIdMemo_;
+  }
+
+  try {
+    var hpSpreadsheet = getHpMemberSpreadsheet();
+    var parents = DriveApp.getFileById(hpSpreadsheet.getId()).getParents();
+    if (parents.hasNext()) {
+      rootFolderIdMemo_ = parents.next().getId();
+      cache.put(ROOT_FOLDER_CACHE_KEY_, rootFolderIdMemo_, SHEET_ID_CACHE_TTL_SEC_);
+      return rootFolderIdMemo_;
+    }
+  } catch (error) {
+    console.warn('📁 hp_member 부모 폴더 사용 불가:', error.message);
+  }
+
+  console.warn('📁 루트 폴더를 찾을 수 없습니다. ROOT_FOLDER_ID 또는 hp_member 연결을 확인하세요.');
+  return null;
+}
+
+function isUnderRootFolder_(file, rootId, folderMemo) {
+  var parents = file.getParents();
+  while (parents.hasNext()) {
+    if (isFolderUnderRoot_(parents.next(), rootId, folderMemo, 0)) return true;
+  }
+  return false;
+}
+
+function isFolderUnderRoot_(folder, rootId, folderMemo, depth) {
+  var id = folder.getId();
+  if (id === rootId) return true;
+  if (Object.prototype.hasOwnProperty.call(folderMemo, id)) return folderMemo[id];
+  if (depth > 10) return false;
+
+  var result = false;
+  var parents = folder.getParents();
+  while (parents.hasNext() && !result) {
+    result = isFolderUnderRoot_(parents.next(), rootId, folderMemo, depth + 1);
+  }
+  folderMemo[id] = result;
+  return result;
+}
+
+/**
+ * 이름 목록에 해당하는 스프레드시트 ID를 한 번에 찾는다.
+ * @param {Array<string>} names
+ * @returns {Object<string, string|null>}
+ */
+function findSpreadsheetIdsByNames_(names) {
+  var result = {};
+  var cache = CacheService.getScriptCache();
+  var rootId = getProjectRootFolderId_();
+  if (!rootId) {
+    names.forEach(function(name) { result[name] = null; });
+    return result;
+  }
+
+  var pending = [];
+  names.forEach(function(name) {
+    if (Object.prototype.hasOwnProperty.call(sheetIdMemo_, name)) {
+      result[name] = sheetIdMemo_[name];
+    } else {
+      pending.push(name);
+    }
+  });
+  if (pending.length === 0) return result;
+
+  var cacheKeys = pending.map(function(name) { return sheetIdCacheKey_(rootId, name); });
+  var cachedValues = cache.getAll(cacheKeys);
+  var missing = [];
+  pending.forEach(function(name, index) {
+    var cachedId = cachedValues[cacheKeys[index]];
+    if (cachedId) {
+      result[name] = cachedId;
+      sheetIdMemo_[name] = cachedId;
+    } else {
+      missing.push(name);
+    }
+  });
+  if (missing.length === 0) return result;
+
+  var found = {};
+  try {
+    var titleQuery = missing.map(function(name) {
+      return "title = '" + String(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+    }).join(' or ');
+    var files = DriveApp.searchFiles(
+      "mimeType = '" + MimeType.GOOGLE_SHEETS + "' and trashed = false and (" + titleQuery + ')'
+    );
+    var folderMemo = {};
+    while (files.hasNext()) {
+      var file = files.next();
+      var name = file.getName();
+      if (found[name] || missing.indexOf(name) === -1) continue;
+      if (isUnderRootFolder_(file, rootId, folderMemo)) {
+        found[name] = file.getId();
+      }
+    }
+  } catch (error) {
+    console.warn('📊 Drive 검색 실패, 폴더 탐색으로 대체:', error.message);
+    var rootFolder = DriveApp.getFolderById(rootId);
+    missing.forEach(function(name) {
+      var matchingFiles = findSpreadsheetInFolderTreeByName_(rootFolder, name);
+      if (matchingFiles.length > 0) found[name] = matchingFiles[0].getId();
+    });
+  }
+
+  var toCache = {};
+  missing.forEach(function(name) {
+    var id = found[name] || null;
+    result[name] = id;
+    sheetIdMemo_[name] = id;
+    if (id) toCache[sheetIdCacheKey_(rootId, name)] = id;
+  });
+  if (Object.keys(toCache).length > 0) {
+    cache.putAll(toCache, SHEET_ID_CACHE_TTL_SEC_);
+  }
+  return result;
+}
+
+/**
+ * 파일을 새로 만들거나 옮긴 뒤 스프레드시트 ID 캐시를 비운다.
+ */
+function clearSpreadsheetIdCache() {
+  var props = PropertiesService.getScriptProperties();
+  var version = parseInt(props.getProperty(SHEET_ID_CACHE_VERSION_PROP_) || '0', 10);
+  props.setProperty(SHEET_ID_CACHE_VERSION_PROP_, String(version + 1));
+  CacheService.getScriptCache().remove(ROOT_FOLDER_CACHE_KEY_);
+  rootFolderIdMemo_ = null;
+  sheetIdMemo_ = {};
+  console.log('🧹 스프레드시트 ID 캐시를 비웠습니다.');
+}
+
 /**
  * 스프레드시트 이름으로 ID 찾기
- * - 검색 범위: "프로젝트 루트 폴더" 하위만 검색 (드라이브 전체 검색 X)
- * - 루트 폴더 결정: 1) ROOT_FOLDER_ID(환경변수) 있으면 우선, 2) 없으면 hp_member 부모 폴더
- *   (웹앱/트리거 등에서는 hp_member를 못 쓸 수 있으므로 ROOT_FOLDER_ID 설정 권장)
- *
- * @param {string} sheetName - 찾을 스프레드시트 파일 이름 (예: 'static_tag', '워크플로우_관리')
- * @returns {string|null} 스프레드시트 ID, 없으면 null
+ * @param {string} sheetName
+ * @returns {string|null}
  */
 function getSheetIdByName(sheetName) {
   try {
-    console.log('📊 스프레드시트 ID 찾기 시작:', sheetName);
-
-    var rootFolder = null;
-    var props = PropertiesService.getScriptProperties();
-
-    // ----- 1) 스크립트 속성 ROOT_FOLDER_ID (명시적으로 지정한 경우만 우선) -----
-    var rootFolderId = props && props.getProperty('ROOT_FOLDER_ID');
-    if (rootFolderId) {
-      try {
-        rootFolder = DriveApp.getFolderById(rootFolderId);
-        console.log('📁 루트 폴더 (ROOT_FOLDER_ID):', rootFolder.getId());
-      } catch (e) {
-        console.warn('📁 ROOT_FOLDER_ID 사용 불가:', e.message);
-      }
-    }
-
-    // ----- 2) hp_member 스프레드시트의 부모 폴더 (실제 프로젝트 폴더) -----
-    if (!rootFolder) {
-      try {
-        var hpSpreadsheet = getHpMemberSpreadsheet();
-        if (hpSpreadsheet) {
-          var file = DriveApp.getFileById(hpSpreadsheet.getId());
-          var parents = file.getParents();
-          if (parents.hasNext()) {
-            rootFolder = parents.next();
-            console.log('📁 루트 폴더 (hp_member 부모):', rootFolder.getId());
-          }
-        }
-      } catch (e) {
-        console.warn('📁 hp_member 부모 폴더 사용 불가:', e.message);
-      }
-    }
-
-    if (!rootFolder) {
-      console.warn('📁 루트 폴더를 찾을 수 없습니다. 스크립트 속성 ROOT_FOLDER_ID 또는 hp_member 연결을 확인하세요.');
-      return null;
-    }
-
-    // ----- 루트 폴더 + 모든 하위 폴더에서 sheetName과 같은 이름의 구글 시트만 검색 -----
-    var foundFiles = findSpreadsheetInFolderTreeByName_(rootFolder, sheetName);
-
-    if (!foundFiles || foundFiles.length === 0) {
-      console.warn('📊 루트 폴더 하위에서 스프레드시트를 찾을 수 없습니다:', sheetName);
-      return null;
-    }
-
-    if (foundFiles.length > 1) {
-      console.warn('⚠️ 루트 폴더 하위에 같은 이름의 스프레드시트가 여러 개 있습니다. 첫 번째 파일만 사용합니다. 개수:', foundFiles.length);
-    }
-
-    const spreadsheetId = foundFiles[0].getId();
-    console.log('📊 스프레드시트 ID 찾기 성공 (루트 폴더 하위 검색):', spreadsheetId);
-    return spreadsheetId;
-
+    if (!sheetName) return null;
+    return findSpreadsheetIdsByNames_([sheetName])[sheetName] || null;
   } catch (error) {
-    console.error('📊 스프레드시트 ID 찾기 오류:', error);
+    console.error('📊 스프레드시트 ID 찾기 오류:', sheetName, error);
     return null;
   }
 }
 
 /**
- * 폴더 트리(현재 폴더 + 모든 하위 폴더)에서 이름이 일치하는 구글 스프레드시트만 찾기
- * - getSheetIdByName에서 "프로젝트 루트 하위만 검색"할 때 사용
- * - 루트 직하위뿐 아니라 하위 폴더(예: 문서/static_tag)까지 재귀 검색
- *
- * @param {Folder} folder - 검색 시작 폴더 (루트 또는 하위 폴더)
- * @param {string} sheetName - 찾을 스프레드시트 파일 이름
- * @returns {Array<File>} 발견된 구글 시트 파일 목록 (MimeType.GOOGLE_SHEETS만 포함)
+ * Drive 검색 실패 시 사용하는 폴더 트리 대체 탐색
  */
 function findSpreadsheetInFolderTreeByName_(folder, sheetName) {
   const result = [];
 
   try {
-    // 현재 폴더에서 이름이 sheetName인 파일만 검색 (동명 폴더/문서는 제외)
     const files = folder.getFilesByName(sheetName);
     while (files.hasNext()) {
       const file = files.next();
@@ -99,14 +201,10 @@ function findSpreadsheetInFolderTreeByName_(folder, sheetName) {
       }
     }
 
-    // 하위 폴더를 재귀적으로 탐색 (예: hot_potato_remake → document → static_tag)
     const subFolders = folder.getFolders();
     while (subFolders.hasNext()) {
-      const subFolder = subFolders.next();
-      const subResults = findSpreadsheetInFolderTreeByName_(subFolder, sheetName);
-      if (subResults && subResults.length > 0) {
-        result.push.apply(result, subResults);
-      }
+      const subResults = findSpreadsheetInFolderTreeByName_(subFolders.next(), sheetName);
+      if (subResults.length > 0) result.push.apply(result, subResults);
     }
   } catch (error) {
     console.error('📁 폴더 트리에서 스프레드시트 검색 오류:', error);
@@ -117,15 +215,13 @@ function findSpreadsheetInFolderTreeByName_(folder, sheetName) {
 
 /**
  * 여러 스프레드시트 이름으로 ID 찾기
- * @param {Object} req - 요청 데이터 { spreadsheetNames: Array<string> }
- * @returns {Object} 응답 결과 { success: boolean, data: Object<string, string|null> }
  */
 function getSpreadsheetIds(req) {
   try {
-    console.log('📊 스프레드시트 ID 목록 조회 시작:', req);
-    
-    const spreadsheetNames = req.spreadsheetNames || [];
-    if (!Array.isArray(spreadsheetNames) || spreadsheetNames.length === 0) {
+    const spreadsheetNames = (req.spreadsheetNames || []).filter(function(name) {
+      return name && typeof name === 'string';
+    });
+    if (spreadsheetNames.length === 0) {
       return {
         success: false,
         message: '스프레드시트 이름 배열이 필요합니다.',
@@ -133,37 +229,15 @@ function getSpreadsheetIds(req) {
       };
     }
 
-    const result = {};
-    const notFound = [];
-    
-    // 각 스프레드시트 이름으로 ID 찾기
-    spreadsheetNames.forEach(name => {
-      if (!name || typeof name !== 'string') {
-        console.warn('📊 유효하지 않은 스프레드시트 이름:', name);
-        result[name] = null;
-        return;
-      }
-      
-      const id = getSheetIdByName(name);
-      result[name] = id;
-      
-      if (!id) {
-        notFound.push(name);
-      }
-    });
-    
-    console.log('📊 스프레드시트 ID 목록 조회 완료:', {
-      total: spreadsheetNames.length,
-      found: spreadsheetNames.length - notFound.length,
-      notFound: notFound.length > 0 ? notFound : '없음'
-    });
+    const result = findSpreadsheetIdsByNames_(spreadsheetNames);
+    const notFound = spreadsheetNames.filter(function(name) { return !result[name]; });
+    console.log('📊 스프레드시트 ID 조회:', spreadsheetNames.length, '개 중', spreadsheetNames.length - notFound.length, '개 찾음');
 
     return {
       success: true,
       data: result,
       notFound: notFound.length > 0 ? notFound : undefined
     };
-    
   } catch (error) {
     console.error('📊 스프레드시트 ID 목록 조회 오류:', error);
     return {

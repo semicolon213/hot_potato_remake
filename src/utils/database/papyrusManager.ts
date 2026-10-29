@@ -50,6 +50,7 @@ let studentSpreadsheetId: string | null = null;
 let staffSpreadsheetId: string | null = null;
 let accountingFolderId: string | null = null;
 let announcementAttachmentFolderId: string | null = null;
+let hasInitializedSpreadsheetIds = false;
 
 /**
  * @brief 스프레드시트 ID 전역 변수 초기화
@@ -71,6 +72,7 @@ export const clearSpreadsheetIds = (): void => {
     studentSpreadsheetId = null;
     staffSpreadsheetId = null;
     accountingFolderId = null;
+    hasInitializedSpreadsheetIds = false;
     console.log('🧹 스프레드시트 ID 전역 변수 초기화 완료');
 };
 
@@ -212,6 +214,21 @@ export const initializeSpreadsheetIds = async (): Promise<{
     staffSpreadsheetId: string | null;
     accountingFolderId: string | null;
 }> => {
+    if (hasInitializedSpreadsheetIds) {
+        return {
+            announcementSpreadsheetId,
+            calendarProfessorSpreadsheetId,
+            calendarCouncilSpreadsheetId,
+            calendarADProfessorSpreadsheetId,
+            calendarSuppSpreadsheetId,
+            calendarStudentSpreadsheetId,
+            hotPotatoDBSpreadsheetId,
+            studentSpreadsheetId,
+            staffSpreadsheetId,
+            accountingFolderId
+        };
+    }
+
     // 이미 초기화 중이면 기존 Promise 반환
     if (isInitializing && initializationPromise) {
         console.log('📊 스프레드시트 ID 초기화가 이미 진행 중입니다. 기존 요청을 재사용합니다.');
@@ -237,14 +254,21 @@ export const initializeSpreadsheetIds = async (): Promise<{
 
         console.log('📋 조회할 스프레드시트 이름들:', spreadsheetNames);
 
-        // Apps Script에 일괄 조회 요청
-        const response = await apiClient.getSpreadsheetIds(spreadsheetNames);
+        // 서로 독립적인 초기 조회를 동시에 시작
+        const [response, personalConfigId, accountingFolderResponse] = await Promise.all([
+            apiClient.getSpreadsheetIds(spreadsheetNames),
+            import('./personalConfigManager')
+                .then(({findPersonalConfigFile}) => findPersonalConfigFile())
+                .catch(() => null),
+            apiClient.request<{ accountingFolderId: string }>('getAccountingFolderId', {})
+                .catch(() => ({success: false} as const))
+        ]);
+        const accountingId = accountingFolderResponse.success && accountingFolderResponse.data?.accountingFolderId
+            ? accountingFolderResponse.data.accountingFolderId
+            : null;
 
         if (!response.success || !response.data) {
             console.error('❌ 스프레드시트 ID 조회 실패:', response.message || '알 수 없는 오류');
-            // 개인 설정 파일은 별도로 초기화 시도
-            const {findPersonalConfigFile} = await import('./personalConfigManager');
-            const personalConfigId = await findPersonalConfigFile().catch(() => null);
 
             return {
                 announcementSpreadsheetId: null,
@@ -256,7 +280,7 @@ export const initializeSpreadsheetIds = async (): Promise<{
                 hotPotatoDBSpreadsheetId: personalConfigId, // 개인 설정 파일 ID
                 studentSpreadsheetId: null,
                 staffSpreadsheetId: null,
-                accountingFolderId: null
+                accountingFolderId: accountingId
             };
         }
 
@@ -277,18 +301,6 @@ export const initializeSpreadsheetIds = async (): Promise<{
         const studentId = ids[ENV_CONFIG.STUDENT_SPREADSHEET_NAME] || null;
         const staffId = ids[ENV_CONFIG.STAFF_SPREADSHEET_NAME] || null;
 
-        // 개인 설정 파일 ID와 회계 폴더 ID 병렬 조회 (서로 독립)
-        const [personalConfigId, accountingFolderResponse] = await Promise.all([
-          (async () => {
-            const { findPersonalConfigFile } = await import('./personalConfigManager');
-            return findPersonalConfigFile();
-          })(),
-          apiClient.request('getAccountingFolderId', {})
-        ]);
-        const accountingId = accountingFolderResponse.success && accountingFolderResponse.data?.accountingFolderId
-            ? accountingFolderResponse.data.accountingFolderId
-            : null;
-
         // 전역 변수 업데이트
         announcementSpreadsheetId = announcementId;
         calendarProfessorSpreadsheetId = calendarProfessorId;
@@ -300,6 +312,7 @@ export const initializeSpreadsheetIds = async (): Promise<{
         studentSpreadsheetId = studentId;
         staffSpreadsheetId = staffId;
         accountingFolderId = accountingId;
+        hasInitializedSpreadsheetIds = true;
 
         console.log('✅ 스프레드시트 ID 초기화 완료:', {
             announcement: !!announcementId,

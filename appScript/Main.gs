@@ -7,20 +7,14 @@
 // ===== 메인 엔트리 포인트 =====
 function doPost(e) {
   try {
-    console.log('🚀 === 메인 doPost 시작 ===');
-    console.log('📥 요청 데이터:', e);
-    
     // 요청 데이터 파싱
     const req = parseRequest(e);
-    console.log('📋 파싱된 요청:', req);
-    console.log('🎯 액션:', req.action);
+    console.log('🎯 API 요청:', req.action || '(없음)');
     
     // 암복호화 액션 처리
     if (req.action === 'encryptEmail') {
-      console.log('🔐 암호화 요청 받음:', req.data);
       try {
         const encrypted = encryptEmailMain(req.data);
-        console.log('🔐 암호화 결과:', encrypted);
         const response = {
           success: true, 
           data: encrypted,
@@ -31,7 +25,6 @@ function doPost(e) {
             timestamp: new Date().toISOString()
           }
         };
-        console.log('🔐 최종 응답:', response);
         return ContentService
           .createTextOutput(JSON.stringify(response))
           .setMimeType(ContentService.MimeType.JSON);
@@ -44,10 +37,8 @@ function doPost(e) {
     }
     
     if (req.action === 'decryptEmail') {
-      console.log('🔓 복호화 요청 받음:', req.data);
       try {
         const decrypted = decryptEmailMain(req.data);
-        console.log('🔓 복호화 결과:', decrypted);
         return ContentService
           .createTextOutput(JSON.stringify({ success: true, data: decrypted }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -83,7 +74,7 @@ function doPost(e) {
     
     // 문서 생성 액션 처리
     if (req.action === 'createDocument') {
-      console.log('📄 문서 생성 요청 받음:', req);
+      console.log('📄 문서 생성 요청');
       
       try {
         const { title, templateType, creatorEmail, editors, role } = req;
@@ -261,7 +252,7 @@ function doPost(e) {
     
     // 문서 목록 조회 액션 처리
     if (req.action === 'getDocuments') {
-      console.log('📄 문서 목록 조회 요청 받음:', req);
+      console.log('📄 문서 목록 조회 요청');
       const result = (typeof handleGetDocuments === 'function') ? handleGetDocuments(req) : (typeof DocumentSpreadsheet !== 'undefined' && DocumentSpreadsheet.handleGetDocuments ? DocumentSpreadsheet.handleGetDocuments(req) : { success: false, message: 'DocumentSpreadsheet is not defined' });
       console.log('📄 문서 목록 조회 결과:', result);
       return ContentService
@@ -361,7 +352,7 @@ function doPost(e) {
     
     // 문서 삭제 액션 처리
     if (req.action === 'deleteDocuments') {
-      console.log('🗑️ 문서 삭제 요청 받음:', req);
+      console.log('🗑️ 문서 삭제 요청');
       const result = (typeof handleDeleteDocuments === 'function') ? handleDeleteDocuments(req) : (typeof DocumentSpreadsheet !== 'undefined' && DocumentSpreadsheet.handleDeleteDocuments ? DocumentSpreadsheet.handleDeleteDocuments(req) : { success: false, message: 'DocumentSpreadsheet is not defined' });
       console.log('🗑️ 문서 삭제 결과:', result);
       return ContentService
@@ -371,7 +362,7 @@ function doPost(e) {
     
     // 템플릿 목록 조회 액션 처리
     if (req.action === 'getTemplates') {
-      console.log('📄 템플릿 목록 조회 요청 받음:', req);
+      console.log('📄 템플릿 목록 조회 요청');
       
       // Drive API 확인
       if (typeof Drive === 'undefined') {
@@ -408,7 +399,7 @@ function doPost(e) {
     
     // Drive API 연결 테스트 액션 처리
     if (req.action === 'testDriveApi') {
-      console.log('🔧 Drive API 테스트 요청 받음:', req);
+      console.log('🔧 Drive API 테스트 요청');
       
       // DocumentTests 함수 직접 호출
       try {
@@ -432,7 +423,7 @@ function doPost(e) {
     
     // 템플릿 폴더 디버깅 테스트 액션 처리
     if (req.action === 'testTemplateFolderDebug') {
-      console.log('🔍 템플릿 폴더 디버깅 테스트 요청 받음:', req);
+      console.log('🔍 템플릿 폴더 디버깅 테스트 요청');
       try {
         const result = testTemplateFolderDebug();
         console.log('🔍 템플릿 폴더 디버깅 테스트 결과:', result);
@@ -454,7 +445,7 @@ function doPost(e) {
     
     // 특정 폴더 ID 테스트 액션 처리
     if (req.action === 'testSpecificFolder') {
-      console.log('🔍 특정 폴더 ID 테스트 요청 받음:', req);
+      console.log('🔍 특정 폴더 ID 테스트 요청');
       try {
         const result = testSpecificFolder();
         console.log('🔍 특정 폴더 ID 테스트 결과:', result);
@@ -847,7 +838,7 @@ function doPost(e) {
     
     // UserManagement.gs의 doPostAuthInternal 함수 호출
     const result = callUserManagementPost(req);
-    console.log('UserManagement.gs 응답:', result);
+    console.log('UserManagement.gs 요청 처리 완료:', req.action || '(없음)');
     
     return result;
   } catch (error) {
@@ -914,9 +905,6 @@ function flattenCreateLedgerRequest_(req) {
 // ===== UserManagement.gs 함수 호출 래퍼 =====
 function callUserManagementPost(req) {
   try {
-    console.log('🔍 요청 액션:', req.action);
-    console.log('🔍 요청 데이터 전체:', JSON.stringify(req));
-    
     // 액션 비교를 위해 정규화 (trim 및 타입 변환)
     const action = req.action ? String(req.action).trim() : '';
     
