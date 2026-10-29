@@ -9,7 +9,7 @@ import { apiClient } from '../utils/api/apiClient';
 import { getCacheManager } from '../utils/cache/cacheManager';
 import { generateCacheKey, getActionCategory, CACHEABLE_ACTIONS } from '../utils/cache/cacheUtils';
 import { tokenManager } from '../utils/auth/tokenManager';
-import { initializeSpreadsheetIds } from '../utils/database/papyrusManager';
+import { clearSpreadsheetIds, initializeSpreadsheetIds } from '../utils/database/papyrusManager';
 import type { User } from '../types/app';
 const log = logger.scope('services/dataSyncService');
 
@@ -419,6 +419,7 @@ export class DataSyncService {
     try {
       // 모든 캐시 무효화
       await this.cacheManager.clear();
+      clearSpreadsheetIds();
 
       // 사용자 정보 가져오기
       const userInfo = typeof window !== 'undefined' 

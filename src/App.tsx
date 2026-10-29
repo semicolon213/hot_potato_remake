@@ -169,13 +169,11 @@ const App: React.FC = () => {
 
   // 일반 로그아웃 처리 (기본 동작)
   const handleLogout = useCallback(() => {
-    tokenManager.clear();
+    clearAllUserData();
     setAccessToken(null);
     setUser(null);
     setCurrentPage("dashboard");
     setSearchTerm("");
-    localStorage.removeItem('user');
-    localStorage.removeItem('searchTerm');
     if (window.google && window.google.accounts) {
       window.google.accounts.id.disableAutoSelect();
     }
@@ -189,13 +187,11 @@ const App: React.FC = () => {
   // 완전 로그아웃 처리 (현재 로그인한 계정만 제거)
   const handleFullLogout = () => {
     const currentUserEmail = user?.email;
-    tokenManager.clear();
+    clearAllUserData();
     setAccessToken(null);
     setUser(null);
     setCurrentPage("dashboard");
     setSearchTerm("");
-    localStorage.removeItem('user');
-    localStorage.removeItem('searchTerm');
     if (currentUserEmail) {
       lastUserManager.remove(currentUserEmail);
     }
