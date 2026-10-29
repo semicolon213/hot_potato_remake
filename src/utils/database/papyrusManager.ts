@@ -1549,48 +1549,14 @@ export const updateStudent = async (
     }
 };
 
+// 교직원 목록은 교직원 스프레드시트의 info 시트를 읽는 fetchStaffFromPapyrus와 같은 결과를 쓴다.
 export const fetchStaff = async (): Promise<Staff[]> => {
-    const cacheManager = getCacheManager();
-    const action = 'fetchStaff';
-    const category = getActionCategory(action);
-    const cacheKey = generateCacheKey(category, action, {});
-    
-    return dedupe(cacheKey, async () => {
-      const cachedData = await cacheManager.get<Staff[]>(cacheKey);
-      if (cachedData) return cachedData;
-
-      try {
-        if (!studentSpreadsheetId) {
-            log.warn('Student spreadsheet ID not found');
-            return [];
-        }
-        const data = await getSheetData(studentSpreadsheetId, ENV_CONFIG.STUDENT_SHEET_NAME);
-
-        if (!data || !data.values || data.values.length <= 1) {
-            return [];
-        }
-
-        const staff = data.values.slice(1).map((row: string[]) => ({
-            no: row[0] || '',
-            pos: row[1] || '',
-            name: row[2] || '',
-            tel: row[3] || '',
-            phone: row[4] || '',
-            email: row[5] || '',
-            date: row[6] || '',
-            note: row[7] || '',
-        }));
-        
-        // 캐시에 저장
-        const ttl = getCacheTTL(action);
-        await cacheManager.set(cacheKey, staff, ttl);
-        
-        return staff;
-      } catch (error) {
-          log.error('Error fetching staff from Google Sheet:', error);
-          return [];
-      }
-    });
+    try {
+        return await fetchStaffFromPapyrus(staffSpreadsheetId || "");
+    } catch (error) {
+        log.error("Error fetching staff:", error);
+        return [];
+    }
 };
 
 export const fetchAttendees = async (): Promise<{ students: Student[], staff: Staff[] }> => {
