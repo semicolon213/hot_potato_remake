@@ -47,20 +47,23 @@ function getEvidenceFolderNameFromParams_(params) {
  * @param {Object} params - getLedgerList 는 {};
  * @returns {GoogleAppsScript.Drive.Folder|null}
  */
-function findEvidenceSubFolderInLedger_(ledgerFolder, params) {
+function findEvidenceSubFolderInLedger_(ledgerFolder, params, knownSubfolders) {
   var primary = getEvidenceFolderNameFromParams_(params || {});
   var tryNames = [primary];
   if (tryNames.indexOf('증빙') === -1) tryNames.push('증빙');
   if (tryNames.indexOf('evidence') === -1) tryNames.push('evidence');
-  var subs = [];
-  var it = ledgerFolder.getFolders();
-  while (it.hasNext()) {
-    subs.push(it.next());
+  var subs = knownSubfolders || [];
+  if (!knownSubfolders) {
+    var it = ledgerFolder.getFolders();
+    while (it.hasNext()) {
+      subs.push(it.next());
+    }
   }
   for (var i = 0; i < tryNames.length; i++) {
     var want = tryNames[i];
     for (var j = 0; j < subs.length; j++) {
-      if (subs[j].getName() === want) return subs[j];
+      var subName = typeof subs[j].getName === 'function' ? subs[j].getName() : subs[j].name;
+      if (subName === want) return subs[j];
     }
   }
   return null;
@@ -625,49 +628,59 @@ function createLedgerStructure(params) {
  */
 function getLedgerList() {
   try {
-    
     const accountingFolderId = initializeAccountingFolder();
-    const accountingFolder = DriveApp.getFolderById(accountingFolderId);
-    
-    const ledgers = [];
-    const folders = accountingFolder.getFolders();
-    
-    while (folders.hasNext()) {
-      const folder = folders.next();
-      const folderName = folder.getName();
-      
-      // 증빙 전용 이름으로 잘못 만든 최상위 폴더는 제외
-      if (isLikelyMisplacedEvidenceRootFolder_(folderName)) {
-        continue;
-      }
-      
-      // 스프레드시트 찾기 (파일명이 [장부이름]_장부 형식)
-      const files = folder.getFiles();
-      let spreadsheetId = null;
-      
-      while (files.hasNext()) {
-        const file = files.next();
-        const fileName = file.getName();
-        // Google Sheets 파일인지 확인
-        if (file.getMimeType() === 'application/vnd.google-apps.spreadsheet') {
-          spreadsheetId = file.getId();
-          break;
-        }
-      }
-      
-      // 증빙 폴더 찾기 (환경/레거시 이름 호환)
-      const evidenceSub = findEvidenceSubFolderInLedger_(folder, {});
-      const evidenceFolderId = evidenceSub ? evidenceSub.getId() : null;
-      
-      ledgers.push({
-        folderId: folder.getId(),
-        folderName: folderName,
-        spreadsheetId: spreadsheetId || '',
-        evidenceFolderId: evidenceFolderId || '',
-        createdDate: folder.getDateCreated().toISOString()
+    const folderResponse = Drive.Files.list({
+      q: "'" + accountingFolderId + "' in parents and trashed=false and mimeType='application/vnd.google-apps.folder'",
+      pageSize: 1000,
+      fields: 'files(id,name,createdTime,parents)'
+    });
+    const ledgerFolders = folderResponse.files || [];
+    const visibleLedgerFolders = ledgerFolders.filter(function(folder) {
+      return !isLikelyMisplacedEvidenceRootFolder_(folder.name);
+    });
+
+    const childrenByParent = {};
+    const parentChunkSize = 50;
+    for (let offset = 0; offset < visibleLedgerFolders.length; offset += parentChunkSize) {
+      const chunk = visibleLedgerFolders.slice(offset, offset + parentChunkSize);
+      const parentQuery = chunk.map(function(folder) {
+        return "'" + folder.id + "' in parents";
+      }).join(' or ');
+      if (!parentQuery) continue;
+
+      const childResponse = Drive.Files.list({
+        q: '(' + parentQuery + ") and trashed=false and (mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.folder')",
+        pageSize: 1000,
+        fields: 'files(id,name,mimeType,parents)'
+      });
+      (childResponse.files || []).forEach(function(file) {
+        (file.parents || []).forEach(function(parentId) {
+          if (!childrenByParent[parentId]) childrenByParent[parentId] = [];
+          childrenByParent[parentId].push(file);
+        });
       });
     }
-    return ledgers;
+
+    return visibleLedgerFolders.map(function(folder) {
+      const folderName = folder.name;
+      const children = childrenByParent[folder.id] || [];
+      const spreadsheet = children.find(function(file) {
+        return file.mimeType === 'application/vnd.google-apps.spreadsheet';
+      });
+      const subfolders = children.filter(function(file) {
+        return file.mimeType === 'application/vnd.google-apps.folder';
+      });
+      const evidenceSub = findEvidenceSubFolderInLedger_(null, {}, subfolders);
+      const evidenceFolderId = evidenceSub ? evidenceSub.id : null;
+      
+      return {
+        folderId: folder.id,
+        folderName: folderName,
+        spreadsheetId: spreadsheet ? spreadsheet.id : '',
+        evidenceFolderId: evidenceFolderId || '',
+        createdDate: folder.createdTime || ''
+      };
+    });
     
   } catch (error) {
     logError_('AccountingManagement', '장부 목록 조회 오류:', error);
