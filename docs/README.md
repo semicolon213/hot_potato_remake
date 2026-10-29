@@ -48,6 +48,8 @@ flowchart LR
 | [OPERATOR_MANUAL.md](./OPERATOR_MANUAL.md) | 운영자 작업 절차 |
 | [RUNBOOK.md](./RUNBOOK.md) | 장애 유형별 대응 |
 | [SECURITY.md](./SECURITY.md) | 인증, 권한, 데이터 보호, 신고 |
+| [OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md) | Google OAuth 앱 게시와 인증 체크리스트 |
+| [EASY_SETUP_DESIGN.md](./EASY_SETUP_DESIGN.md) | 쉬운 설치 도구 설계 (브라우저 설치 마법사) |
 | [archive/](./archive/README.md) | 재정리 전 문서 (참고용) |
 
 ## 문서 관리 규칙
