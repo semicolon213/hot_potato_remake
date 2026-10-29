@@ -198,7 +198,7 @@ npm run dev:web        # http://localhost:5173
 - **서버 측 권한 검사를 강화해야 합니다.** 지금은 화면 단위 제어와 Drive 공유 권한에 많이 기대고 있습니다. 서버에서 요청자를 직접 확인하는 구조로 바꾸는 것이 가장 먼저 할 일입니다([docs/SECURITY.md](docs/SECURITY.md)).
 - **로그인이 1시간이면 끊깁니다.** 토큰을 갱신할 수 없는 로그인 방식(implicit flow)을 쓰고 있어서, Authorization Code + PKCE로 바꾸려고 합니다.
 - **Sheets는 동시 쓰기에 약합니다.** 동시에 같은 시트에 쓰면 충돌할 수 있습니다. `LockService` 적용과 시트 열 순서 고정이 필요합니다.
-- **알려진 결함이 9건 남아 있습니다.** 검토 단계 반려 오류, 가입 거부 미동작 등 9건을 [docs/STATUS.md](docs/STATUS.md)에서 관리하고 있습니다.
+- **알려진 결함이 10건 남아 있습니다.** 검토 단계 반려 오류, 가입 거부 미동작 등 10건을 [docs/STATUS.md](docs/STATUS.md)에서 관리하고 있습니다. 그중 API 재시도 문제는 `feature/loading-performance` 브랜치에서 고쳤고, 아직 병합하지 않았습니다.
 
 ## 문서
 
