@@ -1,4 +1,4 @@
-# appScript — HP ERP 백엔드 (Google Apps Script)
+# appScript: HP ERP 백엔드 (Google Apps Script)
 
 이 폴더는 Google Apps Script 웹앱 코드입니다. `clasp`의 `rootDir`로 이 폴더를 지정해 올립니다.
 

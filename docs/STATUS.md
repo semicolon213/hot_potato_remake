@@ -102,7 +102,7 @@ timeline
 | P1 | 예산계획 열 순서 통일 + 기존 장부 마이그레이션 | BUG-04 |
 | P2 | 캘린더 역할 키 통일 | BUG-03 |
 | P2 | 결재 상태 타입을 서버 값과 일치 | BUG-05 |
-| P2 | `apiClient` 재시도: 시도마다 새 타임아웃, 쓰기 요청은 재시도 안 함 — **해결(브랜치 `feature/loading-performance`, 미병합)** | BUG-06 |
+| P2 | `apiClient` 재시도: 시도마다 새 타임아웃, 쓰기 요청은 재시도 안 함. **해결(브랜치 `feature/loading-performance`, 미병합)** | BUG-06 |
 | P2 | 카테고리 조회 시트 수정 | BUG-07 |
 | P2 | 페이지 단위 권한 검사 | [ADR-010](./ADR.md#adr-010-라우터-없이-상태-기반으로-화면을-전환한다) |
 | P2 | 로그아웃 시 캐시·사용자 데이터 삭제. 브랜치에서 `clearAllUserData`가 API 캐시도 비우도록 보강했지만, `handleLogout`이 이 함수를 아직 호출하지 않음 | [ADR-005](./ADR.md#adr-005-클라이언트-캐시와-2단계-프리페치) |

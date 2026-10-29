@@ -72,7 +72,7 @@ sequenceDiagram
 | `getAllUsers` | — | 전체 사용자 + 대기/승인 분리 목록 |
 | `getPendingUsers` | — | 승인 대기 목록 |
 | `approveUserWithGroup` | `studentId, groupRole` | 승인(`O`) + Google 그룹 추가 시도, 실패 시 그룹 관리자에게 메일 |
-| `rejectUser` | `studentId` | 가입 거부 (구 스키마 사용 — 수정 필요) |
+| `rejectUser` | `studentId` | 가입 거부 (구 스키마 사용, 수정 필요) |
 | `addUsersToSpreadsheet` | `users:[{no_member,name_member}]` | 학번·이름 사전 등록 (중복 건너뜀) |
 | `clearUserCache` | — | 사용자 캐시 삭제 |
 | `sendAdminKeyEmail` | `userEmail` | 관리자 키 안내 메일 발송 |

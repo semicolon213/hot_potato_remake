@@ -68,11 +68,11 @@ cp .env.example .env
 
 처음 읽을 때는 아래 순서를 추천합니다.
 
-1. `src/App.tsx` — 로그인·승인 게이트, 앱 셸
-2. `src/hooks/core/useAppState.ts` — 전역 상태와 로그인 후 초기화
-3. `src/components/layout/PageRenderer.tsx` — 화면 전환
-4. `src/utils/api/apiClient.ts` — Apps Script 호출, 재시도, 캐시
-5. `appScript/Main.gs` — 백엔드 라우터 (`doPost`)
+1. `src/App.tsx`: 로그인·승인 게이트, 앱 셸
+2. `src/hooks/core/useAppState.ts`: 전역 상태와 로그인 후 초기화
+3. `src/components/layout/PageRenderer.tsx`: 화면 전환
+4. `src/utils/api/apiClient.ts`: Apps Script 호출, 재시도, 캐시
+5. `appScript/Main.gs`: 백엔드 라우터 (`doPost`)
 
 구조는 [ARCHITECTURE.md](./ARCHITECTURE.md), 규칙은 [CONVENTIONS.md](./CONVENTIONS.md)를 보세요.
 
