@@ -885,9 +885,7 @@ function callUserManagementPost(req) {
             .createTextOutput(JSON.stringify({
               success: false,
               message: '사용자 목록 조회 중 오류가 발생했습니다.',
-              users: [],
-              pendingUsers: [],
-              approvedUsers: []
+              users: []
             }))
             .setMimeType(ContentService.MimeType.JSON);
         }
@@ -902,8 +900,6 @@ function callUserManagementPost(req) {
             success: false,
             message: '사용자 목록 조회 중 오류가 발생했습니다: ' + error.message,
             users: [],
-            pendingUsers: [],
-            approvedUsers: [],
             error: error.toString()
           }))
           .setMimeType(ContentService.MimeType.JSON);

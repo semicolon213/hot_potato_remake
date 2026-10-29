@@ -43,20 +43,16 @@ function getAllUsers() {
     
     // 연결된 스프레드시트 사용
     const spreadsheet = getHpMemberSpreadsheet();
-    logDebug_('UserApproval', '스프레드시트 객체:', spreadsheet);
     if (!spreadsheet) {
-      logDebug_('UserApproval', '스프레드시트를 찾을 수 없습니다.');
       return {
         success: false,
         message: '스프레드시트를 찾을 수 없습니다.'
       };
     }
     spreadsheetId = spreadsheet.getId();
-    logDebug_('UserApproval', '스프레드시트 ID:', spreadsheetId);
     
     // 스크립트 속성에서 시트 이름 가져오기
     sheetName = PropertiesService.getScriptProperties().getProperty('SHEET_NAME_USER') || 'user';
-    logDebug_('UserApproval', '시트 이름:', sheetName);
     const data = getSheetData(spreadsheetId, sheetName, 'A:G');
     
     if (!data || data.length <= 1) {
@@ -68,7 +64,6 @@ function getAllUsers() {
     }
     
     const header = data[0];
-    logDebug_('UserApproval', '헤더:', header);
     
     // 빈 행 필터링 (학번이 없거나 이름이 없는 행 제외)
     const validRows = data.slice(1).filter(row => {
@@ -89,10 +84,7 @@ function getAllUsers() {
         email: user.google_member ? decryptEmailMain(user.google_member) : '',
         studentId: user.no_member || '',
         name: user.name_member || '',
-        userType: (() => {
-          logDebug_('UserApproval', '사용자 유형 확인');
-          return user.user_type || 'student';
-        })(),
+        userType: user.user_type || 'student',
         isAdmin: user.is_admin === 'O',
         isApproved: getUserApprovalStatus(user) === 'O',
         requestDate: user.approval_date || new Date().toISOString().split('T')[0],
@@ -100,37 +92,19 @@ function getAllUsers() {
       };
     });
     
-    logDebug_('UserApproval', '전체 사용자 수:', users.length); // 처음 2개 사용자만 로그
-    
-    // 승인 상태별로 분류
-    const pendingUsers = users.filter(user => getUserApprovalStatus(user) === 'X');
-    const approvedUsers = users.filter(user => getUserApprovalStatus(user) === 'O');
-    const rejectedUsers = users.filter(user => getUserApprovalStatus(user) === '');
-    
-    logDebug_('UserApproval', '승인 대기 중:', pendingUsers.length);
-    logDebug_('UserApproval', '승인된 사용자:', approvedUsers.length);
-    logDebug_('UserApproval', '승인 거부된 사용자:', rejectedUsers.length);
+    const counts = users.reduce((result, user) => {
+      const status = getUserApprovalStatus(user);
+      if (status === 'X') result.pending++;
+      else if (status === 'O') result.approved++;
+      else result.rejected++;
+      return result;
+    }, { pending: 0, approved: 0, rejected: 0 });
     
     const response = {
       success: true,
       users: users,
-      pendingUsers: pendingUsers,
-      approvedUsers: approvedUsers,
-      rejectedUsers: rejectedUsers,
       total: users.length,
-      message: `전체 ${users.length}명 (승인 대기: ${pendingUsers.length}명, 승인됨: ${approvedUsers.length}명, 거부됨: ${rejectedUsers.length}명)`,
-      debug: {
-        spreadsheetId: spreadsheetId,
-        sheetName: sheetName,
-        rawDataLength: data ? data.length : 0,
-        header: header,
-        userDataSample: users.slice(0, 2),
-        classification: {
-          pending: pendingUsers.length,
-          approved: approvedUsers.length,
-          rejected: rejectedUsers.length
-        }
-      }
+      message: `전체 ${users.length}명 (승인 대기: ${counts.pending}명, 승인됨: ${counts.approved}명, 거부됨: ${counts.rejected}명)`
     };
     return response;
     
@@ -138,13 +112,7 @@ function getAllUsers() {
     logError_('UserApproval', '모든 사용자 목록 조회 오류:', error);
     return {
       success: false,
-      message: '사용자 목록 조회 중 오류가 발생했습니다: ' + error.message,
-      debug: {
-        error: error.toString(),
-        stack: error.stack,
-        spreadsheetId: spreadsheetId,
-        sheetName: sheetName
-      }
+      message: '사용자 목록 조회 중 오류가 발생했습니다: ' + error.message
     };
   }
 }

@@ -162,9 +162,6 @@ export const useAdminPanel = () => {
           isAdmin: user.isAdmin
         }));
         
-        // 디버깅 정보를 상태에 저장
-        setDebugInfo(`사용자 수: ${result.users.length}\n승인 대기: ${result.pendingUsers?.length || 0}\n승인됨: ${result.approvedUsers?.length || 0}\n\n사용자 목록:\n${JSON.stringify(userListDebug.slice(0, 3), null, 2)}`);
-        
         log.debug('setUsers 호출 전 현재 users 상태:', users);
         
         // Apps Script에서 받은 데이터를 AdminUser 타입으로 변환
@@ -207,6 +204,8 @@ export const useAdminPanel = () => {
           const approvalStatus = (user as any)._approvalStatus || '';
           return approvalStatus === '' || approvalStatus === null || approvalStatus === undefined;
         });
+
+        setDebugInfo(`사용자 수: ${convertedUsers.length}\n승인 대기: ${pending.length}\n승인됨: ${approved.length}\n\n사용자 목록:\n${JSON.stringify(userListDebug.slice(0, 3), null, 2)}`);
         
         setUsers(convertedUsers);
         setPendingUsers(pending);
