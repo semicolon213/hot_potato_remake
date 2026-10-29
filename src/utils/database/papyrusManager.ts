@@ -1,3 +1,4 @@
+import { getSheetData, append, update, deleteRow } from '../google/sheetsClient';
 import { logger } from '../logger';
 /**
  * @file papyrusManager.ts
@@ -7,8 +8,6 @@ import { logger } from '../logger';
  * @date 2024
  */
 
-import {getSheetData, append, update} from 'papyrus-db';
-import {deleteRow} from 'papyrus-db/dist/sheets/delete';
 import {ENV_CONFIG} from '../../config/environment';
 import {apiClient} from '../api/apiClient';
 import {tokenManager} from '../auth/tokenManager';
@@ -27,15 +26,6 @@ const updateRow = async (spreadsheetId: string, sheetName: string, key: string, 
     await update(spreadsheetId, sheetName, key, data);
 };
 
-// papyrus-db에 Google API 인증 설정
-const setupPapyrusAuth = () => {
-    if (window.gapi && window.gapi.client) {
-        // papyrus-db가 gapi.client를 사용하도록 설정
-        window.papyrusAuth = {
-            client: window.gapi.client
-        };
-    }
-};
 import type {Post, Event, DateRange, CustomPeriod, Student, Staff} from '../../types/app';
 import type {Template} from '../../hooks/features/templates/useTemplateUI';
 const log = logger.scope('utils/database/papyrusManager');
@@ -591,7 +581,6 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
             throw new Error('Writer email is required');
         }
 
-        setupPapyrusAuth();
         const token = tokenManager.get();
         if (!token) {
             throw new Error('Google Access Token not found or expired');
@@ -825,7 +814,6 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
             throw new Error('User ID is required');
         }
 
-        setupPapyrusAuth();
         const token = tokenManager.get();
         if (!token) {
             throw new Error('Google Access Token not found or expired');
@@ -1412,7 +1400,6 @@ export const deleteStudent = async (spreadsheetId: string, studentNo: string): P
             throw new Error('Student spreadsheet ID not found');
         }
 
-        setupPapyrusAuth();
 
         const sheetName = ENV_CONFIG.STUDENT_SHEET_NAME; // ENV v2: INFO_SHEET_NAME 기반 학생 시트명
 
@@ -1474,7 +1461,6 @@ export const updateStudent = async (
             throw new Error('Student spreadsheet ID not found');
         }
 
-        setupPapyrusAuth();
 
         const sheetName = ENV_CONFIG.STUDENT_SHEET_NAME;
         const data = await getSheetData(effectiveSpreadsheetId, sheetName);
@@ -1968,7 +1954,6 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
     if (cachedData) return cachedData;
 
     try {
-    setupPapyrusAuth();
 
     if (!staffSpreadsheetId) {
       staffSpreadsheetId = await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
@@ -2068,7 +2053,6 @@ export const fetchCommitteeFromPapyrus = async (spreadsheetId: string): Promise<
   }
 
   try {
-    setupPapyrusAuth();
 
     if (!staffSpreadsheetId) {
       staffSpreadsheetId = await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
@@ -2187,7 +2171,6 @@ interface Committee {
  */
 export const addStaff = async (spreadsheetId: string, staff: StaffMember): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         if (!staffSpreadsheetId) {
             staffSpreadsheetId = await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
@@ -2234,7 +2217,6 @@ export const addStaff = async (spreadsheetId: string, staff: StaffMember): Promi
  */
 export const updateStaff = async (spreadsheetId: string, staffNo: string, staff: StaffMember): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         const effectiveSpreadsheetId = staffSpreadsheetId || await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
         if (!effectiveSpreadsheetId) {
@@ -2303,7 +2285,6 @@ export const updateStaff = async (spreadsheetId: string, staffNo: string, staff:
  */
 export const deleteStaff = async (spreadsheetId: string, staffNo: string): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         const effectiveSpreadsheetId = staffSpreadsheetId || await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
         if (!effectiveSpreadsheetId) {
@@ -2352,7 +2333,6 @@ export const deleteStaff = async (spreadsheetId: string, staffNo: string): Promi
  */
 export const addCommittee = async (spreadsheetId: string, committee: CommitteeType): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         if (!staffSpreadsheetId) {
             staffSpreadsheetId = await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
@@ -2397,7 +2377,6 @@ export const addCommittee = async (spreadsheetId: string, committee: CommitteeTy
  */
 export const updateCommittee = async (spreadsheetId: string, committeeName: string, committee: CommitteeType): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         const effectiveSpreadsheetId = staffSpreadsheetId || await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
         if (!effectiveSpreadsheetId) {
@@ -2464,7 +2443,6 @@ export const updateCommittee = async (spreadsheetId: string, committeeName: stri
  */
 export const deleteCommittee = async (spreadsheetId: string, committeeName: string): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         const effectiveSpreadsheetId = staffSpreadsheetId || await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
         if (!effectiveSpreadsheetId) {

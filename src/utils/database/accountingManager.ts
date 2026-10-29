@@ -1,3 +1,4 @@
+import { deleteRow, getSheetData, append, update } from '../google/sheetsClient';
 import { logger } from '../logger';
 /**
  * @file accountingManager.ts
@@ -7,7 +8,6 @@ import { logger } from '../logger';
  * @date 2024
  */
 
-import { getSheetData, append, update } from 'papyrus-db';
 import { getCacheManager } from '../cache/cacheManager';
 import { generateCacheKey, getCacheTTL, getActionCategory } from '../cache/cacheUtils';
 import { getDataSyncService } from '../../services/dataSyncService';
@@ -32,18 +32,7 @@ const ACCOUNTING_SHEETS = {
   CATEGORY: '카테고리'
 };
 
-// papyrus-db 설정
-const setupPapyrusAuth = (): void => {
-  if (window.gapi && window.gapi.client) {
-    window.papyrusAuth = {
-      client: window.gapi.client
-    };
-  }
-};
 
-const ensureAuth = () => {
-  setupPapyrusAuth();
-};
 
 /**
  * 시트 ID 가져오기
@@ -225,7 +214,6 @@ export const getAccounts = async (spreadsheetId: string): Promise<Account[]> => 
   }
 
   try {
-    ensureAuth();
     const data = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.ACCOUNT);
     
     if (!data || !data.values || data.values.length <= 1) {
@@ -317,7 +305,6 @@ export const createLedgerEntry = async (
     }
 
     // 통장 잔액 업데이트 (배열 형식으로)
-    ensureAuth();
     try {
       
       // 통장 데이터 조회하여 행 번호 찾기
@@ -367,7 +354,6 @@ export const createLedgerEntry = async (
     };
 
     // 스프레드시트에 추가
-    ensureAuth();
     
     // 시트 헤더 순서: entry_id, account_id, date, category, description, amount, balance_after, 
     // source, transaction_type, evidence_file_id, evidence_file_name, created_by, created_date, 
@@ -525,7 +511,6 @@ export const updateLedgerEntry = async (
   entryData: UpdateLedgerEntryRequest
 ): Promise<LedgerEntry> => {
   try {
-    ensureAuth();
 
     // 기존 항목 조회
     const entries = await getLedgerEntries(spreadsheetId, entryData.accountId);
@@ -782,7 +767,6 @@ export const deleteLedgerEntry = async (
   accountId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
 
     // 기존 항목 조회
     const entries = await getLedgerEntries(spreadsheetId, accountId);
@@ -866,7 +850,6 @@ export const deleteLedgerEntry = async (
       await updateCategoryUsageCount(spreadsheetId, entry.category, -1);
 
       // 행 삭제
-      const { deleteRow } = await import('papyrus-db');
       await deleteRow(spreadsheetId, sheetId, rowIndex + 1);
     } catch (apiError) {
       // API 실패 시 롤백
@@ -948,7 +931,6 @@ export const getLedgerEntries = async (
   }
 ): Promise<LedgerEntry[]> => {
   try {
-    ensureAuth();
     const data = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.LEDGER);
     
     if (!data || !data.values || data.values.length <= 1) {
@@ -1052,7 +1034,6 @@ export const getCategories = async (spreadsheetId: string): Promise<Category[]> 
   }
 
   try {
-    ensureAuth();
     const data = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.CATEGORY);
     
     if (!data || !data.values || data.values.length <= 1) {
@@ -1141,7 +1122,6 @@ export const createCategory = async (
   createdBy: string
 ): Promise<Category> => {
   try {
-    ensureAuth();
 
     const categoryId = `cat_${Date.now()}`;
     const createdDate = new Date().toISOString();
@@ -1215,7 +1195,6 @@ export const updateCategory = async (
   newDescription: string
 ): Promise<void> => {
   try {
-    ensureAuth();
 
     // 기존 카테고리 정보 가져오기
     const categories = await getCategories(spreadsheetId);
@@ -1344,7 +1323,6 @@ export const deleteCategory = async (
   categoryId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
 
     // 기존 카테고리 정보 가져오기
     const categories = await getCategories(spreadsheetId);

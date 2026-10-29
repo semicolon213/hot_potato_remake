@@ -1,3 +1,4 @@
+import { deleteRow, getSheetData, append, update } from '../google/sheetsClient';
 import { logger } from '../logger';
 /**
  * @file accountingBudgetManager.ts
@@ -7,7 +8,6 @@ import { logger } from '../logger';
  * @date 2024
  */
 
-import { getSheetData, append, update } from 'papyrus-db';
 import { getCacheManager } from '../cache/cacheManager';
 import { generateCacheKey, getCacheTTL, getActionCategory } from '../cache/cacheUtils';
 import type { BudgetPlan, BudgetPlanDetail, CreateBudgetPlanRequest, UpdateBudgetPlanDetailsRequest, Account } from '../../types/features/accounting';
@@ -16,18 +16,7 @@ import { getAccounts } from './accountingManager';
 const log = logger.scope('utils/database/accountingBudgetManager');
 
 
-// papyrus-db 설정
-const setupPapyrusAuth = (): void => {
-  if (window.gapi && window.gapi.client) {
-    window.papyrusAuth = {
-      client: window.gapi.client
-    };
-  }
-};
 
-const ensureAuth = () => {
-  setupPapyrusAuth();
-};
 
 const ACCOUNTING_SHEETS = {
   BUDGET_PLAN: '예산계획'
@@ -79,7 +68,6 @@ export const getBudgetPlans = async (
   }
 
   try {
-    ensureAuth();
     
     // Google API 인증 확인
     if (!window.gapi || !window.gapi.client) {
@@ -267,7 +255,6 @@ export const createBudgetPlan = async (
       }))
     };
 
-    ensureAuth();
     
     // 시트 헤더 순서: budget_id, account_id, title, total_amount, modification_date,
     // status, sub_manager_reviewed, sub_manager_review_date,
@@ -310,7 +297,6 @@ export const reviewBudgetPlan = async (
   reviewerId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
     const reviewDate = new Date().toISOString();
     
     // 스프레드시트에서 해당 행 찾아서 업데이트 (배열 형식으로)
@@ -398,7 +384,6 @@ export const approveBudgetPlan = async (
   approverId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
     
     // 예산 계획 정보 가져오기
     const plans = await getBudgetPlans(spreadsheetId);
@@ -465,7 +450,6 @@ export const rejectBudgetPlan = async (
   rejecterId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
     
     // 예산 계획 정보 가져오기
     const plans = await getBudgetPlans(spreadsheetId);
@@ -526,7 +510,6 @@ export const executeBudgetPlan = async (
   executorId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
     
     // 예산 계획 정보 가져오기
     const plans = await getBudgetPlans(spreadsheetId);
@@ -595,7 +578,6 @@ export const updateBudgetPlanDetails = async (
   request: UpdateBudgetPlanDetailsRequest
 ): Promise<void> => {
   try {
-    ensureAuth();
     
     // Google API 인증 확인
     if (!window.gapi || !window.gapi.client) {
@@ -660,7 +642,6 @@ export const updateBudgetPlanDetails = async (
 
     // 이미 집행된 장부 항목이 있는지 확인하고 삭제 (상태와 관계없이 해당 예산안으로 생성된 항목은 모두 삭제)
     const { getLedgerEntries } = await import('./accountingManager');
-    const { deleteRow } = await import('papyrus-db');
     const ACCOUNTING_SHEETS_IMPORT = {
       LEDGER: '장부',
       ACCOUNT: '통장'
@@ -781,7 +762,6 @@ export const updateBudgetPlanDetails = async (
               // 0-based 인덱스로 변환 (시트 행 번호 - 1)
               const apiRowIndex = actualSheetRowNumber - 1;
               
-              const { deleteRow } = await import('papyrus-db');
               await deleteRow(spreadsheetId, ledgerSheetId, apiRowIndex);
               
               // 삭제 후 시트 상태 확인 (디버깅용)
@@ -908,7 +888,6 @@ export const deleteBudgetPlan = async (
   deleterId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
     
     // 예산 계획 정보 가져오기
     const plans = await getBudgetPlans(spreadsheetId);
@@ -938,7 +917,6 @@ export const deleteBudgetPlan = async (
     // 이미 집행된 장부 항목이 있는지 확인
     if (plan.status === 'executed') {
       const { getLedgerEntries, getAccounts: getAccountsForDelete } = await import('./accountingManager');
-      const { getSheetData, deleteRow } = await import('papyrus-db');
       const ACCOUNTING_SHEETS_IMPORT = {
         LEDGER: '장부',
         ACCOUNT: '통장'

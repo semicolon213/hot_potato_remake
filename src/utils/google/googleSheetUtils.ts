@@ -1,3 +1,4 @@
+import { getSheetData as readSheetValues } from './sheetsClient';
 import { logger } from '../logger';
 import { useEffect } from "react";
 
@@ -307,10 +308,8 @@ export const getSheetData = async (spreadsheetId: string, sheetName: string, ran
 export const getAccountingCategorySummary = async (spreadsheetId: string): Promise<{ category: string; income: number; expense: number }[]> => {
   try {
     
-    // papyrus-db 사용
-    const { getSheetData } = await import('papyrus-db');
     
-    // papyrus-db 인증 설정
+    // gapi 클라이언트에 토큰 설정
     if (window.gapi && window.gapi.client) {
       const token = tokenManager.get();
       if (token) {
@@ -320,13 +319,10 @@ export const getAccountingCategorySummary = async (spreadsheetId: string): Promi
           log.warn("토큰 설정 실패");
         }
       }
-      window.papyrusAuth = {
-        client: window.gapi.client
-      };
     }
     
     // "장부" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
-    const data = await getSheetData(spreadsheetId, '장부');
+    const data = await readSheetValues(spreadsheetId, '장부');
     
     if (!data || !data.values || data.values.length < 2) {
       log.warn('데이터가 없습니다.');
@@ -385,10 +381,8 @@ export const getAccountingCategorySummary = async (spreadsheetId: string): Promi
 export const getLedgerBalance = async (spreadsheetId: string): Promise<number> => {
   try {
     
-    // papyrus-db 사용
-    const { getSheetData } = await import('papyrus-db');
     
-    // papyrus-db 인증 설정
+    // gapi 클라이언트에 토큰 설정
     if (window.gapi && window.gapi.client) {
       const token = tokenManager.get();
       if (token) {
@@ -398,13 +392,10 @@ export const getLedgerBalance = async (spreadsheetId: string): Promise<number> =
           log.warn("토큰 설정 실패");
         }
       }
-      window.papyrusAuth = {
-        client: window.gapi.client
-      };
     }
     
     // "통장" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
-    const data = await getSheetData(spreadsheetId, '통장');
+    const data = await readSheetValues(spreadsheetId, '통장');
     
     if (!data || !data.values || data.values.length < 2) {
       log.warn('통장 데이터가 없습니다.');
@@ -444,10 +435,8 @@ export const getLedgerBalance = async (spreadsheetId: string): Promise<number> =
 export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: string): Promise<{ budget_id: string; title: string; total_amount: number; status: string; action_required: string }[]> => {
   try {
     
-    // papyrus-db 사용
-    const { getSheetData } = await import('papyrus-db');
     
-    // papyrus-db 인증 설정
+    // gapi 클라이언트에 토큰 설정
     if (window.gapi && window.gapi.client) {
       const token = tokenManager.get();
       if (token) {
@@ -457,13 +446,10 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
           log.warn("토큰 설정 실패");
         }
       }
-      window.papyrusAuth = {
-        client: window.gapi.client
-      };
     }
     
-    // papyrus-db로 "예산계획" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
-    const data = await getSheetData(spreadsheetId, '예산계획');
+    // "예산계획" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
+    const data = await readSheetValues(spreadsheetId, '예산계획');
     
     if (!data || !data.values || data.values.length < 2) {
       log.warn('데이터가 없습니다.');
@@ -471,7 +457,7 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
     }
     
     // 통장 정보 먼저 가져오기 (account_id -> 관리인 매핑, 시트명 하드코딩)
-    const accountData = await getSheetData(spreadsheetId, '통장');
+    const accountData = await readSheetValues(spreadsheetId, '통장');
     const accountMap: Record<string, { mainManagerId: string; subManagerIds: string[] }> = {};
     
     if (accountData && accountData.values && accountData.values.length > 1) {
@@ -945,10 +931,8 @@ export const deleteRowsByDocIds = async (
     export const getAccountingData = async (spreadsheetId: string): Promise<string[] | null> => {
       try {
         
-        // papyrus-db 사용
-        const { getSheetData } = await import('papyrus-db');
         
-        // papyrus-db 인증 설정
+        // gapi 클라이언트에 토큰 설정
         if (window.gapi && window.gapi.client) {
           const token = tokenManager.get();
           if (token) {
@@ -958,13 +942,10 @@ export const deleteRowsByDocIds = async (
               log.warn("토큰 설정 실패");
             }
           }
-          window.papyrusAuth = {
-            client: window.gapi.client
-          };
         }
         
-        // papyrus-db로 "카테고리" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
-        const data = await getSheetData(spreadsheetId, '카테고리');
+        // "카테고리" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
+        const data = await readSheetValues(spreadsheetId, '카테고리');
         
         if (!data || !data.values || data.values.length <= 1) {
           return [];

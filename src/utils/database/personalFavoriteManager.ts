@@ -1,3 +1,4 @@
+import { getSheetData, append, update, deleteRow } from '../google/sheetsClient';
 import { logger } from '../logger';
 /**
  * @file personalFavoriteManager.ts
@@ -7,8 +8,6 @@ import { logger } from '../logger';
  * @date 2024
  */
 
-import { getSheetData, append, update } from 'papyrus-db';
-import { deleteRow } from 'papyrus-db/dist/sheets/delete';
 import { getCacheManager } from '../cache/cacheManager';
 import { generateCacheKey } from '../cache/cacheUtils';
 import { tokenManager } from '../auth/tokenManager';
@@ -42,31 +41,6 @@ const getSheetId = async (spreadsheetId: string, sheetName: string): Promise<num
   }
 };
 
-// papyrus-db에 Google API 인증 설정
-const setupPapyrusAuth = (): void => {
-  if (window.gapi && window.gapi.client) {
-    // tokenManager를 사용하여 올바른 토큰 가져오기 (만료 체크 포함)
-    const token = tokenManager.get();
-    
-    if (token) {
-      try {
-        window.gapi.client.setToken({ access_token: token });
-        log.debug('토큰이 gapi client에 설정되었습니다.');
-      } catch {
-        log.warn('토큰 설정 실패');
-      }
-    } else {
-      log.warn('Google API 인증 토큰이 없거나 만료되었습니다.');
-    }
-    
-    // papyrus-db가 gapi.client를 사용하도록 설정
-    window.papyrusAuth = {
-      client: window.gapi.client
-    };
-  } else {
-    log.warn('Google API가 초기화되지 않았습니다.');
-  }
-};
 
 /**
  * @brief 즐겨찾기 데이터 타입 정의
@@ -94,7 +68,6 @@ export const fetchFavorites = async (): Promise<FavoriteData[]> => {
   }
 
   try {
-    setupPapyrusAuth();
     
     let spreadsheetId = getPersonalConfigSpreadsheetId();
     if (!spreadsheetId) {
@@ -140,7 +113,6 @@ export const addFavorite = async (favoriteData: FavoriteData): Promise<boolean> 
   const category = 'personalFavorites';
   
   try {
-    setupPapyrusAuth();
     
     let spreadsheetId = getPersonalConfigSpreadsheetId();
     if (!spreadsheetId) {
@@ -188,7 +160,6 @@ export const removeFavorite = async (favoriteData: FavoriteData): Promise<boolea
   const category = 'personalFavorites';
   
   try {
-    setupPapyrusAuth();
     
     const spreadsheetId = getPersonalConfigSpreadsheetId();
     if (!spreadsheetId) {

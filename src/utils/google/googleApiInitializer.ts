@@ -9,7 +9,6 @@ import { logger } from '../logger';
 
 import { ENV_CONFIG } from '../../config/environment';
 import { tokenManager } from '../auth/tokenManager';
-import type { PapyrusAuth } from '../../types/google';
 const log = logger.scope('utils/google/googleApiInitializer');
 
 
@@ -124,12 +123,6 @@ export const initializeGoogleAPIOnce = async (_hotPotatoDBSpreadsheetId: string 
                             log.warn('저장된 Google 액세스 토큰이 없거나 만료되었습니다. 로그인 후 토큰을 저장하세요.');
                         }
 
-                        // papyrus-db가 사용할 클라이언트 연결
-                        try {
-                            window.papyrusAuth = { client: window.gapi.client };
-                        } catch {
-      // Intentionally ignored.
-}
                         isGoogleAPIInitialized = true;
                         resolve();
                     } catch (error) {

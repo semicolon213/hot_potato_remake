@@ -1,5 +1,5 @@
 // Google Identity Services (GIS) 및 Google API Client Library 타입 정의
-import type { GoogleClient, PapyrusAuth, GoogleToken } from './google';
+import type { GoogleClient, GoogleToken } from './google';
 import type {
   GoogleSheetsValuesGetParams,
   GoogleSheetsValuesGetResponse,
@@ -120,7 +120,6 @@ declare global {
         };
       };
     };
-    papyrusAuth?: PapyrusAuth;
     gapiLoaded?: boolean;
   }
 

@@ -1,3 +1,4 @@
+import { getSheetData, append, update, deleteRow } from '../google/sheetsClient';
 import { logger } from '../logger';
 /**
  * @file personalConfigManager.ts
@@ -7,39 +8,12 @@ import { logger } from '../logger';
  * @date 2024
  */
 
-import { getSheetData, append, update } from 'papyrus-db';
-import { deleteRow } from 'papyrus-db/dist/sheets/delete';
 import { ENV_CONFIG } from '../../config/environment';
 import { tokenManager } from '../auth/tokenManager';
-import type { GoogleClient, GoogleSheetsCreateParams, GoogleSheetsCreateResponse, GoogleSheetsGetParams, GoogleSheetsGetResponse, GoogleSheetsValuesUpdateParams, GoogleSheetsBatchUpdateParams, GoogleDriveFilesListParams, GoogleDriveFilesUpdateParams, PapyrusAuth } from '../../types/google';
+import type { GoogleClient, GoogleSheetsCreateParams, GoogleSheetsCreateResponse, GoogleSheetsGetParams, GoogleSheetsGetResponse, GoogleSheetsValuesUpdateParams, GoogleSheetsBatchUpdateParams, GoogleDriveFilesListParams, GoogleDriveFilesUpdateParams } from '../../types/google';
 const log = logger.scope('utils/database/personalConfigManager');
 
 
-// papyrus-db에 Google API 인증 설정
-const setupPapyrusAuth = (): void => {
-  if (window.gapi && window.gapi.client) {
-    // tokenManager를 사용하여 올바른 토큰 가져오기 (만료 체크 포함)
-    const token = tokenManager.get();
-    
-    if (token) {
-      try {
-        window.gapi.client.setToken({ access_token: token });
-        log.debug('토큰이 gapi client에 설정되었습니다.');
-      } catch {
-        log.warn('토큰 설정 실패');
-      }
-    } else {
-      log.warn('Google API 인증 토큰이 없거나 만료되었습니다.');
-    }
-    
-    // papyrus-db가 gapi.client를 사용하도록 설정
-    window.papyrusAuth = {
-      client: window.gapi.client
-    };
-  } else {
-    log.warn('Google API가 초기화되지 않았습니다.');
-  }
-};
 
 // 개인 설정 파일 ID 저장
 let personalConfigSpreadsheetId: string | null = null;
@@ -59,7 +33,6 @@ export const clearPersonalConfigSpreadsheetId = (): void => {
  */
 export const findPersonalConfigFile = async (): Promise<string | null> => {
   try {
-    setupPapyrusAuth();
     
     const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;             // ENV v2: FOLER.ROOT 기반 루트 폴더명
     const configFileName = ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME;    // ENV v2: SPREADSHEET.CONFIG 기반 개인 설정 파일명
@@ -205,7 +178,6 @@ export const findPersonalTemplateFolder = async (): Promise<string | null> => {
  */
 export const createPersonalConfigFile = async (): Promise<string | null> => {
   try {
-    setupPapyrusAuth();
     
     // 1단계: 루트 폴더 찾기
     const hotPotatoResponse = await window.gapi.client.drive.files.list({
@@ -299,7 +271,6 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
  */
 export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise<void> => {
   try {
-    setupPapyrusAuth();
     
     const sheetsClient = window.gapi.client.sheets;
     
@@ -487,7 +458,6 @@ export const getScheduleEvents = async (): Promise<any[]> => {
       }
     }
     
-    setupPapyrusAuth();
     
     // papyrus-db 함수 시그니처에 맞게 수정: getSheetData(spreadsheetId, sheetName)
     const response = await getSheetData(personalConfigSpreadsheetId, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME);
@@ -534,7 +504,6 @@ export const addScheduleEvent = async (event: any): Promise<void> => {
       }
     }
     
-    setupPapyrusAuth();
 
     // 새 'no'를 결정하기 위해 기존 데이터 가져오기
     const existingEvents = await getScheduleEvents();
@@ -602,7 +571,6 @@ export const deleteScheduleEvent = async (eventNo: number): Promise<void> => {
       }
     }
     
-    setupPapyrusAuth();
 
     // 시트 이름으로 시트 ID 조회
     const sheetId = await getSheetIdByName(personalConfigSpreadsheetId, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME);
@@ -641,7 +609,6 @@ export const updateScheduleEvent = async (event: TimetableEvent): Promise<void> 
       }
     }
     
-    setupPapyrusAuth();
 
     const existingEvents = await getScheduleEvents();
     // getScheduleEvents는 헤더를 제외한 데이터만 반환하므로, 실제 시트의 행 인덱스를 계산할 때 헤더를 고려해야 함

@@ -1,20 +1,17 @@
-// Mock papyrus-db functions
+// Mock sheetsClient functions
 const mockGetSheetData = jest.fn();
 const mockAppend = jest.fn();
 const mockUpdate = jest.fn();
 const mockDeleteRow = jest.fn();
 
-// Mock the papyrus-db module
-jest.mock('papyrus-db', () => ({
+// Mock the Sheets client module
+jest.mock('../../google/sheetsClient', () => ({
   getSheetData: mockGetSheetData,
   append: mockAppend,
   update: mockUpdate,
-}));
-
-// Mock the deleteRow function
-jest.mock('papyrus-db/dist/sheets/delete', () => ({
   deleteRow: mockDeleteRow,
 }));
+
 
 // Mock environment module
 jest.mock('../../config/environment', () => ({

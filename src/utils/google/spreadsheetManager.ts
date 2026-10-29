@@ -1,3 +1,4 @@
+import { appendRow } from './sheetsClient';
 import { logger } from '../logger';
 /**
  * @file spreadsheetManager.ts
@@ -7,7 +8,6 @@ import { logger } from '../logger';
  * @date 2024
  */
 
-import { appendRow } from 'papyrus-db';
 import { updateSheetCell } from './googleSheetUtils';
 import { findSpreadsheetById as findSpreadsheetByIdInRoot } from '../database/papyrusManager';
 import type { Post, Event, DateRange, CustomPeriod, Student, Staff } from '../../types/app';

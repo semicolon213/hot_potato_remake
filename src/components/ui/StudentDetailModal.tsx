@@ -1,7 +1,7 @@
+import { getSheetData } from '../../utils/google/sheetsClient';
 import { logger } from '../../utils/logger';
 import React, { useState, useEffect } from 'react';
 import { fetchStudentIssues, addStudentIssue, type StudentIssue } from '../../utils/database/papyrusManager';
-import { getSheetData } from 'papyrus-db';
 import type { Student, StudentWithCouncil } from '../../types/features/students/student';
 import type { CareerItem } from '../../types/features/staff';
 import type { EmploymentRow, EmploymentAfterUpdate, EmploymentField } from '../../types/features/students/employment';

@@ -1,3 +1,4 @@
+import { getSheetData, append, update, deleteRow } from '../google/sheetsClient';
 import { logger } from '../logger';
 /**
  * @file personalTagManager.ts
@@ -7,8 +8,6 @@ import { logger } from '../logger';
  * @date 2024
  */
 
-import { getSheetData, append, update } from 'papyrus-db';
-import { deleteRow } from 'papyrus-db/dist/sheets/delete';
 import { getCacheManager } from '../cache/cacheManager';
 import { generateCacheKey, getCacheTTL, getActionCategory } from '../cache/cacheUtils';
 import { ENV_CONFIG } from '../../config/environment';
@@ -41,14 +40,6 @@ const getSheetId = async (spreadsheetId: string, sheetName: string): Promise<num
   }
 };
 
-// papyrus-db에 Google API 인증 설정
-const setupPapyrusAuth = () => {
-  if (window.gapi && window.gapi.client) {
-    window.papyrusAuth = {
-      client: window.gapi.client
-    };
-  }
-};
 
 /**
  * @brief 태그 목록 가져오기
@@ -68,7 +59,6 @@ export const fetchTags = async (): Promise<string[]> => {
   }
 
   try {
-    setupPapyrusAuth();
     
     let spreadsheetId = getPersonalConfigSpreadsheetId();
     if (!spreadsheetId) {
@@ -107,7 +97,6 @@ export const fetchTags = async (): Promise<string[]> => {
  */
 export const addTag = async (tag: string): Promise<boolean> => {
   try {
-    setupPapyrusAuth();
     
     const spreadsheetId = getPersonalConfigSpreadsheetId();
     if (!spreadsheetId) {
@@ -141,7 +130,6 @@ export const addTag = async (tag: string): Promise<boolean> => {
  */
 export const removeTag = async (tag: string): Promise<boolean> => {
   try {
-    setupPapyrusAuth();
     
     const spreadsheetId = getPersonalConfigSpreadsheetId();
     if (!spreadsheetId) {
@@ -190,7 +178,6 @@ export const removeTag = async (tag: string): Promise<boolean> => {
  */
 export const updateTag = async (oldTag: string, newTag: string): Promise<boolean> => {
   try {
-    setupPapyrusAuth();
     
     const spreadsheetId = getPersonalConfigSpreadsheetId();
     if (!spreadsheetId) {
