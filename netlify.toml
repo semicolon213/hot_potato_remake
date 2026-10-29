@@ -21,6 +21,11 @@
   port = 8888
   targetPort = 5173
 
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 # SPA 라우팅 (배포 시)
 [[redirects]]
   from = "/*"
