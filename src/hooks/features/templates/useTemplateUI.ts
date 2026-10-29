@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file useTemplateUI.ts
  * @brief 템플릿 UI 관리 훅
@@ -26,6 +27,8 @@ import {
 } from "../../../utils/database/personalFavoriteManager";
 import { initializePersonalConfigFile } from "../../../utils/database/personalConfigManager";
 import { useNotification } from "../../ui/useNotification";
+const log = logger.scope('hooks/features/templates/useTemplateUI');
+
 
 /**
  * @brief 템플릿 데이터 타입 정의
@@ -110,60 +113,51 @@ export function useTemplateUI(
     // 동적 템플릿 로드 함수
     const testDriveApi = useCallback(async () => {
         try {
-            console.log('🔧 Drive API 테스트 시작');
             const result = await apiClient.testDriveApi();
-            console.log('🔧 Drive API 테스트 결과:', result);
             
             if (result && result.success) {
-                console.log('✅ Drive API 연결 성공');
                 return { success: true, message: 'Drive API 연결 성공' };
             } else {
                 const errorMessage = result ? result.message : 'Drive API 테스트 실패';
-                console.error('❌ Drive API 테스트 실패:', errorMessage);
+                log.error('Drive API 테스트 실패:', errorMessage);
                 return { success: false, message: errorMessage };
             }
         } catch (error) {
-            console.error('❌ Drive API 테스트 오류:', error);
+            log.error('Drive API 테스트 오류:', error);
             return { success: false, message: 'Drive API 테스트 중 오류가 발생했습니다' };
         }
     }, []);
 
     const testTemplateFolderDebug = useCallback(async () => {
         try {
-            console.log('🔍 템플릿 폴더 디버깅 테스트 시작');
             const result = await apiClient.testTemplateFolderDebug();
-            console.log('🔍 템플릿 폴더 디버깅 테스트 결과:', result);
             
             if (result && result.success) {
-                console.log('✅ 디버깅 테스트 성공');
                 return { success: true, message: '디버깅 테스트 성공', data: result };
             } else {
                 const errorMessage = result ? result.message : '디버깅 테스트 실패';
-                console.error('❌ 디버깅 테스트 실패:', errorMessage);
+                log.error('디버깅 테스트 실패:', errorMessage);
                 return { success: false, message: errorMessage };
             }
         } catch (error) {
-            console.error('❌ 디버깅 테스트 오류:', error);
+            log.error('디버깅 테스트 오류:', error);
             return { success: false, message: '디버깅 테스트 중 오류가 발생했습니다' };
         }
     }, []);
 
     const testSpecificFolder = useCallback(async () => {
         try {
-            console.log('🔍 특정 폴더 ID 테스트 시작');
             const result = await apiClient.testSpecificFolder();
-            console.log('🔍 특정 폴더 ID 테스트 결과:', result);
             
             if (result && result.success) {
-                console.log('✅ 특정 폴더 테스트 성공');
                 return { success: true, message: '특정 폴더 테스트 성공', data: result };
             } else {
                 const errorMessage = result ? result.message : '특정 폴더 테스트 실패';
-                console.error('❌ 특정 폴더 테스트 실패:', errorMessage);
+                log.error('특정 폴더 테스트 실패:', errorMessage);
                 return { success: false, message: errorMessage };
             }
         } catch (error) {
-            console.error('❌ 특정 폴더 테스트 오류:', error);
+            log.error('특정 폴더 테스트 오류:', error);
             return { success: false, message: '특정 폴더 테스트 중 오류가 발생했습니다' };
         }
     }, []);
@@ -173,7 +167,6 @@ export function useTemplateUI(
         setTemplateError(null);
         
         try {
-            console.log('📄 동적 템플릿 로드 시작');
             
             // 캐시에서 먼저 확인
             const { getCacheManager } = await import('../../../utils/cache/cacheManager');
@@ -190,11 +183,8 @@ export function useTemplateUI(
                 message?: string;
             }
             const cachedResponse = await cacheManager.get<ApiResponse<SharedTemplatesResponse>>(cacheKey);
-            console.log('📄 캐시 키:', cacheKey);
-            console.log('📄 캐시 응답:', cachedResponse);
             
             if (cachedResponse && cachedResponse.success && cachedResponse.data && Array.isArray(cachedResponse.data) && cachedResponse.data.length > 0) {
-                console.log('📄 캐시에서 동적 템플릿 로드:', cachedResponse.data.length, '개');
                 const processedTemplates = cachedResponse.data.map((t) => ({
                   type: t.id,
                   title: t.title,
@@ -209,12 +199,10 @@ export function useTemplateUI(
             }
             
             // 캐시에 없으면 API 호출
-            console.log('📄 캐시 미스 - API에서 동적 템플릿 로드');
+            log.debug('캐시 미스 - API에서 동적 템플릿 로드');
             const result = await apiClient.getSharedTemplates();
-            console.log('📄 API 응답:', result);
             
             if (result && result.success && result.data) {
-                console.log('📄 동적 템플릿 로드 성공:', result.data);
                 
                 // 템플릿 데이터 그대로 사용 (JSON 파싱 제거)
                 const templatesData = result.data as SharedTemplatesResponse;
@@ -230,13 +218,13 @@ export function useTemplateUI(
                 setDynamicTemplates(processedTemplates);
             } else {
                 const errorMessage = result ? result.message : 'API 응답이 null입니다';
-                console.error('📄 동적 템플릿 로드 실패:', errorMessage);
+                log.error('동적 템플릿 로드 실패:', errorMessage);
                 const createResponse = result as CreateDocumentResponse;
-                console.error('📄 디버깅 정보:', createResponse.debug);
+                log.error('디버깅 정보:');
                 setTemplateError(errorMessage || '템플릿을 불러올 수 없습니다');
             }
         } catch (error) {
-            console.error('📄 동적 템플릿 로드 오류:', error);
+            log.error('동적 템플릿 로드 오류:', error);
             setTemplateError('템플릿을 불러오는 중 오류가 발생했습니다');
         } finally {
             setIsLoadingTemplates(false);
@@ -271,7 +259,6 @@ export function useTemplateUI(
     const loadDefaultTemplateFavorites = useCallback(async () => {
         setIsLoadingFavorites(true);
         try {
-            console.log('⭐ 기본 템플릿 즐겨찾기 로드 시작');
             
             // 개인 설정 파일 초기화
             await initializePersonalConfigFile();
@@ -281,9 +268,8 @@ export function useTemplateUI(
             const favorites = await getFavoritesByType('기본');
             
             setDefaultTemplateFavorites(favorites);
-            console.log('✅ 기본 템플릿 즐겨찾기 로드 완료:', favorites.length + '개');
         } catch (error) {
-            console.error('❌ 기본 템플릿 즐겨찾기 로드 오류:', error);
+            log.error('기본 템플릿 즐겨찾기 로드 오류:', error);
         } finally {
             setIsLoadingFavorites(false);
         }
@@ -292,7 +278,7 @@ export function useTemplateUI(
     // 기본 템플릿 즐겨찾기 토글
     const toggleDefaultTemplateFavorite = useCallback(async (template: Template) => {
         try {
-            console.log('⭐ 기본 템플릿 즐겨찾기 토글:', template);
+            log.debug('기본 템플릿 즐겨찾기 토글:', template);
             
             const favoriteData = {
                 type: '기본' as const,
@@ -306,18 +292,16 @@ export function useTemplateUI(
                 const success = await removeFavorite(favoriteData);
                 if (success) {
                     setDefaultTemplateFavorites(prev => prev.filter(fav => fav !== template.title));
-                    console.log('✅ 기본 템플릿 즐겨찾기 해제 완료');
                 }
             } else {
                 // 즐겨찾기 추가
                 const success = await addFavorite(favoriteData);
                 if (success) {
                     setDefaultTemplateFavorites(prev => [...prev, template.title]);
-                    console.log('✅ 기본 템플릿 즐겨찾기 추가 완료');
                 }
             }
         } catch (error) {
-            console.error('❌ 기본 템플릿 즐겨찾기 토글 오류:', error);
+            log.error('기본 템플릿 즐겨찾기 토글 오류:', error);
         }
     }, [defaultTemplateFavorites]);
 
@@ -354,7 +338,6 @@ export function useTemplateUI(
 
     // 템플릿 사용 버튼 클릭 시 실행되는 함수
     const onUseTemplate = useCallback((type: string, title: string, role: string) => {
-        console.log('📄 템플릿 사용 시작:', { type, title, role });
         
         const isDefault = allDefaultTemplates.some(t => t.type === type);
         
@@ -409,7 +392,7 @@ export function useTemplateUI(
         try {
             if (permissionType === 'private') {
                 // 나만 보기: 프론트엔드에서 직접 Google Drive API 사용
-                console.log('📄 개인 드라이브에 문서 생성:', selectedTemplate);
+                log.debug('개인 드라이브에 문서 생성:', selectedTemplate);
                 
                 if (selectedTemplate.documentId) {
                     // 커스텀 템플릿 복사 (태그 포함)
@@ -426,27 +409,17 @@ export function useTemplateUI(
                         window.open(newDocUrl, '_blank');
                         showNotification('새 문서가 생성되었습니다!', 'success');
                     } catch (error) {
-                        console.error('📄 개인 문서 생성 오류:', error);
+                        log.error('개인 문서 생성 오류:', error);
                         showNotification('문서 생성 중 오류가 발생했습니다.', 'error');
                     }
                 }
             } else {
-                // 권한 부여: 앱스크립트에 요청
-                console.log('📄 권한 부여 문서 생성:', { selectedTemplate, selectedGroups, individualEmails });
                 
                 // 선택된 그룹들을 이메일로 변환
                 const groupEmails = selectedGroups.map(groupKey => ENV_CONFIG.GROUP_EMAILS[groupKey as keyof typeof ENV_CONFIG.GROUP_EMAILS]); // ENV v2: VITE_GROUP_EMAIL 기반
                 // 빈 이메일은 제외
                 const validIndividualEmails = individualEmails.filter(email => email.trim() !== '');
                 const allEditors = [...groupEmails, ...validIndividualEmails];
-                
-                console.log('📄 선택된 템플릿 정보:', {
-                    title: selectedTemplate.title,
-                    documentId: selectedTemplate.documentId,
-                    type: selectedTemplate.type,
-                    templateType: selectedTemplate.documentId || selectedTemplate.type,
-                    tag: selectedTemplate.tag
-                });
                 
                 const documentData = {
                     title: selectedTemplate.title,
@@ -456,8 +429,6 @@ export function useTemplateUI(
                     role: 'student', // 기본값으로 student 설정
                     tag: selectedTemplate.tag // 태그 추가
                 };
-                
-                console.log('📄 API로 전송할 데이터:', documentData);
                 
                 const result = await apiClient.createDocument(documentData);
 
@@ -470,7 +441,7 @@ export function useTemplateUI(
                 }
             }
         } catch (error) {
-            console.error('📄 문서 생성 오류:', error);
+            log.error('문서 생성 오류:', error);
             showNotification('문서 생성 중 오류가 발생했습니다.', 'error');
         } finally {
             // 모달 닫기

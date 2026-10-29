@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 import React, { useState, useEffect } from 'react';
 import { fetchStudentIssues, addStudentIssue, type StudentIssue } from '../../utils/database/papyrusManager';
 import { getSheetData } from 'papyrus-db';
@@ -8,6 +9,8 @@ import './StudentDetailModal.css';
 import { apiClient } from '../../utils/api/apiClient';
 import { useNotification } from '../../hooks/ui/useNotification';
 import { NotificationModal } from './NotificationModal';
+const log = logger.scope('components/ui/StudentDetailModal');
+
 
 type ModalMode = 'student' | 'staff' | 'committee';
 
@@ -96,53 +99,46 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
   // App Script를 통한 암복호화 함수들
   const decryptPhone = async (encryptedPhone: string): Promise<string> => {
-    console.log('연락처 복호화 시도:', encryptedPhone);
     
     if (!encryptedPhone) {
-      console.log('연락처 복호화 건너뜀 - 데이터 없음');
       return encryptedPhone;
     }
 
     // 이미 복호화된 연락처인지 확인 (010-xxxx-xxxx 패턴)
     if (/^010-\d{4}-\d{4}$/.test(encryptedPhone)) {
-      console.log('이미 복호화된 연락처:', encryptedPhone);
       return encryptedPhone;
     }
 
     try {
       const result = await apiClient.request<string>('decryptEmail', { data: encryptedPhone });
-      console.log('복호화 응답 데이터:', result);
       return result.success && result.data ? result.data : encryptedPhone;
     } catch (error) {
-      console.error('연락처 복호화 실패:', error);
+      log.error('연락처 복호화 실패:');
     }
     
     return encryptedPhone;
   };
 
   const encryptPhone = async (phone: string): Promise<string> => {
-    console.log('연락처 암호화 시도:', phone);
     
     if (!phone) {
-      console.log('연락처 암호화 건너뜀 - 데이터 없음');
       return phone;
     }
 
     // 이미 암호화된 연락처인지 확인 (암호화된 데이터는 일반적으로 길고 특수문자 포함)
     if (phone.length > 20 || !/^010-\d{4}-\d{4}$/.test(phone)) {
-      console.log('이미 암호화된 연락처 또는 암호화 불필요:', phone);
       return phone;
     }
 
     try {
       const result = await apiClient.request<string>('encryptEmail', { data: phone });
-      console.log('암호화 응답 데이터:', result);
       if (result.debug) {
-        console.log('🔍 디버그 정보:', result.debug);
+      // Intentionally ignored.
+
       }
       return result.success && result.data ? result.data : phone;
     } catch (error) {
-      console.error('연락처 암호화 실패:', error);
+      log.error('연락처 암호화 실패:');
     }
     
     return phone;
@@ -282,7 +278,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       const studentIssues = await fetchStudentIssues(student.no_student);
       setIssues(studentIssues);
     } catch (error) {
-      console.error('특이사항 로드 실패:', error);
+      log.error('특이사항 로드 실패:', error);
     } finally {
       setIsLoading(false);
     }
@@ -318,7 +314,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         setEmploymentQuestionEntries([{ key: '', value: '' }]);
       }
     } catch (e) {
-      console.error('취업 정보 로드 실패:', e);
+      log.error('취업 정보 로드 실패:', e);
       setEmployment(null);
     } finally {
       setEmploymentLoading(false);
@@ -378,7 +374,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         showNotification(res.message || '저장에 실패했습니다.', 'error');
       }
     } catch (e) {
-      console.error('취업 후 저장 실패:', e);
+      log.error('취업 후 저장 실패:', e);
       showNotification('저장에 실패했습니다.', 'error');
     } finally {
       setEmploymentSaving(false);
@@ -641,7 +637,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       
       showNotification('특이사항이 성공적으로 추가되었습니다.', 'success');
     } catch (error) {
-      console.error('특이사항 추가 실패:', error);
+      log.error('특이사항 추가 실패:', error);
       showNotification('특이사항 추가에 실패했습니다.', 'error');
     }
   };

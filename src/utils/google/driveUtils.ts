@@ -1,3 +1,4 @@
+import { logger } from '../logger';
 /**
  * @file driveUtils.ts
  * @brief Google Drive API 관련 유틸리티 함수
@@ -5,6 +6,8 @@
  */
 
 import { tokenManager } from '../auth/tokenManager';
+const log = logger.scope('utils/google/driveUtils');
+
 
 // gapi 클라이언트가 로드되었는지 확인하기 위해 전역 타입을 확장합니다.
 declare global {
@@ -36,14 +39,14 @@ export const getFolderIdByName = async (folderName: string, parentFolderId?: str
     const files = response.result.files;
     if (files && files.length > 0) {
       if (files.length > 1) {
-        console.warn(`Multiple folders found with name: ${folderName}. Using the first one.`);
+        log.warn(`Multiple folders found with name: ${folderName}. Using the first one.`);
       }
       return files[0].id || null;
     }
-    console.warn(`Folder not found: ${folderName}${parentFolderId ? ` in parent ${parentFolderId}` : ''}`);
+    log.warn(`Folder not found: ${folderName}${parentFolderId ? ` in parent ${parentFolderId}` : ''}`);
     return null;
   } catch (error) {
-    console.error('Error fetching folder ID:', error);
+    log.error('Error fetching folder ID:', error);
     return null;
   }
 };
@@ -55,19 +58,18 @@ export const getFolderIdByName = async (folderName: string, parentFolderId?: str
  */
 export const getSheetsInFolder = async (folderId: string): Promise<{ id: string; name: string; }[] | null> => {
   if (!folderId) {
-    console.error("Folder ID is required to get sheets.");
+    log.error("Folder ID is required to get sheets.");
     return null;
   }
 
   try {
-    console.log(`📁 폴더 내 스프레드시트 조회 시작: ${folderId}`);
     
     const token = tokenManager.get();
     if (token && window.gapi?.client) {
       try {
         window.gapi.client.setToken({ access_token: token });
       } catch (tokenError) {
-        console.warn("토큰 설정 실패:", tokenError);
+        log.warn("토큰 설정 실패:");
       }
     }
 
@@ -80,20 +82,19 @@ export const getSheetsInFolder = async (folderId: string): Promise<{ id: string;
     });
 
     const files = response.result.files;
-    console.log(`📁 폴더 내 스프레드시트 조회 결과: ${files?.length || 0}개`);
     
     if (files && files.length > 0) {
       const sheets = files.map(file => {
-        console.log(`  - ${file.name} (${file.id}) [${file.mimeType}]`);
+        log.debug(`- ${file.name} (${file.id}) [${file.mimeType}]`);
         return { id: file.id!, name: file.name! };
       });
       return sheets;
     }
     
-    console.warn(`⚠️ 폴더 ${folderId} 내에 스프레드시트 파일이 없습니다.`);
+    log.warn(`폴더 ${folderId} 내에 스프레드시트 파일이 없습니다.`);
     return []; // 폴더는 있으나 시트가 없는 경우 빈 배열 반환
   } catch (error: any) {
-    console.error('❌ 폴더 내 스프레드시트 조회 오류:', {
+    log.error('폴더 내 스프레드시트 조회 오류:', {
       folderId,
       error: error.message,
       status: error.status,

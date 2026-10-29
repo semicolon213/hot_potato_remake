@@ -1,3 +1,4 @@
+import { logger } from '../logger';
 /**
  * @file documentUploader.ts
  * @brief 문서 업로드 유틸리티
@@ -10,6 +11,8 @@ import { apiClient } from '../api/apiClient';
 import { tokenManager } from '../auth/tokenManager';
 import { findPersonalDocumentFolder } from './googleSheetUtils';
 import { ENV_CONFIG } from '../../config/environment';
+const log = logger.scope('utils/google/documentUploader');
+
 
 /**
  * 파일을 Base64로 변환
@@ -57,7 +60,6 @@ export const uploadSharedDocument = async (
   editors: string[] = []
 ): Promise<{ success: boolean; message?: string; documentId?: string; url?: string }> => {
   try {
-    console.log('📤 공유 문서 업로드 시작:', { fileName, tag, creatorEmail, editors });
 
     // 파일을 Base64로 변환
     const fileContentBase64 = await fileToBase64(file);
@@ -81,7 +83,6 @@ export const uploadSharedDocument = async (
 
     if (result.success && result.data) {
       const data = result.data as { id: string; webViewLink?: string };
-      console.log('✅ 공유 문서 업로드 완료:', data);
       return {
         success: true,
         documentId: data.id,
@@ -91,7 +92,7 @@ export const uploadSharedDocument = async (
       throw new Error(result.message || '업로드 실패');
     }
   } catch (error) {
-    console.error('❌ 공유 문서 업로드 오류:', error);
+    log.error('공유 문서 업로드 오류:', error);
     return {
       success: false,
       message: error instanceof Error ? error.message : '업로드 중 오류가 발생했습니다.'
@@ -122,7 +123,6 @@ export const uploadPersonalDocument = async (
   }
 
   try {
-    console.log('📤 개인 문서 업로드 시작:', { fileName, tag, creatorEmail });
 
     // 개인 문서 폴더 찾기
     const folderId = await findPersonalDocumentFolder();
@@ -191,7 +191,7 @@ export const uploadPersonalDocument = async (
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('업로드 응답 오류:', errorText);
+      log.error('업로드 응답 오류:', errorText);
       throw new Error(`업로드 실패: ${response.status} ${response.statusText}`);
     }
 
@@ -212,19 +212,16 @@ export const uploadPersonalDocument = async (
           }
         }
       });
-      console.log('✅ 파일 메타데이터 설정 완료');
     } catch (metaError) {
-      console.warn('⚠️ 메타데이터 설정 실패 (파일은 업로드됨):', metaError);
+      log.warn('메타데이터 설정 실패 (파일은 업로드됨):', metaError);
     }
-
-    console.log('✅ 개인 문서 업로드 완료:', result);
     return {
       success: true,
       documentId: result.id,
       url: result.webViewLink || `https://docs.google.com/document/d/${result.id}/edit`
     };
   } catch (error) {
-    console.error('❌ 개인 문서 업로드 오류:', error);
+    log.error('개인 문서 업로드 오류:', error);
     return {
       success: false,
       message: error instanceof Error ? error.message : '업로드 중 오류가 발생했습니다.'

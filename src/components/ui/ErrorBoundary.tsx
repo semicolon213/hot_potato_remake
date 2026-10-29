@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 /**
  * @file ErrorBoundary.tsx
  * @brief 전역 에러 바운더리 컴포넌트
@@ -8,6 +9,8 @@
 
 import React from 'react';
 import './ErrorBoundary.css';
+const log = logger.scope('components/ui/ErrorBoundary');
+
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -30,7 +33,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    log.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 
   handleRetry = (): void => {

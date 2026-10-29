@@ -17,7 +17,6 @@
  */
 function addDocumentToSpreadsheet(documentId, title, creatorEmail, documentUrl, role) {
   try {
-    console.log('📄 스프레드시트에 문서 정보 추가 시작:', { documentId, title, creatorEmail, role });
     
     // 역할에 따른 스프레드시트 이름 결정
     const spreadsheetName = getSpreadsheetNameByRole(role);
@@ -51,12 +50,10 @@ function addDocumentToSpreadsheet(documentId, title, creatorEmail, documentUrl, 
       timestamp,
       '생성됨'
     ]);
-    
-    console.log('📄 스프레드시트에 문서 정보 추가 완료');
     return { success: true };
     
   } catch (error) {
-    console.error('📄 스프레드시트 추가 오류:', error);
+    logError_('DocumentSpreadsheet', '스프레드시트 추가 오류:', error);
     return {
       success: false,
       message: '스프레드시트 추가 실패: ' + error.message
@@ -98,7 +95,7 @@ function getSharedDocumentsFromFolder() {
     try {
       folderResult = findOrCreateFolder(folderPath);
     } catch (findErr) {
-      console.error('📁 폴더 탐색 오류:', findErr);
+      logError_('DocumentSpreadsheet', '폴더 탐색 오류:', findErr);
       folderResult = { success: false };
     }
     
@@ -125,13 +122,13 @@ function getSharedDocumentsFromFolder() {
         break; // 성공하면 루프 종료
       } catch (listError) {
         retryCount++;
-        console.warn('📄 공유 문서 목록 조회 재시도 ' + retryCount + '/' + maxRetries + ':', listError.message);
+        logWarn_('DocumentSpreadsheet', '공유 문서 목록 조회 재시도 ' + retryCount + '/' + maxRetries + ':', listError.message);
         
         // 사용량 제한 오류인지 확인
         if (listError.message && (listError.message.indexOf('429') !== -1 || 
             listError.message.indexOf('quota') !== -1 || 
             listError.message.indexOf('rate limit') !== -1)) {
-          console.warn('⚠️ API 사용량 제한 감지. 잠시 대기 후 재시도합니다.');
+          logWarn_('DocumentSpreadsheet', 'API 사용량 제한 감지. 잠시 대기 후 재시도합니다.');
           Utilities.sleep(Math.pow(2, retryCount) * 2000); // 지수적 백오프
           continue;
         }
@@ -167,7 +164,7 @@ function getSharedDocumentsFromFolder() {
       } catch (getError) {
         // 에러 발생 시에도 빈 객체로 초기화하여 계속 진행
         fileArray[i].properties = {};
-        console.warn('파일 상세 정보 가져오기 실패:', fileArray[i].id, getError.message);
+        logWarn_('DocumentSpreadsheet', '파일 상세 정보 가져오기 실패:', fileArray[i].id, getError.message);
       }
     }
     
@@ -185,7 +182,7 @@ function getSharedDocumentsFromFolder() {
     };
     
   } catch (error) {
-    console.error('❌ 공유 문서 목록 가져오기 오류:', error);
+    logError_('DocumentSpreadsheet', '공유 문서 목록 가져오기 오류:', error);
     return {
       success: false,
       message: '공유 문서 목록을 가져오는 중 오류가 발생했습니다: ' + error.message
@@ -200,7 +197,6 @@ function getSharedDocumentsFromFolder() {
  */
 function handleGetDocuments(req) {
   try {
-    console.log('📄 문서 목록 조회 시작:', req);
     
     const { role, searchTerm, author, sortBy } = req;
     // 기본 페이지네이션 값 보정
@@ -209,7 +205,7 @@ function handleGetDocuments(req) {
 
     // 1) Drive 폴더 기반 조회 (공유 전용) - 기본 템플릿처럼 폴더에서 가져오기
     if (role === 'shared') {
-      console.log('📁 Drive 폴더 기반 조회 모드:', role);
+      logDebug_('DocumentSpreadsheet', 'Drive 폴더 기반 조회 모드:', role);
       
       // 기본 템플릿처럼 폴더에서 파일 목록 가져오기
       var folderResult = getSharedDocumentsFromFolder();
@@ -380,7 +376,7 @@ function handleGetDocuments(req) {
         }
       } catch (nameErr) {
         // 변환 실패 시 원본 유지
-        console.warn('이메일을 이름으로 변환 실패:', doc.author, nameErr);
+        logWarn_('DocumentSpreadsheet', '이메일을 이름으로 변환 실패:');
       }
       
       return {
@@ -445,7 +441,7 @@ function handleGetDocuments(req) {
     };
     
   } catch (error) {
-    console.error('📄 문서 목록 조회 오류:', error);
+    logError_('DocumentSpreadsheet', '문서 목록 조회 오류:', error);
     return {
       success: false,
       message: '문서 목록 조회 실패: ' + error.message
@@ -460,7 +456,6 @@ function handleGetDocuments(req) {
  */
 function handleDeleteDocuments(req) {
   try {
-    console.log('🗑️ 문서 삭제 시작:', req);
     
     const { documentIds, role } = req;
     
@@ -493,9 +488,8 @@ function handleDeleteDocuments(req) {
     for (const docId of documentIds) {
       try {
         Drive.Files.remove(docId);
-        console.log('🗑️ Google Drive에서 문서 삭제 완료:', docId);
       } catch (driveError) {
-        console.warn('🗑️ Google Drive 삭제 실패:', docId, driveError.message);
+        logWarn_('DocumentSpreadsheet', 'Google Drive 삭제 실패:', docId, driveError.message);
         // Drive 삭제 실패해도 스프레드시트 삭제는 성공으로 처리
       }
     }
@@ -506,7 +500,7 @@ function handleDeleteDocuments(req) {
     };
     
   } catch (error) {
-    console.error('🗑️ 문서 삭제 오류:', error);
+    logError_('DocumentSpreadsheet', '문서 삭제 오류:', error);
     return {
       success: false,
       message: '문서 삭제 실패: ' + error.message

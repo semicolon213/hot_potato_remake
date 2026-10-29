@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import React, { useState, useMemo, useEffect } from 'react';
 import { FaChevronLeft, FaChevronRight, FaExclamationTriangle, FaPlus, FaSearch } from 'react-icons/fa';
 import { useStudentManagement } from '../hooks/features/students/useStudentManagement';
@@ -14,6 +15,8 @@ import type { StudentWithCouncil } from '../types/features/students/student';
 import type { EmploymentField } from '../types/features/students/employment';
 import { apiClient } from '../utils/api/apiClient';
 import '../styles/pages/Students.css';
+const log = logger.scope('pages/Students');
+
 
 interface StudentsProps {
   onPageChange: (pageName: string) => void;
@@ -149,17 +152,6 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
         }));
     });
     
-    // 디버깅: 파싱 결과 확인
-    console.log('📊 allCouncilData 생성:', {
-      총학생수: students.length,
-      총항목수: result.length,
-      년도별분포: result.reduce((acc, item) => {
-        const year = item.councilYear;
-        acc[year] = (acc[year] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>)
-    });
-    
     return result;
   }, [students]);
 
@@ -170,25 +162,15 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
       filtered = filtered.filter(item => {
         const matches = item.councilYear === selectedYear;
         if (!matches && item.councilYear) {
-          // 디버깅: 필터링되지 않은 항목 확인
-          console.log('⚠️ 필터링 제외:', {
-            학생: item.name,
-            학번: item.no_student,
-            선택된년도: selectedYear,
-            항목년도: item.councilYear,
-            일치여부: item.councilYear === selectedYear
-          });
+      // Intentionally ignored.
+
         }
         return matches;
       });
     }
     
     // 디버깅: 필터링 결과 확인
-    console.log('🔍 filteredCouncilData:', {
-      선택된년도: selectedYear,
-      필터링된항목수: filtered.length,
-      학생목록: filtered.map(item => `${item.name}(${item.no_student}) - ${item.position}`)
-    });
+    log.debug('filteredCouncilData:');
     
     return filtered;
   }, [allCouncilData, selectedYear]);
@@ -211,8 +193,6 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
 
   // Council 데이터용 정렬 함수
   const handleCouncilSort = (key: string) => {
-    // council 데이터는 StudentWithCouncil과 다른 구조이므로 별도 처리
-    console.log('Council sort:', key);
   };
 
   // 학생 더블클릭 핸들러
@@ -252,7 +232,7 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
       if (res.success && res.data) setFieldList(res.data);
       else setFieldList([]);
     } catch (e) {
-      console.error('직종 목록 로드 실패:', e);
+      log.error('직종 목록 로드 실패:', e);
       setFieldList([]);
     } finally {
       setFieldLoading(false);
@@ -391,7 +371,7 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
           try {
             await apiClient.setGraduatedAdvanced(studentSpreadsheetId, graduatedIds, advancedIdsToApply);
           } catch (err) {
-            console.error('진학 여부 자동 반영 실패:', err);
+            log.error('진학 여부 자동 반영 실패:', err);
           } finally {
             setAdvancedSaving(false);
           }

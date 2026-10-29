@@ -233,7 +233,7 @@ function parseTime(timeString, format) {
         return new Date(timeString);
     }
   } catch (error) {
-    console.error('시간 파싱 오류:', error);
+    logError_('TimeUtils', '시간 파싱 오류:', error);
     return new Date();
   }
 }

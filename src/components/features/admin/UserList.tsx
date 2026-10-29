@@ -1,8 +1,11 @@
+import { logger } from '../../../utils/logger';
 import React, { useState } from 'react';
 import { FaCheck, FaTimes, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import GroupRoleModal from './GroupRoleModal';
 import './UserList.css';
 import { formatDateToYYYYMMDD } from '../../../utils/helpers/timeUtils';
+const log = logger.scope('components/features/admin/UserList');
+
 // 타입 정의
 interface AdminUser {
   id: string;
@@ -69,16 +72,14 @@ const UserList: React.FC<UserListProps> = ({
   const unusedTotalPages = Math.ceil(unusedUsers.length / ITEMS_PER_PAGE);
 
   const handleApproveClick = (user: AdminUser) => {
-    console.log('UserList - 승인 클릭한 사용자:', user);
-    console.log('UserList - user.userType:', user.userType);
+    log.debug('UserList - 승인 클릭한 사용자:');
+    log.debug('UserList - user.userType:');
     
     // userType을 명시적으로 포함한 객체 생성 (기본값 설정하지 않음)
     const modalUserData = {
       ...user,
       userType: user.userType
     };
-    
-    console.log('UserList - 모달로 전달할 데이터:', modalUserData);
     setModalUser(modalUserData);
     setIsModalOpen(true);
   };
@@ -94,21 +95,17 @@ const UserList: React.FC<UserListProps> = ({
     // 클립보드에 이메일 복사
     if (modalUser?.email) {
       navigator.clipboard.writeText(modalUser.email).then(() => {
-        console.log('이메일이 클립보드에 복사되었습니다:', modalUser.email);
       }).catch((error) => {
-        console.error('클립보드 복사 실패:', error);
+        log.error('클립보드 복사 실패:', error);
       });
     }
     
     handleModalClose();
   };
-  console.log('=== UserList 렌더링 ===');
-  console.log('받은 users 배열:', users);
-  console.log('users 배열 길이:', users?.length || 0);
-  console.log('승인 대기 사용자 수:', pendingUsers?.length || 0);
-  console.log('승인 대기 사용자 목록:', pendingUsers);
-  console.log('승인된 사용자 수:', approvedUsers?.length || 0);
-  console.log('승인된 사용자 목록:', approvedUsers);
+  log.debug('받은 users 배열:', users);
+  log.debug('users 배열 길이:', users?.length || 0);
+  log.debug('승인 대기 사용자 수:', pendingUsers?.length || 0);
+  log.debug('승인된 사용자 수:', approvedUsers?.length || 0);
   
   return (
     <>

@@ -22,7 +22,6 @@ function getWorkflowSpreadsheetName() {
 function getWorkflowSpreadsheet() {
   try {
     const spreadsheetName = getWorkflowSpreadsheetName();
-    console.log('📊 워크플로우 스프레드시트 조회 시작:', spreadsheetName);
     
     // 루트 폴더에서 먼저 찾기
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
@@ -49,19 +48,19 @@ function getWorkflowSpreadsheet() {
       if (foundFiles.length > 0) {
         // 첫 번째 파일 사용
         spreadsheetId = foundFiles[0].getId();
-        console.log('📊 워크플로우 스프레드시트 찾음:', spreadsheetId);
+        logDebug_('WorkflowSpreadsheet', '워크플로우 스프레드시트 찾음:', spreadsheetId);
         
         // 중복 파일이 있으면 경고
         if (foundFiles.length > 1) {
-          console.warn('⚠️ 같은 이름의 워크플로우 스프레드시트가 여러 개 있습니다:', foundFiles.length);
-          console.warn('⚠️ 첫 번째 파일 사용:', spreadsheetId);
+          logWarn_('WorkflowSpreadsheet', '같은 이름의 워크플로우 스프레드시트가 여러 개 있습니다:', foundFiles.length);
+          logWarn_('WorkflowSpreadsheet', '첫 번째 파일 사용:', spreadsheetId);
         }
       }
     }
     
     // 루트 폴더에서 찾지 못했으면 전체 Drive에서 찾기 (fallback)
     if (!spreadsheetId) {
-      console.log('📊 루트 폴더에서 찾지 못함, 전체 Drive에서 검색...');
+      logDebug_('WorkflowSpreadsheet', '루트 폴더에서 찾지 못함, 전체 Drive에서 검색...');
       const foundId = getSheetIdByName(spreadsheetName);
       if (foundId) {
         // 찾은 스프레드시트가 루트 폴더에 있는지 확인
@@ -82,50 +81,47 @@ function getWorkflowSpreadsheet() {
             if (isInRootFolder) {
               // 루트 폴더에 있으면 사용
               spreadsheetId = foundId;
-              console.log('📊 워크플로우 스프레드시트 찾음 (전체 Drive, 루트 폴더):', spreadsheetId);
+              logDebug_('WorkflowSpreadsheet', '워크플로우 스프레드시트 찾음 (전체 Drive, 루트 폴더):', spreadsheetId);
             } else {
               // 루트 폴더에 없으면 이동 후 사용
               try {
                 file.moveTo(rootFolder);
                 spreadsheetId = foundId;
-                console.log('📊 워크플로우 스프레드시트를 루트 폴더로 이동:', rootFolderName);
+                logDebug_('WorkflowSpreadsheet', '워크플로우 스프레드시트를 루트 폴더로 이동:', rootFolderName);
               } catch (error) {
-                console.warn('📊 워크플로우 스프레드시트 폴더 이동 실패:', error.message);
+                logWarn_('WorkflowSpreadsheet', '워크플로우 스프레드시트 폴더 이동 실패:', error.message);
                 // 이동 실패해도 사용 (다른 폴더에 있을 수 있음)
                 spreadsheetId = foundId;
-                console.log('📊 워크플로우 스프레드시트 찾음 (다른 폴더):', spreadsheetId);
+                logDebug_('WorkflowSpreadsheet', '워크플로우 스프레드시트 찾음 (다른 폴더):', spreadsheetId);
               }
             }
           } catch (error) {
-            console.warn('📊 스프레드시트 확인 실패:', error.message);
+            logWarn_('WorkflowSpreadsheet', '스프레드시트 확인 실패:', error.message);
             // 확인 실패해도 사용
             spreadsheetId = foundId;
-            console.log('📊 워크플로우 스프레드시트 찾음 (확인 실패):', spreadsheetId);
+            logWarn_('WorkflowSpreadsheet', '워크플로우 스프레드시트 확인 실패, 캐시 결과 사용');
           }
         } else {
           // 루트 폴더를 찾을 수 없으면 그냥 사용
           spreadsheetId = foundId;
-          console.log('📊 워크플로우 스프레드시트 찾음 (루트 폴더 없음):', spreadsheetId);
+          logDebug_('WorkflowSpreadsheet', '워크플로우 스프레드시트 찾음 (루트 폴더 없음):', spreadsheetId);
         }
       }
     }
     
     // 여전히 찾지 못했으면 생성
     if (!spreadsheetId) {
-      console.log('📊 워크플로우 스프레드시트 생성 시작:', spreadsheetName);
       const newSpreadsheet = SpreadsheetApp.create(spreadsheetName);
       spreadsheetId = newSpreadsheet.getId();
-      console.log('📊 워크플로우 스프레드시트 생성 완료:', spreadsheetId);
       
       // 기본 시트1 삭제 (필요한 시트는 나중에 생성됨)
       try {
         const sheets = newSpreadsheet.getSheets();
         if (sheets.length > 0 && sheets[0].getName() === '시트1') {
           newSpreadsheet.deleteSheet(sheets[0]);
-          console.log('📊 기본 시트1 삭제 완료');
         }
       } catch (error) {
-        console.warn('📊 기본 시트1 삭제 실패 (무시됨):', error.message);
+        logWarn_('WorkflowSpreadsheet', '기본 시트1 삭제 실패 (무시됨):', error.message);
       }
       
       // workflow 폴더로 이동 (새 구조)
@@ -141,19 +137,18 @@ function getWorkflowSpreadsheet() {
           }
           const file = DriveApp.getFileById(spreadsheetId);
           file.moveTo(targetFolder);
-          console.log('📊 워크플로우 스프레드시트를 workflow 폴더로 이동');
+          logDebug_('WorkflowSpreadsheet', '워크플로우 스프레드시트를 workflow 폴더로 이동');
         } catch (error) {
-          console.warn('📊 워크플로우 스프레드시트 폴더 이동 실패 (무시됨):', error.message);
+          logWarn_('WorkflowSpreadsheet', '워크플로우 스프레드시트 폴더 이동 실패 (무시됨):', error.message);
         }
       }
     }
     
     const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
-    console.log('📊 워크플로우 스프레드시트 조회 완료:', spreadsheet.getName());
     return spreadsheet;
     
   } catch (error) {
-    console.error('📊 워크플로우 스프레드시트 조회/생성 오류:', error);
+    logError_('WorkflowSpreadsheet', '워크플로우 스프레드시트 조회/생성 오류:', error);
     throw new Error('워크플로우 스프레드시트를 가져오거나 생성할 수 없습니다: ' + error.message);
   }
 }
@@ -167,7 +162,7 @@ function getWorkflowSpreadsheetId() {
     const spreadsheet = getWorkflowSpreadsheet();
     return spreadsheet.getId();
   } catch (error) {
-    console.error('📊 워크플로우 스프레드시트 ID 가져오기 실패:', error);
+    logError_('WorkflowSpreadsheet', '워크플로우 스프레드시트 ID 가져오기 실패:', error);
     return null;
   }
 }
@@ -183,7 +178,6 @@ function ensureWorkflowDocumentsSheet() {
     let sheet = spreadsheet.getSheetByName(sheetName);
     
     if (!sheet) {
-      console.log('📊 workflow_documents 시트 생성 시작');
       sheet = spreadsheet.insertSheet(sheetName);
       
       // 헤더 설정
@@ -215,16 +209,14 @@ function ensureWorkflowDocumentsSheet() {
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
       sheet.setFrozenRows(1);
-      
-      console.log('📊 workflow_documents 시트 생성 완료');
     } else {
-      console.log('📊 workflow_documents 시트 이미 존재');
+      logDebug_('WorkflowSpreadsheet', 'workflow_documents 시트 이미 존재');
     }
     
     return sheet;
     
   } catch (error) {
-    console.error('📊 workflow_documents 시트 확인/생성 오류:', error);
+    logError_('WorkflowSpreadsheet', 'workflow_documents 시트 확인/생성 오류:', error);
     throw error;
   }
 }
@@ -240,7 +232,6 @@ function ensureWorkflowHistorySheet() {
     let sheet = spreadsheet.getSheetByName(sheetName);
     
     if (!sheet) {
-      console.log('📊 workflow_history 시트 생성 시작');
       sheet = spreadsheet.insertSheet(sheetName);
       
       // 헤더 설정
@@ -266,16 +257,14 @@ function ensureWorkflowHistorySheet() {
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
       sheet.setFrozenRows(1);
-      
-      console.log('📊 workflow_history 시트 생성 완료');
     } else {
-      console.log('📊 workflow_history 시트 이미 존재');
+      logDebug_('WorkflowSpreadsheet', 'workflow_history 시트 이미 존재');
     }
     
     return sheet;
     
   } catch (error) {
-    console.error('📊 workflow_history 시트 확인/생성 오류:', error);
+    logError_('WorkflowSpreadsheet', 'workflow_history 시트 확인/생성 오류:', error);
     throw error;
   }
 }
@@ -291,7 +280,6 @@ function ensureWorkflowTemplatesSheet() {
     let sheet = spreadsheet.getSheetByName(sheetName);
     
     if (!sheet) {
-      console.log('📊 workflow_templates 시트 생성 시작');
       sheet = spreadsheet.insertSheet(sheetName);
       
       // 헤더 설정
@@ -311,16 +299,14 @@ function ensureWorkflowTemplatesSheet() {
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
       sheet.setFrozenRows(1);
-      
-      console.log('📊 workflow_templates 시트 생성 완료');
     } else {
-      console.log('📊 workflow_templates 시트 이미 존재');
+      logDebug_('WorkflowSpreadsheet', 'workflow_templates 시트 이미 존재');
     }
     
     return sheet;
     
   } catch (error) {
-    console.error('📊 workflow_templates 시트 확인/생성 오류:', error);
+    logError_('WorkflowSpreadsheet', 'workflow_templates 시트 확인/생성 오류:', error);
     throw error;
   }
 }
@@ -331,13 +317,10 @@ function ensureWorkflowTemplatesSheet() {
  */
 function initializeWorkflowSheets() {
   try {
-    console.log('📊 워크플로우 시트 초기화 시작');
     
     const documentsSheet = ensureWorkflowDocumentsSheet();
     const historySheet = ensureWorkflowHistorySheet();
     const templatesSheet = ensureWorkflowTemplatesSheet();
-    
-    console.log('📊 워크플로우 시트 초기화 완료');
     
     return {
       documents: documentsSheet,
@@ -346,7 +329,7 @@ function initializeWorkflowSheets() {
     };
     
   } catch (error) {
-    console.error('📊 워크플로우 시트 초기화 오류:', error);
+    logError_('WorkflowSpreadsheet', '워크플로우 시트 초기화 오류:', error);
     throw error;
   }
 }
@@ -364,7 +347,7 @@ function getFolderByName(folderName) {
     }
     return null;
   } catch (error) {
-    console.error('📁 폴더 찾기 오류:', error);
+    logError_('WorkflowSpreadsheet', '폴더 찾기 오류:', error);
     return null;
   }
 }

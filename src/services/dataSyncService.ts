@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * @file dataSyncService.ts
  * @brief 데이터 동기화 서비스
@@ -10,6 +11,8 @@ import { generateCacheKey, getActionCategory, CACHEABLE_ACTIONS } from '../utils
 import { tokenManager } from '../utils/auth/tokenManager';
 import { initializeSpreadsheetIds } from '../utils/database/papyrusManager';
 import type { User } from '../types/app';
+const log = logger.scope('services/dataSyncService');
+
 
 type InitialDataScope = 'global' | 'dashboard' | 'page';
 type InitialDataPhase = 1 | 2;
@@ -288,7 +291,7 @@ export class DataSyncService {
     staffSpreadsheetId: string | null;
   }> {
     if (this.isInitializing) {
-      console.warn('⚠️ 이미 초기화 중입니다.');
+      log.warn('이미 초기화 중입니다.');
       return await initializeSpreadsheetIds();
     }
 
@@ -329,7 +332,7 @@ export class DataSyncService {
             try {
               await task.fn();
             } catch (error) {
-              console.error(`❌ ${task.name} 로딩 실패:`, error);
+              log.error(`${task.name} 로딩 실패:`, error);
             } finally {
               completed++;
               onProgress?.({ current: completed, total, category: task.category, message: `${task.name} 완료` });
@@ -339,7 +342,6 @@ export class DataSyncService {
       }
 
       this.lastSyncTime = new Date();
-      console.log('✅ 초기 전체 데이터 로딩 완료');
       return spreadsheetIds;
     } finally {
       this.isInitializing = false;
@@ -398,7 +400,7 @@ export class DataSyncService {
           try {
             await task.fn();
           } catch (error) {
-            console.error(`❌ ${task.name} 로딩 실패:`, error);
+            log.error(`${task.name} 로딩 실패:`, error);
           } finally {
             completed++;
             onProgress?.({ current: completed, total, category: task.category, message: `${task.name} 완료` });
@@ -408,7 +410,6 @@ export class DataSyncService {
     }
 
     this.lastSyncTime = new Date();
-    console.log('✅ 2단계(백그라운드) 데이터 로딩 완료');
   }
 
   /**
@@ -441,7 +442,7 @@ export class DataSyncService {
       await this.initializePhase2(user, onProgress);
 
     } catch (error) {
-      console.error('❌ 전체 데이터 갱신 실패:', error);
+      log.error('전체 데이터 갱신 실패:', error);
       throw error;
     }
   }
@@ -452,7 +453,7 @@ export class DataSyncService {
    */
   async refreshCategory(category: string, background: boolean = true): Promise<void> {
     if (this.refreshingCategories.has(category)) {
-      console.log(`⏳ ${category} 갱신이 이미 진행 중입니다. 건너뜁니다.`);
+      log.debug(`${category} 갱신이 이미 진행 중입니다. 건너뜁니다.`);
       return;
     }
 
@@ -460,7 +461,7 @@ export class DataSyncService {
     const pausedUntil = this.pausedCategories.get(category);
     if (pausedUntil && Date.now() < pausedUntil) {
       const remainingMinutes = Math.ceil((pausedUntil - Date.now()) / (60 * 1000));
-      console.log(`⏸️ ${category} 카테고리는 429 에러로 인해 ${remainingMinutes}분 동안 일시 중지됩니다.`);
+      log.warn(`${category} 카테고리는 429 에러로 인해 ${remainingMinutes}분 동안 일시 중지됩니다.`);
       return;
     }
 
@@ -468,12 +469,12 @@ export class DataSyncService {
     if (pausedUntil && Date.now() >= pausedUntil) {
       this.pausedCategories.delete(category);
       this.error429Count.delete(category);
-      console.log(`▶️ ${category} 카테고리 일시 중지 해제`);
+      log.debug(`${category} 카테고리 일시 중지 해제`);
     }
 
     // 토큰 유효성 확인
     if (!tokenManager.isValid()) {
-      console.warn('⚠️ 토큰이 만료되어 갱신을 건너뜁니다.');
+      log.warn('토큰이 만료되어 갱신을 건너뜁니다.');
       return;
     }
 
@@ -492,10 +493,9 @@ export class DataSyncService {
         .then(() => {
           this.lastSyncTime = new Date();
           this.lastSyncByCategory.set(category, Date.now());
-          console.log(`✅ ${category} 갱신 완료 및 시간 업데이트`);
         })
         .catch((error) => {
-          console.error(`❌ ${category} 갱신 실패, 다음 주기에 재시도 예정`);
+          log.error(`${category} 갱신 실패, 다음 주기에 재시도 예정`);
           this.handle429Error(category, error);
         })
         .finally(clearRefreshing);
@@ -533,7 +533,7 @@ export class DataSyncService {
       const pauseUntil = Date.now() + (pauseMinutes * 60 * 1000);
       this.pausedCategories.set(category, pauseUntil);
 
-      console.warn(`⚠️ ${category} 카테고리에서 429 에러 발생 (${currentCount}회). ${pauseMinutes}분 동안 일시 중지됩니다.`);
+      log.warn(`${category} 카테고리에서 429 에러 발생 (${currentCount}회). ${pauseMinutes}분 동안 일시 중지됩니다.`);
       
       // 사용자에게 알림 (DataSyncStatus 컴포넌트에서 처리)
       if (typeof window !== 'undefined' && window.dispatchEvent) {
@@ -576,15 +576,15 @@ export class DataSyncService {
         case 'templates':
           await Promise.allSettled([
             apiClient.getTemplates().catch((error) => {
-              console.error('❌ getTemplates 실패:', error);
+              log.error('getTemplates 실패:', error);
               return { success: false, error: error.message };
             }),
             apiClient.getSharedTemplates().catch((error) => {
-              console.error('❌ getSharedTemplates 실패:', error);
+              log.error('getSharedTemplates 실패:', error);
               return { success: false, error: error.message };
             }),
             apiClient.getStaticTags().catch((error) => {
-              console.error('❌ getStaticTags 실패:', error);
+              log.error('getStaticTags 실패:', error);
               return { success: false, error: error.message };
             })
           ]);
@@ -643,12 +643,10 @@ export class DataSyncService {
           break;
 
         default:
-          console.log(`⚠️ ${category} 카테고리에 대한 백그라운드 갱신 로직이 없습니다.`);
+          log.debug(`${category} 카테고리에 대한 백그라운드 갱신 로직이 없습니다.`);
       }
-
-      console.log(`✅ ${category} 백그라운드 갱신 완료`);
     } catch (error) {
-      console.error(`❌ ${category} 백그라운드 갱신 중 오류:`, error);
+      log.error(`${category} 백그라운드 갱신 중 오류:`, error);
       throw error;
     }
   }
@@ -671,7 +669,7 @@ export class DataSyncService {
       const toProcess = [...this.pendingInvalidateKeys];
       this.pendingInvalidateKeys = [];
       this.doInvalidateAndRefresh(toProcess).catch((err) => {
-        console.error('❌ 캐시 무효화 및 갱신 실패:', err);
+        log.error('캐시 무효화 및 갱신 실패:', err);
       });
     }, this.invalidateDebounceMs);
   }
@@ -681,7 +679,7 @@ export class DataSyncService {
    */
   private async doInvalidateAndRefresh(cacheKeys: string[]): Promise<void> {
     if (!tokenManager.isValid()) {
-      console.warn('⚠️ 토큰이 만료되어 캐시 무효화를 건너뜁니다.');
+      log.warn('토큰이 만료되어 캐시 무효화를 건너뜁니다.');
       return;
     }
     for (const key of cacheKeys) {
@@ -694,12 +692,11 @@ export class DataSyncService {
     });
     const refreshPromises = Array.from(categories).map(category =>
       this.refreshCategory(category, true).catch((error) => {
-        console.error(`❌ ${category} 백그라운드 갱신 실패:`, error);
+        log.error(`${category} 백그라운드 갱신 실패:`, error);
       })
     );
     await Promise.allSettled(refreshPromises);
     this.lastSyncTime = new Date();
-    console.log('✅ 캐시 무효화 및 백그라운드 갱신 완료:', cacheKeys);
   }
 
   /**
@@ -708,9 +705,9 @@ export class DataSyncService {
   setAppActive(isActive: boolean): void {
     this.isAppActive = isActive;
     if (!isActive) {
-      console.log('⏸️ 앱이 비활성화되어 백그라운드 갱신을 일시 중지합니다.');
+      log.debug('앱이 비활성화되어 백그라운드 갱신을 일시 중지합니다.');
     } else {
-      console.log('▶️ 앱이 활성화되어 백그라운드 갱신을 재개합니다.');
+      log.debug('앱이 활성화되어 백그라운드 갱신을 재개합니다.');
       // 활성화 시 즉시 갱신 (필요한 카테고리만)
       this.syncActivePageCategories();
     }
@@ -749,7 +746,7 @@ export class DataSyncService {
           this.refreshCategory(category, true);
           this.lastSyncByCategory.set(category, now);
         } catch (error) {
-          console.error(`❌ ${category} 갱신 실패:`, error);
+          log.error(`${category} 갱신 실패:`, error);
         }
       }
     }
@@ -806,13 +803,13 @@ export class DataSyncService {
 
         // 토큰 만료 체크
         if (!tokenManager.isValid()) {
-          console.warn(`⚠️ 토큰이 만료되어 ${category} 갱신을 건너뜁니다.`);
+          log.warn(`토큰이 만료되어 ${category} 갱신을 건너뜁니다.`);
           return;
         }
 
         // 토큰이 곧 만료되면(5분 이내) 갱신 중단
         if (tokenManager.isExpiringSoon()) {
-          console.warn(`⚠️ 토큰이 곧 만료되어 ${category} 갱신을 건너뜁니다.`);
+          log.warn(`토큰이 곧 만료되어 ${category} 갱신을 건너뜁니다.`);
           return;
         }
 
@@ -834,16 +831,13 @@ export class DataSyncService {
           // 백그라운드로 갱신 (응답 대기 안 함)
           // refreshCategory 내부에서 성공 시 lastSyncByCategory가 업데이트됨
           this.refreshCategory(category, true);
-          console.log(`🔄 ${category} 백그라운드 갱신 시작`);
         } catch (error) {
-          console.error(`❌ ${category} 백그라운드 갱신 실패:`, error);
+          log.error(`${category} 백그라운드 갱신 실패:`, error);
         }
       }, interval);
 
       this.syncIntervals.set(category, timerId);
     });
-
-    console.log('✅ 스마트 주기적 백그라운드 동기화 시작 (페이지 활성 시에만 갱신)');
   }
 
   /**
@@ -861,7 +855,7 @@ export class DataSyncService {
       (this as any)._cleanupListeners = null;
     }
 
-    console.log('⏹️ 주기적 백그라운드 동기화 중지');
+    log.debug('주기적 백그라운드 동기화 중지');
   }
 
   /**

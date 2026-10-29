@@ -21,7 +21,7 @@ function setupScriptPropertiesOnly() {
  */
 function initializeSystem() {
   try {
-    console.log('🚀 시스템 초기 세팅 시작');
+    logInfo_('InitialSetup', '시스템 초기 세팅 시작');
     
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
     const results = {
@@ -37,7 +37,7 @@ function initializeSystem() {
       throw new Error('루트 폴더를 찾거나 생성할 수 없습니다.');
     }
     results.folders.push({ name: rootFolderName, id: rootFolder.getId() });
-    console.log('✅ 루트 폴더 확인:', rootFolder.getId());
+    logInfo_('InitialSetup', '루트 폴더 확인:', rootFolder.getId());
     
     // 2. 폴더 구조 생성
     const folderStructure = createFolderStructure(rootFolder);
@@ -58,11 +58,11 @@ function initializeSystem() {
 
     clearSpreadsheetIdCache();
     
-    console.log('✅ 시스템 초기 세팅 완료');
+    logInfo_('InitialSetup', '시스템 초기 세팅 완료');
     return results;
     
   } catch (error) {
-    console.error('❌ 시스템 초기 세팅 오류:', error);
+    logError_('InitialSetup', '시스템 초기 세팅 오류:', error);
     return {
       success: false,
       message: '시스템 초기 세팅 중 오류가 발생했습니다: ' + error.message,
@@ -86,7 +86,7 @@ function getOrCreateRootFolder() {
       return DriveApp.createFolder(rootFolderName);
     }
   } catch (error) {
-    console.error('❌ 루트 폴더 생성 오류:', error);
+    logError_('InitialSetup', '루트 폴더 생성 오류:', error);
     throw error;
   }
 }
@@ -132,9 +132,9 @@ function createFolderStructure(rootFolder) {
       const folder = getOrCreateFolder(rootFolder, folderName);
       createdFolders[folderName] = folder;
       folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/${folderName}` });
-      console.log(`✅ 폴더 생성: ${folderName}`);
+      logInfo_('InitialSetup', `폴더 생성: ${folderName}`);
     } catch (error) {
-      console.error(`❌ 폴더 생성 실패: ${folderName}`, error);
+      logError_('InitialSetup', `폴더 생성 실패: ${folderName}`, error);
     }
   });
   
@@ -144,9 +144,9 @@ function createFolderStructure(rootFolder) {
       try {
         const folder = getOrCreateFolder(createdFolders['document'], folderName);
         folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/document/${folderName}` });
-        console.log(`✅ 폴더 생성: document/${folderName}`);
+        logInfo_('InitialSetup', `폴더 생성: document/${folderName}`);
       } catch (error) {
-        console.error(`❌ 폴더 생성 실패: document/${folderName}`, error);
+        logError_('InitialSetup', `폴더 생성 실패: document/${folderName}`, error);
       }
     });
   }
@@ -157,9 +157,9 @@ function createFolderStructure(rootFolder) {
       try {
         const folder = getOrCreateFolder(createdFolders['notice'], folderName);
         folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/notice/${folderName}` });
-        console.log(`✅ 폴더 생성: notice/${folderName}`);
+        logInfo_('InitialSetup', `폴더 생성: notice/${folderName}`);
       } catch (error) {
-        console.error(`❌ 폴더 생성 실패: notice/${folderName}`, error);
+        logError_('InitialSetup', `폴더 생성 실패: notice/${folderName}`, error);
       }
     });
   }
@@ -170,9 +170,9 @@ function createFolderStructure(rootFolder) {
       try {
         const folder = getOrCreateFolder(createdFolders['workflow'], folderName);
         folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/workflow/${folderName}` });
-        console.log(`✅ 폴더 생성: workflow/${folderName}`);
+        logInfo_('InitialSetup', `폴더 생성: workflow/${folderName}`);
       } catch (error) {
-        console.error(`❌ 폴더 생성 실패: workflow/${folderName}`, error);
+        logError_('InitialSetup', `폴더 생성 실패: workflow/${folderName}`, error);
       }
     });
   }
@@ -227,7 +227,7 @@ function createSpreadsheets(rootFolder, folderStructure) {
         results.push(result);
       }
     } catch (error) {
-      console.error(`❌ 스프레드시트 생성 실패: ${config.name}`, error);
+      logError_('InitialSetup', `스프레드시트 생성 실패: ${config.name}`, error);
     }
   });
   
@@ -241,7 +241,7 @@ function createSpreadsheets(rootFolder, folderStructure) {
       );
       if (result) results.push(result);
     } catch (error) {
-      console.error('❌ 스프레드시트 생성 실패: notice', error);
+      logError_('InitialSetup', '스프레드시트 생성 실패: notice', error);
     }
   }
   
@@ -255,7 +255,7 @@ function createSpreadsheets(rootFolder, folderStructure) {
       );
       if (result) results.push(result);
     } catch (error) {
-      console.error('❌ 스프레드시트 생성 실패: workflow', error);
+      logError_('InitialSetup', '스프레드시트 생성 실패: workflow', error);
     }
   }
   
@@ -269,7 +269,7 @@ function createSpreadsheets(rootFolder, folderStructure) {
       );
       if (result) results.push(result);
     } catch (error) {
-      console.error('❌ 스프레드시트 생성 실패: static_tag', error);
+      logError_('InitialSetup', '스프레드시트 생성 실패: static_tag', error);
     }
   }
   
@@ -291,10 +291,10 @@ function createSpreadsheets(rootFolder, folderStructure) {
         const result = createSpreadsheetInFolder(folder, config.name, config.sheetConfigs);
         if (result) results.push(result);
       } else {
-        console.warn(`⚠️ 폴더를 찾을 수 없음: ${config.folderPath}`);
+        logWarn_('InitialSetup', `폴더를 찾을 수 없음: ${config.folderPath}`);
       }
     } catch (error) {
-      console.error(`❌ 스프레드시트 생성 실패: ${config.name}`, error);
+      logError_('InitialSetup', `스프레드시트 생성 실패: ${config.name}`, error);
     }
   });
   
@@ -314,7 +314,7 @@ function createSpreadsheetInFolder(folder, spreadsheetName, sheetConfigs) {
   if (files.hasNext()) {
     const existingFile = files.next();
     if (existingFile.getMimeType() === MimeType.GOOGLE_SHEETS) {
-      console.log(`📊 스프레드시트 이미 존재: ${spreadsheetName}`);
+      logInfo_('InitialSetup', `스프레드시트 이미 존재: ${spreadsheetName}`);
       const spreadsheet = SpreadsheetApp.openById(existingFile.getId());
       // 시트 확인 및 생성
       sheetConfigs.forEach(config => {
@@ -325,7 +325,7 @@ function createSpreadsheetInFolder(folder, spreadsheetName, sheetConfigs) {
   }
   
   // 새 스프레드시트 생성
-  console.log(`📊 스프레드시트 생성 시작: ${spreadsheetName}`);
+  logInfo_('InitialSetup', `스프레드시트 생성 시작: ${spreadsheetName}`);
   const spreadsheet = SpreadsheetApp.create(spreadsheetName);
   const spreadsheetId = spreadsheet.getId();
   const spreadsheetFile = DriveApp.getFileById(spreadsheetId);
@@ -349,7 +349,7 @@ function createSpreadsheetInFolder(folder, spreadsheetName, sheetConfigs) {
     }
   }
   
-  console.log(`✅ 스프레드시트 생성 완료: ${spreadsheetName}`);
+  logInfo_('InitialSetup', `스프레드시트 생성 완료: ${spreadsheetName}`);
   return { name: spreadsheetName, id: spreadsheetId, created: true };
 }
 
@@ -363,10 +363,10 @@ function ensureSheetWithHeaders(spreadsheet, sheetName, headers) {
   let sheet = spreadsheet.getSheetByName(sheetName);
   
   if (!sheet) {
-    console.log(`📄 시트 생성: ${sheetName}`);
+    logInfo_('InitialSetup', `시트 생성: ${sheetName}`);
     sheet = spreadsheet.insertSheet(sheetName);
   } else {
-    console.log(`📄 시트 확인: ${sheetName}`);
+    logInfo_('InitialSetup', `시트 확인: ${sheetName}`);
   }
   
   // 헤더 설정
@@ -391,9 +391,9 @@ function ensureSheetWithHeaders(spreadsheet, sheetName, headers) {
       headerRange.setValues([headers]);
       headerRange.setFontWeight('bold');
       sheet.setFrozenRows(1);
-      console.log(`✅ 헤더 설정 완료: ${sheetName}`);
+      logInfo_('InitialSetup', `헤더 설정 완료: ${sheetName}`);
     } else {
-      console.log(`✅ 헤더 이미 설정됨: ${sheetName}`);
+      logInfo_('InitialSetup', `헤더 이미 설정됨: ${sheetName}`);
     }
   }
 }
@@ -664,11 +664,11 @@ function getSharedDocumentFolderName() {
   if (!folderName) {
     const shardValue = properties.getProperty('SHARD_DOCUMENT_FOLDER_NAME');
     if (shardValue) {
-      console.log('🔧 오타 수정: SHARD_DOCUMENT_FOLDER_NAME -> SHARED_DOCUMENT_FOLDER_NAME');
+      logInfo_('InitialSetup', '오타 수정: SHARD_DOCUMENT_FOLDER_NAME -> SHARED_DOCUMENT_FOLDER_NAME');
       properties.setProperty('SHARED_DOCUMENT_FOLDER_NAME', shardValue);
       properties.deleteProperty('SHARD_DOCUMENT_FOLDER_NAME');
       folderName = shardValue;
-      console.log(`✅ 오타 수정 완료: SHARED_DOCUMENT_FOLDER_NAME = ${shardValue}`);
+      logInfo_('InitialSetup', `오타 수정 완료: SHARED_DOCUMENT_FOLDER_NAME = ${shardValue}`);
     }
   }
   
@@ -683,16 +683,16 @@ function getSharedDocumentFolderName() {
  */
 function setScriptProperties(rootFolderId, spreadsheetResults) {
   try {
-    console.log('⚙️ 스크립트 속성 설정 시작');
+    logInfo_('InitialSetup', '스크립트 속성 설정 시작');
     const properties = PropertiesService.getScriptProperties();
     
     // 오타 수정: SHARD_DOCUMENT_FOLDER_NAME -> SHARED_DOCUMENT_FOLDER_NAME (먼저 실행)
     const shardValue = properties.getProperty('SHARD_DOCUMENT_FOLDER_NAME');
     if (shardValue) {
-      console.log('🔧 오타 수정: SHARD_DOCUMENT_FOLDER_NAME -> SHARED_DOCUMENT_FOLDER_NAME');
+      logInfo_('InitialSetup', '오타 수정: SHARD_DOCUMENT_FOLDER_NAME -> SHARED_DOCUMENT_FOLDER_NAME');
       properties.setProperty('SHARED_DOCUMENT_FOLDER_NAME', shardValue);
       properties.deleteProperty('SHARD_DOCUMENT_FOLDER_NAME');
-      console.log(`✅ 오타 수정 완료: SHARED_DOCUMENT_FOLDER_NAME = ${shardValue}`);
+      logInfo_('InitialSetup', `오타 수정 완료: SHARED_DOCUMENT_FOLDER_NAME = ${shardValue}`);
     }
     
     const propertiesToSet = {
@@ -736,9 +736,9 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
       if (!existingValue) {
         properties.setProperty(key, value);
         setProperties[key] = value;
-        console.log('✅ 스크립트 속성 설정: ' + key + ' = ' + value);
+        logInfo_('InitialSetup', "?? ??? ??");
       } else {
-        console.log('ℹ️ 스크립트 속성 이미 존재: ' + key + ' = ' + existingValue);
+        logInfo_('InitialSetup', "?? ??? ??");
         setProperties[key] = existingValue;
       }
     }
@@ -749,7 +749,7 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
       if (!existingRootId) {
         properties.setProperty('ROOT_FOLDER_ID', rootFolderId);
         setProperties['ROOT_FOLDER_ID'] = rootFolderId;
-        console.log('✅ ROOT_FOLDER_ID 설정: ' + rootFolderId);
+        logInfo_('InitialSetup', 'ROOT_FOLDER_ID 설정: ' + rootFolderId);
       }
     }
     
@@ -761,12 +761,12 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
         if (!existingSpreadsheetId) {
           properties.setProperty('SPREADSHEET_ID', hpMember.id);
           setProperties['SPREADSHEET_ID'] = hpMember.id;
-          console.log('✅ SPREADSHEET_ID (hp_member) 설정: ' + hpMember.id);
+          logInfo_('InitialSetup', 'SPREADSHEET_ID (hp_member) 설정: ' + hpMember.id);
         }
       }
     }
     
-    console.log('✅ 스크립트 속성 설정 완료');
+    logInfo_('InitialSetup', '스크립트 속성 설정 완료');
     return {
       success: true,
       set: setProperties,
@@ -774,7 +774,7 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
     };
     
   } catch (error) {
-    console.error('❌ 스크립트 속성 설정 오류:', error);
+    logError_('InitialSetup', '스크립트 속성 설정 오류:', error);
     return {
       success: false,
       message: '스크립트 속성 설정 중 오류가 발생했습니다: ' + error.message

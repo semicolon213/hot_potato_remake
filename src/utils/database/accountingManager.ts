@@ -1,3 +1,4 @@
+import { logger } from '../logger';
 /**
  * @file accountingManager.ts
  * @brief 회계 데이터 관리 유틸리티
@@ -20,6 +21,8 @@ import type {
 } from '../../types/features/accounting';
 import type { SheetInfo } from '../../types/google';
 import { ENV_CONFIG } from '../../config/environment';
+const log = logger.scope('utils/database/accountingManager');
+
 
 // 시트 이름 상수
 const ACCOUNTING_SHEETS = {
@@ -51,7 +54,7 @@ const ensureAuth = () => {
 const getSheetId = async (spreadsheetId: string, sheetName: string): Promise<number | null> => {
   try {
     if (!window.gapi || !window.gapi.client) {
-      console.error('❌ Google API가 초기화되지 않았습니다.');
+      log.error('Google API가 초기화되지 않았습니다.');
       return null;
     }
 
@@ -63,7 +66,7 @@ const getSheetId = async (spreadsheetId: string, sheetName: string): Promise<num
     const sheet = response.result.sheets?.find((s: SheetInfo) => s.properties?.title === sheetName);
     return sheet?.properties?.sheetId || null;
   } catch (error) {
-    console.error('❌ 시트 ID 가져오기 오류:', error);
+    log.error('시트 ID 가져오기 오류:', error);
     return null;
   }
 };
@@ -74,7 +77,7 @@ const getSheetId = async (spreadsheetId: string, sheetName: string): Promise<num
 export const getEvidenceFolderIdFromSpreadsheet = async (spreadsheetId: string): Promise<string | null> => {
   try {
     if (!window.gapi || !window.gapi.client) {
-      console.warn('⚠️ Google API가 초기화되지 않았습니다.');
+      log.warn('Google API가 초기화되지 않았습니다.');
       return null;
     }
 
@@ -106,7 +109,7 @@ export const getEvidenceFolderIdFromSpreadsheet = async (spreadsheetId: string):
 
     return null;
   } catch (error) {
-    console.error('❌ 증빙 폴더 ID 조회 오류:', error);
+    log.error('증빙 폴더 ID 조회 오류:', error);
     return null;
   }
 };
@@ -190,19 +193,18 @@ export const uploadEvidenceFile = async (
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('❌ 파일 업로드 응답 오류:', errorData);
+      log.error('파일 업로드 응답 오류:');
       throw new Error(`파일 업로드 실패: ${response.status} ${response.statusText}`);
     }
 
     const result = await response.json();
-    console.log('✅ 증빙 문서 업로드 완료:', result);
     
     return {
       fileId: result.id,
       fileName: result.name
     };
   } catch (error: unknown) {
-    console.error('❌ 증빙 문서 업로드 오류:', error);
+    log.error('증빙 문서 업로드 오류:', error);
     throw error;
   }
 };
@@ -219,13 +221,11 @@ export const getAccounts = async (spreadsheetId: string): Promise<Account[]> => 
   // 캐시에서 먼저 확인
   const cachedData = await cacheManager.get<Account[]>(cacheKey);
   if (cachedData) {
-    console.log('💰 캐시에서 통장 목록 로드:', cachedData.length, '개');
     return cachedData;
   }
 
   try {
     ensureAuth();
-    console.log('💰 통장 목록 로드 시작 (캐시 미스)...');
     const data = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.ACCOUNT);
     
     if (!data || !data.values || data.values.length <= 1) {
@@ -252,17 +252,14 @@ export const getAccounts = async (spreadsheetId: string): Promise<Account[]> => 
         isActive: row[10] === 'TRUE'
       });
     }
-
-    console.log(`💰 통장 목록 로드 완료: ${accounts.length}개`);
     
     // 캐시에 저장
     const ttl = getCacheTTL(action);
     await cacheManager.set(cacheKey, accounts, ttl);
-    console.log('💰 통장 목록 캐시 저장 완료 (TTL:', ttl / 1000 / 60, '분)');
     
     return accounts;
   } catch (error) {
-    console.error('❌ 통장 목록 조회 오류:', error);
+    log.error('통장 목록 조회 오류:', error);
     throw error;
   }
 };
@@ -305,29 +302,23 @@ export const createLedgerEntry = async (
         const evidenceFolderId = await getEvidenceFolderIdFromSpreadsheet(spreadsheetId);
         
         if (!evidenceFolderId) {
-          console.warn('⚠️ 증빙 폴더를 찾을 수 없습니다. 파일 업로드를 건너뜁니다.');
+          log.warn('증빙 폴더를 찾을 수 없습니다. 파일 업로드를 건너뜁니다.');
         } else {
           // 파일 업로드
           const uploadResult = await uploadEvidenceFile(evidenceFolderId, entryData.evidenceFile, entryId);
           evidenceFileId = uploadResult.fileId;
           evidenceFileName = uploadResult.fileName;
-          console.log('✅ 증빙 문서 업로드 완료:', uploadResult);
         }
       } catch (uploadError: unknown) {
-        console.error('❌ 증빙 문서 업로드 실패:', uploadError);
+        log.error('증빙 문서 업로드 실패:', uploadError);
         // 파일 업로드 실패해도 장부 항목은 추가하도록 계속 진행
-        console.warn('⚠️ 증빙 문서 업로드 실패했지만 장부 항목 추가는 계속 진행합니다.');
+        log.warn('증빙 문서 업로드 실패했지만 장부 항목 추가는 계속 진행합니다.');
       }
     }
 
     // 통장 잔액 업데이트 (배열 형식으로)
     ensureAuth();
     try {
-      console.log('💰 통장 잔액 업데이트 시도:', {
-        accountId: account.accountId,
-        currentBalance: account.currentBalance,
-        balanceAfter: balanceAfter
-      });
       
       // 통장 데이터 조회하여 행 번호 찾기
       const accountData = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.ACCOUNT);
@@ -346,21 +337,13 @@ export const createLedgerEntry = async (
       
       // 배열 형식으로 update (papyrus-db는 두 번째 인자로 시트명을 받으므로, range에는 셀 주소만)
       await update(spreadsheetId, ACCOUNTING_SHEETS.ACCOUNT, `D${actualRowNumber}`, [[balanceAfter]]);
-      
-      console.log('✅ 통장 잔액 업데이트 완료');
     } catch (updateError: unknown) {
       const error = updateError as { message?: string; code?: number; status?: number; result?: unknown; error?: unknown };
-      console.error('❌ 통장 잔액 업데이트 오류:', updateError);
-      console.error('❌ 업데이트 오류 상세:', {
-        message: error?.message,
-        code: error?.code,
-        status: error?.status,
-        result: error?.result,
-        error: error?.error
-      });
+      log.error('통장 잔액 업데이트 오류:', updateError);
+      log.error('업데이트 오류 상세:');
       // 잔액 업데이트 실패해도 장부 항목은 추가되도록 계속 진행
       // (나중에 수동으로 잔액을 수정할 수 있음)
-      console.warn('⚠️ 통장 잔액 업데이트 실패했지만 장부 항목 추가는 계속 진행합니다.');
+      log.warn('통장 잔액 업데이트 실패했지만 장부 항목 추가는 계속 진행합니다.');
     }
 
     const isBudgetExecuted = !!(entryData.budgetPlanId && entryData.budgetPlanTitle);
@@ -453,7 +436,7 @@ export const createLedgerEntry = async (
         });
       });
     } catch (optimisticError) {
-      console.warn('⚠️ 낙관적 업데이트 실패 (계속 진행):', optimisticError);
+      log.warn('낙관적 업데이트 실패 (계속 진행):', optimisticError);
     }
 
     // API 호출
@@ -514,24 +497,22 @@ export const createLedgerEntry = async (
         }
       }
     } catch (sortError) {
-      console.error('❌ 정렬 및 잔액 재계산 오류:', sortError);
-      console.warn('⚠️ 정렬 실패했지만 장부 항목은 추가되었습니다.');
+      log.error('정렬 및 잔액 재계산 오류:', sortError);
+      log.warn('정렬 실패했지만 장부 항목은 추가되었습니다.');
     }
-
-    console.log('✅ 장부 항목 추가 완료:', entryId);
     
     // 성공 시 캐시 무효화 및 백그라운드 갱신 (서버 데이터로 동기화)
     try {
       const dataSyncService = getDataSyncService();
       await dataSyncService.invalidateAndRefresh(cacheKeys);
     } catch (cacheError) {
-      console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+      log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
     }
     
     return newEntry;
 
   } catch (error) {
-    console.error('❌ 장부 항목 추가 오류:', error);
+    log.error('장부 항목 추가 오류:', error);
     throw error;
   }
 };
@@ -594,17 +575,16 @@ export const updateLedgerEntry = async (
         const evidenceFolderId = await getEvidenceFolderIdFromSpreadsheet(spreadsheetId);
         
         if (!evidenceFolderId) {
-          console.warn('⚠️ 증빙 폴더를 찾을 수 없습니다. 파일 업로드를 건너뜁니다.');
+          log.warn('증빙 폴더를 찾을 수 없습니다. 파일 업로드를 건너뜁니다.');
         } else {
           // 파일 업로드
           const uploadResult = await uploadEvidenceFile(evidenceFolderId, entryData.evidenceFile, entryId);
           evidenceFileId = uploadResult.fileId;
           evidenceFileName = uploadResult.fileName;
-          console.log('✅ 증빙 문서 업로드 완료:', uploadResult);
         }
       } catch (uploadError: unknown) {
-        console.error('❌ 증빙 문서 업로드 실패:', uploadError);
-        console.warn('⚠️ 증빙 문서 업로드 실패했지만 장부 항목 수정은 계속 진행합니다.');
+        log.error('증빙 문서 업로드 실패:', uploadError);
+        log.warn('증빙 문서 업로드 실패했지만 장부 항목 수정은 계속 진행합니다.');
       }
     }
 
@@ -673,7 +653,7 @@ export const updateLedgerEntry = async (
         });
       });
     } catch (optimisticError) {
-      console.warn('⚠️ 낙관적 업데이트 실패 (계속 진행):', optimisticError);
+      log.warn('낙관적 업데이트 실패 (계속 진행):', optimisticError);
     }
 
     // API 호출
@@ -777,21 +757,19 @@ export const updateLedgerEntry = async (
       // 새 카테고리 사용 횟수 증가
       await updateCategoryUsageCount(spreadsheetId, updatedCategory, 1);
     }
-
-    console.log('✅ 장부 항목 수정 완료:', entryId);
     
     // 성공 시 캐시 무효화 및 백그라운드 갱신 (서버 데이터로 동기화)
     try {
       const dataSyncService = getDataSyncService();
       await dataSyncService.invalidateAndRefresh(cacheKeys);
     } catch (cacheError) {
-      console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+      log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
     }
     
     return updatedEntry;
 
   } catch (error) {
-    console.error('❌ 장부 항목 수정 오류:', error);
+    log.error('장부 항목 수정 오류:', error);
     throw error;
   }
 };
@@ -880,7 +858,7 @@ export const deleteLedgerEntry = async (
         });
       });
     } catch (optimisticError) {
-      console.warn('⚠️ 낙관적 업데이트 실패 (계속 진행):', optimisticError);
+      log.warn('낙관적 업데이트 실패 (계속 진행):', optimisticError);
     }
 
     // API 호출
@@ -941,19 +919,17 @@ export const deleteLedgerEntry = async (
     if (accountRowIndex !== -1) {
       await update(spreadsheetId, ACCOUNTING_SHEETS.ACCOUNT, `D${accountRowIndex + 1}`, [[currentBalance]]);
     }
-
-    console.log('✅ 장부 항목 삭제 완료:', entryId);
     
     // 성공 시 캐시 무효화 및 백그라운드 갱신 (서버 데이터로 동기화)
     try {
       const dataSyncService = getDataSyncService();
       await dataSyncService.invalidateAndRefresh(cacheKeys);
     } catch (cacheError) {
-      console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+      log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
     }
 
   } catch (error) {
-    console.error('❌ 장부 항목 삭제 오류:', error);
+    log.error('장부 항목 삭제 오류:', error);
     throw error;
   }
 };
@@ -1056,7 +1032,7 @@ export const getLedgerEntries = async (
 
     return entries;
   } catch (error) {
-    console.error('❌ 장부 항목 목록 조회 오류:', error);
+    log.error('장부 항목 목록 조회 오류:', error);
     throw error;
   }
 };
@@ -1073,13 +1049,11 @@ export const getCategories = async (spreadsheetId: string): Promise<Category[]> 
   // 캐시에서 먼저 확인
   const cachedData = await cacheManager.get<Category[]>(cacheKey);
   if (cachedData) {
-    console.log('📂 캐시에서 카테고리 목록 로드:', cachedData.length, '개');
     return cachedData;
   }
 
   try {
     ensureAuth();
-    console.log('📂 카테고리 목록 로드 시작 (캐시 미스)...');
     const data = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.CATEGORY);
     
     if (!data || !data.values || data.values.length <= 1) {
@@ -1104,16 +1078,14 @@ export const getCategories = async (spreadsheetId: string): Promise<Category[]> 
     }
 
     const filteredCategories = categories.filter(cat => cat.isActive);
-    console.log(`📂 카테고리 목록 로드 완료: ${filteredCategories.length}개`);
     
     // 캐시에 저장
     const ttl = getCacheTTL(action);
     await cacheManager.set(cacheKey, filteredCategories, ttl);
-    console.log('📂 카테고리 목록 캐시 저장 완료 (TTL:', ttl / 1000 / 60, '분)');
     
     return filteredCategories;
   } catch (error) {
-    console.error('❌ 카테고리 목록 조회 오류:', error);
+    log.error('카테고리 목록 조회 오류:', error);
     throw error;
   }
 };
@@ -1142,7 +1114,7 @@ const updateCategoryUsageCount = async (
     );
 
     if (categoryRowIndex === -1) {
-      console.warn(`⚠️ 카테고리를 찾을 수 없습니다: ${categoryName}`);
+      log.warn(`카테고리를 찾을 수 없습니다: ${categoryName}`);
       return; // 카테고리를 찾을 수 없으면 업데이트하지 않음
     }
 
@@ -1153,9 +1125,9 @@ const updateCategoryUsageCount = async (
     // 사용 횟수 업데이트 (G열, 7번째 컬럼)
     await update(spreadsheetId, ACCOUNTING_SHEETS.CATEGORY, `G${actualRowNumber}`, [[newUsageCount]]);
     
-    console.log(`✅ 카테고리 사용 횟수 업데이트: ${categoryName} (${currentUsageCount} → ${newUsageCount})`);
+    log.debug(`카테고리 사용 횟수 업데이트: ${categoryName} (${currentUsageCount} → ${newUsageCount})`);
   } catch (error) {
-    console.error(`❌ 카테고리 사용 횟수 업데이트 오류 (${categoryName}):`, error);
+    log.error(`카테고리 사용 횟수 업데이트 오류 (${categoryName}):`, error);
     // 오류가 발생해도 계속 진행 (카테고리 업데이트 실패는 치명적이지 않음)
   }
 };
@@ -1198,8 +1170,6 @@ export const createCategory = async (
       isActive: true,
       usageCount: 0
     };
-
-    console.log('✅ 카테고리 생성 완료:', categoryId);
     
     // 캐시 무효화 및 백그라운드 갱신
     try {
@@ -1210,25 +1180,25 @@ export const createCategory = async (
       ];
       await dataSyncService.invalidateAndRefresh(cacheKeys);
     } catch (cacheError) {
-      console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+      log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
     }
     
     return newCategory;
 
   } catch (error: unknown) {
-    console.error('❌ 카테고리 생성 오류:', error);
+    log.error('카테고리 생성 오류:', error);
     
     // 더 자세한 오류 정보 로깅
     const err = error as { result?: { error?: unknown }; body?: string };
     if (err.result && err.result.error) {
-      console.error('❌ 오류 상세:', err.result.error);
+      log.error('오류 상세:');
     }
     if (err.body) {
       try {
         const errorBody = JSON.parse(err.body);
-        console.error('❌ 오류 본문:', errorBody);
+        log.error('오류 본문:', errorBody);
       } catch (e) {
-        console.error('❌ 오류 본문 (파싱 실패):', err.body);
+        log.error('오류 본문 (파싱 실패):', err.body);
       }
     }
 
@@ -1276,7 +1246,7 @@ export const updateCategory = async (
         const entriesToUpdate = entries.filter(entry => entry.category === oldCategoryName);
         
         if (entriesToUpdate.length > 0) {
-          console.log(`📝 장부 항목 카테고리 업데이트: ${oldCategoryName} → ${newCategoryName} (${entriesToUpdate.length}개)`);
+          log.debug(`장부 항목 카테고리 업데이트: ${oldCategoryName} → ${newCategoryName} (${entriesToUpdate.length}개)`);
           
           // 장부 시트 데이터 가져오기
           const ledgerData = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.LEDGER);
@@ -1305,7 +1275,7 @@ export const updateCategory = async (
       );
 
       if (plansToUpdate.length > 0) {
-        console.log(`📝 예산안 카테고리 업데이트: ${oldCategoryName} → ${newCategoryName} (${plansToUpdate.length}개)`);
+        log.debug(`예산안 카테고리 업데이트: ${oldCategoryName} → ${newCategoryName} (${plansToUpdate.length}개)`);
         
         // 예산안 시트 데이터 가져오기
         const budgetData = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN);
@@ -1348,8 +1318,6 @@ export const updateCategory = async (
     // 카테고리 이름 (B열), 설명 (C열) 업데이트
     await update(spreadsheetId, ACCOUNTING_SHEETS.CATEGORY, `B${actualRowNumber}`, [[newCategoryName.trim()]]);
     await update(spreadsheetId, ACCOUNTING_SHEETS.CATEGORY, `C${actualRowNumber}`, [[newDescription.trim()]]);
-
-    console.log('✅ 카테고리 수정 완료:', categoryId);
     
     // 캐시 무효화 및 백그라운드 갱신
     try {
@@ -1361,10 +1329,10 @@ export const updateCategory = async (
       ];
       await dataSyncService.invalidateAndRefresh(cacheKeys);
     } catch (cacheError) {
-      console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+      log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
     }
   } catch (error: unknown) {
-    console.error('❌ 카테고리 수정 오류:', error);
+    log.error('카테고리 수정 오류:', error);
     throw error;
   }
 };
@@ -1407,8 +1375,6 @@ export const deleteCategory = async (
     
     // is_active를 FALSE로 설정 (F열, 6번째 컬럼, 인덱스 5)
     await update(spreadsheetId, ACCOUNTING_SHEETS.CATEGORY, `F${actualRowNumber}`, [['FALSE']]);
-
-    console.log('✅ 카테고리 삭제 완료:', categoryId);
     
     // 캐시 무효화 및 백그라운드 갱신
     try {
@@ -1419,10 +1385,10 @@ export const deleteCategory = async (
       ];
       await dataSyncService.invalidateAndRefresh(cacheKeys);
     } catch (cacheError) {
-      console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+      log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
     }
   } catch (error: unknown) {
-    console.error('❌ 카테고리 삭제 오류:', error);
+    log.error('카테고리 삭제 오류:', error);
     throw error;
   }
 };

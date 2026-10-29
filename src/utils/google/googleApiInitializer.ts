@@ -1,3 +1,4 @@
+import { logger } from '../logger';
 /**
  * @file googleApiInitializer.ts
  * @brief Google API 초기화 유틸리티
@@ -9,6 +10,8 @@
 import { ENV_CONFIG } from '../../config/environment';
 import { tokenManager } from '../auth/tokenManager';
 import type { PapyrusAuth } from '../../types/google';
+const log = logger.scope('utils/google/googleApiInitializer');
+
 
 const GOOGLE_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID; // ENV v2: VITE_GOOGLE_CLIENT_ID 기반
 
@@ -23,7 +26,6 @@ let googleAPIInitPromise: Promise<void> | null = null;
 export const resetGoogleApiInitializer = (): void => {
     isGoogleAPIInitialized = false;
     googleAPIInitPromise = null;
-    console.log('🧹 Google API Initializer 리셋 완료');
 };
 
 /**
@@ -31,7 +33,7 @@ export const resetGoogleApiInitializer = (): void => {
  * @details 새로고침 시 Google API 초기화 상태를 리셋합니다.
  */
 export const resetGoogleAPIState = () => {
-    console.log("Google API 상태 리셋");
+    log.debug("Google API 상태 리셋");
     isGoogleAPIInitialized = false;
     googleAPIInitPromise = null;
 };
@@ -50,15 +52,14 @@ if (typeof window !== 'undefined') {
 export const initializeGoogleAPIOnce = async (_hotPotatoDBSpreadsheetId: string | null): Promise<void> => {
     // 환경 변수 확인
     if (!GOOGLE_CLIENT_ID) {
-        console.warn('Google Client ID가 설정되지 않았습니다. 환경 변수를 확인해주세요.');
-        console.warn('Google API 초기화를 건너뜁니다.');
+        log.warn('Google Client ID가 설정되지 않았습니다. 환경 변수를 확인해주세요.');
+        log.warn('Google API 초기화를 건너뜁니다.');
         isGoogleAPIInitialized = true;
         return;
     }
 
     // 이미 초기화 중이면 대기
     if (googleAPIInitPromise) {
-        console.log('Google API 초기화가 이미 진행 중입니다. 대기 중...');
         return googleAPIInitPromise;
     }
 
@@ -70,7 +71,6 @@ export const initializeGoogleAPIOnce = async (_hotPotatoDBSpreadsheetId: string 
     // 새로운 초기화 Promise 생성
     googleAPIInitPromise = (async () => {
         try {
-            console.log("Google API 초기화 시작 (개선된 버전)");
 
             // gapi 스크립트가 로드될 때까지 대기
             const waitForGapi = (): Promise<void> => {
@@ -82,10 +82,9 @@ export const initializeGoogleAPIOnce = async (_hotPotatoDBSpreadsheetId: string 
                         attempts++;
 
                         if (typeof window !== 'undefined' && window.gapi && window.gapi.load) {
-                            console.log("gapi 스크립트 로드 완료");
                             resolve();
                         } else if (attempts >= maxAttempts) {
-                            console.error("gapi 스크립트 로드 타임아웃");
+                            log.error("gapi 스크립트 로드 타임아웃");
                             reject(new Error("gapi 스크립트 로드 타임아웃"));
                         } else {
                             setTimeout(checkGapi, 100);
@@ -100,11 +99,9 @@ export const initializeGoogleAPIOnce = async (_hotPotatoDBSpreadsheetId: string 
 
             // 최신 방식: 인증은 GIS로, gapi는 클라이언트만 로드
             await new Promise<void>((resolve) => {
-                console.log("Google API Client Library 초기화 중...");
 
                 window.gapi.load('client', async () => {
                     try {
-                        console.log("gapi.load 완료, client.init 시작...");
 
                         await gapi.client.init({
                             clientId: GOOGLE_CLIENT_ID,
@@ -119,25 +116,25 @@ export const initializeGoogleAPIOnce = async (_hotPotatoDBSpreadsheetId: string 
                         if (savedToken) {
                             try {
                                 window.gapi.client.setToken({ access_token: savedToken });
-                                console.log("✅ 액세스 토큰이 gapi.client에 설정되었습니다.");
+                                log.debug("액세스 토큰이 gapi.client에 설정되었습니다.");
                             } catch (tokenError) {
-                                console.warn("토큰 설정 실패:", tokenError);
+                                log.warn("토큰 설정 실패:");
                             }
                         } else {
-                            console.warn('저장된 Google 액세스 토큰이 없거나 만료되었습니다. 로그인 후 토큰을 저장하세요.');
+                            log.warn('저장된 Google 액세스 토큰이 없거나 만료되었습니다. 로그인 후 토큰을 저장하세요.');
                         }
 
                         // papyrus-db가 사용할 클라이언트 연결
                         try {
                             window.papyrusAuth = { client: window.gapi.client };
-                        } catch {}
-
-                        console.log("Google API Client Library 초기화 성공!");
+                        } catch {
+      // Intentionally ignored.
+}
                         isGoogleAPIInitialized = true;
                         resolve();
                     } catch (error) {
-                        console.error("Google API Client Library 초기화 실패:", error);
-                        console.warn("Google API 초기화 실패했지만 앱을 계속 실행합니다.");
+                        log.error("Google API Client Library 초기화 실패:", error);
+                        log.warn("Google API 초기화 실패했지만 앱을 계속 실행합니다.");
                         isGoogleAPIInitialized = false;
                         resolve();
                     }
@@ -145,7 +142,7 @@ export const initializeGoogleAPIOnce = async (_hotPotatoDBSpreadsheetId: string 
             });
 
         } catch (error) {
-            console.error("Google API 초기화 실패:", error);
+            log.error("Google API 초기화 실패:", error);
             isGoogleAPIInitialized = false;
             googleAPIInitPromise = null;
             throw error;
@@ -162,7 +159,7 @@ export const isGoogleAPIReady = (): boolean => {
 
 // Google API 초기화 강제 재시도
 export const retryGoogleAPIInitialization = async (): Promise<void> => {
-    console.log("Google API 초기화 강제 재시도");
+    log.debug("Google API 초기화 강제 재시도");
     resetGoogleAPIState();
     return initializeGoogleAPIOnce(null);
 };

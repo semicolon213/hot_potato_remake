@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 import React, { useState, useEffect, useRef } from 'react';
 import '../../styles/pages/NewAnnouncementPost.css';
 import type { User, AnnouncementAccessRights, AnnouncementUser } from '../../types/app';
@@ -8,6 +9,8 @@ import type { UsersListResponse } from '../../types/api/apiResponses';
 import { API_ACTIONS } from '../../config/api';
 import { useNotification } from '../../hooks/ui/useNotification';
 import { NotificationModal } from '../../components/ui/NotificationModal';
+const log = logger.scope('pages/Announcements/NewAnnouncementPost');
+
 
 interface NewAnnouncementPostProps {
     onPageChange: (pageName: string) => void;
@@ -72,7 +75,7 @@ const NewAnnouncementPost: React.FC<NewAnnouncementPostProps> = ({
                     }
                 })
                 .catch(error => {
-                    console.error('작성자 이름 조회 실패:', error);
+                    log.error('작성자 이름 조회 실패:', error);
                     // 실패 시 초기값(user.name)이 유지됨
                 });
         }
@@ -102,7 +105,7 @@ const NewAnnouncementPost: React.FC<NewAnnouncementPostProps> = ({
                     }
                 }
             } catch (error) {
-                console.error('사용자 목록 로드 오류:', error);
+                log.error('사용자 목록 로드 오류:', error);
             }
         };
         loadUsers();
@@ -136,7 +139,7 @@ const NewAnnouncementPost: React.FC<NewAnnouncementPostProps> = ({
             });
             // onAddPost가 완료되면 자동으로 목록으로 이동됨 (App.tsx의 handleAddAnnouncement에서 처리)
         } catch (error) {
-            console.error('공지사항 저장 오류:', error);
+            log.error('공지사항 저장 오류:', error);
             // 에러는 App.tsx에서 처리되므로 여기서는 추가 처리 불필요
         }
     };

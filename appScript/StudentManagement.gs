@@ -12,7 +12,6 @@
  */
 function getStudentRetainedStatus(studentId, spreadsheetId) {
   try {
-    console.log('📚 학생 유급 여부 조회 시작:', { studentId, spreadsheetId });
     
     if (!studentId || !spreadsheetId) {
       return {
@@ -53,7 +52,7 @@ function getStudentRetainedStatus(studentId, spreadsheetId) {
     if (retainedColIndex === -1) {
       const newColIndex = 8; // H열
       sheet.getRange(1, newColIndex).setValue('flunk');
-      console.log('✅ 유급 컬럼 추가됨 (H열)');
+      logDebug_('StudentManagement', '유급 컬럼 추가됨 (H열)');
       finalRetainedColIndex = 8; // 1-based index
     } else {
       finalRetainedColIndex = retainedColIndex + 1; // 1-based index
@@ -82,8 +81,6 @@ function getStudentRetainedStatus(studentId, spreadsheetId) {
     const retainedStr = String(retainedValue || '').trim();
     const isRetained = retainedStr === 'O' || retainedStr === 'TRUE' || retainedStr !== '';
     
-    console.log('✅ 유급 여부 조회 완료:', { studentId, isRetained, retainedValue: retainedStr });
-    
     return {
       success: true,
       data: {
@@ -93,7 +90,7 @@ function getStudentRetainedStatus(studentId, spreadsheetId) {
     };
     
   } catch (error) {
-    console.error('❌ 학생 유급 여부 조회 실패:', error);
+    logError_('StudentManagement', '학생 유급 여부 조회 실패:', error);
     return {
       success: false,
       message: '유급 여부 조회 중 오류가 발생했습니다: ' + error.message
@@ -110,7 +107,6 @@ function getStudentRetainedStatus(studentId, spreadsheetId) {
  */
 function updateStudentRetained(studentId, spreadsheetId, isRetained) {
   try {
-    console.log('📚 학생 유급 여부 업데이트 시작:', { studentId, spreadsheetId, isRetained });
     
     if (!studentId || !spreadsheetId) {
       return {
@@ -152,7 +148,7 @@ function updateStudentRetained(studentId, spreadsheetId, isRetained) {
       const newColIndex = 8; // H열
       sheet.getRange(1, newColIndex).setValue('flunk');
       retainedColIndex = newColIndex - 1; // 0-based index
-      console.log('✅ 유급 컬럼 추가됨 (H열)');
+      logDebug_('StudentManagement', '유급 컬럼 추가됨 (H열)');
     }
     finalRetainedColIndex = retainedColIndex + 1; // 1-based index
     
@@ -178,8 +174,6 @@ function updateStudentRetained(studentId, spreadsheetId, isRetained) {
     const retainedValue = isRetained ? 'O' : '';
     sheet.getRange(studentRowIndex, finalRetainedColIndex).setValue(retainedValue);
     
-    console.log('✅ 유급 여부 업데이트 완료:', { studentId, isRetained, row: studentRowIndex, col: finalRetainedColIndex });
-    
     return {
       success: true,
       message: isRetained ? '유급으로 표시되었습니다.' : '유급 표시가 해제되었습니다.',
@@ -190,7 +184,7 @@ function updateStudentRetained(studentId, spreadsheetId, isRetained) {
     };
     
   } catch (error) {
-    console.error('❌ 학생 유급 여부 업데이트 실패:', error);
+    logError_('StudentManagement', '학생 유급 여부 업데이트 실패:', error);
     return {
       success: false,
       message: '유급 여부 업데이트 중 오류가 발생했습니다: ' + error.message
@@ -247,7 +241,6 @@ function setGraduationGrade(spreadsheetId, grade, userEmail) {
  */
 function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, graduationTerm) {
   try {
-    console.log('📚 학생 학년 업데이트 시작:', { spreadsheetId, graduationGrade: graduationGrade });
     
     if (!spreadsheetId) {
       return { success: false, message: '스프레드시트 ID가 필요합니다.' };
@@ -389,7 +382,7 @@ function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, gra
       }
     };
   } catch (error) {
-    console.error('❌ 학생 학년 업데이트 실패:', error);
+    logError_('StudentManagement', '학생 학년 업데이트 실패:', error);
     return { success: false, message: '학년 업데이트 중 오류가 발생했습니다: ' + error.message };
   }
 }
@@ -544,7 +537,7 @@ function updateStudentGradesSelected(spreadsheetId, studentIds, graduationGrade,
       }
     };
   } catch (error) {
-    console.error('❌ 선택 학생 학년 업데이트 실패:', error);
+    logError_('StudentManagement', '선택 학생 학년 업데이트 실패:', error);
     return { success: false, message: '선택 학생 학년 업데이트 중 오류가 발생했습니다: ' + error.message };
   }
 }
@@ -603,7 +596,7 @@ function setGraduatedAdvanced(spreadsheetId, graduatedStudentIds, advancedStuden
       }
     };
   } catch (error) {
-    console.error('❌ 진학 여부 반영 실패:', error);
+    logError_('StudentManagement', '진학 여부 반영 실패:', error);
     return { success: false, message: '진학 여부 반영 중 오류가 발생했습니다: ' + error.message };
   }
 }
@@ -616,7 +609,6 @@ function setGraduatedAdvanced(spreadsheetId, graduatedStudentIds, advancedStuden
  */
 function handleAnnualGradeUpdate() {
   try {
-    console.log('🔄 === 매년 학년 업데이트 트리거 시작 ===');
     
     // 한국 시간(KST, UTC+9) 가져오기
     const now = new Date();
@@ -625,12 +617,12 @@ function handleAnnualGradeUpdate() {
     const currentMonth = kstTime.getUTCMonth() + 1; // getUTCMonth()는 0-11이므로 +1
     const currentDate = kstTime.getUTCDate();
     
-    console.log('⏰ 한국 시간:', kstTime.toISOString());
-    console.log('📅 현재 월:', currentMonth, '일:', currentDate);
+    logDebug_('StudentManagement', '한국 시간:', kstTime.toISOString());
+    logDebug_('StudentManagement', '현재 월:', currentMonth, '일:', currentDate);
     
     // 1월이 아니면 실행하지 않음
     if (currentMonth !== 1) {
-      console.log('⏭️ 1월이 아니므로 학년 업데이트를 건너뜁니다. (현재 월: ' + currentMonth + '월)');
+      logDebug_('StudentManagement', '1월이 아니므로 학년 업데이트를 건너뜁니다. (현재 월: ' + currentMonth + '월)');
       return {
         success: true,
         message: `현재 ${currentMonth}월이므로 학년 업데이트를 건너뜁니다. (1월에만 실행됩니다.)`,
@@ -638,7 +630,7 @@ function handleAnnualGradeUpdate() {
       };
     }
     
-    console.log('✅ 1월이므로 학년 업데이트를 실행합니다.');
+    logDebug_('StudentManagement', '1월이므로 학년 업데이트를 실행합니다.');
     
     // 학생 스프레드시트 이름 (CONFIG에서 가져오거나 기본값 사용)
     const studentSpreadsheetName = 'student'; // 학생 스프레드시트 이름
@@ -647,25 +639,20 @@ function handleAnnualGradeUpdate() {
     let spreadsheetId = getSheetIdByName(studentSpreadsheetName);
     
     if (!spreadsheetId) {
-      console.error('❌ 학생 스프레드시트를 찾을 수 없습니다:', studentSpreadsheetName);
+      logError_('StudentManagement', '학생 스프레드시트를 찾을 수 없습니다:', studentSpreadsheetName);
       return {
         success: false,
         message: `학생 스프레드시트 '${studentSpreadsheetName}'를 찾을 수 없습니다.`
       };
     }
     
-    console.log('✅ 학생 스프레드시트 ID 찾기 성공:', spreadsheetId);
-    
     // 학년 업데이트 실행
     const result = updateStudentGrades(spreadsheetId);
-    
-    console.log('🎉 === 매년 학년 업데이트 트리거 완료 ===');
-    console.log('📊 결과:', result);
     
     return result;
     
   } catch (error) {
-    console.error('❌ 매년 학년 업데이트 트리거 실패:', error);
+    logError_('StudentManagement', '매년 학년 업데이트 트리거 실패:', error);
     return {
       success: false,
       message: '매년 학년 업데이트 중 오류가 발생했습니다: ' + error.message

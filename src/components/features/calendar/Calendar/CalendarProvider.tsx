@@ -1,3 +1,4 @@
+import { logger } from '../../../../utils/logger';
 import React, {useState, useMemo, useEffect, type ReactNode} from "react";
 import {
     CalendarContext,
@@ -6,6 +7,8 @@ import {
     type CustomPeriod
 } from "../../../../hooks/features/calendar/useCalendarContext.ts";
 import {type User, type Student, type Staff} from "../../../../types/app";
+const log = logger.scope('components/features/calendar/Calendar/CalendarProvider');
+
 
 // Google Calendar API 타입 정의
 interface GoogleApiColor {
@@ -179,7 +182,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
                 setCalendarColor(calendarData.backgroundColor);
 
             } catch (error) {
-                console.error("Failed to fetch calendar data:", error);
+                log.error("Failed to fetch calendar data:", error);
             }
         };
 
@@ -212,7 +215,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
                     throw new Error(`Error fetching Google Calendar events: ${primaryResponse.statusText}`);
                 }
                 if (!holidayResponse.ok) {
-                    console.warn(`Could not fetch holiday calendar: ${holidayResponse.statusText}`);
+                    log.warn(`Could not fetch holiday calendar: ${holidayResponse.statusText}`);
                 }
 
                 const primaryData = await primaryResponse.json();
@@ -251,7 +254,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
                             isHoliday: isHoliday,
                         };
                     } catch (e) {
-                        console.error("Failed to transform event item:", item, e);
+                        log.error("Failed to transform event item:", item, e);
                         return null;
                     }
                 };
@@ -263,7 +266,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
                 setGoogleEvents(transformedEvents);
 
             } catch (error) {
-                console.error("Failed to fetch Google Calendar events:", error);
+                log.error("Failed to fetch Google Calendar events:", error);
                 setGoogleEvents([]);
             } finally {
                 setIsFetchingGoogleEvents(false);
@@ -357,7 +360,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
         const eventsToDisplay = searchTerm
             ? unfilteredEvents.filter(event => {
                 // For debugging: Log the data being processed
-                // console.log(`[Search Debug] Event: "${event.title}", Type: "${event.type}", SearchTerm: "${searchTerm}"`);
+                // log.debug(`[Search Debug] Event: "${event.title}", Type: "${event.type}", SearchTerm: "${searchTerm}"`);
 
                 const queries = searchTerm.toLowerCase().split(' ').filter(q => q.startsWith('#'));
 
@@ -380,7 +383,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
                     const personalMatch = isGooglePersonalEvent && ('개인일정'.includes(cleanQuery) || '개인'.includes(cleanQuery));
 
                     // For debugging: Log matching results for each query
-                    // console.log(`  - Query: "${cleanQuery}", TitleMatch: ${titleMatch}, TypeMatch: ${typeMatch}, PersonalMatch: ${personalMatch}`);
+                    // log.debug(`- Query: "${cleanQuery}", TitleMatch: ${titleMatch}, TypeMatch: ${typeMatch}, PersonalMatch: ${personalMatch}`);
 
                     return titleMatch || typeMatch || personalMatch;
                 });
@@ -472,7 +475,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
 
     const addGoogleEvent = async (event: Omit<Event, 'id'>) => {
         if (!accessToken) {
-            console.error("No access token provided.");
+            log.error("No access token provided.");
             return;
         }
 
@@ -520,7 +523,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
             triggerRefresh();
 
         } catch (error) {
-            console.error("Failed to create Google Calendar event:", error);
+            log.error("Failed to create Google Calendar event:", error);
         }
     };
 
@@ -530,7 +533,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
 
     const updateGoogleEvent = async (eventId: string, event: Omit<Event, 'id'>) => {
         if (!accessToken) {
-            console.error("No access token provided.");
+            log.error("No access token provided.");
             return;
         }
 
@@ -571,7 +574,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
             triggerRefresh();
 
         } catch (error) {
-            console.error("Failed to update Google Calendar event:", error);
+            log.error("Failed to update Google Calendar event:", error);
         }
     };
 
@@ -595,7 +598,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
 
     const deleteGoogleEvent = async (eventId: string) => {
         if (!accessToken) {
-            console.error("No access token provided.");
+            log.error("No access token provided.");
             return;
         }
         try {
@@ -613,7 +616,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
             }
             triggerRefresh();
         } catch (error) {
-            console.error("Failed to delete Google Calendar event:", error);
+            log.error("Failed to delete Google Calendar event:", error);
         }
     };
 
@@ -739,7 +742,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
         setIsSearchVisible,
         extraWeeks: 0,
         setExtraWeeks: (weeks: number) => {
-            console.log('Set extra weeks:', weeks);
+            log.debug('Set extra weeks:', weeks);
         },
     };
 

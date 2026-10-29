@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * WorkflowTemplateModal.tsx
  * 워크플로우 템플릿 관리 모달
@@ -10,6 +11,8 @@ import { NotificationModal } from '../../ui/NotificationModal';
 import type { ReviewLine, PaymentLine, WorkflowLineStep } from '../../../types/documents';
 import type { WorkflowTemplatesListResponse, UsersListResponse } from '../../../types/api/apiResponses';
 import './WorkflowTemplateModal.css';
+const log = logger.scope('components/features/workflow/WorkflowTemplateModal');
+
 
 interface WorkflowTemplateModalProps {
   isOpen: boolean;
@@ -80,7 +83,7 @@ const WorkflowTemplateModal: React.FC<WorkflowTemplateModalProps> = ({
           setUsers(userList);
         }
       } catch (error) {
-        console.error('❌ 사용자 목록 로드 오류:', error);
+        log.error('사용자 목록 로드 오류:', error);
       }
     };
     
@@ -111,7 +114,7 @@ const WorkflowTemplateModal: React.FC<WorkflowTemplateModalProps> = ({
         })));
       }
     } catch (error) {
-      console.error('❌ 템플릿 목록 로드 오류:', error);
+      log.error('템플릿 목록 로드 오류:', error);
       setNotification({ message: '템플릿 목록을 불러오는데 실패했습니다.', type: 'error' });
     } finally {
       setIsLoading(false);
@@ -159,7 +162,7 @@ const WorkflowTemplateModal: React.FC<WorkflowTemplateModalProps> = ({
         setNotification({ message: response.message || '템플릿 삭제에 실패했습니다.', type: 'error' });
       }
     } catch (error) {
-      console.error('❌ 템플릿 삭제 오류:', error);
+      log.error('템플릿 삭제 오류:', error);
       setNotification({ message: '템플릿 삭제 중 오류가 발생했습니다.', type: 'error' });
     } finally {
       setIsLoading(false);
@@ -210,7 +213,7 @@ const WorkflowTemplateModal: React.FC<WorkflowTemplateModalProps> = ({
         setNotification({ message: response.message || '템플릿 저장에 실패했습니다.', type: 'error' });
       }
     } catch (error) {
-      console.error('❌ 템플릿 저장 오류:', error);
+      log.error('템플릿 저장 오류:', error);
       setNotification({ message: '템플릿 저장 중 오류가 발생했습니다.', type: 'error' });
     } finally {
       setIsLoading(false);

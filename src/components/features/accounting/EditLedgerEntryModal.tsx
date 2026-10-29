@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file EditLedgerEntryModal.tsx
  * @brief 장부 항목 수정 모달
@@ -10,6 +11,8 @@ import React, { useState, useEffect } from 'react';
 import { updateLedgerEntry, getAccounts, getCategories } from '../../../utils/database/accountingManager';
 import type { LedgerEntry, UpdateLedgerEntryRequest, Account, Category } from '../../../types/features/accounting';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/EditLedgerEntryModal');
+
 
 interface EditLedgerEntryModalProps {
   isOpen: boolean;
@@ -63,7 +66,7 @@ export const EditLedgerEntryModal: React.FC<EditLedgerEntryModalProps> = ({
       setAccounts(accountsData);
       setCategories(categoriesData);
     } catch (err) {
-      console.error('❌ 데이터 로드 오류:', err);
+      log.error('데이터 로드 오류:', err);
       setError('데이터를 불러오는데 실패했습니다.');
     }
   };
@@ -124,7 +127,7 @@ export const EditLedgerEntryModal: React.FC<EditLedgerEntryModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      console.error('❌ 장부 항목 수정 오류:', err);
+      log.error('장부 항목 수정 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '장부 항목 수정에 실패했습니다.';
       setError(errorMessage);
     } finally {

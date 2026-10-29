@@ -1,7 +1,10 @@
+import { logger } from '../utils/logger';
 import React, { useState, useEffect } from 'react';
 import './Timetable.css';
 import AddTimetableEventModal, { type TimetableEvent } from '../components/features/timetable/AddTimetableEventModal';
 import { getScheduleEvents, addScheduleEvent, deleteScheduleEvent, updateScheduleEvent } from '../utils/database/personalConfigManager';
+const log = logger.scope('pages/Timetable');
+
 
 const Timetable: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -28,7 +31,7 @@ const Timetable: React.FC = () => {
                 })).filter(e => e.title); // 제목이 없는 빈 행은 필터링
                 setEvents(formattedEvents);
             } catch (error) {
-                console.error("Failed to fetch events:", error);
+                log.error("Failed to fetch events:", error);
             } finally {
                 setIsLoading(false);
             }
@@ -65,7 +68,7 @@ const Timetable: React.FC = () => {
             })).filter(e => e.title);
             setEvents(formattedEvents);
         } catch (error) {
-            console.error("Failed to save event, reverting optimistic update", error);
+            log.error("Failed to save event, reverting optimistic update", error);
             // Revert optimistic update on failure
             if (editingEvent) {
                 // Revert to the original event data
@@ -93,7 +96,7 @@ const Timetable: React.FC = () => {
             try {
                 await deleteScheduleEvent(eventNo);
             } catch (error) {
-                console.error("Failed to delete event, reverting...", error);
+                log.error("Failed to delete event, reverting...", error);
                 setEvents(originalEvents); // Revert on failure
             }
         }

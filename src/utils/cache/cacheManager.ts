@@ -1,3 +1,6 @@
+import { logger } from '../logger';
+
+const log = logger.scope('utils/cache/cacheManager');
 /**
  * @file cacheManager.ts
  * @brief 캐시 관리자 (Phase 1: 메모리 + localStorage)
@@ -180,7 +183,7 @@ export class CacheManager {
       if (!stored) return null;
       return JSON.parse(stored) as CacheEntry;
     } catch (error) {
-      console.warn('localStorage에서 캐시 읽기 실패:', key, error);
+      log.warn('localStorage에서 캐시 읽기 실패:', error);
       return null;
     }
   }
@@ -199,14 +202,14 @@ export class CacheManager {
         // 정리 후에도 용량 초과하면 저장하지 않음
         const newSize = this.getLocalStorageSize();
         if (newSize + entrySize > this.config.maxLocalStorageSize) {
-          console.warn('localStorage 용량 부족, 캐시 저장 건너뜀:', key);
+          log.warn('localStorage 용량 부족, 캐시 저장 건너뜀:');
           return;
         }
       }
 
       localStorage.setItem(`cache_${key}`, JSON.stringify(entry));
     } catch (error) {
-      console.warn('localStorage에 캐시 저장 실패:', key, error);
+      log.warn('localStorage에 캐시 저장 실패:', error);
     }
   }
 
@@ -217,7 +220,7 @@ export class CacheManager {
     try {
       localStorage.removeItem(`cache_${key}`);
     } catch (error) {
-      console.warn('localStorage에서 캐시 제거 실패:', key, error);
+      log.warn('localStorage에서 캐시 제거 실패:', error);
     }
   }
 
@@ -238,7 +241,7 @@ export class CacheManager {
 
       keysToRemove.forEach(key => localStorage.removeItem(key));
     } catch (error) {
-      console.warn('localStorage 패턴 제거 실패:', pattern, error);
+      log.warn('localStorage 패턴 제거 실패:', pattern, error);
     }
   }
 
@@ -255,7 +258,7 @@ export class CacheManager {
         }
       }
     } catch (error) {
-      console.warn('localStorage 용량 계산 실패:', error);
+      log.warn('localStorage 용량 계산 실패:', error);
     }
     return size;
   }
@@ -282,7 +285,7 @@ export class CacheManager {
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
     } catch (error) {
-      console.warn('localStorage 정리 실패:', error);
+      log.warn('localStorage 정리 실패:', error);
     }
   }
 
@@ -300,7 +303,7 @@ export class CacheManager {
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
     } catch (error) {
-      console.warn('localStorage 전체 삭제 실패:', error);
+      log.warn('localStorage 전체 삭제 실패:', error);
     }
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * WorkflowActionModal.tsx
  * 워크플로우 승인/반려/보류 모달
@@ -8,6 +9,8 @@ import { apiClient } from '../../../utils/api/apiClient';
 import { NotificationModal } from '../../ui/NotificationModal';
 import type { WorkflowInfoResponse } from '../../../types/api/apiResponses';
 import './WorkflowActionModal.css';
+const log = logger.scope('components/features/workflow/WorkflowActionModal');
+
 
 interface WorkflowActionModalProps {
   isOpen: boolean;
@@ -115,7 +118,7 @@ const WorkflowActionModal: React.FC<WorkflowActionModalProps> = ({
         setNotification({ message: response.message || '처리 중 오류가 발생했습니다.', type: 'error' });
       }
     } catch (error) {
-      console.error('❌ 워크플로우 액션 처리 오류:', error);
+      log.error('워크플로우 액션 처리 오류:', error);
       setNotification({ message: '처리 중 오류가 발생했습니다.', type: 'error' });
     } finally {
       setIsLoading(false);

@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file AccountList.tsx
  * @brief 통장 목록 컴포넌트
@@ -11,6 +12,8 @@ import { getAccounts, createAccount } from '../../../utils/database/accountingMa
 import { CreateAccountModal } from './CreateAccountModal';
 import type { Account, CreateAccountRequest } from '../../../types/features/accounting';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/AccountList');
+
 
 interface AccountListProps {
   spreadsheetId: string;
@@ -36,7 +39,7 @@ export const AccountList: React.FC<AccountListProps> = ({
       const accountsData = await getAccounts(spreadsheetId);
       setAccounts(accountsData);
     } catch (err) {
-      console.error('❌ 통장 목록 조회 오류:', err);
+      log.error('통장 목록 조회 오류:', err);
       setError('통장 목록을 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);

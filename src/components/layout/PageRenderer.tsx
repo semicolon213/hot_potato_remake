@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 // 페이지 렌더링 로직을 분리한 컴포넌트
 
 /**
@@ -12,6 +13,8 @@ import React, { Suspense, lazy } from 'react';
 import type { PageType, User, Post, Event, DateRange, CustomPeriod, Student, Staff as StaffType } from '../../types/app';
 import type { Template } from '../../hooks/features/templates/useTemplateUI';
 import { PageLoadingSkeleton } from '../ui/PageLoadingSkeleton';
+const log = logger.scope('components/layout/PageRenderer');
+
 
 const Admin = lazy(() => import('../../pages/Admin'));
 const Students = lazy(() => import('../../pages/Students'));
@@ -183,7 +186,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
                     onSelectAnnouncement(updatedPost);
                   }
                 } catch (error) {
-                  console.error('공지사항 새로고침 오류:', error);
+                  log.error('공지사항 새로고침 오류:', error);
                 }
               }
             }}

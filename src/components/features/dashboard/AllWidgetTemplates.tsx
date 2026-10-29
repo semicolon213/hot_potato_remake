@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
@@ -530,6 +531,8 @@ export const StatusListComponent = ({ items, onButtonClick }: { items: { name: s
 );
 
 import { getScheduleEvents } from '../../../utils/database/personalConfigManager';
+const log = logger.scope('components/features/dashboard/AllWidgetTemplates');
+
 
 
 /**
@@ -556,7 +559,7 @@ export const TimetableWidget: React.FC = () => {
                 
                 setItems(formattedItems);
             } catch (error) {
-                console.error("Failed to fetch timetable for widget:", error);
+                log.error("Failed to fetch timetable for widget:", error);
                 // 에러 발생 시 빈 배열로 설정하거나 에러 메시지를 표시할 수 있습니다.
                 setItems([]);
             } finally {
@@ -1302,10 +1305,9 @@ export const AccountingStatsComponent = ({ items, onButtonClick, spreadsheetId, 
           const summary = await getAccountingCategorySummary(spreadsheetId);
           if (summary && summary.length > 0) {
             setLoadedRawData(summary);
-            console.log('📊 rawData 재로드 완료:', summary.length, '개 카테고리');
           }
         } catch (error) {
-          console.error('❌ rawData 재로드 실패:', error);
+          log.error('rawData 재로드 실패:', error);
         }
       };
       loadRawData();
@@ -1339,15 +1341,9 @@ export const AccountingStatsComponent = ({ items, onButtonClick, spreadsheetId, 
     // rawData에서 직접 계산
     totalIncome = dataToUse.reduce((sum, item) => sum + (Number(item.income) || 0), 0);
     totalExpense = dataToUse.reduce((sum, item) => sum + (Number(item.expense) || 0), 0);
-    console.log('📊 통합 보기 계산 (rawData 사용):', { 
-      totalIncome, 
-      totalExpense, 
-      rawDataLength: dataToUse.length,
-      rawDataSample: dataToUse.slice(0, 2)
-    });
   } else {
     // rawData가 없으면 경고 로그
-    console.warn('⚠️ rawData가 없습니다. rawData:', dataToUse, 'items:', items?.slice(0, 2), 'spreadsheetId:', spreadsheetId);
+    log.warn('rawData가 없습니다. rawData:');
   }
   
   const totalBalance = totalIncome - totalExpense;

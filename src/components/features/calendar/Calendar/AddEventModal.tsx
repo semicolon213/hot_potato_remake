@@ -1,3 +1,4 @@
+import { logger } from '../../../../utils/logger';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import useCalendarContext, { type Event } from '../../../../hooks/features/calendar/useCalendarContext.ts';
@@ -9,6 +10,8 @@ import CustomDatePicker from './CustomDatePicker';
 import CustomTimePicker from './CustomTimePicker';
 import { apiClient } from '../../../../utils/api/apiClient';
 import type { UsersListResponse } from '../../../../types/api/apiResponses';
+const log = logger.scope('components/features/calendar/Calendar/AddEventModal');
+
 
 interface AddEventModalProps {
   onClose: () => void;
@@ -130,7 +133,7 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, eventToEdit }) =
                 until: ruleOptions.until ? ruleOptions.until.toISOString().split('T')[0] : '',
             });
         } catch (e) {
-            console.error("Error parsing rrule string on edit: ", e);
+            log.error("Error parsing rrule string on edit: ", e);
             setRecurrenceFreq('NONE');
         }
       } else {
@@ -270,7 +273,7 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, eventToEdit }) =
             setAllMembers(members);
           }
         } catch (error) {
-          console.error('회원 목록 로드 오류:', error);
+          log.error('회원 목록 로드 오류:', error);
         } finally {
           setIsLoadingAttendees(false);
         }

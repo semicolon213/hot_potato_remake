@@ -1,3 +1,4 @@
+import { logger } from '../logger';
 import { API_CONFIG, API_ACTIONS } from '../../config/api';
 import { ENV_CONFIG } from '../../config/environment';
 import type {
@@ -35,6 +36,8 @@ import {
   getActionCategory, 
   CACHEABLE_ACTIONS 
 } from '../cache/cacheUtils';
+const log = logger.scope('utils/api/apiClient');
+
 
 // API 응답 타입 정의
 export interface ApiResponse<T = unknown> {
@@ -94,13 +97,6 @@ export class ApiClient {
     this.baseUrl = isLocal ? '/api' : '/.netlify/functions/proxy';
     this.defaultTimeout = API_CONFIG.TIMEOUT;
     this.defaultRetries = API_CONFIG.MAX_RETRIES;
-    
-    console.log('API 클라이언트 초기화 (프록시 사용):', {
-      baseUrl: this.baseUrl,
-      isLocal,
-      timeout: this.defaultTimeout,
-      retries: this.defaultRetries
-    });
   }
 
   /**
@@ -135,14 +131,12 @@ export class ApiClient {
       // 캐시에서 데이터 조회
       const cachedData = await this.cacheManager.get<ApiResponse<T>>(cacheKey);
       if (cachedData && !hasIncompleteSpreadsheetIds(action, cachedData)) {
-        console.log('✅ 캐시에서 데이터 로드:', cacheKey);
         return cachedData;
       }
       if (cachedData) await this.cacheManager.invalidate(cacheKey);
 
       const inFlightRequest = this.inFlightRequests.get(cacheKey);
       if (inFlightRequest) {
-        console.log('🔄 진행 중인 API 요청 재사용:', cacheKey);
         return inFlightRequest as Promise<ApiResponse<T>>;
       }
     }
@@ -173,15 +167,11 @@ export class ApiClient {
       for (let attempt = 0; attempt <= retries; attempt++) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.warn(`API 요청 타임아웃 (${timeout}ms):`, action);
+          log.warn(`API 요청 타임아웃 (${timeout}ms):`, action);
           controller.abort();
         }, timeout);
 
         try {
-          console.log(`API 요청 시도 ${attempt + 1}/${retries + 1}:`, {
-            action,
-            url: this.baseUrl
-          });
 
           const response = await fetch(this.baseUrl, {
             ...requestOptions,
@@ -197,7 +187,7 @@ export class ApiClient {
               : Math.min(Math.pow(2, attempt + 2) * 1000, 60000);
 
             if (attempt < retries) {
-              console.warn(`⚠️ API 호출 제한 초과 (429). ${Math.round(waitTime / 1000)}초 후 재시도...`);
+              log.warn(`API 호출 제한 초과 (429). ${Math.round(waitTime / 1000)}초 후 재시도...`);
               await new Promise(resolve => setTimeout(resolve, waitTime));
               continue;
             }
@@ -217,26 +207,22 @@ export class ApiClient {
           if (isCacheable && result.success && cacheKey && !hasIncompleteSpreadsheetIds(action, result)) {
             const ttl = getCacheTTL(action);
             await this.cacheManager.set(cacheKey, result as ApiResponse<T>, ttl);
-            console.log('💾 캐시에 데이터 저장:', cacheKey, `TTL: ${ttl / 1000}초`);
           }
 
           if (result.success && isWriteAction) {
             const cacheKeys = this.getCacheKeysToInvalidate(action, data);
             if (cacheKeys.length > 0 && this.dataSyncService) {
               this.dataSyncService.invalidateAndRefresh(cacheKeys).catch((err: Error) => {
-                console.warn('캐시 무효화 실패:', err);
+                log.warn('캐시 무효화 실패:', err);
               });
             }
           }
 
           if (result.success) {
-            console.log('✅ API 응답 성공:', {action, message: result.message});
+      // Intentionally ignored.
+
           } else {
-            console.warn('⚠️ API 응답 실패:', {
-              action,
-              message: result.message,
-              error: result.error
-            });
+            log.warn('API 응답 실패:');
           }
 
           return result as ApiResponse<T>;
@@ -244,12 +230,12 @@ export class ApiClient {
           lastError = error as Error;
           const retryable = (error as Error & {retryable?: boolean}).retryable !== false;
           const canRetry = attempt < retries && isRetryableReadAction && !isWriteAction && retryable;
-          console.warn(`API 요청 실패 (시도 ${attempt + 1}/${retries + 1}):`, error);
+          log.warn(`API 요청 실패 (시도 ${attempt + 1}/${retries + 1}):`, error);
 
           if (!canRetry) throw lastError;
 
           const delay = Math.pow(2, attempt) * 1000;
-          console.log(`${delay}ms 후 재시도...`);
+          log.debug(`${delay}ms 후 재시도...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         } finally {
           clearTimeout(timeoutId);
@@ -450,7 +436,7 @@ export class ApiClient {
       try {
         await getCacheManager().invalidate('accounting:getLedgerList:*');
       } catch (e) {
-        console.warn('장부 목록 캐시 무효화 실패 (계속 진행):', e);
+        log.warn('장부 목록 캐시 무효화 실패 (계속 진행):', e);
       }
     }
     return this.request<{ success: boolean; data: LedgerResponse[] }>('getLedgerList', {});
@@ -526,18 +512,16 @@ export class ApiClient {
   // 간단한 연결 테스트
   async testConnection() {
     try {
-      console.log('연결 테스트 시작:', this.baseUrl);
       const response = await fetch(this.baseUrl, {
         method: 'GET',
         mode: 'cors',
         cache: 'no-cache'
       });
-      console.log('연결 테스트 응답:', response.status, response.statusText);
       const text = await response.text();
-      console.log('연결 테스트 내용:', text.substring(0, 200));
+      log.debug('연결 테스트 내용:', text.substring(0, 200));
       return { success: true, status: response.status, data: text };
     } catch (error) {
-      console.error('연결 테스트 실패:', error);
+      log.error('연결 테스트 실패:', error);
       return { success: false, error: (error as Error).message };
     }
   }
@@ -917,7 +901,7 @@ export class ApiClient {
           }
         }
       } catch (error) {
-        console.warn(`⚠️ 캐시 키 처리 실패 (${key}):`, error);
+        log.warn("캐시 키 처리 실패 (", error);
       }
     }
 
@@ -934,16 +918,14 @@ export class ApiClient {
           const category = getActionCategory(action);
           const ttl = getCacheTTL(action);
           await cacheManager.set(key, updatedData, ttl);
-          console.log(`✨ 낙관적 업데이트 적용: ${key}`);
         }
       } catch (error) {
-        console.warn(`⚠️ 낙관적 업데이트 실패 (${key}):`, error);
+        log.warn("낙관적 업데이트 실패 (", error);
       }
     }
 
     // 롤백 함수 반환
     return async () => {
-      console.log('🔄 낙관적 업데이트 롤백 시작');
       for (const [key, backup] of backups.entries()) {
         try {
           if (backup === null) {
@@ -955,9 +937,8 @@ export class ApiClient {
             const ttl = getCacheTTL(action);
             await cacheManager.set(key, backup, ttl);
           }
-          console.log(`✅ 롤백 완료: ${key}`);
         } catch (error) {
-          console.error(`❌ 롤백 실패 (${key}):`, error);
+          log.error("롤백 실패 (", error);
         }
       }
     };

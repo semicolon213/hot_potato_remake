@@ -1,6 +1,9 @@
+import { logger } from '../../../../utils/logger';
 import React, { useState } from 'react';
 import useCalendarContext, { type DateRange, type CustomPeriod } from '../../../../hooks/features/calendar/useCalendarContext';
 import { notifyGlobal } from '../../../../utils/ui/globalNotification';
+const log = logger.scope('components/features/calendar/Calendar/SemesterPickerModal');
+
 
 interface SemesterPickerModalProps {
     isOpen: boolean;
@@ -163,7 +166,7 @@ const SemesterPickerModal: React.FC<SemesterPickerModalProps> = ({ isOpen, onClo
             });
             onClose();
         } catch (error) {
-            console.error("학사일정 저장 중 오류 발생:", error);
+            log.error("학사일정 저장 중 오류 발생:", error);
             notifyGlobal("학사일정 저장 중 오류가 발생했습니다. 자세한 내용은 콘솔을 확인해주세요.", 'error');
         }
     };

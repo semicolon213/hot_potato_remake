@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file LedgerExportModal.tsx
  * @brief 장부 내보내기 모달 컴포넌트
@@ -14,6 +15,8 @@ import { initializeGoogleAPIOnce, findPersonalDocumentFolder } from '../../../ut
 import type { GridRange, RowData, CellData, BatchUpdateData } from '../../../types/googleSheets';
 import { tokenManager } from '../../../utils/auth/tokenManager';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/LedgerExportModal');
+
 
 interface LedgerExportModalProps {
   isOpen: boolean;
@@ -176,7 +179,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         if (initError?.error === 'idpiframe_initialization_failed' || 
             initError?.result?.error?.error === 'idpiframe_initialization_failed' ||
             (initError && typeof initError === 'object' && 'error' in initError && initError.error === 'idpiframe_initialization_failed')) {
-          console.warn('⚠️ idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
+          log.warn('idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
           // gapi가 이미 로드되어 있는지 확인
           if (!window.gapi?.client?.sheets) {
             throw new Error('Google Sheets API가 초기화되지 않았습니다.');
@@ -209,7 +212,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
       }
 
     } catch (err: unknown) {
-      console.error('템플릿 파일 선택 오류:', err);
+      log.error('템플릿 파일 선택 오류:', err);
       
       // 에러 메시지 추출
       let errorMessage = '템플릿에서 양식을 불러올 수 없습니다.';
@@ -257,7 +260,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         if (initError?.error === 'idpiframe_initialization_failed' || 
             initError?.result?.error?.error === 'idpiframe_initialization_failed' ||
             (initError && typeof initError === 'object' && 'error' in initError && initError.error === 'idpiframe_initialization_failed')) {
-          console.warn('⚠️ idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
+          log.warn('idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
           // gapi가 이미 로드되어 있는지 확인
           if (!window.gapi?.client?.sheets) {
             throw new Error('Google Sheets API가 초기화되지 않았습니다.');
@@ -492,7 +495,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
       table.appendChild(tbody);
       setSheetHtml(table.outerHTML);
     } catch (err: unknown) {
-      console.error('시트 데이터 로드 오류:', err);
+      log.error('시트 데이터 로드 오류:', err);
       
       // 에러 메시지 추출
       let errorMessage = '시트 데이터를 불러올 수 없습니다.';
@@ -901,7 +904,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
       if (initError?.error === 'idpiframe_initialization_failed' || 
           initError?.result?.error?.error === 'idpiframe_initialization_failed' ||
           (initError && typeof initError === 'object' && 'error' in initError && initError.error === 'idpiframe_initialization_failed')) {
-        console.warn('⚠️ idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
+        log.warn('idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
         // gapi가 이미 로드되어 있는지 확인
         if (!window.gapi?.client?.sheets) {
           throw new Error('Google Sheets API가 초기화되지 않았습니다.');
@@ -1486,12 +1489,6 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
 
     // 배치 업데이트 실행
     if (data.length > 0) {
-      console.log('📊 장부 내보내기 데이터:', {
-        총항목수: entriesToWrite.length,
-        활성화된매핑: enabledMappings.map(m => m.field),
-        작성할데이터수: data.length,
-        데이터범위: data.map(d => d.range)
-      });
       
       await (gapi.client as any).sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: spreadsheetId,
@@ -1500,10 +1497,8 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
           data: data
         }
       });
-      
-      console.log('✅ 장부 내보내기 완료');
     } else {
-      console.warn('⚠️ 작성할 데이터가 없습니다.');
+      log.warn('작성할 데이터가 없습니다.');
     }
   };
 
@@ -1530,7 +1525,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         if (initError?.error === 'idpiframe_initialization_failed' || 
             initError?.result?.error?.error === 'idpiframe_initialization_failed' ||
             (initError && typeof initError === 'object' && 'error' in initError && initError.error === 'idpiframe_initialization_failed')) {
-          console.warn('⚠️ idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
+          log.warn('idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
           // gapi가 이미 로드되어 있는지 확인
           if (!window.gapi?.client?.sheets) {
             throw new Error('Google Sheets API가 초기화되지 않았습니다.');
@@ -1578,7 +1573,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         throw new Error('개인 문서 폴더를 찾을 수 없습니다. 폴더가 생성되어 있는지 확인해주세요.');
       }
 
-      console.log('📁 개인 문서 폴더 찾음:', personalDocumentFolderId);
+      log.debug('개인 문서 폴더 찾음:', personalDocumentFolderId);
 
       // 템플릿 복사 (개인 문서 폴더에 생성)
       const copyResponse = await fetch(
@@ -1602,8 +1597,6 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
 
       const copiedSpreadsheet = await copyResponse.json();
       const newSpreadsheetId = copiedSpreadsheet.id;
-      
-      console.log('✅ 템플릿 복사 완료 (개인 문서 폴더):', newSpreadsheetId);
 
       // 템플릿 복사 시 컬럼 너비가 자동으로 복사되므로
       // 추가 작업은 불필요합니다
@@ -1714,11 +1707,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
           : `장부_내보내기_월별_${new Date().toISOString().split('T')[0]}.xlsx`;
         link.download = fileName;
         link.click();
-
-        // 복사본은 개인 문서 폴더에 저장되어 있으므로 삭제하지 않음
-        // 사용자가 나중에 Google Sheets에서 직접 확인하거나 수정할 수 있도록 보존
-        console.log('✅ Excel 파일 다운로드 완료. 복사본은 개인 문서 폴더에 저장되어 있습니다:', newSpreadsheetId);
-        console.log('📁 Google Sheets에서 확인:', `https://docs.google.com/spreadsheets/d/${newSpreadsheetId}/edit`);
+        log.debug('Google Sheets에서 확인:', `https://docs.google.com/spreadsheets/d/${newSpreadsheetId}/edit`);
 
         onClose();
       } catch (err) {
@@ -1728,11 +1717,13 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token.access_token}` }
           });
-        } catch {}
+        } catch {
+      // Intentionally ignored.
+}
         throw err;
       }
     } catch (err: unknown) {
-      console.error('내보내기 오류:', err);
+      log.error('내보내기 오류:', err);
       
       // 에러 메시지 추출
       let errorMessage = '내보내기 중 오류가 발생했습니다.';

@@ -13,7 +13,6 @@
  */
 function handleCreateDocument(req) {
   try {
-    console.log('📄 문서 생성 시작:', req);
     
     const { title, templateType, creatorEmail, editors, role, tag } = req;
     
@@ -26,7 +25,7 @@ function handleCreateDocument(req) {
     
     // 모든 문서를 공유 문서 폴더에 저장
     const documentType = 'document';
-    console.log('📄 모든 문서를 공유 문서 폴더에 저장:', documentType, 'templateType:', templateType);
+    logDebug_('DocumentCreation', '모든 문서를 공유 문서 폴더에 저장:', documentType, 'templateType:', templateType);
     
     // 1. Google Drive API로 새 문서 생성
     const document = createGoogleDocument(title, templateType);
@@ -79,7 +78,7 @@ function handleCreateDocument(req) {
           verifiedProperties = { message: 'Properties not available in response' };
         }
       } catch (verifyErr) {
-        console.log('메타데이터 확인 실패:', verifyErr.message);
+        logWarn_('DocumentCreation', '메타데이터 확인 실패:', verifyErr.message);
         verifiedProperties = { error: verifyErr.message };
       }
       
@@ -103,11 +102,10 @@ function handleCreateDocument(req) {
       );
       
       descriptionStatus = 'success';
-      Logger.log('문서 설명 설정 성공: ' + description);
     } catch (descError) {
       descriptionStatus = 'failed';
       descriptionError = descError.message;
-      Logger.log('문서 설명 설정 실패: ' + descError.message);
+      logWarn_('DocumentCreation', '문서 설명 설정 실패: ' + descError.message);
     }
     
     // 2. 문서 권한 설정 (소유자: 앱스크립트 소유자, 편집자: 요청자 + 지정된 편집자들)
@@ -119,20 +117,20 @@ function handleCreateDocument(req) {
     // 3. 적절한 폴더에 문서 이동 (필요한 경우에만)
     let moveResult = { success: true, message: '폴더 이동 불필요' };
     if (document.needsFolderMove !== false) {
-      console.log('📄 문서 폴더 이동 필요:', document.needsFolderMove);
+      logDebug_('DocumentCreation', '문서 폴더 이동 필요:', document.needsFolderMove);
       moveResult = moveDocumentToFolder(documentId, documentType);
       if (!moveResult.success) {
-        console.warn('문서 폴더 이동 실패:', moveResult.message);
+        logWarn_('DocumentCreation', '문서 폴더 이동 실패:');
         // 폴더 이동 실패해도 문서 생성은 성공으로 처리
       }
     } else {
-      console.log('📄 템플릿 복사로 이미 올바른 폴더에 생성됨, 폴더 이동 생략');
+      logDebug_('DocumentCreation', '템플릿 복사로 이미 올바른 폴더에 생성됨, 폴더 이동 생략');
     }
     
     // 4. 문서 정보를 스프레드시트에 추가
     const spreadsheetResult = addDocumentToSpreadsheet(documentId, title, creatorEmail, documentUrl, role);
     if (!spreadsheetResult.success) {
-      console.warn('스프레드시트 추가 실패:', spreadsheetResult.message);
+      logWarn_('DocumentCreation', '스프레드시트 추가 실패:');
       // 스프레드시트 추가 실패해도 문서 생성은 성공으로 처리
     }
     
@@ -166,7 +164,7 @@ function handleCreateDocument(req) {
     };
     
   } catch (error) {
-    console.error('📄 문서 생성 오류:', error);
+    logError_('DocumentCreation', '문서 생성 오류:', error);
     return {
       success: false,
       message: '문서 생성 중 오류가 발생했습니다: ' + error.message
@@ -182,11 +180,10 @@ function handleCreateDocument(req) {
  */
 function createGoogleDocument(title, templateType) {
   try {
-    console.log('📄 Google 문서 생성 시도:', { title, templateType });
     
     // Drive API 확인
     if (typeof Drive === 'undefined') {
-      console.error('📄 Drive API가 정의되지 않았습니다');
+      logError_('DocumentCreation', 'Drive API가 정의되지 않았습니다');
       return {
         success: false,
         message: 'Drive API가 활성화되지 않았습니다. Google Apps Script에서 Drive API를 활성화해주세요.'
@@ -195,23 +192,23 @@ function createGoogleDocument(title, templateType) {
     
     // 빈 문서인 경우
     if (templateType === 'empty') {
-      console.log('📄 빈 문서 생성 (템플릿 없음)');
+      logDebug_('DocumentCreation', '빈 문서 생성 (템플릿 없음)');
     }
     // templateType이 documentId인 경우 (템플릿 복사)
     else if (templateType && templateType.length > 20 && !templateType.includes('http')) {
-      console.log('📄 커스텀 템플릿 복사 시도:', templateType);
+      logDebug_('DocumentCreation', '커스텀 템플릿 복사 시도:', templateType);
       
       try {
         // CONFIG.gs에서 문서 폴더 경로 가져오기
         const sharedDocumentPath = getSharedDocumentFolderPath(); // 'hot potato/문서/공유 문서'
         
-        console.log('📄 CONFIG에서 가져온 공유 문서 폴더 경로:', sharedDocumentPath);
+        logDebug_('DocumentCreation', 'CONFIG에서 가져온 공유 문서 폴더 경로:', sharedDocumentPath);
         
         // 공유 문서 폴더 찾기 또는 생성
         const folder = findOrCreateFolder(sharedDocumentPath);
         
         if (!folder.success) {
-          console.error('📄 공유 문서 폴더 찾기/생성 실패:', folder.message);
+          logError_('DocumentCreation', '공유 문서 폴더 찾기/생성 실패:', folder.message);
           throw new Error('공유 문서 폴더를 찾을 수 없습니다: ' + folder.message);
         }
         
@@ -224,8 +221,6 @@ function createGoogleDocument(title, templateType) {
           templateType
         );
         
-        console.log('📄 템플릿 복사 성공 (CONFIG 기반 공유 문서 폴더에 직접 생성):', copiedFile.id);
-        
         return {
           success: true,
           data: {
@@ -236,19 +231,17 @@ function createGoogleDocument(title, templateType) {
           needsFolderMove: false  // 이미 올바른 폴더에 생성됨
         };
       } catch (copyError) {
-        console.error('📄 템플릿 복사 실패:', copyError);
+        logError_('DocumentCreation', '템플릿 복사 실패:', copyError);
         // 복사 실패 시 빈 문서로 생성
       }
     }
     
     // 기본 문서 생성 또는 복사 실패 시
-    console.log('📄 빈 문서 생성 시도');
+    logDebug_('DocumentCreation', '빈 문서 생성 시도');
     const file = Drive.Files.create({
       name: title,
       mimeType: 'application/vnd.google-apps.document'
     });
-    
-    console.log('📄 Google 문서 생성 성공:', file.id);
     
     return {
       success: true,
@@ -261,7 +254,7 @@ function createGoogleDocument(title, templateType) {
     };
     
   } catch (error) {
-    console.error('📄 Google 문서 생성 오류:', error);
+    logError_('DocumentCreation', 'Google 문서 생성 오류:', error);
     return {
       success: false,
       message: 'Google 문서 생성 실패: ' + error.message
@@ -276,7 +269,6 @@ function createGoogleDocument(title, templateType) {
  */
 function uploadSharedDocument(req) {
   try {
-    console.log('📤 공유 문서 업로드 시작:', req);
     
     if (!req || !req.fileName || !req.fileContentBase64) {
       return { success: false, message: 'fileName과 fileContentBase64가 필요합니다.' };
@@ -378,38 +370,38 @@ function uploadSharedDocument(req) {
             // 업로드 후 시트 보호를 복원할 수 없음
             // 하지만 Google Sheets가 자동으로 보존한 보호 정보를 확인
             if (protections.length === 0) {
-              console.warn('⚠️ 시트 보호가 없는 것으로 확인됨:', sheet.getName());
-              console.warn('⚠️ Excel 파일 변환 시 시트 보호가 자동으로 보존되지 않았을 수 있습니다.');
+              logWarn_('DocumentCreation', '시트 보호가 없는 것으로 확인됨:', sheet.getName());
+              logWarn_('DocumentCreation', 'Excel 파일 변환 시 시트 보호가 자동으로 보존되지 않았을 수 있습니다.');
               // 원본 Excel 파일의 보호 정보를 직접 읽을 수 없으므로,
               // 사용자가 수동으로 보호를 설정해야 할 수 있음
             } else {
-              console.log('✅ 시트 보호 확인됨:', sheet.getName(), protections.length, '개');
+              logDebug_('DocumentCreation', '시트 보호 확인됨:', sheet.getName(), protections.length, '개');
               // 기존 보호 정보 확인 및 유지
               for (let j = 0; j < protections.length; j++) {
                 const protection = protections[j];
-                console.log('  - 보호 범위:', protection.getRange() ? protection.getRange().getA1Notation() : '전체 시트');
-                console.log('  - 설명:', protection.getDescription());
-                console.log('  - 편집자 수:', protection.getEditors().length);
+                logDebug_('DocumentCreation', '- 보호 범위:', protection.getRange() ? protection.getRange().getA1Notation() : '전체 시트');
+                logDebug_('DocumentCreation', '- 설명:', protection.getDescription());
+                logDebug_('DocumentCreation', '- 편집자 수:', protection.getEditors().length);
                 
                 // 시트 보호가 있는 경우, 보호 설정 유지
                 // 보호가 자동으로 해제되지 않도록 확인
                 try {
                   // 보호가 해제되었는지 확인하고, 필요시 재설정
                   if (!protection.canEdit()) {
-                    console.log('  - 시트 보호가 활성화되어 있습니다.');
+                    logDebug_('DocumentCreation', '- 시트 보호가 활성화되어 있습니다.');
                   }
                 } catch (checkError) {
-                  console.warn('  - 시트 보호 상태 확인 중 오류:', checkError);
+                  logWarn_('DocumentCreation', '- 시트 보호 상태 확인 중 오류:', checkError);
                 }
               }
             }
           } catch (protectError) {
-            console.warn('시트 보호 확인 중 오류 발생 (계속 진행):', protectError);
+            logWarn_('DocumentCreation', '시트 보호 확인 중 오류 발생 (계속 진행):', protectError);
           }
         }
       } catch (e) {
         // 컬럼 너비 및 시트 보호 설정 실패해도 계속 진행
-        console.warn('스프레드시트 설정 중 오류 발생 (계속 진행):', e);
+        logWarn_('DocumentCreation', '스프레드시트 설정 중 오류 발생 (계속 진행):', e);
       }
     }
     
@@ -435,7 +427,7 @@ function uploadSharedDocument(req) {
     if (editors && editors.length > 0) {
       const permissionResult = setDocumentPermissions(documentId, creatorEmail, editors);
       if (!permissionResult.success) {
-        console.warn('권한 설정 실패:', permissionResult.message);
+        logWarn_('DocumentCreation', '권한 설정 실패:');
       }
     }
     
@@ -443,7 +435,7 @@ function uploadSharedDocument(req) {
     const documentUrl = `https://docs.google.com/document/d/${documentId}/edit`;
     const spreadsheetResult = addDocumentToSpreadsheet(documentId, safeTitle, creatorEmail, documentUrl, role || 'student');
     if (!spreadsheetResult.success) {
-      console.warn('스프레드시트 추가 실패:', spreadsheetResult.message);
+      logWarn_('DocumentCreation', '스프레드시트 추가 실패:');
     }
     
     // 문서 URL 가져오기
@@ -463,7 +455,7 @@ function uploadSharedDocument(req) {
       message: '문서가 성공적으로 업로드되었습니다.'
     };
   } catch (error) {
-    console.error('공유 문서 업로드 오류:', error);
+    logError_('DocumentCreation', '공유 문서 업로드 오류:', error);
     return {
       success: false,
       message: '업로드 실패: ' + error.message

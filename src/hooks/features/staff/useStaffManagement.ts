@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file useStaffManagement.ts
  * @brief 교직원 관리 훅
@@ -8,6 +9,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { fetchStaffFromPapyrus, fetchCommitteeFromPapyrus } from '../../../utils/database/papyrusManager';
+const log = logger.scope('hooks/features/staff/useStaffManagement');
+
 
 /**
  * @brief 교직원 데이터 타입 정의
@@ -77,21 +80,17 @@ export const useStaffManagement = (staffSpreadsheetId: string | null) => {
     setError(null);
     
     try {
-      console.log('교직원 데이터 가져오기 시작...');
-      console.log('staffSpreadsheetId:', staffSpreadsheetId);
+      log.debug('staffSpreadsheetId:', staffSpreadsheetId);
       const staffData = await fetchStaffFromPapyrus(staffSpreadsheetId!);
-      console.log('Papyrus DB에서 받은 교직원 데이터:', staffData);
       
       if (staffData && staffData.length > 0) {
         // fetchStaffFromPapyrus에서 이미 복호화된 데이터를 반환하므로 복호화 불필요
         setStaff(staffData);
-        console.log(`교직원 ${staffData.length}명 데이터 로드 완료 (이미 복호화된 데이터)`);
       } else {
         setStaff([]);
-        console.log('교직원 데이터가 없습니다.');
       }
     } catch (error) {
-      console.error('교직원 데이터 로드 오류:', error);
+      log.error('교직원 데이터 로드 오류:', error);
       setError('교직원 데이터를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
@@ -104,9 +103,7 @@ export const useStaffManagement = (staffSpreadsheetId: string | null) => {
     setError(null);
     
     try {
-      console.log('학과 위원회 데이터 가져오기 시작...');
       const committeeData = await fetchCommitteeFromPapyrus(staffSpreadsheetId!);
-      console.log('Papyrus DB에서 받은 학과 위원회 데이터:', committeeData);
       
       if (committeeData && committeeData.length > 0) {
         const processedCommittee: Committee[] = committeeData.map((committee: Committee) => ({
@@ -125,13 +122,11 @@ export const useStaffManagement = (staffSpreadsheetId: string | null) => {
         }));
         
         setCommittee(processedCommittee);
-        console.log('처리된 학과 위원회 데이터:', processedCommittee);
       } else {
         setCommittee([]);
-        console.log('학과 위원회 데이터가 없습니다.');
       }
     } catch (error) {
-      console.error('학과 위원회 데이터 로드 오류:', error);
+      log.error('학과 위원회 데이터 로드 오류:', error);
       setError('학과 위원회 데이터를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
@@ -267,13 +262,13 @@ export const useStaffManagement = (staffSpreadsheetId: string | null) => {
 
   // Excel 템플릿 다운로드
   const downloadExcelTemplate = () => {
-    console.log('Excel 템플릿 다운로드');
+    log.debug('Excel 템플릿 다운로드');
     // 실제 구현은 나중에 추가
   };
 
   // 파일 업로드
   const handleFileUpload = async (file: File) => {
-    console.log('파일 업로드:', file);
+    log.debug('파일 업로드:', file);
     // 실제 구현은 나중에 추가
   };
 

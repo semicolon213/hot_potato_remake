@@ -16,7 +16,7 @@
 function applyEncryption(text, method, key) {
   try {
     if (!text || typeof text !== 'string') {
-      console.warn('암호화할 텍스트가 유효하지 않습니다:', text);
+      logWarn_('EncryptionCore', '암호화할 텍스트가 유효하지 않습니다:');
       return text || '';
     }
 
@@ -86,20 +86,18 @@ function applyEncryption(text, method, key) {
         result = snakeCipher(text);
         break;
       default:
-        console.warn(`알 수 없는 암호화 방법: ${method}`);
+        logWarn_('EncryptionCore', `알 수 없는 암호화 방법: ${method}`);
         result = text;
     }
     
     // 결과가 유효하지 않으면 원본 반환
     if (result === undefined || result === null) {
-      console.warn(`암호화 결과가 유효하지 않음 (${method}):`, result);
+      logWarn_('EncryptionCore', `암호화 결과가 유효하지 않음 (${method}):`);
       return text;
     }
-    
-    console.log(`암호화 완료: ${method}, 결과: ${result.substring(0, 20)}...`);
     return result;
   } catch (error) {
-    console.error(`암호화 중 오류 발생 (${method}):`, error);
+    logError_('EncryptionCore', `암호화 중 오류 발생 (${method}):`);
     return text;
   }
 }
@@ -114,7 +112,7 @@ function applyEncryption(text, method, key) {
 function applyDecryption(text, method, key) {
   try {
     if (!text || typeof text !== 'string') {
-      console.warn('복호화할 텍스트가 유효하지 않습니다:', text);
+      logWarn_('EncryptionCore', '복호화할 텍스트가 유효하지 않습니다:');
       return text || '';
     }
 
@@ -125,7 +123,7 @@ function applyDecryption(text, method, key) {
           const decoded = Utilities.base64Decode(text);
           result = Utilities.newBlob(decoded).getDataAsString();
         } catch (error) {
-          console.error('Base64 복호화 오류:', error);
+          logError_('EncryptionCore', 'Base64 복호화 오류:');
           result = text;
         }
         break;
@@ -190,20 +188,18 @@ function applyDecryption(text, method, key) {
         result = snakeDecrypt(text);
         break;
       default:
-        console.warn(`알 수 없는 복호화 방법: ${method}`);
+        logWarn_('EncryptionCore', `알 수 없는 복호화 방법: ${method}`);
         result = text;
     }
     
     // 결과가 유효하지 않으면 원본 반환
     if (result === undefined || result === null) {
-      console.warn(`복호화 결과가 유효하지 않음 (${method}):`, result);
+      logWarn_('EncryptionCore', `복호화 결과가 유효하지 않음 (${method}):`);
       return text;
     }
-    
-    console.log(`복호화 완료: ${method}, 결과: ${result.substring(0, 20)}...`);
     return result;
   } catch (error) {
-    console.error(`복호화 중 오류 발생 (${method}):`, error);
+    logError_('EncryptionCore', `복호화 중 오류 발생 (${method}):`);
     return text;
   }
 }
@@ -216,7 +212,6 @@ function applyDecryption(text, method, key) {
  */
 function multiLayerEncrypt(text, methods) {
   try {
-    console.log('다중 레이어 암호화 시작:', methods);
     
     let encryptedText = text;
     const encryptionLog = [];
@@ -232,8 +227,6 @@ function multiLayerEncrypt(text, methods) {
         before: beforeEncrypt.substring(0, 20) + '...',
         after: encryptedText.substring(0, 20) + '...'
       });
-      
-      console.log(`레이어 ${i + 1}/${methods.length} (${method}):`, beforeEncrypt.substring(0, 20) + '...', '->', encryptedText.substring(0, 20) + '...');
     }
     
     return {
@@ -244,7 +237,7 @@ function multiLayerEncrypt(text, methods) {
     };
     
   } catch (error) {
-    console.error('다중 레이어 암호화 오류:', error);
+    logError_('EncryptionCore', '다중 레이어 암호화 오류:');
     return {
       success: false,
       error: error.message,
@@ -261,7 +254,6 @@ function multiLayerEncrypt(text, methods) {
  */
 function multiLayerDecrypt(encryptedText, methods) {
   try {
-    console.log('다중 레이어 복호화 시작:', methods);
     
     let decryptedText = encryptedText;
     const decryptionLog = [];
@@ -278,8 +270,6 @@ function multiLayerDecrypt(encryptedText, methods) {
         before: beforeDecrypt.substring(0, 20) + '...',
         after: decryptedText.substring(0, 20) + '...'
       });
-      
-      console.log(`레이어 ${methods.length - i}/${methods.length} (${method}):`, beforeDecrypt.substring(0, 20) + '...', '->', decryptedText.substring(0, 20) + '...');
     }
     
     return {
@@ -290,7 +280,7 @@ function multiLayerDecrypt(encryptedText, methods) {
     };
     
   } catch (error) {
-    console.error('다중 레이어 복호화 오류:', error);
+    logError_('EncryptionCore', '다중 레이어 복호화 오류:');
     return {
       success: false,
       error: error.message,

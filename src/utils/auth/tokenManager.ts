@@ -1,3 +1,6 @@
+import { logger } from '../logger';
+
+const log = logger.scope('utils/auth/tokenManager');
 /**
  * @file tokenManager.ts
  * @brief Google OAuth 토큰 관리 유틸리티
@@ -29,11 +32,6 @@ export const tokenManager = {
       issuedAt: Date.now()
     };
     localStorage.setItem('googleAccessToken', JSON.stringify(tokenData));
-    console.log('✅ 토큰 저장 완료:', {
-      expiresAt: new Date(tokenData.expiresAt).toLocaleString(),
-      expiresIn: `${expiresIn}초 (${(expiresIn / 60).toFixed(1)}분)`,
-      hasRefreshToken: !!refreshToken
-    });
   },
 
   /**
@@ -55,14 +53,14 @@ export const tokenManager = {
       
       if (now >= (tokenData.expiresAt - oneMinute)) {
         // 만료된 토큰 삭제
-        console.warn('⚠️ 토큰이 만료되었습니다. 삭제합니다.');
+        log.warn('토큰이 만료되었습니다. 삭제합니다.');
         localStorage.removeItem('googleAccessToken');
         return null;
       }
       
       return tokenData.accessToken;
     } catch (error) {
-      console.error('토큰 파싱 실패:', error);
+      log.error('토큰 파싱 실패:');
       // 잘못된 형식의 토큰 삭제
       localStorage.removeItem('googleAccessToken');
       return null;
@@ -91,7 +89,7 @@ export const tokenManager = {
       const tokenData: TokenData = JSON.parse(tokenDataStr);
       return tokenData;
     } catch (error) {
-      console.error('토큰 데이터 파싱 실패:', error);
+      log.error('토큰 데이터 파싱 실패:');
       return null;
     }
   },
@@ -101,7 +99,6 @@ export const tokenManager = {
    */
   clear: (): void => {
     localStorage.removeItem('googleAccessToken');
-    console.log('✅ 토큰 삭제 완료');
   },
 
   /**
@@ -146,8 +143,8 @@ export const tokenManager = {
   refresh: async (): Promise<string | null> => {
     const refreshToken = tokenManager.getRefreshToken();
     if (!refreshToken) {
-      console.warn('⚠️ Refresh Token이 없어 토큰을 갱신할 수 없습니다.');
-      console.warn('💡 Refresh Token을 받으려면 OAuth flow를 authorization code flow로 변경해야 합니다.');
+      log.warn('Refresh Token이 없어 토큰을 갱신할 수 없습니다.');
+      log.warn('Refresh Token을 받으려면 OAuth flow를 authorization code flow로 변경해야 합니다.');
       return null;
     }
 
@@ -172,7 +169,7 @@ export const tokenManager = {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('토큰 갱신 실패:', errorData);
+        log.error('토큰 갱신 실패:');
         throw new Error(`토큰 갱신 실패: ${response.status}`);
       }
 
@@ -183,13 +180,12 @@ export const tokenManager = {
         // 새 토큰 저장 (기존 refresh token 유지)
         const tokenData = tokenManager.getTokenData();
         tokenManager.save(access_token, expires_in, tokenData?.refreshToken);
-        console.log('✅ 토큰 갱신 완료');
         return access_token;
       }
 
       return null;
     } catch (error) {
-      console.error('❌ 토큰 갱신 실패:', error);
+      log.error('토큰 갱신 실패:');
       return null;
     }
   },

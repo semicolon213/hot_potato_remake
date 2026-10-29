@@ -1,7 +1,10 @@
+import { logger } from '../../../utils/logger';
 import React, { useState, useEffect, useRef } from "react";
 import type { Template } from "../../../hooks/features/templates/useTemplateUI";
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import { BiTrash, BiDotsVerticalRounded, BiEdit, BiTable, BiFileBlank, BiStar } from "react-icons/bi";
+const log = logger.scope('components/features/templates/TemplateCard');
+
 
 interface Props {
     template: Template;
@@ -183,7 +186,7 @@ export const TemplateCard = React.forwardRef<HTMLDivElement, Props>(
             
             // 템플릿 사용 - 템플릿 객체를 직접 전달
             // handleUseTemplateClick이 템플릿 객체를 받을 수 있으므로 직접 전달
-            console.log('📄 TemplateCard 클릭:', template);
+            log.debug('TemplateCard 클릭:', template);
             const onUseFn = onUse as any;
             // 템플릿 객체를 직접 전달 (handleUseTemplateClick이 객체인지 확인함)
             onUseFn(template);

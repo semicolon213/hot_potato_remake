@@ -20,14 +20,12 @@ function addMemberToGroupViaAdminApi(userEmail, groupEmail) {
     }
     const member = { email: userEmail, role: 'MEMBER' };
     AdminDirectory.Members.insert(member, groupEmail);
-    console.log('✅ Admin API로 그룹 멤버 추가 완료:', userEmail, '->', groupEmail);
     return { success: true };
   } catch (e) {
     if (e.message && (e.message.indexOf('Member already exists') >= 0 || e.message.indexOf('memberAlreadyExists') >= 0)) {
-      console.log('✅ 이미 그룹 멤버임, 성공으로 간주:', userEmail);
       return { success: true };
     }
-    console.warn('⚠️ Admin API 그룹 멤버 추가 실패:', e.message);
+    logWarn_('GroupManagement', 'Admin API 그룹 멤버 추가 실패:', e.message);
     return { success: false, error: e.message };
   }
 }
@@ -40,7 +38,6 @@ function addMemberToGroupViaAdminApi(userEmail, groupEmail) {
  */
 function approveUserWithGroup(studentId, groupRole) {
     try {
-      console.log('✅ 사용자 승인 및 그룹스 권한 설정 시작:', studentId, groupRole);
       
       if (!studentId) {
         return {
@@ -108,8 +105,6 @@ function approveUserWithGroup(studentId, groupRole) {
         approvalDate: new Date().toISOString().split('T')[0]
       });
       
-      console.log('✅ 사용자 승인 및 그룹스 권한 설정 완료:', studentId, status);
-      
       return {
         success: true,
         message: resultMessage,
@@ -122,7 +117,7 @@ function approveUserWithGroup(studentId, groupRole) {
       };
       
     } catch (error) {
-      console.error('✅ 사용자 승인 및 그룹스 권한 설정 오류:', error);
+      logError_('GroupManagement', '사용자 승인 및 그룹스 권한 설정 오류:', error);
       return {
         success: false,
         message: '사용자 승인 중 오류가 발생했습니다: ' + error.message
@@ -171,12 +166,10 @@ Hot Potato 시스템 자동 알림`;
       // Gmail API로 이메일 전송
       GmailApp.sendEmail(data.groupEmail, emailSubject, emailBody);
       
-      console.log('📧 그룹스 알림 이메일 전송 완료:', data.groupEmail);
-      
       return { success: true };
       
     } catch (error) {
-      console.error('📧 그룹스 알림 이메일 전송 실패:', error);
+      logError_('GroupManagement', '그룹스 알림 이메일 전송 실패:');
       return { success: false, error: error.message };
     }
   }
@@ -213,12 +206,10 @@ Hot Potato 시스템`;
       
       GmailApp.sendEmail(data.userEmail, emailSubject, emailBody);
       
-      console.log('📧 사용자 승인 알림 이메일 전송 완료:', data.userEmail);
-      
       return { success: true };
       
     } catch (error) {
-      console.error('📧 사용자 승인 알림 이메일 전송 실패:', error);
+      logError_('GroupManagement', '사용자 승인 알림 이메일 전송 실패:');
       return { success: false, error: error.message };
     }
   }
@@ -258,12 +249,10 @@ Hot Potato 시스템`;
       
       sheet.appendRow(logData);
       
-      console.log('📊 그룹스 관리 로그 기록 완료:', data.studentId);
-      
       return { success: true };
       
     } catch (error) {
-      console.error('📊 그룹스 관리 로그 기록 실패:', error);
+      logError_('GroupManagement', '그룹스 관리 로그 기록 실패:', error);
       return { success: false, error: error.message };
     }
   }
@@ -274,19 +263,17 @@ Hot Potato 시스템`;
    */
   function checkPendingGroupMembers() {
     try {
-      console.log('📧 대기 중인 그룹스 멤버 확인 시작');
       
       const spreadsheet = getHpMemberSpreadsheet();
       const sheet = spreadsheet.getSheetByName('group_management_log');
       
       if (!sheet) {
-        console.log('📊 그룹스 관리 로그 시트가 없습니다.');
+        logDebug_('GroupManagement', '그룹스 관리 로그 시트가 없습니다.');
         return { success: true, message: '그룹스 관리 로그 시트가 없습니다.' };
       }
       
       const data = sheet.getDataRange().getValues();
       if (data.length <= 1) {
-        console.log('📊 그룹스 관리 로그 데이터가 없습니다.');
         return { success: true, message: '그룹스 관리 로그 데이터가 없습니다.' };
       }
       
@@ -303,7 +290,7 @@ Hot Potato 시스템`;
         return status === 'NOTIFICATION_SENT' && approvalDate < threeDaysAgo;
       });
       
-      console.log('📧 대기 중인 사용자 수:', pendingUsers.length);
+      logDebug_('GroupManagement', '대기 중인 사용자 수:', pendingUsers.length);
       
       // 대기 중인 사용자에게 리마인더 이메일 전송
       let reminderCount = 0;
@@ -314,11 +301,9 @@ Hot Potato 시스템`;
             reminderCount++;
           }
         } catch (error) {
-          console.error('📧 리마인더 이메일 전송 실패:', error);
+          logError_('GroupManagement', '리마인더 이메일 전송 실패:');
         }
       }
-      
-      console.log('📧 리마인더 이메일 전송 완료:', reminderCount);
       
       return {
         success: true,
@@ -327,7 +312,7 @@ Hot Potato 시스템`;
       };
       
     } catch (error) {
-      console.error('📧 대기 중인 그룹스 멤버 확인 오류:', error);
+      logError_('GroupManagement', '대기 중인 그룹스 멤버 확인 오류:', error);
       return {
         success: false,
         message: '대기 중인 그룹스 멤버 확인 중 오류가 발생했습니다: ' + error.message
@@ -376,12 +361,10 @@ Hot Potato 시스템`;
       
       GmailApp.sendEmail(userData[3], emailSubject, emailBody);
       
-      console.log('📧 리마인더 이메일 전송 완료:', userData[3]);
-      
       return { success: true };
       
     } catch (error) {
-      console.error('📧 리마인더 이메일 전송 실패:', error);
+      logError_('GroupManagement', '리마인더 이메일 전송 실패:');
       return { success: false, error: error.message };
     }
   }
@@ -393,7 +376,6 @@ Hot Potato 시스템`;
    */
   function getGroupManagementLog(filters = {}) {
     try {
-      console.log('📊 그룹스 관리 로그 조회 시작:', filters);
       
       const spreadsheet = getHpMemberSpreadsheet();
       const sheet = spreadsheet.getSheetByName('group_management_log');
@@ -444,8 +426,6 @@ Hot Potato 시스템`;
         return log;
       });
       
-      console.log('📊 그룹스 관리 로그 조회 완료:', logs.length);
-      
       return {
         success: true,
         data: logs,
@@ -453,7 +433,7 @@ Hot Potato 시스템`;
       };
       
     } catch (error) {
-      console.error('📊 그룹스 관리 로그 조회 오류:', error);
+      logError_('GroupManagement', '그룹스 관리 로그 조회 오류:', error);
       return {
         success: false,
         message: '그룹스 관리 로그 조회 중 오류가 발생했습니다: ' + error.message
@@ -467,7 +447,6 @@ Hot Potato 시스템`;
    */
   function getGroupManagementStats() {
     try {
-      console.log('📊 그룹스 관리 통계 조회 시작');
       
       const logResult = getGroupManagementLog();
       if (!logResult.success) {
@@ -488,8 +467,6 @@ Hot Potato 시스템`;
         statusStats[status] = (statusStats[status] || 0) + 1;
       });
       
-      console.log('📊 그룹스 관리 통계 조회 완료');
-      
       return {
         success: true,
         data: {
@@ -501,7 +478,7 @@ Hot Potato 시스템`;
       };
       
     } catch (error) {
-      console.error('📊 그룹스 관리 통계 조회 오류:', error);
+      logError_('GroupManagement', '그룹스 관리 통계 조회 오류:', error);
       return {
         success: false,
         message: '그룹스 관리 통계 조회 중 오류가 발생했습니다: ' + error.message

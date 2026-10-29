@@ -102,7 +102,7 @@ function getAnnouncementSpreadsheet(spreadsheetName) {
 
     throw new Error(`스프레드시트를 찾을 수 없습니다: ${spreadsheetName} (candidates: ${candidateNames.join(', ')})`);
   } catch (error) {
-    console.error('공지사항 스프레드시트 가져오기 오류:', error);
+    logError_('AnnouncementManagement', '공지사항 스프레드시트 가져오기 오류:', error);
     throw error;
   }
 }
@@ -119,7 +119,7 @@ function openAnnouncementSpreadsheetFromRequest_(req) {
     try {
       return SpreadsheetApp.openById(spreadsheetId);
     } catch (e) {
-      console.warn('spreadsheetId로 공지 스프레드시트 열기 실패, 이름 탐색으로 폴백:', e);
+      logWarn_('AnnouncementManagement', 'spreadsheetId로 공지 스프레드시트 열기 실패, 이름 탐색으로 폴백:', e);
     }
   }
   var nameForLookup = spreadsheetName || 'notice';
@@ -191,7 +191,7 @@ function getUserByEmail(email) {
     
     return null;
   } catch (error) {
-    console.error('사용자 정보 가져오기 오류:', error);
+    logError_('AnnouncementManagement', '사용자 정보 가져오기 오류:', error);
     return null;
   }
 }
@@ -239,7 +239,7 @@ function getUserByMemberId(memberId) {
     }
     return null;
   } catch (error) {
-    console.error('학번 기반 사용자 조회 오류:', error);
+    logError_('AnnouncementManagement', '학번 기반 사용자 조회 오류:', error);
     return null;
   }
 }
@@ -284,7 +284,7 @@ function getUserList() {
     
     return users;
   } catch (error) {
-    console.error('사용자 목록 가져오기 오류:', error);
+    logError_('AnnouncementManagement', '사용자 목록 가져오기 오류:', error);
     return [];
   }
 }
@@ -320,54 +320,39 @@ function canReadAnnouncement(announcement, userId, userType) {
   const writerIdStr = String(announcement.writer_id || '');
   const userIdStr = String(userId || '');
   
-  console.log(`DEBUG canReadAnnouncement: announcement.id=${announcement.id}, writer_id="${writerIdStr}", userId="${userIdStr}", userType="${userType}"`);
-  console.log(`DEBUG canReadAnnouncement: access_rights="${announcement.access_rights}"`);
-  
   // 작성자는 항상 읽기 가능
   if (writerIdStr && writerIdStr !== '' && writerIdStr === userIdStr) {
-    console.log(`DEBUG canReadAnnouncement: User is writer - ALLOWED`);
     return true;
   }
   
   // 권한 설정이 없으면 전체 사용자 대상 공지 (모든 승인된 사용자가 볼 수 있음)
   if (!announcement.access_rights || announcement.access_rights === '' || announcement.access_rights.trim() === '') {
-    console.log(`DEBUG canReadAnnouncement: No access_rights - ALLOWED (전체 사용자 대상)`);
     return true;
   }
   
   try {
     const accessRights = JSON.parse(announcement.access_rights);
-    console.log(`DEBUG canReadAnnouncement: Parsed accessRights:`, JSON.stringify(accessRights));
     
     // 개별 권한 확인 (ID를 문자열로 통일하여 비교)
     if (accessRights.individual && Array.isArray(accessRights.individual)) {
-      console.log(`DEBUG canReadAnnouncement: Checking individual rights:`, accessRights.individual);
       const hasAccess = accessRights.individual.some(id => {
         const idStr = String(id);
         const match = idStr === userIdStr;
-        console.log(`DEBUG canReadAnnouncement: Comparing "${idStr}" === "${userIdStr}" = ${match}`);
         return match;
       });
       if (hasAccess) {
-        console.log(`DEBUG canReadAnnouncement: User found in individual rights - ALLOWED`);
         return true;
       }
     }
     
     // 그룹 권한 확인
     if (accessRights.groups && Array.isArray(accessRights.groups)) {
-      console.log(`DEBUG canReadAnnouncement: Checking group rights:`, accessRights.groups, `userType: "${userType}"`);
       if (accessRights.groups.includes(userType)) {
-        console.log(`DEBUG canReadAnnouncement: User type "${userType}" found in groups - ALLOWED`);
         return true;
       }
     }
-    
-    console.log(`DEBUG canReadAnnouncement: No matching rights found - DENIED`);
     return false;
   } catch (error) {
-    // 파싱 오류 시 접근 불가 (안전하게 처리)
-    console.log(`DEBUG canReadAnnouncement: JSON parse error: ${error.message} - DENIED`);
     return false;
   }
 }
@@ -383,10 +368,7 @@ function getAnnouncements(req) {
   try {
     const { spreadsheetName, spreadsheetId, userId, userType } = req;
     
-    console.log(`DEBUG getAnnouncements: Received request - spreadsheetId: "${spreadsheetId || ''}", spreadsheetName: "${spreadsheetName || ''}", userId: "${userId}", userType: "${userType}"`);
-    
     if (!hasAnnouncementSheetRef_(req) || !userId || !userType) {
-      console.log(`DEBUG getAnnouncements: Missing required parameters`);
       return {
         success: false,
         message: '필수 파라미터가 누락되었습니다.',
@@ -422,19 +404,14 @@ function getAnnouncements(req) {
     const headerMap = {};
     header.forEach((h, index) => {
       headerMap[h] = index;
-    });
-    
-    console.log(`DEBUG: Total rows in sheet: ${data.length - 1}`); // DEBUG LOG
-    console.log(`DEBUG: User ID: ${userId}, User Type: ${userType}`); // DEBUG LOG
+    }); // DEBUG LOG
     
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       
       // no_notice가 비어있으면 건너뛰기
-      const noticeId = row[headerMap['no_notice']];
-      console.log(`DEBUG: Reading row ${i+1}, raw noticeId: ${noticeId}`); // DEBUG LOG
-      if (!noticeId || noticeId === '') {
-        console.log(`DEBUG: Skipping row ${i+1} due to empty noticeId.`); // DEBUG LOG
+      const noticeId = row[headerMap['no_notice']]; // DEBUG LOG
+      if (!noticeId || noticeId === '') { // DEBUG LOG
         continue;
       }
       
@@ -450,65 +427,44 @@ function getAnnouncements(req) {
         view_count: parseInt(row[headerMap['view_count']] || '0', 10),
         file_notice: row[headerMap['file_notice']] || '',
         fix_notice: row[headerMap['fix_notice']] || ''
-      };
-      
-      console.log(`DEBUG: Announcement ${announcement.id} - access_rights: "${announcement.access_rights}"`); // DEBUG LOG
+      }; // DEBUG LOG
       
       // writer_email에서 writer_id 추출 (암호화된 이메일에서 사용자 찾기)
       if (announcement.writer_email) {
         try {
-          console.log(`DEBUG: Attempting to decrypt writer_email for announcement ${announcement.id}, encrypted: "${announcement.writer_email}"`);
           const decryptedEmail = decryptEmailMain(announcement.writer_email);
-          console.log(`DEBUG: Decrypted email: "${decryptedEmail}"`);
           const writer = getUserByEmail(decryptedEmail);
           if (writer) {
-            announcement.writer_id = String(writer.no_member); // ID를 문자열로 통일
-            console.log(`DEBUG: Found writer_id: ${announcement.writer_id} (no_member: ${writer.no_member}) for announcement ${announcement.id}`); // DEBUG LOG
-          } else {
-            console.log(`DEBUG: Writer not found for email: ${decryptedEmail} (user may not be approved or doesn't exist)`); // DEBUG LOG
+            announcement.writer_id = String(writer.no_member); // DEBUG LOG
+          } else { // DEBUG LOG
             announcement.writer_id = ''; // 명시적으로 빈 문자열 설정
           }
-        } catch (error) {
-          console.log(`DEBUG: Failed to decrypt email for announcement ${announcement.id}: ${error.message}`); // DEBUG LOG
+        } catch (error) { // DEBUG LOG
           announcement.writer_id = ''; // 명시적으로 빈 문자열 설정
           // 복호화 실패해도 계속 진행 (작성자 정보만 없을 뿐)
         }
-      } else {
-        console.log(`DEBUG: No writer_email for announcement ${announcement.id}`); // DEBUG LOG
+      } else { // DEBUG LOG
         announcement.writer_id = ''; // 명시적으로 빈 문자열 설정
       }
       
       // 권한 확인
-      const canRead = canReadAnnouncement(announcement, String(userId), userType);
-      console.log(`DEBUG: Can read announcement ${announcement.id}? ${canRead} (writer_id: ${announcement.writer_id}, userId: ${userId})`); // DEBUG LOG
+      const canRead = canReadAnnouncement(announcement, String(userId), userType); // DEBUG LOG
       
       if (canRead) {
-        announcements.push(announcement);
-        console.log(`DEBUG: Added announcement (ID: ${announcement.id}, Title: ${announcement.title_notice})`); // DEBUG LOG
-      } else {
-        console.log(`DEBUG: Skipped announcement (ID: ${announcement.id}, Title: ${announcement.title_notice}) due to permissions.`); // DEBUG LOG
+        announcements.push(announcement); // DEBUG LOG
+      } else { // DEBUG LOG
       }
-    }
-    
-    console.log(`DEBUG: Initial announcements array (before sorting/filtering): ${JSON.stringify(announcements.map(a => ({id: a.id, title: a.title_notice, fix: a.fix_notice})))}`); // DEBUG LOG
+    } // DEBUG LOG
     
     // 고정 공지 분리 및 정렬
     const pinnedAnnouncements = announcements.filter(a => a.fix_notice === 'O');
-    const normalAnnouncements = announcements.filter(a => a.fix_notice !== 'O');
-    
-    console.log(`DEBUG: Pinned announcements (before sort): ${JSON.stringify(pinnedAnnouncements.map(a => ({id: a.id, title: a.title_notice})))}`); // DEBUG LOG
-    console.log(`DEBUG: Normal announcements (before sort): ${JSON.stringify(normalAnnouncements.map(a => ({id: a.id, title: a.title_notice})))}`); // DEBUG LOG
+    const normalAnnouncements = announcements.filter(a => a.fix_notice !== 'O'); // DEBUG LOG
     
     // 고정 공지와 일반 공지를 각각 ID 역순으로 정렬 (최신순)
     pinnedAnnouncements.sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10));
-    normalAnnouncements.sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10));
+    normalAnnouncements.sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10)); // DEBUG LOG
     
-    console.log(`DEBUG: Pinned announcements (after sort): ${JSON.stringify(pinnedAnnouncements.map(a => ({id: a.id, title: a.title_notice})))}`); // DEBUG LOG
-    console.log(`DEBUG: Normal announcements (after sort): ${JSON.stringify(normalAnnouncements.map(a => ({id: a.id, title: a.title_notice})))}`); // DEBUG LOG
-    
-    const sortedAnnouncements = [...pinnedAnnouncements, ...normalAnnouncements];
-    
-    console.log(`DEBUG: Final sorted announcements array: ${JSON.stringify(sortedAnnouncements.map(a => ({id: a.id, title: a.title_notice, fix: a.fix_notice})))}`); // DEBUG LOG
+    const sortedAnnouncements = [...pinnedAnnouncements, ...normalAnnouncements]; // DEBUG LOG
     
     return {
       success: true,
@@ -516,7 +472,7 @@ function getAnnouncements(req) {
       message: `${sortedAnnouncements.length}개의 공지사항을 불러왔습니다.`
     };
   } catch (error) {
-    console.error('공지사항 목록 가져오기 오류:', error);
+    logError_('AnnouncementManagement', '공지사항 목록 가져오기 오류:', error);
     return {
       success: false,
       message: '공지사항 목록을 가져오는 중 오류가 발생했습니다: ' + error.message,
@@ -548,7 +504,7 @@ function processAndUploadImages_(content) {
       }
     }
   } catch (folderError) {
-    console.warn('공지 본문 이미지 폴더 경로 해석 실패:', folderError);
+    logWarn_('AnnouncementManagement', '공지 본문 이미지 폴더 경로 해석 실패:', folderError);
   }
 
   // 경로 해석 실패 시 기존 기본 동작(드라이브 루트)로 폴백
@@ -582,7 +538,7 @@ function processAndUploadImages_(content) {
       processedContent = processedContent.replace(fullDataUrl, imageUrl);
       
     } catch (e) {
-      console.error('이미지 처리 중 오류 발생:', e);
+      logError_('AnnouncementManagement', '이미지 처리 중 오류 발생:', e);
       // 오류가 발생해도 계속 진행 (해당 이미지는 업로드되지 않음)
     }
   }
@@ -700,7 +656,7 @@ function createAnnouncement(req) {
       announcementId: newNoticeId
     };
   } catch (error) {
-    console.error('공지사항 작성 오류:', error);
+    logError_('AnnouncementManagement', '공지사항 작성 오류:', error);
     return {
       success: false,
       message: '공지사항 작성 중 오류가 발생했습니다: ' + error.message
@@ -832,7 +788,7 @@ function updateAnnouncement(req) {
       message: '공지사항이 수정되었습니다.'
     };
   } catch (error) {
-    console.error('공지사항 수정 오류:', error);
+    logError_('AnnouncementManagement', '공지사항 수정 오류:', error);
     return {
       success: false,
       message: '공지사항 수정 중 오류가 발생했습니다: ' + error.message
@@ -953,7 +909,7 @@ function deleteAnnouncement(req) {
       message: '공지사항이 삭제되었고 번호가 재정렬되었습니다.'
     };
   } catch (error) {
-    console.error('공지사항 삭제 오류:', error);
+    logError_('AnnouncementManagement', '공지사항 삭제 오류:', error);
     return {
       success: false,
       message: '공지사항 삭제 중 오류가 발생했습니다: ' + error.message
@@ -1051,7 +1007,7 @@ function incrementViewCount(req) {
       viewCount: newViews
     };
   } catch (error) {
-    console.error('조회수 증가 오류:', error);
+    logError_('AnnouncementManagement', '조회수 증가 오류:', error);
     return {
       success: false,
       message: '조회수 증가 중 오류가 발생했습니다: ' + error.message
@@ -1128,7 +1084,7 @@ function requestPinnedAnnouncement(req) {
       message: '공지사항을 찾을 수 없습니다.'
     };
   } catch (error) {
-    console.error('고정 공지 승인 요청 오류:', error);
+    logError_('AnnouncementManagement', '고정 공지 승인 요청 오류:', error);
     return {
       success: false,
       message: '고정 공지 승인 요청 중 오류가 발생했습니다: ' + error.message
@@ -1271,7 +1227,7 @@ function approvePinnedAnnouncement(req) {
       };
     }
   } catch (error) {
-    console.error('고정 공지 승인/거절 오류:', error);
+    logError_('AnnouncementManagement', '고정 공지 승인/거절 오류:', error);
     return {
       success: false,
       message: '고정 공지 승인/거절 중 오류가 발생했습니다: ' + error.message
@@ -1352,7 +1308,7 @@ function getPinnedAnnouncementRequests(req) {
       message: `${requests.length}개의 승인 대기 중인 고정 공지가 있습니다.`
     };
   } catch (error) {
-    console.error('고정 공지 승인 대기 목록 가져오기 오류:', error);
+    logError_('AnnouncementManagement', '고정 공지 승인 대기 목록 가져오기 오류:', error);
     return {
       success: false,
       message: '고정 공지 승인 대기 목록을 가져오는 중 오류가 발생했습니다: ' + error.message,

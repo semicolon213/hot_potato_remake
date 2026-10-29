@@ -1,3 +1,6 @@
+import { logger } from '../utils/logger';
+
+const log = logger.scope('config/environment');
 /**
  * @file environment.ts
  * @brief 환경변수 설정 파일 (V2 JSON 형식)
@@ -186,13 +189,13 @@ export const validateEnvironmentVariables = (): boolean => {
   ];
   const missing = required.filter((v) => !v);
   if (missing.length > 0) {
-    console.error('❌ 필수 환경변수가 설정되지 않았습니다.');
-    console.error('현재 설정:', {
+    log.error('필수 환경변수가 설정되지 않았습니다.');
+    log.error('현재 설정:', {
       GOOGLE_CLIENT_ID: c.GOOGLE_CLIENT_ID ? '설정됨' : '미설정',
       APP_SCRIPT_URL: c.APP_SCRIPT_URL ? '설정됨' : '미설정',
     });
     return false;
   }
-  console.log('✅ 필수 환경변수 검증 통과');
+  log.debug('필수 환경변수 검증 통과');
   return true;
 };

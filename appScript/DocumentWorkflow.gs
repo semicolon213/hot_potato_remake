@@ -23,7 +23,6 @@ function generateWorkflowId() {
  */
 function requestWorkflow(req) {
   try {
-    console.log('📋 워크플로우 요청 시작:', req);
     
     // 필수 필드 검증
     if (!req.requesterEmail) {
@@ -143,13 +142,11 @@ function requestWorkflow(req) {
               workflowFolder = rootFolder.createFolder(workflowFolderName);
             }
             workflowDocFile.moveTo(workflowFolder);
-            console.log('📄 결재 문서를 폴더로 이동:', workflowFolderName);
+            logDebug_('DocumentWorkflow', '결재 문서를 폴더로 이동:', workflowFolderName);
           }
         } catch (error) {
-          console.warn('📄 결재 문서 폴더 이동 실패 (무시됨):', error.message);
+          logWarn_('DocumentWorkflow', '결재 문서 폴더 이동 실패 (무시됨):', error.message);
         }
-        
-        console.log('📄 결재 문서 생성 완료:', workflowDocumentId);
       } catch (error) {
         return {
           success: false,
@@ -251,7 +248,7 @@ function requestWorkflow(req) {
           }
         }
       } catch (error) {
-        console.error('❌ 권한 부여 오류:', error);
+        logError_('DocumentWorkflow', '권한 부여 오류:', error);
         permissionResult = {
           successCount: 0,
           failCount: allUsers.length,
@@ -329,7 +326,6 @@ function requestWorkflow(req) {
     ];
     
     documentsSheet.appendRow(rowData);
-    console.log('📊 워크플로우 정보 스프레드시트 저장 완료');
     
     // 워크플로우 이력 기록 (요청)
     recordWorkflowHistory({
@@ -380,12 +376,10 @@ function requestWorkflow(req) {
       message: '워크플로우 요청이 성공적으로 처리되었습니다.',
       data: responseData
     };
-    
-    console.log('📋 워크플로우 요청 완료:', workflowId);
     return response;
     
   } catch (error) {
-    console.error('❌ 워크플로우 요청 오류:', error);
+    logError_('DocumentWorkflow', '워크플로우 요청 오류:', error);
     return {
       success: false,
       message: '워크플로우 요청 처리 중 오류가 발생했습니다: ' + error.message
@@ -415,7 +409,7 @@ function recordWorkflowHistory(historyData) {
     const historySheet = spreadsheet.getSheetByName('workflow_history');
     
     if (!historySheet) {
-      console.warn('⚠️ workflow_history 시트를 찾을 수 없습니다.');
+      logWarn_('DocumentWorkflow', 'workflow_history 시트를 찾을 수 없습니다.');
       return;
     }
     
@@ -441,10 +435,9 @@ function recordWorkflowHistory(historyData) {
     ];
     
     historySheet.appendRow(rowData);
-    console.log('📝 워크플로우 이력 기록 완료:', historyId);
     
   } catch (error) {
-    console.error('❌ 워크플로우 이력 기록 오류:', error);
+    logError_('DocumentWorkflow', '워크플로우 이력 기록 오류:', error);
   }
 }
 
@@ -462,7 +455,7 @@ function getSubFolderByName(parentFolder, folderName) {
     }
     return null;
   } catch (error) {
-    console.error('📁 서브 폴더 찾기 오류:', error);
+    logError_('DocumentWorkflow', '서브 폴더 찾기 오류:', error);
     return null;
   }
 }

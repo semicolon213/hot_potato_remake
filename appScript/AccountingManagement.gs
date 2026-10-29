@@ -85,7 +85,6 @@ function isLikelyMisplacedEvidenceRootFolder_(folderName) {
  */
 function initializeAccountingFolder() {
   try {
-    console.log('📁 회계 폴더 초기화 시작');
     
     // 루트 폴더 찾기 (스크립트 속성 또는 기본값)
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
@@ -103,16 +102,16 @@ function initializeAccountingFolder() {
     
     if (folders.hasNext()) {
       accountingFolder = folders.next();
-      console.log('✅ 기존 회계 폴더 발견:', accountingFolder.getId());
+      logDebug_('AccountingManagement', '기존 회계 폴더 발견:', accountingFolder.getId());
     } else {
       accountingFolder = rootFolder.createFolder(accountingFolderName);
-      console.log('✅ 새 회계 폴더 생성:', accountingFolder.getId());
+      logDebug_('AccountingManagement', '새 회계 폴더 생성:', accountingFolder.getId());
     }
     
     return accountingFolder.getId();
     
   } catch (error) {
-    console.error('❌ 회계 폴더 초기화 오류:', error);
+    logError_('AccountingManagement', '회계 폴더 초기화 오류:', error);
     throw new Error('회계 폴더 초기화 중 오류가 발생했습니다: ' + error.message);
   }
 }
@@ -148,7 +147,7 @@ function convertRoleCodesToGroupEmails(roleCodes) {
       .filter(email => email && email.trim() !== '');
       
   } catch (error) {
-    console.error('❌ 역할 코드 변환 오류:', error);
+    logError_('AccountingManagement', '역할 코드 변환 오류:', error);
     return [];
   }
 }
@@ -188,7 +187,6 @@ function setLedgerFolderPermissions(params) {
         // 이미 권한이 있는지 확인
         const hasPermission = beforePermissions.some(p => p.emailAddress === userEmail && p.role === 'writer');
         if (hasPermission) {
-          console.log('✅ 이미 권한이 있는 사용자:', userEmail);
           successCount++;
           grantedUsers.push(userEmail);
           continue;
@@ -201,14 +199,13 @@ function setLedgerFolderPermissions(params) {
           value: userEmail,
           sendNotificationEmails: false
         }, folderId);
-        console.log('✅ 폴더 편집 권한 부여 완료 (메일 알림 없음):', userEmail);
         successCount++;
         grantedUsers.push(userEmail);
         
         Utilities.sleep(100); // API 제한 방지
         
       } catch (error) {
-        console.error('❌ 사용자 권한 부여 실패:', userEmail, error.message);
+        logError_('AccountingManagement', '사용자 권한 부여 실패:', error.message);
         failCount++;
         failedUsers.push(userEmail);
       }
@@ -224,14 +221,13 @@ function setLedgerFolderPermissions(params) {
           value: groupEmail,
           sendNotificationEmails: false
         }, folderId);
-        console.log('✅ 폴더 그룹 권한 부여 완료 (메일 알림 없음):', groupEmail);
         successCount++;
         grantedUsers.push(groupEmail);
         
         Utilities.sleep(100);
         
       } catch (error) {
-        console.error('❌ 그룹 권한 부여 실패:', groupEmail, error.message);
+        logError_('AccountingManagement', '그룹 권한 부여 실패:', error.message);
         failCount++;
         failedUsers.push(groupEmail);
       }
@@ -246,7 +242,7 @@ function setLedgerFolderPermissions(params) {
     };
     
   } catch (error) {
-    console.error('❌ 폴더 권한 설정 오류:', error);
+    logError_('AccountingManagement', '폴더 권한 설정 오류:', error);
     return {
       success: false,
       message: '폴더 권한 설정 중 오류가 발생했습니다: ' + error.message
@@ -286,7 +282,6 @@ function setLedgerFilePermissions(params) {
       try {
         const hasPermission = beforePermissions.some(p => p.emailAddress === userEmail && p.role === 'writer');
         if (hasPermission) {
-          console.log('✅ 이미 권한이 있는 사용자:', userEmail);
           successCount++;
           grantedUsers.push(userEmail);
           continue;
@@ -299,14 +294,13 @@ function setLedgerFilePermissions(params) {
           value: userEmail,
           sendNotificationEmails: false
         }, fileId);
-        console.log('✅ 스프레드시트 편집 권한 부여 완료 (메일 알림 없음):', userEmail);
         successCount++;
         grantedUsers.push(userEmail);
         
         Utilities.sleep(100);
         
       } catch (error) {
-        console.error('❌ 사용자 권한 부여 실패:', userEmail, error.message);
+        logError_('AccountingManagement', '사용자 권한 부여 실패:', error.message);
         failCount++;
         failedUsers.push(userEmail);
       }
@@ -322,14 +316,13 @@ function setLedgerFilePermissions(params) {
           value: groupEmail,
           sendNotificationEmails: false
         }, fileId);
-        console.log('✅ 스프레드시트 그룹 권한 부여 완료 (메일 알림 없음):', groupEmail);
         successCount++;
         grantedUsers.push(groupEmail);
         
         Utilities.sleep(100);
         
       } catch (error) {
-        console.error('❌ 그룹 권한 부여 실패:', groupEmail, error.message);
+        logError_('AccountingManagement', '그룹 권한 부여 실패:', error.message);
         failCount++;
         failedUsers.push(groupEmail);
       }
@@ -344,7 +337,7 @@ function setLedgerFilePermissions(params) {
     };
     
   } catch (error) {
-    console.error('❌ 스프레드시트 권한 설정 오류:', error);
+    logError_('AccountingManagement', '스프레드시트 권한 설정 오류:', error);
     return {
       success: false,
       message: '스프레드시트 권한 설정 중 오류가 발생했습니다: ' + error.message
@@ -375,7 +368,6 @@ function setEvidenceFolderPermissions(params) {
  */
 function createAccountingSheets(spreadsheet) {
   try {
-    console.log('📊 회계 시트 생성 시작');
     
     // 기본 시트 삭제 (필요시)
     const sheets = spreadsheet.getSheets();
@@ -420,10 +412,8 @@ function createAccountingSheets(spreadsheet) {
       spreadsheet.deleteSheet(defaultSheet);
     }
     
-    console.log('✅ 시트 생성 완료');
-    
   } catch (error) {
-    console.error('❌ 시트 생성 오류:', error);
+    logError_('AccountingManagement', '시트 생성 오류:', error);
     throw error;
   }
 }
@@ -437,9 +427,8 @@ function setSheetHeaders(sheet, headers) {
     headerRange.setValues([headers]);
     headerRange.setFontWeight('bold');
     headerRange.setBackground('#f0f0f0');
-    console.log('✅ 헤더 설정 완료:', headers);
   } catch (error) {
-    console.error('❌ 헤더 설정 오류:', error);
+    logError_('AccountingManagement', '헤더 설정 오류:', error);
     throw error;
   }
 }
@@ -463,7 +452,6 @@ function setSheetHeaders(sheet, headers) {
  */
 function createLedgerStructure(params) {
   try {
-    console.log('📁 장부 구조 생성 시작:', params);
     
     const {
       ledgerName,
@@ -483,7 +471,7 @@ function createLedgerStructure(params) {
     // 2. 장부 폴더 생성
     const ledgerFolder = accountingFolder.createFolder(ledgerName);
     const ledgerFolderId = ledgerFolder.getId();
-    console.log('✅ 장부 폴더 생성:', ledgerFolderId);
+    logDebug_('AccountingManagement', '장부 폴더 생성:', ledgerFolderId);
     
     // 3. 스프레드시트 생성
     const spreadsheet = SpreadsheetApp.create(`${ledgerName}_장부`);
@@ -523,21 +511,16 @@ function createLedgerStructure(params) {
           createdDate,
           'TRUE' // is_active
         ]);
-        
-        console.log('✅ 통장 정보 추가:', accountId, accountName);
       }
     }
     
-    console.log('✅ 스프레드시트 생성:', spreadsheetId);
+    logDebug_('AccountingManagement', '스프레드시트 생성:', spreadsheetId);
     
     // 4. 증빙 폴더 생성 (프론트 evidenceFolderName / 스크립트 속성 EVIDENCE_FOLDER_NAME)
     const evidenceFolderLabel = getEvidenceFolderNameFromParams_(params);
-    console.log('📌 증빙 폴더 적용 이름:', evidenceFolderLabel,
-      '| 요청 evidenceFolderName:', params.evidenceFolderName,
-      '| 스크립트속성 EVIDENCE_FOLDER_NAME:', PropertiesService.getScriptProperties().getProperty('EVIDENCE_FOLDER_NAME'));
     const evidenceFolder = ledgerFolder.createFolder(evidenceFolderLabel);
     const evidenceFolderId = evidenceFolder.getId();
-    console.log('✅ 증빙 폴더 생성:', evidenceFolderLabel, evidenceFolderId);
+    logDebug_('AccountingManagement', '증빙 폴더 생성:', evidenceFolderLabel, evidenceFolderId);
     
     // 5. 권한 설정
     // 접근 권한 대상: 생성자 + 주관리인 + 별도 관리인 + 지정된 사용자
@@ -552,12 +535,6 @@ function createLedgerStructure(params) {
     
     // 역할 코드를 그룹 이메일로 변환
     const groupEmails = convertRoleCodesToGroupEmails(accessGroups);
-    
-    console.log('🔐 권한 설정 대상:', {
-      users: allAccessUsers,
-      groups: groupEmails,
-      roleCodes: accessGroups
-    });
     
     // 장부 폴더 권한 설정
     const folderPermissionResult = setLedgerFolderPermissions({
@@ -580,17 +557,6 @@ function createLedgerStructure(params) {
       groups: groupEmails
     });
     
-    console.log('✅ 장부 생성 완료:', {
-      ledgerFolderId,
-      spreadsheetId,
-      evidenceFolderId,
-      permissions: {
-        folder: folderPermissionResult,
-        spreadsheet: spreadsheetPermissionResult,
-        evidence: evidencePermissionResult
-      }
-    });
-    
     return {
       success: true,
       message: '장부가 성공적으로 생성되었습니다.',
@@ -608,7 +574,7 @@ function createLedgerStructure(params) {
     };
     
   } catch (error) {
-    console.error('❌ 장부 생성 오류:', error);
+    logError_('AccountingManagement', '장부 생성 오류:', error);
     return {
       success: false,
       message: '장부 생성 중 오류가 발생했습니다: ' + error.message
@@ -624,7 +590,6 @@ function createLedgerStructure(params) {
  */
 function getLedgerList() {
   try {
-    console.log('📋 장부 목록 조회 시작');
     
     const accountingFolderId = initializeAccountingFolder();
     const accountingFolder = DriveApp.getFolderById(accountingFolderId);
@@ -667,12 +632,10 @@ function getLedgerList() {
         createdDate: folder.getDateCreated().toISOString()
       });
     }
-    
-    console.log('✅ 장부 목록 조회 완료:', ledgers.length, '개');
     return ledgers;
     
   } catch (error) {
-    console.error('❌ 장부 목록 조회 오류:', error);
+    logError_('AccountingManagement', '장부 목록 조회 오류:', error);
     return [];
   }
 }
@@ -697,7 +660,7 @@ function getLedgerSpreadsheetId(folderId) {
     return null;
     
   } catch (error) {
-    console.error('❌ 스프레드시트 ID 조회 오류:', error);
+    logError_('AccountingManagement', '스프레드시트 ID 조회 오류:', error);
     return null;
   }
 }
@@ -717,8 +680,6 @@ function updateAccountSubManagers(req) {
         message: '스프레드시트 ID와 통장 ID가 필요합니다.'
       };
     }
-    
-    console.log('👥 서브 관리자 목록 업데이트 시작:', { spreadsheetId, accountId, subManagerEmails });
     
     const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
     const accountSheet = spreadsheet.getSheetByName('통장');
@@ -770,8 +731,6 @@ function updateAccountSubManagers(req) {
     const subManagerIdsJson = JSON.stringify(subManagerEmails || []);
     accountSheet.getRange(rowIndex, subManagerIdsIndex + 1).setValue(subManagerIdsJson);
     
-    console.log('✅ 서브 관리자 목록 업데이트 완료:', accountId);
-    
     return {
       success: true,
       message: '서브 관리자 목록이 성공적으로 업데이트되었습니다.',
@@ -782,7 +741,7 @@ function updateAccountSubManagers(req) {
     };
     
   } catch (error) {
-    console.error('❌ 서브 관리자 목록 업데이트 오류:', error);
+    logError_('AccountingManagement', '서브 관리자 목록 업데이트 오류:', error);
     return {
       success: false,
       message: '서브 관리자 목록 업데이트 중 오류가 발생했습니다: ' + error.message
@@ -797,7 +756,6 @@ function updateAccountSubManagers(req) {
  */
 function getAccountingCategories(spreadsheetId) {
   try {
-    console.log('📊 장부 카테고리 조회 시작:', spreadsheetId);
     
     if (!spreadsheetId) {
       throw new Error('스프레드시트 ID가 필요합니다');
@@ -807,19 +765,19 @@ function getAccountingCategories(spreadsheetId) {
     const sheets = spreadsheet.getSheets();
     
     if (sheets.length === 0) {
-      console.warn('시트가 없습니다.');
+      logWarn_('AccountingManagement', '시트가 없습니다.');
       return [];
     }
     
     // 첫 번째 시트 사용
     const sheet = sheets[0];
     const sheetName = sheet.getName();
-    console.log('시트 이름:', sheetName);
+    logDebug_('AccountingManagement', '시트 이름:', sheetName);
     
     // 데이터 범위 가져오기 (A열에서 카테고리 찾기)
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) {
-      console.warn('데이터가 없습니다.');
+      logWarn_('AccountingManagement', '데이터가 없습니다.');
       return [];
     }
     
@@ -840,7 +798,7 @@ function getAccountingCategories(spreadsheetId) {
     // 카테고리 열을 찾지 못한 경우 A열 사용
     if (categoryColumnIndex === -1) {
       categoryColumnIndex = 1;
-      console.log('카테고리 열을 찾지 못했습니다. A열을 사용합니다.');
+      logDebug_('AccountingManagement', '카테고리 열을 찾지 못했습니다. A열을 사용합니다.');
     }
     
     // 카테고리 데이터 가져오기 (2행부터, 헤더 제외)
@@ -858,12 +816,10 @@ function getAccountingCategories(spreadsheetId) {
         categories.push(category);
       }
     }
-    
-    console.log('✅ 장부 카테고리 조회 완료:', categories.length, '개');
     return categories;
     
   } catch (error) {
-    console.error('❌ 장부 카테고리 조회 오류:', error);
+    logError_('AccountingManagement', '장부 카테고리 조회 오류:', error);
     return [];
   }
 }

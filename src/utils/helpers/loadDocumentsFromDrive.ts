@@ -1,3 +1,4 @@
+import { logger } from '../logger';
 /**
  * @file loadDocumentsFromDrive.ts
  * @brief Google Drive에서 문서 로드 유틸리티
@@ -11,6 +12,8 @@ import { apiClient } from "../api/apiClient";
 import type { DocumentInfoResponse, DocumentsListResponse, UserNameResponse } from "../../types/api/apiResponses";
 import { getCacheManager } from "../cache/cacheManager";
 import { generateCacheKey, getCacheTTL, getActionCategory } from "../cache/cacheUtils";
+const log = logger.scope('utils/helpers/loadDocumentsFromDrive');
+
 
 export interface FileWithDescription {
   id: string;
@@ -31,7 +34,6 @@ async function convertEmailToName(email: string): Promise<string> {
     }
     
     const response = await apiClient.getUserNameByEmail(email);
-    console.log('👤 API 응답 전체:', JSON.stringify(response, null, 2));
     
     // Apps Script가 직접 { success, name, message } 형태로 반환하므로
     // response.data가 아니라 response 자체를 확인
@@ -39,7 +41,6 @@ async function convertEmailToName(email: string): Promise<string> {
       const userNameResponse = response.data as UserNameResponse;
       const resolvedName = userNameResponse?.name;
       if (resolvedName && resolvedName !== email) {
-        console.log('👤 사용자 이름 변환 성공:', email, '->', resolvedName);
         return resolvedName;
       }
     }
@@ -47,14 +48,11 @@ async function convertEmailToName(email: string): Promise<string> {
     // 응답 구조가 다른 경우를 대비해 직접 name 필드 확인
     const userNameResponse = response as Partial<UserNameResponse>;
     if (response.success && userNameResponse.name && userNameResponse.name !== email) {
-      console.log('👤 사용자 이름 변환 성공 (직접 name 필드):', email, '->', userNameResponse.name);
       return userNameResponse.name;
     }
-    
-    console.log('👤 사용자 이름 변환 실패, 원본 이메일 반환:', email, 'response:', response);
     return email; // 변환 실패 시 원본 이메일 반환
   } catch (error) {
-    console.warn('이메일을 사용자 이름으로 변환 실패:', email, error);
+    log.warn('이메일을 사용자 이름으로 변환 실패:');
     return email; // 오류 시 원본 이메일 반환
   }
 }
@@ -65,18 +63,16 @@ async function convertEmailToName(email: string): Promise<string> {
  */
 export const loadSharedDocuments = async (): Promise<DocumentInfo[]> => {
   try {
-    console.log('📄 공유 문서 로드 시작...');
     const result = await apiClient.getDocuments({ role: 'shared' });
-    console.log('📄 공유 문서 API 응답:', result);
     
     if (!result.success) {
-      console.warn('공유 문서 API 실패:', result.message || result.error);
+      log.warn('공유 문서 API 실패:');
       return [];
     }
 
     // 응답 구조 확인: result.data가 배열인지 확인
     if (!result.data) {
-      console.warn('📄 공유 문서 API 응답에 data가 없습니다:', result);
+      log.warn('공유 문서 API 응답에 data가 없습니다:');
       return [];
     }
 
@@ -88,11 +84,11 @@ export const loadSharedDocuments = async (): Promise<DocumentInfo[]> => {
       // 중첩된 구조인 경우 (result.data.data)
       rows = Array.isArray(result.data.data) ? result.data.data : [];
     } else {
-      console.warn('📄 공유 문서 API 응답 data가 배열이 아닙니다:', result.data);
+      log.warn('공유 문서 API 응답 data가 배열이 아닙니다:');
       return [];
     }
     
-    console.log('📄 공유 문서 개수:', rows.length);
+    log.debug('공유 문서 개수:', rows.length);
     const documents: DocumentInfo[] = await Promise.all(
       rows.map(async (row: DocumentInfoResponse, index: number) => {
         const mimeType = row.mimeType || row.type || '';
@@ -132,7 +128,7 @@ export const loadSharedDocuments = async (): Promise<DocumentInfo[]> => {
 
     return documents;
   } catch (error) {
-    console.error('공유 문서 로드(API) 오류:', error);
+    log.error('공유 문서 로드(API) 오류:', error);
     return [];
   }
 };
@@ -145,7 +141,7 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
   const gapi = window.gapi;
   
   if (!gapi?.client?.drive) {
-    console.error('Google Drive API가 초기화되지 않았습니다.');
+    log.error('Google Drive API가 초기화되지 않았습니다.');
     return [];
   }
 
@@ -164,7 +160,7 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
     });
 
     if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      console.log(`${rootFolderName} 폴더를 찾을 수 없습니다`);
+      log.debug(`${rootFolderName} 폴더를 찾을 수 없습니다`);
       return [];
     }
 
@@ -179,7 +175,7 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
     });
 
     if (!documentResponse.result.files || documentResponse.result.files.length === 0) {
-      console.log(`${documentFolderName} 폴더를 찾을 수 없습니다`);
+      log.debug(`${documentFolderName} 폴더를 찾을 수 없습니다`);
       return [];
     }
 
@@ -194,7 +190,7 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
     });
 
     if (!personalDocResponse.result.files || personalDocResponse.result.files.length === 0) {
-      console.log('개인 문서 폴더를 찾을 수 없습니다');
+      log.debug('개인 문서 폴더를 찾을 수 없습니다');
       return [];
     }
 
@@ -209,7 +205,7 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
     });
 
     if (!filesResponse.result.files || filesResponse.result.files.length === 0) {
-      console.log('개인 문서 폴더가 비어있습니다');
+      log.debug('개인 문서 폴더가 비어있습니다');
       return [];
     }
 
@@ -225,7 +221,7 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
         });
         fileWithProperties = detailResponse.result;
       } catch (error) {
-        console.warn(`개인 파일 ${file.name} 상세 정보 가져오기 실패:`, error);
+        log.warn(`개인 파일 ${file.name} 상세 정보 가져오기 실패:`, error);
         fileWithProperties = file;
       }
 
@@ -280,7 +276,7 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
 
     return documents;
   } catch (error) {
-    console.error('개인 문서 로드 오류:', error);
+    log.error('개인 문서 로드 오류:', error);
     return [];
   }
 };
@@ -300,29 +296,24 @@ export const loadAllDocuments = async (forceRefresh: boolean = false): Promise<D
   if (!forceRefresh) {
     const cachedData = await cacheManager.get<DocumentInfo[]>(cacheKey);
     if (cachedData) {
-      console.log('📄 캐시에서 문서 로드:', cachedData.length, '개');
+      log.debug('캐시에서 문서 로드:', cachedData.length, '개');
       return cachedData;
     }
   } else {
-    console.log('📄 강제 새로고침 모드 - 캐시 무시');
+    log.debug('강제 새로고침 모드 - 캐시 무시');
     // 캐시 무효화
     await cacheManager.delete(cacheKey);
   }
-
-  // 캐시 미스 시 실제 로드
-  console.log('📄 문서 로드 시작 (캐시 미스)...');
   const [sharedDocs, personalDocs] = await Promise.all([
     loadSharedDocuments(),
     loadPersonalDocuments()
   ]);
 
   const allDocs = [...sharedDocs, ...personalDocs];
-  console.log('📄 전체 문서 로드 완료:', allDocs.length, '개 (공유:', sharedDocs.length, '개, 개인:', personalDocs.length, '개)');
   
   // 캐시에 저장
   const ttl = getCacheTTL(action);
   await cacheManager.set(cacheKey, allDocs, ttl);
-  console.log('📄 문서 캐시 저장 완료 (TTL:', ttl / 1000 / 60, '분)');
   
   return allDocs;
 };

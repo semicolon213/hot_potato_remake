@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file CategoryManagement.tsx
  * @brief 카테고리 관리 컴포넌트
@@ -12,6 +13,8 @@ import { getCategories, createCategory, updateCategory, deleteCategory } from '.
 import type { Category } from '../../../types/features/accounting';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/CategoryManagement');
+
 
 interface CategoryManagementProps {
   spreadsheetId: string;
@@ -47,7 +50,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       const categoriesData = await getCategories(spreadsheetId);
       setCategories(categoriesData);
     } catch (err) {
-      console.error('❌ 카테고리 로드 오류:', err);
+      log.error('카테고리 로드 오류:', err);
       setListError('카테고리를 불러오는데 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setListLoading(false);
@@ -87,7 +90,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       setNewCategoryDescription('');
       setError(null);
     } catch (err: unknown) {
-      console.error('❌ 카테고리 추가 오류:', err);
+      log.error('카테고리 추가 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '카테고리 추가에 실패했습니다.';
       setError(errorMessage);
     } finally {
@@ -150,7 +153,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       handleCloseEditModal();
       setError(null);
     } catch (err: unknown) {
-      console.error('❌ 카테고리 수정 오류:', err);
+      log.error('카테고리 수정 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '카테고리 수정에 실패했습니다.';
       setError(errorMessage);
     } finally {
@@ -171,7 +174,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       await loadCategories();
       setError(null);
     } catch (err: unknown) {
-      console.error('❌ 카테고리 삭제 오류:', err);
+      log.error('카테고리 삭제 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '카테고리 삭제에 실패했습니다.';
       notifyGlobal(errorMessage, 'error');
       setError(errorMessage);

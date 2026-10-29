@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import "../styles/pages/DocumentManagement.css";
 import InfoCard, { type Item as InfoCardItem } from "../components/features/documents/InfoCard";
@@ -26,6 +27,8 @@ import { FaFilter, FaTimes, FaFileAlt, FaUsers, FaLock, FaEdit, FaUpload, FaShar
 import { HiX } from "react-icons/hi";
 import { useNotification } from "../hooks/ui/useNotification";
 import { NotificationModal } from "../components/ui/NotificationModal";
+const log = logger.scope('pages/DocumentManagement');
+
 
 interface DocumentManagementProps {
   onPageChange: (pageName: string) => void;
@@ -261,7 +264,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
         showNotification(`업로드 실패: ${result.message || '알 수 없는 오류'}`, 'error');
       }
     } catch (error) {
-      console.error('업로드 오류:', error);
+      log.error('업로드 오류:', error);
       showNotification('업로드 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsUploading(false);
@@ -387,7 +390,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
                 fileId: doc.id
               });
             } catch (error) {
-              console.error(`개인 문서 삭제 실패 (${doc.title}):`, error);
+              log.error(`개인 문서 삭제 실패 (${doc.title}):`, error);
               // 개별 문서 삭제 실패해도 계속 진행
             }
           }
@@ -416,7 +419,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
       }));
       setDocuments(convertedDocs);
     } catch (error) {
-      console.error('문서 삭제 오류:', error);
+      log.error('문서 삭제 오류:', error);
       showNotification(`문서 삭제 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error');
     } finally {
       setIsLoading(false);
@@ -427,9 +430,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
   useEffect(() => {
     const loadFavoriteTemplates = async () => {
       try {
-        console.log('⭐ 즐겨찾기 템플릿 로드 시작');
         const favorites = await fetchFavorites();
-        console.log('⭐ 즐겨찾기 목록:', favorites);
 
         // 모든 템플릿에서 즐겨찾기된 것들 찾기 (기본 템플릿 + 개인 템플릿)
         const allTemplates = [...customTemplates, ...allDefaultTemplates, ...personalTemplates];
@@ -451,10 +452,10 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
           }
         }
 
-        console.log('⭐ 즐겨찾기 템플릿 아이템:', favoriteItems);
+        log.debug('즐겨찾기 템플릿 아이템:', favoriteItems);
         setFavoriteTemplates(favoriteItems);
       } catch (error) {
-        console.error('❌ 즐겨찾기 템플릿 로드 오류:', error);
+        log.error('즐겨찾기 템플릿 로드 오류:', error);
       }
     };
 
@@ -473,7 +474,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
         const personalTagsData = await fetchPersonalTags();
         setPersonalTags(personalTagsData);
       } catch (error) {
-        console.error('태그 로드 오류:', error);
+        log.error('태그 로드 오류:', error);
       } finally {
         setIsLoadingTags(false);
       }
@@ -488,9 +489,8 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
     const loadDocuments = async () => {
       setIsLoading(true);
       try {
-        console.log("📄 문서관리에서 문서 로딩 시작...");
         const allDocs = await loadAllDocuments();
-        console.log("📄 로딩된 문서 수:", allDocs.length);
+        log.debug("로딩된 문서 수:", allDocs.length);
         
         const convertedDocs: FetchedDocument[] = allDocs.map((doc, index) => ({
           id: doc.id,
@@ -510,7 +510,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
 
         setDocuments(convertedDocs);
       } catch (error) {
-        console.error("📄 문서 로딩 오류:", error);
+        log.error("문서 로딩 오류:", error);
         setDocuments([]);
       } finally {
         setIsLoading(false);
@@ -553,7 +553,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
         const userEmail = userInfo.email;
 
         if (!userEmail) {
-          console.warn('사용자 이메일이 없어 결재 통계를 로드할 수 없습니다.');
+          log.warn('사용자 이메일이 없어 결재 통계를 로드할 수 없습니다.');
           return;
         }
 
@@ -572,7 +572,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
           setSentCount(requestedResponse.data.length);
         }
       } catch (error) {
-        console.error('❌ 결재 통계 로드 오류:', error);
+        log.error('결재 통계 로드 오류:', error);
       }
     };
 
@@ -1441,7 +1441,6 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
         documentTitle={selectedDocument?.title}
         isPersonalDocument={selectedDocument?.documentType === 'personal'}
         onSuccess={(response: WorkflowRequestResponse) => {
-          console.log('✅ 결재 요청 성공:', response);
           // 통계 갱신
           const userInfo = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
           if (userInfo.email) {

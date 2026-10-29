@@ -1,3 +1,6 @@
+import { logger } from '../logger';
+
+const log = logger.scope('utils/api/gmailApi');
 // 타입 정의
 interface EmailTemplate {
   to: string;
@@ -8,8 +11,6 @@ interface EmailTemplate {
 // Gmail API를 사용한 이메일 전송 함수
 export const sendEmailWithGmailAPI = async (emailTemplate: EmailTemplate): Promise<void> => {
   try {
-    console.log('Gmail API로 이메일 전송 시작');
-    console.log('emailTemplate:', emailTemplate);
     
     // emailTemplate 유효성 검사
     if (!emailTemplate) {
@@ -28,12 +29,6 @@ export const sendEmailWithGmailAPI = async (emailTemplate: EmailTemplate): Promi
       throw new Error('이메일 내용이 없습니다.');
     }
     
-    console.log('이메일 정보:', {
-      to: emailTemplate.to,
-      subject: emailTemplate.subject,
-      htmlLength: emailTemplate.html.length
-    });
-    
     // Gmail API가 초기화되었는지 확인
     interface GmailClient {
       gmail?: {
@@ -47,12 +42,7 @@ export const sendEmailWithGmailAPI = async (emailTemplate: EmailTemplate): Promi
     }
     const gapiClient = window.gapi.client as unknown as GmailClient;
     if (!window.gapi || !window.gapi.client || !gapiClient.gmail || !gapiClient.gmail.users) {
-      console.error('Gmail API 초기화 상태:', {
-        gapi: !!window.gapi,
-        client: !!(window.gapi && window.gapi.client),
-        gmail: !!(window.gapi && window.gapi.client && gapiClient.gmail),
-        gmailUsers: !!(window.gapi && window.gapi.client && gapiClient.gmail && gapiClient.gmail.users)
-      });
+      log.error('Gmail API 초기화 상태:');
       throw new Error('Gmail API가 초기화되지 않았습니다. 페이지를 새로고침해주세요.');
     }
     
@@ -75,7 +65,7 @@ export const sendEmailWithGmailAPI = async (emailTemplate: EmailTemplate): Promi
       .replace(/\//g, '_')
       .replace(/=/g, '');
     
-    console.log('인코딩된 메시지 길이:', encodedMessage.length);
+    log.debug('인코딩된 메시지 길이:', encodedMessage.length);
     
     // Gmail API로 이메일 전송
     const request = gmail.users.messages.send({
@@ -86,10 +76,9 @@ export const sendEmailWithGmailAPI = async (emailTemplate: EmailTemplate): Promi
     });
     
     const response = await request;
-    console.log('Gmail API 이메일 전송 완료:', response);
     
   } catch (error) {
-    console.error('Gmail API 이메일 전송 실패:', error);
+    log.error('Gmail API 이메일 전송 실패:');
     throw error;
   }
 };

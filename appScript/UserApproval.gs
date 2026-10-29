@@ -40,29 +40,26 @@ function getAllUsers() {
   let sheetName = 'unknown';
   
   try {
-    console.log('👥 모든 사용자 목록 조회 시작');
     
     // 연결된 스프레드시트 사용
     const spreadsheet = getHpMemberSpreadsheet();
-    console.log('📊 스프레드시트 객체:', spreadsheet);
+    logDebug_('UserApproval', '스프레드시트 객체:', spreadsheet);
     if (!spreadsheet) {
-      console.log('❌ 스프레드시트를 찾을 수 없습니다.');
+      logDebug_('UserApproval', '스프레드시트를 찾을 수 없습니다.');
       return {
         success: false,
         message: '스프레드시트를 찾을 수 없습니다.'
       };
     }
     spreadsheetId = spreadsheet.getId();
-    console.log('📊 스프레드시트 ID:', spreadsheetId);
+    logDebug_('UserApproval', '스프레드시트 ID:', spreadsheetId);
     
     // 스크립트 속성에서 시트 이름 가져오기
     sheetName = PropertiesService.getScriptProperties().getProperty('SHEET_NAME_USER') || 'user';
-    console.log('📊 시트 이름:', sheetName);
+    logDebug_('UserApproval', '시트 이름:', sheetName);
     const data = getSheetData(spreadsheetId, sheetName, 'A:G');
-    console.log('📊 가져온 데이터:', data);
     
     if (!data || data.length <= 1) {
-      console.log('📊 데이터가 없거나 헤더만 있음:', data);
       return {
         success: true,
         users: [],
@@ -71,7 +68,7 @@ function getAllUsers() {
     }
     
     const header = data[0];
-    console.log('📊 헤더:', header);
+    logDebug_('UserApproval', '헤더:', header);
     
     // 빈 행 필터링 (학번이 없거나 이름이 없는 행 제외)
     const validRows = data.slice(1).filter(row => {
@@ -79,8 +76,6 @@ function getAllUsers() {
       const name = row[2]; // name_member
       return studentId && studentId !== '' && name && name !== '';
     });
-    
-    console.log('📊 유효한 데이터 행 수:', validRows.length);
     
     const users = validRows.map((row, index) => {
       const user = {};
@@ -95,7 +90,7 @@ function getAllUsers() {
         studentId: user.no_member || '',
         name: user.name_member || '',
         userType: (() => {
-          console.log('🔍 user_type 값 확인:', user.user_type, '타입:', typeof user.user_type);
+          logDebug_('UserApproval', 'user_type 값 확인:', '타입:');
           return user.user_type || 'student';
         })(),
         isAdmin: user.is_admin === 'O',
@@ -105,17 +100,16 @@ function getAllUsers() {
       };
     });
     
-    console.log('👥 전체 사용자 수:', users.length);
-    console.log('👥 사용자 데이터 샘플:', users.slice(0, 2)); // 처음 2개 사용자만 로그
+    logDebug_('UserApproval', '전체 사용자 수:', users.length); // 처음 2개 사용자만 로그
     
     // 승인 상태별로 분류
     const pendingUsers = users.filter(user => getUserApprovalStatus(user) === 'X');
     const approvedUsers = users.filter(user => getUserApprovalStatus(user) === 'O');
     const rejectedUsers = users.filter(user => getUserApprovalStatus(user) === '');
     
-    console.log('👥 승인 대기 중:', pendingUsers.length);
-    console.log('👥 승인된 사용자:', approvedUsers.length);
-    console.log('👥 승인 거부된 사용자:', rejectedUsers.length);
+    logDebug_('UserApproval', '승인 대기 중:', pendingUsers.length);
+    logDebug_('UserApproval', '승인된 사용자:', approvedUsers.length);
+    logDebug_('UserApproval', '승인 거부된 사용자:', rejectedUsers.length);
     
     const response = {
       success: true,
@@ -138,12 +132,10 @@ function getAllUsers() {
         }
       }
     };
-    
-    console.log('👥 최종 응답:', response);
     return response;
     
   } catch (error) {
-    console.error('👥 모든 사용자 목록 조회 오류:', error);
+    logError_('UserApproval', '모든 사용자 목록 조회 오류:', error);
     return {
       success: false,
       message: '사용자 목록 조회 중 오류가 발생했습니다: ' + error.message,
@@ -163,7 +155,6 @@ function getAllUsers() {
  */
 function getPendingUsers() {
   try {
-    console.log('👥 대기 중인 사용자 목록 조회 시작');
     
     // 연결된 스프레드시트 사용
     const spreadsheet = getHpMemberSpreadsheet();
@@ -209,7 +200,7 @@ function getPendingUsers() {
     // 승인 대기 중인 사용자만 필터링 (approval/Approval 컬럼이 'X'인 경우)
     const pendingUsers = users.filter(user => getUserApprovalStatus(user) === 'X');
     
-    console.log('👥 승인 대기 중인 사용자 수:', pendingUsers.length);
+    logDebug_('UserApproval', '승인 대기 중인 사용자 수:', pendingUsers.length);
     
     return {
       success: true,
@@ -219,7 +210,7 @@ function getPendingUsers() {
     };
     
   } catch (error) {
-    console.error('👥 대기 중인 사용자 목록 조회 오류:', error);
+    logError_('UserApproval', '대기 중인 사용자 목록 조회 오류:', error);
     return {
       success: false,
       message: '대기 중인 사용자 목록 조회 중 오류가 발생했습니다: ' + error.message
@@ -234,7 +225,6 @@ function getPendingUsers() {
  */
 function approveUser(studentId) {
   try {
-    console.log('✅ 사용자 승인 시작:', studentId);
     
     if (!studentId) {
       return {
@@ -279,8 +269,7 @@ function approveUser(studentId) {
     const user = users.find(u => String(u.no_member || '').trim() === String(studentId).trim());
     
     if (!user) {
-      console.log('❌ 사용자 찾기 실패:', studentId);
-      console.log('❌ 사용자 목록:', users.map(u => ({ no_member: u.no_member, name: u.name_member })));
+      logWarn_('UserApproval', '사용자 찾기 실패');
       return {
         success: false,
         message: '해당 학생을 찾을 수 없습니다.'
@@ -311,8 +300,6 @@ function approveUser(studentId) {
         sheet.getRange(user.rowIndex, dateColumnIndex + 1).setValue(currentDate);
       }
       
-      console.log('✅ 사용자 승인 완료:', studentId);
-      
       return {
         success: true,
         message: '사용자가 승인되었습니다.',
@@ -331,7 +318,7 @@ function approveUser(studentId) {
     }
     
   } catch (error) {
-    console.error('✅ 사용자 승인 오류:', error);
+    logError_('UserApproval', '사용자 승인 오류:', error);
     return {
       success: false,
       message: '사용자 승인 중 오류가 발생했습니다: ' + error.message
@@ -346,7 +333,6 @@ function approveUser(studentId) {
  */
 function rejectUser(studentId) {
   try {
-    console.log('❌ 사용자 거부 시작:', studentId);
     
     if (!studentId) {
       return {
@@ -414,8 +400,6 @@ function rejectUser(studentId) {
       const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(sheetName);
       sheet.getRange(user.rowIndex, statusColumnIndex + 1).setValue('rejected');
       
-      console.log('❌ 사용자 거부 완료:', studentId);
-      
       return {
         success: true,
         message: '사용자가 거부되었습니다.',
@@ -432,7 +416,7 @@ function rejectUser(studentId) {
     }
     
   } catch (error) {
-    console.error('❌ 사용자 거부 오류:', error);
+    logError_('UserApproval', '사용자 거부 오류:', error);
     return {
       success: false,
       message: '사용자 거부 중 오류가 발생했습니다: ' + error.message
@@ -447,7 +431,6 @@ function rejectUser(studentId) {
  */
 function checkApprovalStatus(email) {
   try {
-    console.log('🔍 사용자 승인 상태 확인 시작:', email);
     
     if (!email) {
       return {
@@ -510,7 +493,7 @@ function checkApprovalStatus(email) {
     };
     
   } catch (error) {
-    console.error('🔍 사용자 승인 상태 확인 오류:', error);
+    logError_('UserApproval', '사용자 승인 상태 확인 오류:', error);
     return {
       success: false,
       message: '승인 상태 확인 중 오류가 발생했습니다: ' + error.message
@@ -542,10 +525,6 @@ function getApprovalStatusMessage(status) {
  */
 function clearUserCache() {
   try {
-    console.log('🗑️ 사용자 캐시 초기화 시작');
-    
-    // 캐시 초기화 로직 (현재는 로그만 출력)
-    console.log('🗑️ 사용자 캐시 초기화 완료');
     
     return {
       success: true,
@@ -553,7 +532,7 @@ function clearUserCache() {
     };
     
   } catch (error) {
-    console.error('🗑️ 사용자 캐시 초기화 오류:', error);
+    logError_('UserApproval', '사용자 캐시 초기화 오류:', error);
     return {
       success: false,
       message: '사용자 캐시 초기화 중 오류가 발생했습니다: ' + error.message
@@ -563,7 +542,6 @@ function clearUserCache() {
 
 function handlePinnedAnnouncementRequest(req) {
   try {
-    console.log('📌 고정 공지사항 승인 요청 처리 시작:', req);
     const { writer_id, userType, author, title } = req;
 
     const spreadsheet = getHpMemberSpreadsheet();
@@ -590,14 +568,13 @@ function handlePinnedAnnouncementRequest(req) {
 
     return { success: true, message: '고정 공지사항 승인 요청이 추가되었습니다.' };
   } catch (error) {
-    console.error('📌 고정 공지사항 승인 요청 처리 오류:', error);
+    logError_('UserApproval', '고정 공지사항 승인 요청 처리 오류:', error);
     return { success: false, message: '고정 공지사항 승인 요청 처리 중 오류가 발생했습니다: ' + error.message };
   }
 }
 
 function handleApprovePinnedAnnouncement(req) {
   try {
-    console.log('📌 고정 공지사항 승인 시작:', req);
     const { announcementId } = req;
 
     if (!announcementId) {
@@ -626,21 +603,19 @@ function handleApprovePinnedAnnouncement(req) {
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][idIndex]) === String(announcementId)) {
         sheet.getRange(i + 1, approvalIndex + 1).setValue('O');
-        console.log(`📌 고정 공지사항 승인 완료: ${announcementId}`);
         return { success: true, message: '고정 공지사항이 승인되었습니다.' };
       }
     }
 
     return { success: false, message: '해당 공지사항 요청을 찾을 수 없습니다.' };
   } catch (error) {
-    console.error('📌 고정 공지사항 승인 오류:', error);
+    logError_('UserApproval', '고정 공지사항 승인 오류:', error);
     return { success: false, message: '고정 공지사항 승인 중 오류가 발생했습니다: ' + error.message };
   }
 }
 
 function handleRejectPinnedAnnouncement(req) {
   try {
-    console.log('📌 고정 공지사항 거부 시작:', req);
     const { announcementId } = req;
 
     if (!announcementId) {
@@ -669,14 +644,13 @@ function handleRejectPinnedAnnouncement(req) {
     for (let i = data.length - 1; i > 0; i--) {
       if (String(data[i][idIndex]) === String(announcementId)) {
         sheet.deleteRow(i + 1);
-        console.log(`📌 고정 공지사항 거부 완료: ${announcementId}`);
         return { success: true, message: '고정 공지사항이 거부되었습니다.' };
       }
     }
 
     return { success: false, message: '해당 공지사항 요청을 찾을 수 없습니다.' };
   } catch (error) {
-    console.error('📌 고정 공지사항 거부 오류:', error);
+    logError_('UserApproval', '고정 공지사항 거부 오류:', error);
     return { success: false, message: '고정 공지사항 거부 중 오류가 발생했습니다: ' + error.message };
   }
 }

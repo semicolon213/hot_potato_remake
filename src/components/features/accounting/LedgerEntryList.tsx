@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file LedgerEntryList.tsx
  * @brief 장부 항목 목록 컴포넌트
@@ -14,6 +15,8 @@ import { FaDownload, FaPlus, FaFilter, FaTimes, FaEdit, FaTrash, FaPaperclip } f
 import type { LedgerEntry, LedgerEntryFilter, Account, Category, CreateLedgerEntryRequest, UpdateLedgerEntryRequest } from '../../../types/features/accounting';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/LedgerEntryList');
+
 
 interface LedgerEntryListProps {
   spreadsheetId: string;
@@ -99,7 +102,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
     const targetAccountId = accountId || selectedAccountId;
     
     if (!targetAccountId) {
-      console.warn('⚠️ 통장 ID가 없어 장부 항목을 로드할 수 없습니다.');
+      log.warn('통장 ID가 없어 장부 항목을 로드할 수 없습니다.');
       return;
     }
 
@@ -107,7 +110,6 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
     setError(null);
 
     try {
-      console.log('📋 장부 항목 로드:', { spreadsheetId, targetAccountId });
       
       // 모든 항목을 로드 (클라이언트 사이드 필터링 사용)
       const entriesData = await getLedgerEntries(
@@ -115,14 +117,13 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
         targetAccountId,
         {} as LedgerEntryFilter
       );
-      console.log('✅ 장부 항목 로드 완료:', entriesData.length, '개');
       setEntries(entriesData);
       if (onEntriesChange) {
         onEntriesChange(entriesData);
       }
       return entriesData;
     } catch (err) {
-      console.error('❌ 장부 항목 조회 오류:', err);
+      log.error('장부 항목 조회 오류:', err);
       setError('장부 항목을 불러오는데 실패했습니다.');
       return;
     } finally {
@@ -169,32 +170,29 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
 
   const loadData = async () => {
     try {
-      console.log('📋 통장 및 카테고리 로드 시작:', spreadsheetId);
       const [accountsData, categoriesData] = await Promise.all([
         getAccounts(spreadsheetId),
         getCategories(spreadsheetId)
       ]);
-      console.log('✅ 통장 목록:', accountsData);
-      console.log('✅ 카테고리 목록:', categoriesData);
       
       setAccounts(accountsData);
       setCategories(categoriesData);
 
       if (accountsData.length > 0) {
         const firstAccountId = accountsData[0].accountId;
-        console.log('🔍 첫 번째 통장 ID:', firstAccountId);
+        log.debug('첫 번째 통장 ID:', firstAccountId);
         if (!selectedAccountId || selectedAccountId !== firstAccountId) {
-          console.log('✅ 통장 ID 설정:', firstAccountId);
+          log.debug('통장 ID 설정:', firstAccountId);
           setSelectedAccountId(firstAccountId);
           // 통장 ID가 설정되면 자동으로 장부 항목 로드
           loadEntries(firstAccountId);
         }
       } else {
-        console.warn('⚠️ 통장이 없습니다.');
+        log.warn('통장이 없습니다.');
         setError('통장 정보를 찾을 수 없습니다.');
       }
     } catch (err) {
-      console.error('❌ 데이터 로드 오류:', err);
+      log.error('데이터 로드 오류:', err);
       setError('데이터를 불러오는데 실패했습니다.');
     }
   };
@@ -289,7 +287,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       }
       await loadData();
     } catch (err: unknown) {
-      console.error('❌ 장부 항목 추가 오류:', err);
+      log.error('장부 항목 추가 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '장부 항목 추가에 실패했습니다.';
       setError(errorMessage);
     } finally {
@@ -386,7 +384,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       }
       await loadData();
     } catch (err: unknown) {
-      console.error('❌ 장부 항목 수정 오류:', err);
+      log.error('장부 항목 수정 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '장부 항목 수정에 실패했습니다.';
       setError(errorMessage);
     } finally {
@@ -414,7 +412,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       }
       await loadData(); // 잔액 업데이트를 위해
     } catch (err: unknown) {
-      console.error('❌ 장부 항목 삭제 오류:', err);
+      log.error('장부 항목 삭제 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '장부 항목 삭제에 실패했습니다.';
       setError(errorMessage);
       notifyGlobal('장부 항목 삭제에 실패했습니다: ' + errorMessage, 'error');
@@ -463,7 +461,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
     
     // 유효한 날짜인지 확인
     if (isNaN(date.getTime())) {
-      console.warn('⚠️ 유효하지 않은 날짜:', dateString);
+      log.warn('유효하지 않은 날짜:', dateString);
       return '';
     }
     
@@ -598,7 +596,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       const monthKey = formatMonthKey(entry.date);
       // 빈 monthKey는 무시
       if (!monthKey) {
-        console.warn('⚠️ 월별 그룹화 실패 - 유효하지 않은 날짜:', entry.date);
+        log.warn('월별 그룹화 실패 - 유효하지 않은 날짜:', entry.date);
         return acc;
       }
       if (!acc[monthKey]) {

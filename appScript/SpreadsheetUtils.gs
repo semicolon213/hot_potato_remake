@@ -45,7 +45,7 @@ function getProjectRootFolderId_() {
       cache.put(ROOT_FOLDER_CACHE_KEY_, rootFolderIdMemo_, SHEET_ID_CACHE_TTL_SEC_);
       return rootFolderIdMemo_;
     } catch (error) {
-      console.warn('📁 ROOT_FOLDER_ID 사용 불가, hp_member 부모 폴더를 사용합니다:', error.message);
+      logWarn_('SpreadsheetUtils', 'ROOT_FOLDER_ID 사용 불가, hp_member 부모 폴더를 사용합니다:', error.message);
     }
   }
 
@@ -58,10 +58,10 @@ function getProjectRootFolderId_() {
       return rootFolderIdMemo_;
     }
   } catch (error) {
-    console.warn('📁 hp_member 부모 폴더 사용 불가:', error.message);
+    logWarn_('SpreadsheetUtils', 'hp_member 부모 폴더 사용 불가:', error.message);
   }
 
-  console.warn('📁 루트 폴더를 찾을 수 없습니다. ROOT_FOLDER_ID 또는 hp_member 연결을 확인하세요.');
+  logWarn_('SpreadsheetUtils', '루트 폴더를 찾을 수 없습니다. ROOT_FOLDER_ID 또는 hp_member 연결을 확인하세요.');
   return null;
 }
 
@@ -144,7 +144,7 @@ function findSpreadsheetIdsByNames_(names) {
       }
     }
   } catch (error) {
-    console.warn('📊 Drive 검색 실패, 폴더 탐색으로 대체:', error.message);
+    logWarn_('SpreadsheetUtils', 'Drive 검색 실패, 폴더 탐색으로 대체:', error.message);
   }
 
   var unresolved = missing.filter(function(name) { return !found[name]; });
@@ -156,7 +156,7 @@ function findSpreadsheetIdsByNames_(names) {
         if (matchingFiles.length > 0) found[name] = matchingFiles[0].getId();
       });
     } catch (error) {
-      console.warn('📊 폴더 탐색 대체 경로 실패:', error.message);
+      logWarn_('SpreadsheetUtils', '폴더 탐색 대체 경로 실패:', error.message);
     }
   }
 
@@ -183,7 +183,7 @@ function clearSpreadsheetIdCache() {
   CacheService.getScriptCache().remove(ROOT_FOLDER_CACHE_KEY_);
   rootFolderIdMemo_ = null;
   sheetIdMemo_ = {};
-  console.log('🧹 스프레드시트 ID 캐시를 비웠습니다.');
+  logDebug_('SpreadsheetUtils', '스프레드시트 ID 캐시를 비웠습니다.');
 }
 
 /**
@@ -196,7 +196,7 @@ function getSheetIdByName(sheetName) {
     if (!sheetName) return null;
     return findSpreadsheetIdsByNames_([sheetName])[sheetName] || null;
   } catch (error) {
-    console.error('📊 스프레드시트 ID 찾기 오류:', sheetName, error);
+    logError_('SpreadsheetUtils', '스프레드시트 ID 찾기 오류:', sheetName, error);
     return null;
   }
 }
@@ -222,7 +222,7 @@ function findSpreadsheetInFolderTreeByName_(folder, sheetName) {
       if (subResults.length > 0) result.push.apply(result, subResults);
     }
   } catch (error) {
-    console.error('📁 폴더 트리에서 스프레드시트 검색 오류:', error);
+    logError_('SpreadsheetUtils', '폴더 트리에서 스프레드시트 검색 오류:', error);
   }
 
   return result;
@@ -246,7 +246,7 @@ function getSpreadsheetIds(req) {
 
     const result = findSpreadsheetIdsByNames_(spreadsheetNames);
     const notFound = spreadsheetNames.filter(function(name) { return !result[name]; });
-    console.log('📊 스프레드시트 ID 조회:', spreadsheetNames.length, '개 중', spreadsheetNames.length - notFound.length, '개 찾음');
+    logDebug_('SpreadsheetUtils', '스프레드시트 ID 조회:', spreadsheetNames.length, '개 중', spreadsheetNames.length - notFound.length, '개 찾음');
 
     return {
       success: true,
@@ -254,7 +254,7 @@ function getSpreadsheetIds(req) {
       notFound: notFound.length > 0 ? notFound : undefined
     };
   } catch (error) {
-    console.error('📊 스프레드시트 ID 목록 조회 오류:', error);
+    logError_('SpreadsheetUtils', '스프레드시트 ID 목록 조회 오류:', error);
     return {
       success: false,
       message: '스프레드시트 ID 조회 중 오류가 발생했습니다: ' + error.message,
@@ -272,7 +272,6 @@ function getSpreadsheetIds(req) {
  */
 function deleteRowsByDocIds(spreadsheetId, sheetName, documentIds) {
   try {
-    console.log('🗑️ 문서 ID로 행 삭제 시작:', { spreadsheetId, sheetName, documentIds });
 
     const data = getSheetData(spreadsheetId, sheetName, 'A:Z');
     if (!data || data.length <= 1) {
@@ -317,15 +316,13 @@ function deleteRowsByDocIds(spreadsheetId, sheetName, documentIds) {
       sheet.deleteRow(rowIndex);
     });
 
-    console.log('🗑️ 문서 ID로 행 삭제 완료:', rowsToDelete.length, '행');
-
     return {
       success: true,
       message: `${rowsToDelete.length}개의 문서가 삭제되었습니다.`
     };
 
   } catch (error) {
-    console.error('🗑️ 문서 ID로 행 삭제 오류:', error);
+    logError_('SpreadsheetUtils', '문서 ID로 행 삭제 오류:', error);
     return {
       success: false,
       message: '문서 삭제 중 오류가 발생했습니다: ' + error.message
@@ -343,7 +340,6 @@ function deleteRowsByDocIds(spreadsheetId, sheetName, documentIds) {
  */
 function searchSpreadsheetData(spreadsheetId, sheetName, searchTerm, column = null) {
   try {
-    console.log('🔍 스프레드시트 데이터 검색 시작:', { spreadsheetId, sheetName, searchTerm, column });
 
     const data = getSheetData(spreadsheetId, sheetName, 'A:Z');
     if (!data || data.length <= 1) {
@@ -358,7 +354,7 @@ function searchSpreadsheetData(spreadsheetId, sheetName, searchTerm, column = nu
     if (column) {
       searchColumnIndex = header.indexOf(column);
       if (searchColumnIndex === -1) {
-        console.warn('검색할 컬럼을 찾을 수 없습니다:', column);
+        logWarn_('SpreadsheetUtils', '검색할 컬럼을 찾을 수 없습니다:', column);
         return [];
       }
     }
@@ -392,12 +388,10 @@ function searchSpreadsheetData(spreadsheetId, sheetName, searchTerm, column = nu
         }
       }
     }
-
-    console.log('🔍 스프레드시트 데이터 검색 완료:', results.length, '개 결과');
     return results;
 
   } catch (error) {
-    console.error('🔍 스프레드시트 데이터 검색 오류:', error);
+    logError_('SpreadsheetUtils', '스프레드시트 데이터 검색 오류:', error);
     return [];
   }
 }
@@ -412,7 +406,6 @@ function searchSpreadsheetData(spreadsheetId, sheetName, searchTerm, column = nu
  */
 function sortSpreadsheetData(spreadsheetId, sheetName, column, ascending = true) {
   try {
-    console.log('📊 스프레드시트 데이터 정렬 시작:', { spreadsheetId, sheetName, column, ascending });
 
     const data = getSheetData(spreadsheetId, sheetName, 'A:Z');
     if (!data || data.length <= 1) {
@@ -423,7 +416,7 @@ function sortSpreadsheetData(spreadsheetId, sheetName, column, ascending = true)
     const columnIndex = header.indexOf(column);
 
     if (columnIndex === -1) {
-      console.warn('정렬할 컬럼을 찾을 수 없습니다:', column);
+      logWarn_('SpreadsheetUtils', '정렬할 컬럼을 찾을 수 없습니다:', column);
       return false;
     }
 
@@ -447,7 +440,7 @@ function sortSpreadsheetData(spreadsheetId, sheetName, column, ascending = true)
     return setSheetData(spreadsheetId, sheetName, range, sortedData);
 
   } catch (error) {
-    console.error('📊 스프레드시트 데이터 정렬 오류:', error);
+    logError_('SpreadsheetUtils', '스프레드시트 데이터 정렬 오류:', error);
     return false;
   }
 }
@@ -461,7 +454,6 @@ function sortSpreadsheetData(spreadsheetId, sheetName, column, ascending = true)
  */
 function filterSpreadsheetData(spreadsheetId, sheetName, filters) {
   try {
-    console.log('🔍 스프레드시트 데이터 필터링 시작:', { spreadsheetId, sheetName, filters });
 
     const data = getSheetData(spreadsheetId, sheetName, 'A:Z');
     if (!data || data.length <= 1) {
@@ -497,12 +489,10 @@ function filterSpreadsheetData(spreadsheetId, sheetName, filters) {
         results.push(result);
       }
     }
-
-    console.log('🔍 스프레드시트 데이터 필터링 완료:', results.length, '개 결과');
     return results;
 
   } catch (error) {
-    console.error('🔍 스프레드시트 데이터 필터링 오류:', error);
+    logError_('SpreadsheetUtils', '스프레드시트 데이터 필터링 오류:', error);
     return [];
   }
 }
@@ -516,7 +506,6 @@ function filterSpreadsheetData(spreadsheetId, sheetName, filters) {
  */
 function getSpreadsheetStats(spreadsheetId, sheetName, column) {
   try {
-    console.log('📊 스프레드시트 데이터 통계 시작:', { spreadsheetId, sheetName, column });
 
     const data = getSheetData(spreadsheetId, sheetName, 'A:Z');
     if (!data || data.length <= 1) {
@@ -532,7 +521,7 @@ function getSpreadsheetStats(spreadsheetId, sheetName, column) {
     const columnIndex = header.indexOf(column);
 
     if (columnIndex === -1) {
-      console.warn('통계할 컬럼을 찾을 수 없습니다:', column);
+      logWarn_('SpreadsheetUtils', '통계할 컬럼을 찾을 수 없습니다:', column);
       return null;
     }
 
@@ -574,12 +563,10 @@ function getSpreadsheetStats(spreadsheetId, sheetName, column) {
       leastCommon: leastCommon,
       valueCounts: valueCounts
     };
-
-    console.log('📊 스프레드시트 데이터 통계 완료');
     return stats;
 
   } catch (error) {
-    console.error('📊 스프레드시트 데이터 통계 오류:', error);
+    logError_('SpreadsheetUtils', '스프레드시트 데이터 통계 오류:', error);
     return null;
   }
 }
@@ -591,7 +578,6 @@ function getSpreadsheetStats(spreadsheetId, sheetName, column) {
  */
 function createSpreadsheetBackup(spreadsheetId) {
   try {
-    console.log('💾 스프레드시트 백업 생성 시작:', spreadsheetId);
 
     const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
     const backupName = `${spreadsheet.getName()}_backup_${new Date().toISOString().split('T')[0]}`;
@@ -610,8 +596,6 @@ function createSpreadsheetBackup(spreadsheetId) {
     // 원본 시트 삭제
     backupSpreadsheet.deleteSheet(backupSpreadsheet.getSheets()[0]);
 
-    console.log('💾 스프레드시트 백업 생성 완료:', backupSpreadsheet.getId());
-
     return {
       success: true,
       message: '백업이 생성되었습니다.',
@@ -620,7 +604,7 @@ function createSpreadsheetBackup(spreadsheetId) {
     };
 
   } catch (error) {
-    console.error('💾 스프레드시트 백업 생성 오류:', error);
+    logError_('SpreadsheetUtils', '스프레드시트 백업 생성 오류:', error);
     return {
       success: false,
       message: '백업 생성 중 오류가 발생했습니다: ' + error.message

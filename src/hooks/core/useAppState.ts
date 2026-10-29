@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 /**
  * @file useAppState.ts
  * @brief 전역 애플리케이션 상태 관리 훅
@@ -26,6 +27,8 @@ import { useDataSyncState } from './useDataSyncState';
 import { apiClient } from '../../utils/api/apiClient';
 import { useNotification } from '../ui/useNotification';
 import { useAppDataStore } from '../../stores/appDataStore';
+const log = logger.scope('hooks/core/useAppState');
+
 
 // Widget related interfaces and constants, moved from useWidgetManagement.ts
 interface WidgetData {
@@ -145,7 +148,7 @@ export const useAppState = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const pageFromUrl = urlParams.get('page');
             if (pageFromUrl) {
-                // console.log('URL에서 페이지 상태 복원:', pageFromUrl);
+                // log.debug('URL에서 페이지 상태 복원:', pageFromUrl);
                 setCurrentPage(pageFromUrl as PageType);
             } else {
                 // URL에 페이지 파라미터가 없으면 기본값 사용
@@ -158,14 +161,14 @@ export const useAppState = () => {
                 try {
                     setSelectedAnnouncement(JSON.parse(savedSelectedAnnouncement));
                 } catch (e) {
-                    console.error("Failed to parse saved selected announcement:", e);
+                    log.error("Failed to parse saved selected announcement:", e);
                     localStorage.removeItem('selectedAnnouncement');
                 }
             }
 
             // 검색어 상태 복원
             if (savedSearchTerm) {
-                // console.log('검색어 상태 복원:', savedSearchTerm);
+                // log.debug('검색어 상태 복원:', savedSearchTerm);
                 setSearchTerm(savedSearchTerm);
             }
 
@@ -176,10 +179,10 @@ export const useAppState = () => {
 
                 // 승인된 사용자인 경우 데이터 초기화
                 if (userData.isApproved) {
-                    // console.log('새로고침 후 사용자 상태 복원 - 데이터 로딩 시작');
+                    // log.debug('새로고침 후 사용자 상태 복원 - 데이터 로딩 시작');
 
                     try {
-                        // console.log("Google API 초기화 시작");
+                        // log.debug("Google API 초기화 시작");
                         await initializeGoogleAPIOnce(hotPotatoDBSpreadsheetId);
 
                         // 스프레드시트 ID들 초기화
@@ -199,9 +202,9 @@ export const useAppState = () => {
                         setIsGapiReady(true);
                         setIsGoogleAuthenticatedForAnnouncements(true);
 
-                        // console.log("✅ 새로고침 후 Papyrus DB 연결 완료");
+                        // log.debug("새로고침 후 Papyrus DB 연결 완료");
                     } catch (error) {
-                        console.error("Error during refresh initialization", error);
+                        log.error("Error during refresh initialization", error);
                         // Google API 초기화 실패해도 계속 진행
                         setIsGapiReady(true);
                         setIsGoogleAuthenticatedForAnnouncements(true);
@@ -314,7 +317,7 @@ export const useAppState = () => {
                         setLastSyncTime(dataSyncService.getLastSyncTime());
                     });
                 } catch (error) {
-                    console.error("Error during login initialization", error);
+                    log.error("Error during login initialization", error);
                     const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
                     setIsGapiReady(false);
                     setIsGoogleAuthenticatedForAnnouncements(false);
@@ -350,12 +353,11 @@ export const useAppState = () => {
                     targetId = calendarSuppSpreadsheetId;
                     break;
                 default:
-                    console.warn(`Unknown userType: ${user.userType}. Defaulting to student calendar.`);
+                    log.warn("Unknown userType");
                     targetId = calendarStudentSpreadsheetId;
                     break;
             }
             setActiveCalendarSpreadsheetId(targetId);
-            console.log(`Active calendar spreadsheet set to: ${targetId} for userType: ${user.userType}`);
         } else {
             setActiveCalendarSpreadsheetId(null);
         }
@@ -367,12 +369,10 @@ export const useAppState = () => {
             const loadAnnouncements = async () => {
                 setIsAnnouncementsLoading(true);
                 try {
-                    console.log('공지사항 데이터 로딩 시작...');
                     const announcementsData = await fetchAnnouncements(user.studentId, user.userType);
                     setAnnouncements(announcementsData);
-                    console.log('공지사항 데이터 로딩 완료:', announcementsData.length, '개');
                 } catch (error) {
-                    console.error('Error loading announcements:', error);
+                    log.error('Error loading announcements:', error);
                 } finally {
                     setIsAnnouncementsLoading(false);
                 }
@@ -386,12 +386,10 @@ export const useAppState = () => {
             const loadCalendarEvents = async () => {
                 setIsCalendarLoading(true);
                 try {
-                    console.log('캘린더 데이터 로딩 시작...');
                     const events = await fetchCalendarEvents();
                     setCalendarEvents(events);
-                    console.log('캘린더 데이터 로딩 완료:', events.length, '개');
                 } catch (error) {
-                    console.error('Error loading calendar events:', error);
+                    log.error('Error loading calendar events:', error);
                 } finally {
                     setIsCalendarLoading(false);
                 }
@@ -404,7 +402,6 @@ export const useAppState = () => {
         if (isGapiReady) {
             const fetchTemplateData = async () => {
                 try {
-                    console.log('템플릿 데이터 로딩 시작...');
                     const [templates, tags] = await Promise.all([
                         fetchTemplates(),
                         fetchPersonalTags()
@@ -412,10 +409,8 @@ export const useAppState = () => {
 
                     setCustomTemplates(templates);
                     setTags(tags);
-                    console.log('템플릿 데이터 로딩 완료:', templates.length, '개');
-                    console.log('태그 데이터 로딩 완료:', tags.length, '개');
                 } catch (error) {
-                    console.error("Error during template data fetch", error);
+                    log.error("Error during template data fetch", error);
                 } finally {
                     setIsTemplatesLoading(false);
                 }
@@ -428,13 +423,11 @@ export const useAppState = () => {
         if (isGapiReady && studentSpreadsheetId && staffSpreadsheetId) {
             const loadAttendees = async () => {
                 try {
-                    console.log('참석자 데이터 로딩 시작...');
                     const { students, staff } = await fetchAttendees();
                     setStudents(students);
                     setStaff(staff);
-                    console.log('참석자 데이터 로딩 완료:', students.length, '명 학생,', staff.length, '명 교직원');
                 } catch (error) {
-                    console.error('Error loading attendees:', error);
+                    log.error('Error loading attendees:', error);
                 }
             };
             loadAttendees();
@@ -458,7 +451,7 @@ export const useAppState = () => {
             } catch (apiError: any) {
                 // 429 에러 (Too Many Requests) 처리
                 if (apiError.status === 429 || apiError.result?.error?.code === 429) {
-                    console.warn('⚠️ API 호출 제한 초과. 위젯 동기화를 건너뜁니다.');
+                    log.warn('API 호출 제한 초과. 위젯 동기화를 건너뜁니다.');
                     setInitialLoadComplete(true);
                     return;
                 }
@@ -491,7 +484,7 @@ export const useAppState = () => {
                             }).filter((w): w is WidgetData => w !== null);
                             loadedWidgets.push(...parsedWidgets);
                         } catch (e) {
-                            console.warn('구버전 위젯 데이터 파싱 실패:', e);
+                            log.warn('구버전 위젯 데이터 파싱 실패:', e);
                         }
                     } else if (row.length >= 3) {
                         // 새 형식: widget_id, widget_type, widget_order, widget_config
@@ -508,7 +501,7 @@ export const useAppState = () => {
                         try {
                             widgetConfig = widgetConfigStr ? JSON.parse(widgetConfigStr) : {};
                         } catch (e) {
-                            console.warn(`위젯 ${widgetId}의 config 파싱 실패:`, e);
+                            log.warn(`위젯 ${widgetId}의 config 파싱 실패:`, e);
                         }
                         
                         const { type } = option;
@@ -545,9 +538,9 @@ export const useAppState = () => {
         } catch (error: any) {
             // 429 에러는 경고만 표시하고 계속 진행
             if (error.status === 429 || error.result?.error?.code === 429) {
-                console.warn("⚠️ API 호출 제한 초과. 위젯 동기화를 건너뜁니다.");
+                log.warn("API 호출 제한 초과. 위젯 동기화를 건너뜁니다.");
             } else {
-                console.error("Google Sheets 동기화 실패:", error);
+                log.error("Google Sheets 동기화 실패:", error);
             }
         } finally {
             setInitialLoadComplete(true);
@@ -614,13 +607,12 @@ export const useAppState = () => {
                             valueInputOption: 'RAW',
                             resource: { values: dataToSave },
                         });
-                        console.log('📝 위젯 설정 저장 완료');
                         // 저장 성공 후에만 prevWidgetConfigRef 업데이트
                         prevWidgetConfigRef.current = currentConfig;
                     } catch (apiError: any) {
                         // 429 에러 (Too Many Requests) 처리
                         if (apiError.status === 429 || apiError.result?.error?.code === 429) {
-                            console.warn('⚠️ API 호출 제한 초과. 저장을 건너뛰고 다음 변경 시 재시도합니다.');
+                            log.warn('API 호출 제한 초과. 저장을 건너뛰고 다음 변경 시 재시도합니다.');
                             // prevWidgetConfigRef를 업데이트하지 않아서 다음 변경 시 다시 저장 시도
                             return;
                         } else {
@@ -629,7 +621,7 @@ export const useAppState = () => {
                     }
                 }
             } catch (error) {
-                console.error("Error saving widget data to Google Sheets:", error);
+                log.error("Error saving widget data to Google Sheets:", error);
             }
         }, 3000); // 3초 디바운싱 (429 에러 방지)
         
@@ -714,7 +706,6 @@ export const useAppState = () => {
      * @details 로그아웃 또는 계정 전환 시 모든 상태를 초기화합니다.
      */
     const resetAllState = useCallback(() => {
-        console.log('🧹 useAppState 상태 초기화 시작...');
 
         // 사용자 상태 초기화 (토큰은 App에서 tokenManager.clear()로 제거)
         setUser(null);
@@ -765,9 +756,7 @@ export const useAppState = () => {
         setIsInitializingData(false);
         setDataSyncProgress({ current: 0, total: 0, message: '' });
         setLastSyncTime(null);
-        setHasInitialized(false); // 초기화 플래그 리셋
-
-        console.log('🧹 useAppState 상태 초기화 완료');
+        setHasInitialized(false);
     }, []);
 
     // 수동 데이터 갱신 함수
@@ -789,11 +778,9 @@ export const useAppState = () => {
             
             const lastSync = dataSyncService.getLastSyncTime();
             setLastSyncTime(lastSync);
-            
-            console.log('✅ 전체 데이터 갱신 완료');
             showNotification('데이터 갱신이 완료되었습니다.', 'success');
         } catch (error) {
-            console.error('❌ 전체 데이터 갱신 실패:', error);
+            log.error('전체 데이터 갱신 실패:', error);
             const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
             showNotification(`데이터 갱신에 실패했습니다: ${errorMessage}`, 'error', 5000);
             throw error;

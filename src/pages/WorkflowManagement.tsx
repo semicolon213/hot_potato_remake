@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * WorkflowManagement.tsx
  * 결재 관리 페이지
@@ -14,6 +15,8 @@ import WorkflowTemplateModal from '../components/features/workflow/WorkflowTempl
 import type { WorkflowInfoResponse, WorkflowListResponse, WorkflowRequestResponse } from '../types/api/apiResponses';
 import '../components/features/templates/TemplateUI.css';
 import './WorkflowManagement.css';
+const log = logger.scope('pages/WorkflowManagement');
+
 
 interface WorkflowManagementProps {
   onPageChange?: (pageName: string) => void;
@@ -88,7 +91,7 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
           } as WorkflowInfoResponse)));
         }
       } catch (error) {
-        console.error('❌ 워크플로우 데이터 로드 오류:', error);
+        log.error('워크플로우 데이터 로드 오류:', error);
       } finally {
         setIsLoading(false);
       }
@@ -228,7 +231,7 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
           } as WorkflowInfoResponse)));
         }
       } catch (error) {
-        console.error('❌ 워크플로우 데이터 갱신 오류:', error);
+        log.error('워크플로우 데이터 갱신 오류:', error);
       } finally {
         setIsLoading(false);
       }
@@ -543,7 +546,6 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
         documentId={selectedDocument?.id}
         documentTitle={selectedDocument?.title}
         onSuccess={(response: WorkflowRequestResponse) => {
-          console.log('✅ 결재 요청 성공:', response);
           // 모든 탭 데이터 갱신
           Promise.all([
             apiClient.getMyRequestedWorkflows(userEmail),
