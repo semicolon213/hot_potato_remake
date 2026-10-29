@@ -20,7 +20,7 @@
 |---|---|
 | 브라우저 Console | `API 요청 시도`, `API 응답 성공`, 빨간 오류 |
 | 브라우저 Network | `/.netlify/functions/proxy`의 상태 코드와 응답 본문 |
-| Netlify → Logs → Functions → `proxy` | `APP_SCRIPT_URL 환경변수 누락`, `Apps Script 비JSON 응답` |
+| Netlify → Logs → Functions → `proxy` | `APP_SCRIPT_URL 환경변수 누락`, `Apps Script가 JSON이 아닌 응답을 반환했습니다.`, `Apps Script 요청 시간 초과`(브랜치 `feature/loading-performance` 이후). 로그에는 메서드와 `action`만 남습니다 |
 | Apps Script → 실행 | 실패한 `doPost` 실행과 오류 메시지 |
 
 ## RB-01 모든 기능에서 데이터가 안 불러와짐
@@ -35,7 +35,9 @@
 
 | 응답 | 원인 | 조치 |
 |---|---|---|
-| 500 `Apps Script URL이 설정되지 않았습니다.` | Netlify에 `APP_SCRIPT_URL`이 없음 (`VITE_APP_SCRIPT_URL`만으로는 안 됨) | Netlify 환경변수에 `APP_SCRIPT_URL` 추가 → **Clear cache and deploy** |
+| 500 `Apps Script URL이 설정되지 않았습니다.` (배포 직후 모든 API) | Netlify에 `APP_SCRIPT_URL`이 없음. 프록시는 `VITE_APP_SCRIPT_URL`을 대신 읽지 않음 | Netlify 환경변수에 `APP_SCRIPT_URL` 추가 → **Clear cache and deploy** |
+| 504 `Apps Script 응답 시간이 초과되었습니다.` (`retryable:true`) | Apps Script가 약 9초 안에 답하지 못함. 프록시가 Netlify 10초 제한 전에 끊은 것 | 앱이 조회 요청은 자동으로 최대 2회 다시 시도합니다. 계속되면 Apps Script **실행**에서 해당 액션의 실행 시간을 확인. `getSpreadsheetIds`가 느리면 서버 캐시가 비었거나 Drive 검색이 실패해 폴더 탐색으로 넘어간 경우이므로 RB-08 확인. 쓰기 요청은 재시도하지 않으므로 사용자에게 결과를 확인한 뒤 다시 하라고 안내 |
+| 502·504 HTML 오류 페이지 (Netlify 자체 응답) | 브랜치 이전 프록시에서 Apps Script가 10초를 넘김 | 위와 같음. `feature/loading-performance` 병합 후에는 위 504 JSON으로 바뀜 |
 | `Apps Script가 JSON이 아닌 응답을 반환했습니다.` | Apps Script가 HTML(로그인·권한·오류 페이지)을 돌려줌. 배포가 삭제됐거나, 접근 권한이 바뀌었거나, URL이 옛날 배포를 가리킴 | Apps Script **배포 관리**에서 활성 배포 URL을 확인하고 `APP_SCRIPT_URL`과 비교 → 다르면 고치고 재배포 |
 | 502 `Apps Script 연결 중 오류가 발생했습니다.` | 네트워크 또는 Google 측 일시 장애 | 5분 후 재시도. [Google Workspace 상태 대시보드](https://www.google.com/appsstatus) 확인 |
 | 200 + `success:false`, `알 수 없는 액션입니다` | 프론트가 백엔드에 없는 액션을 호출. 프론트만 먼저 배포됐을 가능성 | 백엔드 `clasp push` + 새 버전 배포, 또는 Netlify 이전 배포로 롤백 |
@@ -99,6 +101,8 @@
 2. 사용자에게 잠시 후 다시 시도하라고 안내합니다. 새로고침을 반복하면 더 늦어집니다.
 3. Apps Script **실행** 화면에서 실패 비율과 6분 초과(`Exceeded maximum execution time`) 오류를 확인합니다.
 
+**판단·분기:** proxy 응답이 504 `Apps Script 응답 시간이 초과되었습니다.`이면 할당량이 아니라 느린 액션 문제입니다. RB-01의 504 행을 따릅니다.
+
 **해결되지 않을 때:** 하루 단위 할당량을 넘었으면 다음 날 자동으로 풀립니다. 반복되면 개발 담당자에게 캐시 TTL 조정을 요청합니다([ARCHITECTURE.md §9.2](./ARCHITECTURE.md#92-데이터-로딩과-캐시)).
 
 **완료 확인:** 새로 연 창에서 공지사항이 10초 안에 보입니다.
@@ -140,6 +144,30 @@
 **판단·분기:** 프론트와 백엔드를 같이 배포했다면 **둘 다** 이전 버전으로 돌립니다. 한쪽만 돌리면 액션 이름이 어긋날 수 있습니다.
 
 **완료 확인:** [DEPLOYMENT.md §6](./DEPLOYMENT.md#6-배포-후-확인) 체크리스트를 다시 통과합니다.
+
+## RB-08 시트를 바꾼 뒤 옛 데이터나 빈 화면이 보임
+
+**대상·조건:** 스프레드시트 파일을 새로 만들어 교체했거나, 다른 폴더로 옮겼거나, 이름을 바꾼 뒤 해당 화면이 비어 있거나 예전 파일 내용이 보입니다. 브랜치 `feature/loading-performance` 이후 코드에 해당합니다.
+
+**원인:** Apps Script가 스프레드시트 ID를 서버 캐시에 6시간, 브라우저가 클라이언트 캐시에 6시간 보관합니다([ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)). 파일이 바뀌어도 그동안은 옛 ID를 씁니다.
+
+**사전 확인:** 새 파일이 정확한 이름으로 루트 폴더 아래에 있고, 같은 이름의 다른 파일이 없는지 확인합니다(RB-03).
+
+**절차:**
+1. 배포 계정으로 Apps Script 편집기를 열고 `SpreadsheetUtils.gs`의 `clearSpreadsheetIdCache`를 실행합니다. 로그에 `스프레드시트 ID 캐시를 비웠습니다.`가 나오면 됩니다.
+2. 사용자에게 헤더의 새로고침 버튼(캐시 초기화)을 누른 뒤 **브라우저를 새로고침(F5)** 하라고 안내합니다. 한 탭 안에서는 ID를 메모리에 기억하므로 새로고침 버튼만으로는 ID를 다시 조회하지 않고, 로그아웃은 캐시를 지우지 않습니다.
+
+**판단·분기:**
+
+| 결과 | 조치 |
+|---|---|
+| 새 ID로 정상 표시 | 완료 |
+| 여전히 빈 화면, Console에 `spreadsheet ID not found` | 파일 위치·이름 문제. RB-03 |
+| `ROOT_FOLDER_ID`를 바꿨음 | 스크립트 속성을 고친 뒤 1번을 다시 실행. 루트 폴더 캐시도 함께 지워짐 |
+
+**해결되지 않을 때:** 브라우저 개발자 도구 → Application → Local Storage에서 `cache_`로 시작하는 항목을 지우고 새로고침합니다. 그래도 안 되면 개발 담당자에게 Console 로그를 전달합니다.
+
+**완료 확인:** 해당 화면에 새 파일의 데이터가 보입니다.
 
 ## 보고·전파
 

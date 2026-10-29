@@ -34,6 +34,7 @@ sequenceDiagram
 
 - 본문: `{ action, ...data }`를 JSON으로 `POST`
 - 타임아웃 60초, 최대 5회 재시도(지수 백오프 1s → 2s → 4s …), 429 응답 시 `Retry-After` 준수
+  - 브랜치 `feature/loading-performance`(미병합): 시도마다 타임아웃 30초, 최대 2회 재시도(1s → 2s). 조회 액션만 재시도하고 쓰기 액션은 재시도하지 않습니다(429는 예외). 4xx는 재시도하지 않습니다. 같은 조회가 진행 중이면 그 요청을 함께 씁니다. 상세는 [ARCHITECTURE.md §9.2](./ARCHITECTURE.md#92-데이터-로딩과-캐시)
 - 조회 액션(`CACHEABLE_ACTIONS`)은 응답을 캐시하고, 쓰기 액션이 성공하면 관련 캐시를 무효화
 - 설정값: `src/config/api.ts`
 
@@ -46,6 +47,8 @@ sequenceDiagram
 { "success": false, "message": "오류 설명" }
 // 실패 (프록시: HTTP 400/405/500/502)
 { "success": false, "error": "오류 설명" }
+// 실패 (프록시: HTTP 504, 브랜치 feature/loading-performance 이후. Apps Script가 약 9초 안에 응답하지 않음)
+{ "success": false, "error": "Apps Script 응답 시간이 초과되었습니다.", "retryable": true }
 ```
 
 - Apps Script는 오류가 나도 **항상 HTTP 200**을 반환합니다. 성공 여부는 반드시 `success`로 판단합니다.
@@ -99,7 +102,7 @@ sequenceDiagram
 | `addStaticTag` | `tag, userEmail` | 태그 추가 |
 | `updateStaticTag` | `oldTag, newTag, userEmail` (+`confirm`) | `confirm` 없으면 영향받는 양식만 반환, 있으면 실제 수정 |
 | `deleteStaticTag` | `tag, userEmail` (+`confirm, deleteTemplates`) | 2단계 삭제 |
-| `getSpreadsheetIds` | `spreadsheetNames[]` | 스프레드시트 이름 → ID |
+| `getSpreadsheetIds` | `spreadsheetNames[]` | 스프레드시트 이름 → ID. 응답 `{success:true, data:{이름: ID 또는 null}, notFound?:[못 찾은 이름]}`. 이름 배열이 비면 `success:false`. 루트 폴더 아래 파일만 찾습니다. 브랜치 `feature/loading-performance`부터 문자열이 아닌 이름은 버리고, Drive 검색 1회 + 서버 캐시 6시간으로 찾습니다([ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)). 클라이언트는 `notFound`가 있거나 `null`이 섞인 응답을 캐시하지 않음 |
 
 ### 2.4 공지사항
 

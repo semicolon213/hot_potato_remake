@@ -39,11 +39,13 @@ clasp login
 # https://script.google.com/home/usersettings 에서 Apps Script API 사용 설정
 clasp create --type webapp --title "HP ERP Backend" --rootDir appScript
 # 또는 기존 프로젝트에 연결: 루트에 .clasp.json 생성
-#   { "scriptId": "<스크립트 ID>", "rootDir": "appScript" }
-clasp push
+#   { "scriptId": "<스크립트 ID>", "rootDir": "appScript", "fileExtension": "gs" }
+clasp push --force
 ```
 
-- `.clasp.json`은 `.gitignore`에 들어 있습니다. 각자 만들어야 합니다.
+- `.clasp.json`은 `.gitignore`에 들어 있습니다. 각자 만들어야 합니다. `rootDir`이 `appScript`가 아니면 저장소 전체가 올라가니 꼭 확인합니다.
+- `clasp push`는 Apps Script 프로젝트의 **HEAD 코드**를 통째로 바꿉니다. 편집기에서만 고친 코드가 있으면 덮어써지므로, 먼저 `clasp pull`을 다른 폴더에서 받아 백업하고 저장소와 비교합니다. `--force`는 매니페스트 변경 확인 질문을 건너뜁니다.
+- 명령은 clasp 3.x 기준입니다.
 - `appScript/appsscript.json`(매니페스트)도 함께 올라갑니다. 고급 서비스 8종(Drive, DriveActivity, Gmail, Calendar, Docs, Sheets, AdminGroupsSettings, AdminDirectory)이 여기 정의되어 있습니다.
 
 ### 2.2 웹앱 배포
@@ -55,11 +57,29 @@ clasp push
 
 > 이후 코드를 바꿀 때는 **새 배포를 만들지 말고** "배포 관리 → 기존 배포 편집 → 새 버전"으로 올립니다. 새 배포를 만들면 URL이 바뀌어 Netlify 환경변수도 바꿔야 합니다.
 
+### 2.3 테스트 배포로 먼저 확인하기
+
+운영 배포는 **고정 버전**을 가리키므로, `clasp push`로 HEAD를 바꿔도 운영 사이트에는 영향이 없습니다. 바뀐 백엔드는 별도 테스트 배포를 만들어 확인합니다.
+
+```bash
+clasp push --force
+clasp create-deployment -d "test: <브랜치 이름>"
+clasp list-deployments   # 새 배포 ID 확인
+```
+
+1. 새 배포의 웹앱 URL(`https://script.google.com/macros/s/<배포 ID>/exec`)을 로컬 `.env`의 `VITE_APP_SCRIPT_URL`에 넣고 `npm run dev:web`을 다시 시작합니다.
+2. 운영 배포는 그대로 둡니다. 확인이 끝나면 운영 배포를 **기존 배포 편집 → 새 버전**으로 올립니다(§7).
+3. `@HEAD` 배포(`.../dev` URL)는 쓰지 않습니다. 로그인된 브라우저에서만 열리기 때문에 Vite 프록시를 통한 호출은 실패합니다.
+4. 매니페스트의 고급 서비스(특히 AdminDirectory)가 바뀌면 편집기에서 함수를 한 번 실행해 권한을 다시 승인해야 할 수 있습니다.
+5. 다 쓴 테스트 배포는 **배포 관리**에서 보관 처리합니다.
+
+2026-10-29 기준으로 운영 배포는 @34(고정 버전), 테스트 배포는 @35(`feature/loading-performance` 코드)입니다. Apps Script HEAD에는 브랜치 코드가 올라가 있고, 원래 HEAD는 로컬에 백업했습니다.
+
 ## 3. 초기 세팅 (Drive 폴더·시트 생성)
 
 1. Apps Script 편집기에서 `InitialSetup.gs`를 열고 `initializeSystem`을 실행합니다.
 2. 배포 계정의 내 드라이브에 `hot_potato_remake/` 폴더 트리와 스프레드시트 11개가 생깁니다. 구조는 [DATA_MODEL.md §4](./DATA_MODEL.md#4-drive-폴더-구조)에 있습니다.
-3. 스크립트 속성(`ROOT_FOLDER_ID`, `SPREADSHEET_ID`, 폴더·시트 이름 등)이 자동으로 채워집니다. 이미 있는 값은 덮어쓰지 않습니다.
+3. 스크립트 속성(`ROOT_FOLDER_ID`, `SPREADSHEET_ID`, 폴더·시트 이름 등)이 자동으로 채워집니다. 이미 있는 값은 덮어쓰지 않습니다. 브랜치 `feature/loading-performance` 이후 코드는 마지막에 스프레드시트 ID 캐시도 비웁니다(`clearSpreadsheetIdCache()`).
 4. **실행 로그를 꼭 확인합니다.** 개별 폴더·시트 생성이 실패해도 결과가 `success:true`로 나올 수 있습니다.
 5. 관리자 키 일일 갱신 트리거를 만듭니다: **트리거 → 트리거 추가 → `handleDailyKeyUpdate`, 시간 기반, 일 단위**. 트리거를 만들지 않으면 관리자 키가 생성되지 않습니다.
 6. (Workspace 사용 시) 역할별 Google 그룹 이메일을 스크립트 속성 `GROUP_EMAIL_JSON`에 넣습니다.
@@ -82,10 +102,12 @@ clasp push
 
    | 변수 | 필수 | 쓰는 곳 |
    |---|---|---|
-   | `APP_SCRIPT_URL` | ✅ | **Netlify Function(프록시)이 읽는 유일한 값**. 없으면 모든 API가 500 |
+   | `APP_SCRIPT_URL` | ✅ | **Netlify Function(프록시)이 읽는 유일한 값**. 없으면 모든 API가 500. `VITE_APP_SCRIPT_URL`로는 대신할 수 없음 |
    | `VITE_GOOGLE_CLIENT_ID` | ✅ | 빌드 시 번들에 포함 |
-   | `VITE_APP_SCRIPT_URL` | 권장 | 빌드 시 환경 검증용 |
-   | `VITE_FOLER_NAME`, `VITE_SPREADSHEET_NAME`, `VITE_SHEET_NAME`, `VITE_GROUP_EMAIL` | 기본값을 바꿀 때 | 빌드 시 번들에 포함 |
+   | `VITE_APP_SCRIPT_URL` | 권장 | 빌드 시 환경 검증용. 프록시는 읽지 않음 |
+   | `VITE_FOLER_NAME`, `VITE_SPREADSHEET_NAME`, `VITE_SHEET_NAME`, `VITE_GROUP_EMAIL` | 기본값을 바꿀 때만 | 빌드 시 번들에 포함. **한 줄 JSON**으로 넣거나, 기본값을 쓸 거면 아예 만들지 않음 |
+
+   > JSON 변수는 `.env.example`처럼 여러 줄로 붙여 넣으면 Netlify에는 첫 줄 `{`만 저장됩니다. 이 경우 파싱이 **경고 없이** 실패하고 `src/config/environment.ts`의 기본값이 쓰입니다. 2026-10-29에 운영 사이트의 네 값이 모두 `{`인 것을 확인했습니다. 예: `VITE_GROUP_EMAIL` = `{"STUDENT":"student_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","ADJ_PROFESSOR":"ad_professor_hp@googlegroups.com","ASSISTANT":"hp_supp@googlegroups.com"}`
 
    > `VITE_*` 값은 빌드할 때 번들에 들어가므로 **공개 값**입니다. 비밀 값을 `VITE_`로 시작하는 이름에 넣지 마세요.
    > 환경변수를 바꾼 뒤에는 **Deploys → Trigger deploy → Clear cache and deploy site**로 다시 빌드해야 반영됩니다.
@@ -113,11 +135,19 @@ Google Cloud Console의 OAuth 클라이언트에서 **승인된 JavaScript 원�
 |---|---|
 | 프론트엔드 (`src/`, `public/`) | `main`에 병합 → Netlify 자동 빌드·배포 |
 | 프록시 (`netlify/functions/`) | 위와 같음 |
-| Apps Script (`appScript/`) | `clasp push` → 편집기 **배포 관리 → 기존 배포 편집 → 새 버전** (URL 유지) |
+| Apps Script (`appScript/`) | `clasp push --force` → 테스트 배포로 확인(§2.3) → 편집기 **배포 관리 → 기존 배포 편집 → 새 버전** (URL 유지) |
+| 스프레드시트 파일 교체·이동·이름 변경 | Apps Script 편집기에서 `clearSpreadsheetIdCache()` 실행 ([OPERATOR_MANUAL.md §7](./OPERATOR_MANUAL.md#7-데이터-직접-수정-시-주의)) |
 | 환경변수 | Netlify 대시보드에서 수정 → Clear cache and deploy |
 | 스크립트 속성 | Apps Script **프로젝트 설정 → 스크립트 속성** |
 
 **백엔드를 먼저, 프론트엔드를 나중에** 배포합니다. 새 액션을 쓰는 프론트가 먼저 나가면 "알 수 없는 액션" 오류가 납니다.
+
+### `feature/loading-performance` 병합 순서 (미완료)
+
+1. Netlify에 `APP_SCRIPT_URL`이 있는지 확인하고, JSON 환경변수 4개를 한 줄 JSON으로 고치거나 삭제합니다(§4).
+2. 운영 배포(@34)를 **기존 배포 편집 → 새 버전**으로 올립니다. 권한 재승인 창이 뜨면 배포 계정으로 승인합니다.
+3. 편집기에서 `clearSpreadsheetIdCache()`를 한 번 실행합니다.
+4. 브랜치를 병합해 Netlify 배포를 진행하고 §6 체크리스트와 [TEST_PLAN.md](./TEST_PLAN.md#3-테스트-케이스-시트-수동-배포-환경)의 TC-SYS-04를 확인합니다.
 
 ### 롤백
 

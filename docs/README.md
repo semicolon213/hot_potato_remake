@@ -39,7 +39,7 @@ flowchart LR
 | [DATA_MODEL.md](./DATA_MODEL.md) | 스프레드시트·시트·열, Drive 폴더 구조 |
 | [API_SPEC.md](./API_SPEC.md) | Apps Script 액션 79개 (진단용 3개 포함) |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 구성 요소, 배포 구조, 흐름, 상태, 패키지, 캐시 |
-| [ADR.md](./ADR.md) | 설계 결정 12건과 그 이유 |
+| [ADR.md](./ADR.md) | 설계 결정 13건과 그 이유 |
 | [CONVENTIONS.md](./CONVENTIONS.md) | 브랜치, 커밋, 코드, Apps Script 규칙 |
 | [GETTING_STARTED.md](./GETTING_STARTED.md) | 로컬 개발 환경 |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | 처음부터 세팅, 변경 배포, 롤백 |

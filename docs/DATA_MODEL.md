@@ -300,7 +300,7 @@ hot_potato_remake/
 - **ID 생성:** `{접두어}_{epoch ms}[_{rand}]` 형식입니다 (`wf_`, `hist_`, `tpl_`, `acc_`, `entry_`, `budget_`). 공지 번호만 기존 최대값 + 1입니다.
 - **개인정보 암호화:** 회원 이메일, 공지 작성자 이메일, 학생 연락처, 교직원 연락처·이메일은 암호화해서 저장합니다. 방식과 한계는 [SECURITY.md](./SECURITY.md)에 정리했습니다.
 - **JSON 열:** 결재선(`review_line`, `payment_line`), 공지 공개 범위(`access_rights`), 첨부(`file_notice`), 통장 권한 목록은 JSON 문자열로 저장합니다.
-- **스프레드시트 ID 해석:** 프론트가 `getSpreadsheetIds` 액션에 이름 배열을 보내면, Apps Script가 ROOT 하위를 재귀 탐색해 **이름이 일치하는 첫 파일**의 ID를 돌려줍니다. 이름이 같은 파일이 둘 이상이면 첫 번째만 씁니다.
+- **스프레드시트 ID 해석:** 프론트가 `getSpreadsheetIds` 액션에 이름 배열을 보내면, Apps Script가 ROOT 하위를 재귀 탐색해 **이름이 일치하는 첫 파일**의 ID를 돌려줍니다. 이름이 같은 파일이 둘 이상이면 첫 번째만 씁니다. 브랜치 `feature/loading-performance`(미병합)에서는 Drive 검색 한 번으로 찾고 ROOT 하위 파일만 남기며, 결과를 서버에 6시간 캐시합니다([ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)).
 
 ## 6. 알려진 불일치 (정리 대상)
 

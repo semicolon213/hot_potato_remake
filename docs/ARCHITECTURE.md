@@ -448,7 +448,7 @@ Apps Script는 응답이 느리고 호출 할당량이 있어서, **호출 수�
 
 | 단계 | 내용 | 위치 |
 |---|---|---|
-| 1. 스프레드시트 ID 해석 | 이름 목록을 한 번에 보내 ID를 받음 | `papyrusManager.initializeSpreadsheetIds` |
+| 1. 스프레드시트 ID 해석 | 이름 목록을 한 번에 보내 ID를 받음. 개인 설정 파일 찾기, 회계 폴더 ID 조회와 동시에 시작 | `papyrusManager.initializeSpreadsheetIds` |
 | 2. Phase 1 프리페치 | 공지, 캘린더, 템플릿, 태그, 결재 템플릿, 장부 목록을 **동시 8개씩** 가져옴 | `dataSyncService.initializeDataFull` |
 | 3. Phase 2 프리페치 | 문서, 학생, 교직원, 내 결재, (관리자) 사용자 목록을 화면을 막지 않고 가져옴 | 같은 파일 |
 | 4. 화면 표시 | 각 화면이 같은 API를 다시 부르면 **캐시 적중** | `apiClient`, `cacheManager` |
@@ -462,8 +462,25 @@ Apps Script는 응답이 느리고 호출 할당량이 있어서, **호출 수�
 | 공지·문서 | 10분 | 15분 |
 | 캘린더 | 15분 | 15분 |
 | 사용자·템플릿·학생 | 30분 | 30분 |
-| 스프레드시트 ID·장부 목록 | 45분 | 60분 |
+| 스프레드시트 ID·회계 폴더 ID | 6시간 | 60분 (스프레드시트 ID) |
+| 장부 목록·회계 카테고리 | 45분 | — |
+
+위 표는 브랜치 `feature/loading-performance`(미병합) 기준입니다. `main`에서는 스프레드시트 ID·회계 폴더 ID도 45분입니다. 값은 `src/utils/cache/cacheUtils.ts`의 `CACHE_TTL`, 주기는 `dataSyncService.ts`의 `SYNC_INTERVALS`에 있습니다.
 
 - 캐시 저장소: 메모리 `Map`(LRU 100개) + `localStorage`(`cache_*`, 항목 100KB 미만, 전체 5MB)
 - 429(호출 초과) 응답이 오면 해당 카테고리 동기화를 30~120분 쉽니다.
+- 결재 관리·문서관리 화면에서는 페이지 이름과 `PAGE_CATEGORY_MAP` 키가 달라 페이지 기반 갱신이 일어나지 않습니다(BUG-13, [TEST_PLAN.md §6](./TEST_PLAN.md#6-결함-리포트-테스트코드-점검으로-발견)).
+
+#### 호출 재시도와 타임아웃 (브랜치 `feature/loading-performance`, 미병합)
+
+| 구간 | 값 | 동작 |
+|---|---|---|
+| `apiClient` | 시도마다 타임아웃 30초, 최대 2회 재시도 (`src/config/api.ts`) | 시도마다 새 `AbortController`. 지수 백오프 1초 → 2초 |
+| 재시도 대상 | 캐시 가능한 조회 액션 + 명시 목록(`checkUserStatus`, 이메일 암복호화, 취업 조회 등) | 쓰기 액션은 재시도하지 않음. 4xx도 재시도하지 않음. 429만 `Retry-After`(최대 60초)를 지키며 재시도 |
+| 중복 요청 | 같은 캐시 키의 조회가 진행 중이면 그 요청을 같이 씀 | 로그인 직후 여러 화면이 같은 데이터를 동시에 불러도 호출은 1번 |
+| 불완전 응답 | `getSpreadsheetIds` 결과에 `null`이나 `notFound`가 있으면 캐시하지 않음 | 일시적 누락이 6시간 고정되지 않음 |
+| Netlify 프록시 | Apps Script 호출 약 9초에서 중단 → 504 `{success:false, retryable:true}` | Netlify 동기 함수의 10초 제한 전에 응답 |
+| Apps Script | 스프레드시트 ID를 `CacheService`에 6시간 보관 | 무효화는 `clearSpreadsheetIdCache()` ([ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)) |
+
+`main`의 `apiClient`는 타임아웃 60초, 최대 5회 재시도이고, 한 번 타임아웃되면 남은 재시도가 즉시 실패합니다(BUG-06).
 - 오프라인이면 `OfflineBanner`를 띄우고, TTL 안의 캐시로 일부 화면을 보여 줍니다.

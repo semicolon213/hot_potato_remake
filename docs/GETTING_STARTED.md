@@ -27,13 +27,15 @@ cp .env.example .env
 | 변수 | 필수 | 설명 |
 |---|---|---|
 | `VITE_GOOGLE_CLIENT_ID` | ✅ | Google OAuth 클라이언트 ID |
-| `VITE_APP_SCRIPT_URL` | ✅ | Apps Script 웹앱 `/exec` URL. 로컬에서는 Vite 프록시(`/api`)가 이 주소로 전달 |
+| `VITE_APP_SCRIPT_URL` | ✅ | Apps Script 웹앱 `/exec` URL. 로컬에서는 Vite 프록시(`/api`)가 이 주소로 전달. 백엔드를 바꾸는 중이면 테스트 배포의 `/exec` URL을 넣음([DEPLOYMENT.md §2.3](./DEPLOYMENT.md#23-테스트-배포로-먼저-확인하기)) |
 | `VITE_FOLER_NAME` | — | Drive 폴더 이름 JSON (`ROOT`, `DOCUMENT`, `WORKFLOW`, `ACCOUNT`, `ACCOUNT_EVIDENCE` …). 철자 `FOLER`는 그대로 씀 |
 | `VITE_SPREADSHEET_NAME` | — | 스프레드시트 이름 JSON (`CONFIG`, `NOTICE`, `CALENDAR_*`, `STUDENT`, `STAFF`, `TAG`) |
 | `VITE_SHEET_NAME` | — | 시트 이름 JSON |
 | `VITE_GROUP_EMAIL` | — | 역할별 Google 그룹 이메일 JSON |
 
-- JSON 변수를 비우거나 잘못 쓰면 `src/config/environment.ts`의 기본값과 합쳐집니다. 앱 시작 시 콘솔에 경고만 나오고 실행은 계속됩니다.
+- JSON 변수를 비우면 `src/config/environment.ts`의 기본값을 쓰고, 값이 있으면 기본값 위에 덮어씁니다. **JSON 문법이 틀리면 경고 없이 기본값만 쓰입니다.** 바꾼 값이 반영되지 않으면 JSON 문법부터 확인합니다.
+- `.env`에서는 여러 줄 JSON이 동작하지만, Netlify 환경변수에는 **한 줄 JSON**으로 넣어야 합니다([DEPLOYMENT.md §4](./DEPLOYMENT.md#4-netlify)).
+- Netlify 프록시는 `VITE_APP_SCRIPT_URL`이 아니라 서버 전용 `APP_SCRIPT_URL`을 읽습니다. `npm run dev:netlify`로 함수까지 띄울 때는 `.env`에 `APP_SCRIPT_URL`도 넣습니다.
 - 값의 예시는 `.env.example`에 있습니다.
 - `.env`는 커밋하지 않습니다.
 
@@ -79,6 +81,8 @@ cp .env.example .env
 | 증상 | 해결 |
 |---|---|
 | 콘솔에 `VITE_APP_SCRIPT_URL` 경고, API 404 | `.env`에 `VITE_APP_SCRIPT_URL`을 넣고 dev 서버 재시작 |
+| `VITE_APP_SCRIPT_URL`에 `.../dev` 주소를 넣었더니 API가 HTML이나 로그인 페이지를 돌려줌 | `@HEAD`(`/dev`) 배포는 로그인된 브라우저에서만 열려 Vite 프록시로는 쓸 수 없음. `clasp create-deployment`로 만든 테스트 배포의 `/exec` URL 사용 |
+| `npm run dev:netlify`에서 모든 API가 500 `Apps Script URL이 설정되지 않았습니다.` | `.env`에 `APP_SCRIPT_URL` 추가 |
 | 로그인 후 `redirect_uri_mismatch` | Google Cloud Console의 OAuth 클라이언트에 `http://localhost:5173`을 원본·리디렉션 URI로 추가 |
 | 예전 데이터가 계속 보임 | 헤더의 새로고침 버튼(캐시 초기화) 또는 localStorage의 `cache_*` 삭제 |
 | 5173 포트 사용 중 | 기존 dev 서버 종료 또는 `npx vite --port 5174` (OAuth URI도 추가 필요) |
