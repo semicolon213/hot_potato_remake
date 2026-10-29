@@ -12,7 +12,7 @@ import WorkflowActionModal from '../components/features/workflow/WorkflowActionM
 import WorkflowDetailModal from '../components/features/workflow/WorkflowDetailModal';
 import WorkflowResubmitModal from '../components/features/workflow/WorkflowResubmitModal';
 import WorkflowTemplateModal from '../components/features/workflow/WorkflowTemplateModal';
-import type { WorkflowInfoResponse, WorkflowListResponse, WorkflowRequestResponse } from '../types/api/apiResponses';
+import type { WorkflowInfoResponse, WorkflowListResponse } from '../types/api/apiResponses';
 import '../components/features/templates/TemplateUI.css';
 import './WorkflowManagement.css';
 const log = logger.scope('pages/WorkflowManagement');
@@ -545,7 +545,7 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
         }}
         documentId={selectedDocument?.id}
         documentTitle={selectedDocument?.title}
-        onSuccess={(response: WorkflowRequestResponse) => {
+        onSuccess={() => {
           // 모든 탭 데이터 갱신
           Promise.all([
             apiClient.getMyRequestedWorkflows(userEmail),

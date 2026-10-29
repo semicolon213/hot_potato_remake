@@ -39,8 +39,8 @@ export async function encrypt(text: string): Promise<string> {
         combined.set(new Uint8Array(encryptedData), iv.length);
 
         return btoa(String.fromCharCode.apply(null, Array.from(combined)));
-    } catch (error) {
-        log.error("Encryption failed:");
+    } catch {
+        log.error("Encryption failed");
         return text; // Return original text on failure
     }
 }
@@ -64,8 +64,8 @@ export async function decrypt(encryptedText: string): Promise<string> {
         );
 
         return new TextDecoder().decode(decryptedData);
-    } catch (error) {
-        log.error("Decryption failed:");
+    } catch {
+        log.error("Decryption failed");
         return encryptedText; // Return original text on failure
     }
 }

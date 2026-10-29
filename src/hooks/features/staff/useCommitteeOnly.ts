@@ -54,8 +54,8 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
         try {
           const result = await apiClient.request<string>('encryptEmail', { data: dataItem.tel });
           if (result.success && result.data) encryptedCommittee.tel = result.data;
-        } catch (error) {
-          log.warn('전화번호 암호화 실패:');
+        } catch {
+          log.warn('전화번호 암호화 실패');
         }
       }
       
@@ -64,14 +64,14 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
         try {
           const result = await apiClient.request<string>('encryptEmail', { data: dataItem.email });
           if (result.success && result.data) encryptedCommittee.email = result.data;
-        } catch (error) {
-          log.warn('이메일 암호화 실패:');
+        } catch {
+          log.warn('이메일 암호화 실패');
         }
       }
       
       return encryptedCommittee;
-    } catch (error) {
-      log.warn('데이터 암호화 실패, 원본 데이터를 사용합니다:');
+    } catch {
+      log.warn('데이터 암호화 실패, 원본 데이터를 사용합니다');
       return dataItem;
     }
   }, []);

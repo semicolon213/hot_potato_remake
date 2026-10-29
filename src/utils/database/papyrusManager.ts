@@ -133,8 +133,8 @@ export const findSpreadsheetById = async (name: string): Promise<string | null> 
 
         try {
             window.gapi.client.setToken({ access_token: token });
-        } catch (tokenError) {
-            log.warn(`토큰 설정 실패:`);
+        } catch {
+            log.warn(`토큰 설정 실패`);
         }
 
         let attempts = 0;
@@ -268,7 +268,7 @@ export const initializeSpreadsheetIds = async (): Promise<{
             : null;
 
         if (!response.success || !response.data) {
-            log.error('스프레드시트 ID 조회 실패:');
+            log.error('스프레드시트 ID 조회 실패');
 
             return {
                 announcementSpreadsheetId: null,
@@ -288,7 +288,7 @@ export const initializeSpreadsheetIds = async (): Promise<{
 
         // 찾지 못한 스프레드시트가 있으면 경고
         if (response.notFound && response.notFound.length > 0) {
-            log.warn('찾지 못한 스프레드시트:');
+            log.warn('찾지 못한 스프레드시트');
         }
 
         // 결과 매핑 (user_setting은 개인 설정 파일로 별도 초기화, ENV v2 키 기준)
@@ -400,7 +400,7 @@ export const fetchAnnouncements = async (
         });
 
         if (!response.success) {
-            log.warn('Failed to fetch announcements:');
+            log.warn('Failed to fetch announcements');
             return [];
         }
 
@@ -586,8 +586,8 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
         
         try {
             window.gapi.client.setToken({access_token: token});
-        } catch (tokenError) {
-            log.error('Failed to set GAPI token:');
+        } catch {
+            log.error('Failed to set GAPI token');
             throw new Error('Failed to set GAPI token');
         }
 
@@ -645,7 +645,7 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
                             const baseUrl = permanentUrl.split('=s')[0];
                             return { oldTag: fullImgTag, newUrl: baseUrl };
                         } else {
-                            log.error('webContentLink and thumbnailLink not found for file:');
+                            log.error('webContentLink and thumbnailLink not found for file');
                             return { oldTag: fullImgTag, newUrl: null };
                         }
                     } else {
@@ -785,7 +785,7 @@ export const incrementViewCount = async (announcementId: string): Promise<void> 
         });
 
         if (!response.success) {
-            log.warn('Failed to increment view count:');
+            log.warn('Failed to increment view count');
         } else {
             log.debug(`View count for announcement ${announcementId} updated`);
         }
@@ -820,8 +820,8 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
         
         try {
             window.gapi.client.setToken({access_token: token});
-        } catch (tokenError) {
-            log.error('Failed to set GAPI token:');
+        } catch {
+            log.error('Failed to set GAPI token');
             throw new Error('Failed to set GAPI token');
         }
 
@@ -1925,8 +1925,8 @@ const decryptValue = async (encryptedValue: string): Promise<string> => {
       return response.data as string;
     }
     return encryptedValue;
-  } catch (error) {
-    log.warn('복호화 실패:');
+  } catch {
+    log.warn('복호화 실패');
     return encryptedValue;
   }
 };
@@ -1954,8 +1954,8 @@ const decryptValuesBatch = async (encryptedValues: string[]): Promise<string[]> 
       }
     }
     return results;
-  } catch (error) {
-    log.warn('일괄 복호화 실패:');
+  } catch {
+    log.warn('일괄 복호화 실패');
     return encryptedValues;
   }
 };
@@ -1973,8 +1973,8 @@ const encryptValue = async (plainValue: string): Promise<string> => {
     const response = await apiClient.request<{ success: boolean; data: string }>('encryptEmail', { data: v });
     if (response.success && response.data) return response.data as string;
     return v;
-  } catch (error) {
-    log.warn('암호화 실패:');
+  } catch {
+    log.warn('암호화 실패');
     return v;
   }
 };
@@ -2011,7 +2011,7 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
     log.debug('교직원 스프레드시트 헤더:', headers);
     
     // 먼저 암호화된 데이터를 파싱
-    const rawStaffData: Staff[] = data.values.slice(1).map((row: string[], rowIndex: number) => {
+    const rawStaffData: Staff[] = data.values.slice(1).map((row: string[]) => {
       const staff: Partial<Staff> = {};
       headers.forEach((header: string, index: number) => {
         const value = row[index];

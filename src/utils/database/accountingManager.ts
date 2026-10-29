@@ -192,8 +192,8 @@ export const uploadEvidenceFile = async (
     );
 
     if (!response.ok) {
-      const errorData = await response.text();
-      log.error('파일 업로드 응답 오류:');
+      await response.text();
+      log.error('파일 업로드 응답 오류');
       throw new Error(`파일 업로드 실패: ${response.status} ${response.statusText}`);
     }
 
@@ -338,9 +338,8 @@ export const createLedgerEntry = async (
       // 배열 형식으로 update (papyrus-db는 두 번째 인자로 시트명을 받으므로, range에는 셀 주소만)
       await update(spreadsheetId, ACCOUNTING_SHEETS.ACCOUNT, `D${actualRowNumber}`, [[balanceAfter]]);
     } catch (updateError: unknown) {
-      const error = updateError as { message?: string; code?: number; status?: number; result?: unknown; error?: unknown };
       log.error('통장 잔액 업데이트 오류:', updateError);
-      log.error('업데이트 오류 상세:');
+      log.error('업데이트 오류 상세');
       // 잔액 업데이트 실패해도 장부 항목은 추가되도록 계속 진행
       // (나중에 수동으로 잔액을 수정할 수 있음)
       log.warn('통장 잔액 업데이트 실패했지만 장부 항목 추가는 계속 진행합니다.');
@@ -1191,7 +1190,7 @@ export const createCategory = async (
     // 더 자세한 오류 정보 로깅
     const err = error as { result?: { error?: unknown }; body?: string };
     if (err.result && err.result.error) {
-      log.error('오류 상세:');
+      log.error('오류 상세');
     }
     if (err.body) {
       try {

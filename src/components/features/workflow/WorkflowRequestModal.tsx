@@ -81,7 +81,7 @@ const WorkflowRequestModal: React.FC<WorkflowRequestModalProps> = ({
           }));
           setUsers(userList);
         } else {
-          log.warn('사용자 목록을 가져올 수 없습니다:');
+          log.warn('사용자 목록을 가져올 수 없습니다');
           // 디버깅을 위해 응답 전체를 로그
           if (response.data) {
       // Intentionally ignored.
@@ -375,7 +375,7 @@ const WorkflowRequestModal: React.FC<WorkflowRequestModalProps> = ({
         // 디버그 정보가 있으면 함께 표시
         let errorMessage = response.message || '결재 요청에 실패했습니다.';
         if (response.debug) {
-          log.error('결재 요청 실패 디버그:');
+          log.error('결재 요청 실패 디버그');
           if (response.debug.actionReceived !== 'requestWorkflow') {
             errorMessage += ` (받은 액션: ${response.debug.actionReceived || '없음'})`;
           }

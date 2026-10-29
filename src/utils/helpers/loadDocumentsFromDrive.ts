@@ -51,8 +51,8 @@ async function convertEmailToName(email: string): Promise<string> {
       return userNameResponse.name;
     }
     return email; // 변환 실패 시 원본 이메일 반환
-  } catch (error) {
-    log.warn('이메일을 사용자 이름으로 변환 실패:');
+  } catch {
+    log.warn('이메일을 사용자 이름으로 변환 실패');
     return email; // 오류 시 원본 이메일 반환
   }
 }
@@ -66,13 +66,13 @@ export const loadSharedDocuments = async (): Promise<DocumentInfo[]> => {
     const result = await apiClient.getDocuments({ role: 'shared' });
     
     if (!result.success) {
-      log.warn('공유 문서 API 실패:');
+      log.warn('공유 문서 API 실패');
       return [];
     }
 
     // 응답 구조 확인: result.data가 배열인지 확인
     if (!result.data) {
-      log.warn('공유 문서 API 응답에 data가 없습니다:');
+      log.warn('공유 문서 API 응답에 data가 없습니다');
       return [];
     }
 
@@ -84,7 +84,7 @@ export const loadSharedDocuments = async (): Promise<DocumentInfo[]> => {
       // 중첩된 구조인 경우 (result.data.data)
       rows = Array.isArray(result.data.data) ? result.data.data : [];
     } else {
-      log.warn('공유 문서 API 응답 data가 배열이 아닙니다:');
+      log.warn('공유 문서 API 응답 data가 배열이 아닙니다');
       return [];
     }
     

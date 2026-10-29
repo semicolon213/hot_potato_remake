@@ -15,7 +15,7 @@ function encryptEmailMain(email) {
   try {
     
     if (!email || typeof email !== 'string') {
-      logWarn_('EncryptionEmail', '유효하지 않은 입력:');
+      logWarn_('EncryptionEmail', '유효하지 않은 입력');
       return email || '';
     }
     
@@ -30,7 +30,7 @@ function encryptEmailMain(email) {
     }
     return result;
   } catch (error) {
-    logError_('EncryptionEmail', '암호화 오류:');
+    logError_('EncryptionEmail', '암호화 오류');
     return email || '';
   }
 }
@@ -44,7 +44,7 @@ function decryptEmailMain(encryptedEmail) {
   try {
     
     if (!encryptedEmail || typeof encryptedEmail !== 'string') {
-      logWarn_('EncryptionEmail', '유효하지 않은 입력:');
+      logWarn_('EncryptionEmail', '유효하지 않은 입력');
       return encryptedEmail || '';
     }
     
@@ -77,7 +77,7 @@ function decryptEmailMain(encryptedEmail) {
     }
     return result || encryptedEmail;
   } catch (error) {
-    logError_('EncryptionEmail', '복호화 오류:');
+    logError_('EncryptionEmail', '복호화 오류');
     return encryptedEmail || '';
   }
 }
@@ -106,7 +106,7 @@ function validateEmailFormat(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   } catch (error) {
-    logError_('EncryptionEmail', '이메일 형식 검증 오류:');
+    logError_('EncryptionEmail', '이메일 형식 검증 오류');
     return false;
   }
 }
@@ -126,7 +126,7 @@ function validatePhoneFormat(phone) {
     const phoneRegex = /^010-\d{4}-\d{4}$/;
     return phoneRegex.test(phone);
   } catch (error) {
-    logError_('EncryptionEmail', '전화번호 형식 검증 오류:');
+    logError_('EncryptionEmail', '전화번호 형식 검증 오류');
     return false;
   }
 }
@@ -153,7 +153,7 @@ function maskEmail(email) {
     
     return `${maskedLocal}@${domain}`;
   } catch (error) {
-    logError_('EncryptionEmail', '이메일 마스킹 오류:');
+    logError_('EncryptionEmail', '이메일 마스킹 오류');
     return email || '';
   }
 }
@@ -181,7 +181,7 @@ function maskPhone(phone) {
     
     return phone;
   } catch (error) {
-    logError_('EncryptionEmail', '전화번호 마스킹 오류:');
+    logError_('EncryptionEmail', '전화번호 마스킹 오류');
     return phone || '';
   }
 }
@@ -210,7 +210,7 @@ function encryptContactInfo(contact) {
     return encryptedContact;
     
   } catch (error) {
-    logError_('EncryptionEmail', '연락처 정보 암호화 오류:');
+    logError_('EncryptionEmail', '연락처 정보 암호화 오류');
     return contact || {};
   }
 }
@@ -239,7 +239,7 @@ function decryptContactInfo(encryptedContact) {
     return decryptedContact;
     
   } catch (error) {
-    logError_('EncryptionEmail', '연락처 정보 복호화 오류:');
+    logError_('EncryptionEmail', '연락처 정보 복호화 오류');
     return encryptedContact || {};
   }
 }
@@ -269,7 +269,7 @@ function validateContactInfo(contact) {
     return validation;
     
   } catch (error) {
-    logError_('EncryptionEmail', '연락처 정보 검증 오류:');
+    logError_('EncryptionEmail', '연락처 정보 검증 오류');
     return {
       isValid: false,
       errors: ['검증 중 오류가 발생했습니다']
@@ -301,7 +301,7 @@ function maskContactInfo(contact) {
     return maskedContact;
     
   } catch (error) {
-    logError_('EncryptionEmail', '연락처 정보 마스킹 오류:');
+    logError_('EncryptionEmail', '연락처 정보 마스킹 오류');
     return contact || {};
   }
 }

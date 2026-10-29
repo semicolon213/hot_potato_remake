@@ -72,8 +72,8 @@ const UserList: React.FC<UserListProps> = ({
   const unusedTotalPages = Math.ceil(unusedUsers.length / ITEMS_PER_PAGE);
 
   const handleApproveClick = (user: AdminUser) => {
-    log.debug('UserList - 승인 클릭한 사용자:');
-    log.debug('UserList - user.userType:');
+    log.debug('UserList - 승인 클릭한 사용자');
+    log.debug('UserList - user.userType');
     
     // userType을 명시적으로 포함한 객체 생성 (기본값 설정하지 않음)
     const modalUserData = {

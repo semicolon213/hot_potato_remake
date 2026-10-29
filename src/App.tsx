@@ -683,7 +683,7 @@ const App: React.FC = () => {
     try {
       let eventOwnerType = user.userType;
       let targetSpreadsheetId: string | null = null;
-      log.debug('현재 사용자 타입:');
+      log.debug('현재 사용자 타입');
 
       if (eventData.attendees) {
         const attendeeItems = eventData.attendees.split(',');
@@ -765,7 +765,7 @@ const App: React.FC = () => {
 
         // 참석자가 있는데도 lowestPermissionType이 null인 경우 경고
         if (!lowestPermissionType && (individualUserTypes.length > 0 || groupTypes.length > 0)) {
-          log.warn('참석자가 있지만 권한 타입을 결정할 수 없습니다. 사용자 타입을 사용합니다:');
+          log.warn('참석자가 있지만 권한 타입을 결정할 수 없습니다. 사용자 타입을 사용합니다');
           lowestPermissionType = user.userType || 'student';
         }
 

@@ -202,7 +202,7 @@ export class CacheManager {
         // 정리 후에도 용량 초과하면 저장하지 않음
         const newSize = this.getLocalStorageSize();
         if (newSize + entrySize > this.config.maxLocalStorageSize) {
-          log.warn('localStorage 용량 부족, 캐시 저장 건너뜀:');
+          log.warn('localStorage 용량 부족, 캐시 저장 건너뜀');
           return;
         }
       }

@@ -22,7 +22,7 @@ function doPost(e) {
           .createTextOutput(JSON.stringify(response))
           .setMimeType(ContentService.MimeType.JSON);
       } catch (error) {
-        logError_('Main', '암호화 오류:');
+        logError_('Main', '암호화 오류');
         return ContentService
           .createTextOutput(JSON.stringify({ success: false, message: '암호화 중 오류가 발생했습니다: ' + error.message }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -36,7 +36,7 @@ function doPost(e) {
           .createTextOutput(JSON.stringify({ success: true, data: decrypted }))
           .setMimeType(ContentService.MimeType.JSON);
       } catch (error) {
-        logError_('Main', '복호화 오류:');
+        logError_('Main', '복호화 오류');
         return ContentService
           .createTextOutput(JSON.stringify({ success: false, message: '복호화 중 오류가 발생했습니다: ' + error.message }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -57,7 +57,7 @@ function doPost(e) {
           .createTextOutput(JSON.stringify({ success: true, data: decrypted }))
           .setMimeType(ContentService.MimeType.JSON);
       } catch (error) {
-        logError_('Main', '일괄 복호화 오류:');
+        logError_('Main', '일괄 복호화 오류');
         return ContentService
           .createTextOutput(JSON.stringify({ success: false, message: '복호화 중 오류가 발생했습니다: ' + error.message }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -2301,7 +2301,7 @@ function verifyAdminKeyData(adminKey) {
     };
     
   } catch (error) {
-    logError_('Main', '관리자 키 검증 오류:');
+    logError_('Main', '관리자 키 검증 오류');
     return { success: false, isValid: false, error: error.message };
   }
 }
@@ -2318,19 +2318,19 @@ function handleDailyKeyUpdate() {
     if (!keyResult.success) {
       throw new Error('관리자 키 생성 실패: ' + keyResult.message);
     }
-    logDebug_('Main', '사용된 레이어:');
+    logDebug_('Main', '사용된 레이어');
     const backupResult = createKeyBackup(keyResult.key, keyResult.layers);
     
     if (backupResult.success) {
     } else {
-      logWarn_('Main', '키 백업 생성 실패:');
+      logWarn_('Main', '키 백업 생성 실패');
     }
     const updateResult = updateAdminKey(keyResult.key, keyResult.layers);
     
     if (!updateResult.success) {
       throw new Error('키 업데이트 실패: ' + updateResult.message);
     }
-    logDebug_('Main', '레이어:');
+    logDebug_('Main', '레이어');
     
     return {
       success: true,
@@ -2342,7 +2342,7 @@ function handleDailyKeyUpdate() {
     };
     
   } catch (error) {
-    logError_('Main', '일일 관리자 키 갱신 실패:');
+    logError_('Main', '일일 관리자 키 갱신 실패');
     logError_('Main', '오류 상세:', error.message);
     logError_('Main', '스택 트레이스:', error.stack);
     
@@ -2361,7 +2361,7 @@ function handleDailyKeyUpdate() {
       // GmailApp.sendEmail('admin@example.com', '관리자 키 갱신 실패', errorMessage);
       
     } catch (emailError) {
-      logError_('Main', '이메일 알림 전송 실패:');
+      logError_('Main', '이메일 알림 전송 실패');
     }
     
     return {

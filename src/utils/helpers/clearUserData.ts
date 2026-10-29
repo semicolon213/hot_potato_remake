@@ -71,8 +71,8 @@ export const clearGoogleAPIToken = (): void => {
             // 토큰 제거
             window.gapi.client.setToken({ access_token: '' });
         }
-    } catch (error) {
-        log.warn('Google API 토큰 제거 중 오류:');
+    } catch {
+        log.warn('Google API 토큰 제거 중 오류');
     }
 };
 

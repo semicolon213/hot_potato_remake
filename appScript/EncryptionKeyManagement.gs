@@ -50,7 +50,7 @@ function generateExtendedMultiLayerKey() {
       originalKey: baseKey
     };
   } catch (error) {
-    logError_('EncryptionKeyManagement', '관리자 키 생성 오류:');
+    logError_('EncryptionKeyManagement', '관리자 키 생성 오류');
     throw error;
   }
 }
@@ -83,7 +83,7 @@ function validateEncryptedKey(encryptedKey, methods) {
     };
     
   } catch (error) {
-    logError_('EncryptionKeyManagement', '키 검증 오류:');
+    logError_('EncryptionKeyManagement', '키 검증 오류');
     return {
       success: false,
       error: error.message,
@@ -109,7 +109,7 @@ function decryptKey(encryptedKey, methods) {
     return decryptedKey;
     
   } catch (error) {
-    logError_('EncryptionKeyManagement', '키 복호화 오류:');
+    logError_('EncryptionKeyManagement', '키 복호화 오류');
     throw error;
   }
 }
@@ -137,7 +137,7 @@ function reencryptKey(originalKey, newMethods) {
     };
     
   } catch (error) {
-    logError_('EncryptionKeyManagement', '키 재암호화 오류:');
+    logError_('EncryptionKeyManagement', '키 재암호화 오류');
     return {
       success: false,
       error: error.message
@@ -189,7 +189,7 @@ function analyzeKeyStrength(encryptedKey, methods) {
     };
     
   } catch (error) {
-    logError_('EncryptionKeyManagement', '키 강도 분석 오류:');
+    logError_('EncryptionKeyManagement', '키 강도 분석 오류');
     return {
       success: false,
       error: error.message
@@ -220,7 +220,7 @@ function createKeyBackup(encryptedKey, methods) {
     };
     
   } catch (error) {
-    logError_('EncryptionKeyManagement', '키 백업 생성 오류:');
+    logError_('EncryptionKeyManagement', '키 백업 생성 오류');
     return {
       success: false,
       error: error.message
@@ -254,7 +254,7 @@ function restoreKeyBackup(backup) {
     };
     
   } catch (error) {
-    logError_('EncryptionKeyManagement', '키 백업 복원 오류:');
+    logError_('EncryptionKeyManagement', '키 백업 복원 오류');
     return {
       success: false,
       error: error.message

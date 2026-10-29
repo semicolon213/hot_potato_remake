@@ -133,7 +133,7 @@ function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   } catch (error) {
-    logError_('UserRegistration', '이메일 형식 검증 오류:');
+    logError_('UserRegistration', '이메일 형식 검증 오류');
     return false;
   }
 }

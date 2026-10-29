@@ -112,8 +112,8 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     try {
       const result = await apiClient.request<string>('decryptEmail', { data: encryptedPhone });
       return result.success && result.data ? result.data : encryptedPhone;
-    } catch (error) {
-      log.error('연락처 복호화 실패:');
+    } catch {
+      log.error('연락처 복호화 실패');
     }
     
     return encryptedPhone;
@@ -137,8 +137,8 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
       }
       return result.success && result.data ? result.data : phone;
-    } catch (error) {
-      log.error('연락처 암호화 실패:');
+    } catch {
+      log.error('연락처 암호화 실패');
     }
     
     return phone;

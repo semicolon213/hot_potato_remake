@@ -40,7 +40,7 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
     // 권한 설정 전 현재 상태 확인
     const permissions = Drive.Permissions.list(documentId);
     const beforePermissions = permissions.items || [];
-    logDebug_('DocumentPermissions', '권한 설정 전 편집자:');
+    logDebug_('DocumentPermissions', '권한 설정 전 편집자');
     
     let successCount = 0;
     let failCount = 0;
@@ -76,7 +76,7 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
     
     // 권한 설정 후 결과 확인
     const afterPermissions = Drive.Permissions.list(documentId);
-    logDebug_('DocumentPermissions', '권한 설정 후 편집자:');
+    logDebug_('DocumentPermissions', '권한 설정 후 편집자');
     
     const result = {
       success: successCount > 0,

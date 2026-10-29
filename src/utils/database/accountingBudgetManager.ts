@@ -1026,10 +1026,6 @@ export const deleteBudgetPlan = async (
       throw new Error('Google API가 초기화되지 않았습니다.');
     }
 
-    // 삭제 전 현재 행 번호 확인
-    const beforeDeleteData = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN);
-    const beforeRowCount = beforeDeleteData?.values?.length || 0;
-    
     // Google Sheets API의 deleteDimension은 0-based 인덱스를 사용합니다
     // data.values[0] = 헤더 (시트 1행, API 인덱스 0)
     // data.values[rowIndex] = 찾은 행 (시트 rowIndex + 1행, API 인덱스 rowIndex)

@@ -75,7 +75,7 @@ export const useAdminPanel = () => {
                          [];
         setPinnedAnnouncementRequests(requests);
       } else {
-        log.error('고정 공지 승인 요청 목록 로딩 실패:');
+        log.error('고정 공지 승인 요청 목록 로딩 실패');
         setPinnedAnnouncementRequests([]);
       }
     } catch (error) {
@@ -243,7 +243,7 @@ export const useAdminPanel = () => {
     try {
       setIsLoading(true);
       setMessage('');
-      log.debug('studentId:');
+      log.debug('studentId');
       log.debug('groupRole:', groupRole);
       
       const result = await approveUserWithGroup(studentId, groupRole);
@@ -295,7 +295,7 @@ export const useAdminPanel = () => {
     try {
       setIsLoading(true);
       setMessage('');
-      log.debug('userId:');
+      log.debug('userId');
       
       const result = await rejectUser(userId);
       
@@ -384,8 +384,8 @@ export const useAdminPanel = () => {
           }
           adminAccessToken = token.access_token;
         }
-      } catch (tokenError) {
-        log.error('토큰 가져오기 실패:');
+      } catch {
+        log.error('토큰 가져오기 실패');
         setMessage('Google 인증이 필요합니다. 다시 로그인해주세요.');
         setEmailStatus('error');
         return;
@@ -408,8 +408,8 @@ export const useAdminPanel = () => {
         setEmailStatus('error');
       }
       
-    } catch (error) {
-      log.error('이메일 전송 오류:');
+    } catch {
+      log.error('이메일 전송 오류');
       setMessage('이메일 전송 중 오류가 발생했습니다.');
       setEmailStatus('error');
     } finally {

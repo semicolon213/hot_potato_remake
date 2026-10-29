@@ -222,7 +222,7 @@ export class ApiClient {
       // Intentionally ignored.
 
           } else {
-            log.warn('API 응답 실패:');
+            log.warn('API 응답 실패');
           }
 
           return result as ApiResponse<T>;

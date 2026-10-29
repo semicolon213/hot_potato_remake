@@ -59,8 +59,8 @@ export const tokenManager = {
       }
       
       return tokenData.accessToken;
-    } catch (error) {
-      log.error('토큰 파싱 실패:');
+    } catch {
+      log.error('토큰 파싱 실패');
       // 잘못된 형식의 토큰 삭제
       localStorage.removeItem('googleAccessToken');
       return null;
@@ -88,8 +88,8 @@ export const tokenManager = {
     try {
       const tokenData: TokenData = JSON.parse(tokenDataStr);
       return tokenData;
-    } catch (error) {
-      log.error('토큰 데이터 파싱 실패:');
+    } catch {
+      log.error('토큰 데이터 파싱 실패');
       return null;
     }
   },
@@ -168,8 +168,8 @@ export const tokenManager = {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        log.error('토큰 갱신 실패:');
+        await response.json().catch(() => ({}));
+        log.error('토큰 갱신 실패');
         throw new Error(`토큰 갱신 실패: ${response.status}`);
       }
 
@@ -184,8 +184,8 @@ export const tokenManager = {
       }
 
       return null;
-    } catch (error) {
-      log.error('토큰 갱신 실패:');
+    } catch {
+      log.error('토큰 갱신 실패');
       return null;
     }
   },

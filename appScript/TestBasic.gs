@@ -93,7 +93,7 @@ function testEncryptionAlgorithms() {
     };
     
   } catch (error) {
-    logError_('TestBasic', '암호화 알고리즘 테스트 실패:');
+    logError_('TestBasic', '암호화 알고리즘 테스트 실패');
     return {
       success: false,
       message: '암호화 알고리즘 테스트 실패: ' + error.message
@@ -138,7 +138,7 @@ function testMultiLayerEncryption() {
     };
     
   } catch (error) {
-    logError_('TestBasic', '다중 레이어 암호화 테스트 실패:');
+    logError_('TestBasic', '다중 레이어 암호화 테스트 실패');
     return {
       success: false,
       message: '다중 레이어 암호화 테스트 실패: ' + error.message
@@ -179,7 +179,7 @@ function testEmailEncryption() {
     };
     
   } catch (error) {
-    logError_('TestBasic', '이메일 암호화 테스트 실패:');
+    logError_('TestBasic', '이메일 암호화 테스트 실패');
     return {
       success: false,
       message: '이메일 암호화 테스트 실패: ' + error.message

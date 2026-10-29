@@ -1343,7 +1343,7 @@ export const AccountingStatsComponent = ({ items, onButtonClick, spreadsheetId, 
     totalExpense = dataToUse.reduce((sum, item) => sum + (Number(item.expense) || 0), 0);
   } else {
     // rawData가 없으면 경고 로그
-    log.warn('rawData가 없습니다. rawData:');
+    log.warn('rawData가 없습니다. rawData');
   }
   
   const totalBalance = totalIncome - totalExpense;

@@ -120,7 +120,7 @@ function handleCreateDocument(req) {
       logDebug_('DocumentCreation', '문서 폴더 이동 필요:', document.needsFolderMove);
       moveResult = moveDocumentToFolder(documentId, documentType);
       if (!moveResult.success) {
-        logWarn_('DocumentCreation', '문서 폴더 이동 실패:');
+        logWarn_('DocumentCreation', '문서 폴더 이동 실패');
         // 폴더 이동 실패해도 문서 생성은 성공으로 처리
       }
     } else {
@@ -130,7 +130,7 @@ function handleCreateDocument(req) {
     // 4. 문서 정보를 스프레드시트에 추가
     const spreadsheetResult = addDocumentToSpreadsheet(documentId, title, creatorEmail, documentUrl, role);
     if (!spreadsheetResult.success) {
-      logWarn_('DocumentCreation', '스프레드시트 추가 실패:');
+      logWarn_('DocumentCreation', '스프레드시트 추가 실패');
       // 스프레드시트 추가 실패해도 문서 생성은 성공으로 처리
     }
     
@@ -427,7 +427,7 @@ function uploadSharedDocument(req) {
     if (editors && editors.length > 0) {
       const permissionResult = setDocumentPermissions(documentId, creatorEmail, editors);
       if (!permissionResult.success) {
-        logWarn_('DocumentCreation', '권한 설정 실패:');
+        logWarn_('DocumentCreation', '권한 설정 실패');
       }
     }
     
@@ -435,7 +435,7 @@ function uploadSharedDocument(req) {
     const documentUrl = `https://docs.google.com/document/d/${documentId}/edit`;
     const spreadsheetResult = addDocumentToSpreadsheet(documentId, safeTitle, creatorEmail, documentUrl, role || 'student');
     if (!spreadsheetResult.success) {
-      logWarn_('DocumentCreation', '스프레드시트 추가 실패:');
+      logWarn_('DocumentCreation', '스프레드시트 추가 실패');
     }
     
     // 문서 URL 가져오기

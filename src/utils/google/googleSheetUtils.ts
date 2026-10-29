@@ -257,8 +257,8 @@ export const getSheetData = async (spreadsheetId: string, sheetName: string, ran
     if (token && gapi.client) {
       try {
         gapi.client.setToken({ access_token: token });
-      } catch (tokenError) {
-        log.warn("토큰 설정 실패:");
+      } catch {
+        log.warn("토큰 설정 실패");
       }
     }
 
@@ -317,8 +317,8 @@ export const getAccountingCategorySummary = async (spreadsheetId: string): Promi
       if (token) {
         try {
           window.gapi.client.setToken({ access_token: token });
-        } catch (tokenError) {
-          log.warn("토큰 설정 실패:");
+        } catch {
+          log.warn("토큰 설정 실패");
         }
       }
       window.papyrusAuth = {
@@ -395,8 +395,8 @@ export const getLedgerBalance = async (spreadsheetId: string): Promise<number> =
       if (token) {
         try {
           window.gapi.client.setToken({ access_token: token });
-        } catch (tokenError) {
-          log.warn("토큰 설정 실패:");
+        } catch {
+          log.warn("토큰 설정 실패");
         }
       }
       window.papyrusAuth = {
@@ -454,8 +454,8 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
       if (token) {
         try {
           window.gapi.client.setToken({ access_token: token });
-        } catch (tokenError) {
-          log.warn("토큰 설정 실패:");
+        } catch {
+          log.warn("토큰 설정 실패");
         }
       }
       window.papyrusAuth = {
@@ -759,7 +759,7 @@ export const findPersonalDocumentFolder = async (): Promise<string | null> => {
   }
 };
 
-export const copyGoogleDocument = async (fileId: string, newTitle: string, tag?: string): Promise<{ id: string, webViewLink: string } | null> => {
+export const copyGoogleDocument = async (fileId: string, newTitle: string): Promise<{ id: string, webViewLink: string } | null> => {
   try {
     // 토큰 확인
     const token = tokenManager.get();
@@ -803,8 +803,8 @@ export const copyGoogleDocument = async (fileId: string, newTitle: string, tag?:
     try {
       gapi.client.setToken({ access_token: token });
       log.debug('토큰이 gapi client에 설정되었습니다.');
-    } catch (tokenError) {
-      log.warn('토큰 설정 실패:');
+    } catch {
+      log.warn('토큰 설정 실패');
       // 토큰 설정 실패해도 계속 진행 (이미 설정되었을 수 있음)
     }
 
@@ -843,7 +843,7 @@ export const copyGoogleDocument = async (fileId: string, newTitle: string, tag?:
     
     // 에러 상세 정보 로깅
     if (error.result?.error) {
-      log.error('에러 상세:');
+      log.error('에러 상세');
     }
     if (error.status) {
       log.error('HTTP 상태 코드:', error.status);
@@ -955,8 +955,8 @@ export const deleteRowsByDocIds = async (
           if (token) {
             try {
               window.gapi.client.setToken({ access_token: token });
-            } catch (tokenError) {
-              log.warn("토큰 설정 실패:");
+            } catch {
+              log.warn("토큰 설정 실패");
             }
           }
           window.papyrusAuth = {

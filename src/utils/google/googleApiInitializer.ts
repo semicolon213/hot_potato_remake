@@ -117,8 +117,8 @@ export const initializeGoogleAPIOnce = async (_hotPotatoDBSpreadsheetId: string 
                             try {
                                 window.gapi.client.setToken({ access_token: savedToken });
                                 log.debug("액세스 토큰이 gapi.client에 설정되었습니다.");
-                            } catch (tokenError) {
-                                log.warn("토큰 설정 실패:");
+                            } catch {
+                                log.warn("토큰 설정 실패");
                             }
                         } else {
                             log.warn('저장된 Google 액세스 토큰이 없거나 만료되었습니다. 로그인 후 토큰을 저장하세요.');

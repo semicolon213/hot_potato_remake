@@ -295,8 +295,8 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       if (validToken) {
         try {
           gapi.client.setToken({ access_token: validToken });
-        } catch (tokenError) {
-          log.warn("토큰 설정 실패:");
+        } catch {
+          log.warn("토큰 설정 실패");
         }
       }
       
@@ -575,8 +575,8 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         if (validToken) {
           try {
             gapi.client.setToken({ access_token: validToken });
-          } catch (tokenError) {
-            log.warn("토큰 설정 실패:");
+          } catch {
+            log.warn("토큰 설정 실패");
           }
         }
 
@@ -1587,7 +1587,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
                   updatedProps.rawData = accountingStatsRawData;
                 } else if (!widget.props.rawData && widget.props.spreadsheetId) {
                   // rawData가 없고 spreadsheetId가 있으면 다시 로드 시도
-                  log.warn('accounting-stats 위젯에 rawData가 없습니다. spreadsheetId:');
+                  log.warn('accounting-stats 위젯에 rawData가 없습니다. spreadsheetId');
                 }
                 return { ...widget, props: updatedProps };
               } else if (!widget.props.spreadsheetId) {
@@ -1819,8 +1819,8 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
           return;
         }
         gapi.client.setToken({ access_token: validToken });
-      } catch (tokenError) {
-        log.error("토큰 설정 실패:");
+      } catch {
+        log.error("토큰 설정 실패");
         notifyGlobal("인증 토큰 설정에 실패했습니다. 다시 로그인해주세요.", 'error');
         setIsSheetModalOpen(false);
         setSelectedWidgetId(null);
@@ -1830,7 +1830,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       // 선택된 ID가 스프레드시트인지 확인 (폴더 ID가 아닌지)
       try {
         // 먼저 선택된 ID로 스프레드시트 메타데이터를 가져와서 확인
-        const testResponse = await gapi.client.sheets.spreadsheets.get({
+        await gapi.client.sheets.spreadsheets.get({
           spreadsheetId: spreadsheetId,
         });
       } catch (testError: any) {

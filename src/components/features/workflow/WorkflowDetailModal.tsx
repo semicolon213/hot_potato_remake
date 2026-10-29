@@ -65,7 +65,7 @@ const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
       if (response.success && response.data) {
         setHistory(response.data as WorkflowHistoryItem[]);
       } else {
-        log.warn('히스토리 응답 실패:');
+        log.warn('히스토리 응답 실패');
       }
     } catch (error) {
       log.error('히스토리 로드 오류:', error);

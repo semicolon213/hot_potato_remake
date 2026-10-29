@@ -49,8 +49,8 @@ export const getLedgerFolders = async (): Promise<LedgerInfo[]> => {
 
     try {
       window.gapi.client.setToken({ access_token: token });
-    } catch (tokenError) {
-      log.warn('토큰 설정 실패:');
+    } catch {
+      log.warn('토큰 설정 실패');
     }
     let folderId: string | null = null;
     
@@ -64,7 +64,7 @@ export const getLedgerFolders = async (): Promise<LedgerInfo[]> => {
         log.debug('폴더 ID 유효성 검사:', folderId.length, '자');
       } else {
         log.warn('Apps Script 응답에서 회계 폴더 ID를 찾을 수 없습니다.');
-        log.warn('응답 데이터:');
+        log.warn('응답 데이터');
         return [];
       }
     } catch (apiError: unknown) {
@@ -100,7 +100,7 @@ export const getLedgerFolders = async (): Promise<LedgerInfo[]> => {
     log.debug('API 호출 전 폴더 ID 문자 배열:', folderIdToUse.split(''));
     
     try {
-      const folderInfo = await gapi.drive.files.get({
+      await gapi.drive.files.get({
         fileId: folderIdToUse,
         fields: 'id, name, mimeType'
       });

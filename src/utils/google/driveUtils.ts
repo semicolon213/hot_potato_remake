@@ -68,8 +68,8 @@ export const getSheetsInFolder = async (folderId: string): Promise<{ id: string;
     if (token && window.gapi?.client) {
       try {
         window.gapi.client.setToken({ access_token: token });
-      } catch (tokenError) {
-        log.warn("토큰 설정 실패:");
+      } catch {
+        log.warn("토큰 설정 실패");
       }
     }
 

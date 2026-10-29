@@ -235,7 +235,7 @@ function getCurrentAdminKey() {
       }
     }
   } catch (configError) {
-    logWarn_('UserAuth', 'getConfig(admin_key) 조회 실패:');
+    logWarn_('UserAuth', 'getConfig(admin_key) 조회 실패');
   }
 
   // 2) admin_keys 시트 fallback
@@ -254,7 +254,7 @@ function getCurrentAdminKey() {
     const value = sheet.getRange('A2').getValue();
     return value ? String(value).trim() : '';
   } catch (sheetError) {
-    logWarn_('UserAuth', 'admin_keys 시트 조회 실패:');
+    logWarn_('UserAuth', 'admin_keys 시트 조회 실패');
     return '';
   }
 }
@@ -318,7 +318,7 @@ function getCurrentAdminKeyForUse() {
 
     return { plainKey: decryptedKey, rawKey: keyFromSheet, layersUsed: layerArray.join(', ') };
   } catch (error) {
-    logWarn_('UserAuth', '관리자 키 복호화 조회 실패:');
+    logWarn_('UserAuth', '관리자 키 복호화 조회 실패');
     return { plainKey: '', rawKey: rawKey, layersUsed: '' };
   }
 }
@@ -356,7 +356,7 @@ function verifyAdminKey(adminKey) {
     }
     
   } catch (error) {
-    logError_('UserAuth', '관리자 키 검증 오류:');
+    logError_('UserAuth', '관리자 키 검증 오류');
     return {
       success: false,
       message: '관리자 키 검증 중 오류가 발생했습니다: ' + error.message
@@ -415,7 +415,7 @@ Hot Potato 시스템
         message: '관리자 키가 이메일로 전송되었습니다.'
       };
     } catch (emailError) {
-      logError_('UserAuth', '이메일 전송 오류:');
+      logError_('UserAuth', '이메일 전송 오류');
       return {
         success: false,
         message: '이메일 전송에 실패했습니다: ' + emailError.message
@@ -423,7 +423,7 @@ Hot Potato 시스템
     }
     
   } catch (error) {
-    logError_('UserAuth', '관리자 키 이메일 전송 오류:');
+    logError_('UserAuth', '관리자 키 이메일 전송 오류');
     return {
       success: false,
       message: '관리자 키 이메일 전송 중 오류가 발생했습니다: ' + error.message
@@ -485,7 +485,7 @@ function generateSessionToken(email) {
     // Base64 인코딩
     return Utilities.base64Encode(token);
   } catch (error) {
-    logError_('UserAuth', '세션 토큰 생성 오류:');
+    logError_('UserAuth', '세션 토큰 생성 오류');
     return '';
   }
 }

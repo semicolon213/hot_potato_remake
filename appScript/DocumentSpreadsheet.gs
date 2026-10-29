@@ -376,7 +376,7 @@ function handleGetDocuments(req) {
         }
       } catch (nameErr) {
         // 변환 실패 시 원본 유지
-        logWarn_('DocumentSpreadsheet', '이메일을 이름으로 변환 실패:');
+        logWarn_('DocumentSpreadsheet', '이메일을 이름으로 변환 실패');
       }
       
       return {

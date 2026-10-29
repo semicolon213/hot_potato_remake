@@ -197,9 +197,6 @@ export function usePersonalTemplates() {
                 };
             });
             
-            // 디버깅을 위한 상세 로그
-            templates.forEach((template, index) => {
-            });
             setPersonalTemplates(templates);
         } catch (error) {
             log.error('개인 템플릿 로드 오류:', error);

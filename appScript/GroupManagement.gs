@@ -169,7 +169,7 @@ Hot Potato 시스템 자동 알림`;
       return { success: true };
       
     } catch (error) {
-      logError_('GroupManagement', '그룹스 알림 이메일 전송 실패:');
+      logError_('GroupManagement', '그룹스 알림 이메일 전송 실패');
       return { success: false, error: error.message };
     }
   }
@@ -209,7 +209,7 @@ Hot Potato 시스템`;
       return { success: true };
       
     } catch (error) {
-      logError_('GroupManagement', '사용자 승인 알림 이메일 전송 실패:');
+      logError_('GroupManagement', '사용자 승인 알림 이메일 전송 실패');
       return { success: false, error: error.message };
     }
   }
@@ -301,7 +301,7 @@ Hot Potato 시스템`;
             reminderCount++;
           }
         } catch (error) {
-          logError_('GroupManagement', '리마인더 이메일 전송 실패:');
+          logError_('GroupManagement', '리마인더 이메일 전송 실패');
         }
       }
       
@@ -364,7 +364,7 @@ Hot Potato 시스템`;
       return { success: true };
       
     } catch (error) {
-      logError_('GroupManagement', '리마인더 이메일 전송 실패:');
+      logError_('GroupManagement', '리마인더 이메일 전송 실패');
       return { success: false, error: error.message };
     }
   }

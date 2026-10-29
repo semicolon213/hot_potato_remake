@@ -381,11 +381,6 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
   // 관리자인지 확인 (주 관리자 또는 서브 관리자)
   const isManager = isMainManager || isSubManager;
   
-  // 디버깅 로그
-  if (currentAccount) {
-    const userInfo = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
-  }
-  
   // 검토 진행률 계산 (서브 관리자 검토 완료율)
   const getReviewProgress = (plan: BudgetPlan) => {
     if (!currentAccount || currentAccount.subManagerIds.length === 0) {

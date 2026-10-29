@@ -25,8 +25,8 @@ const setupPapyrusAuth = (): void => {
       try {
         window.gapi.client.setToken({ access_token: token });
         log.debug('토큰이 gapi client에 설정되었습니다.');
-      } catch (tokenError) {
-        log.warn('토큰 설정 실패:');
+      } catch {
+        log.warn('토큰 설정 실패');
       }
     } else {
       log.warn('Google API 인증 토큰이 없거나 만료되었습니다.');

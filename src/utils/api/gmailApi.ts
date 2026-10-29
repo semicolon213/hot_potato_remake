@@ -42,7 +42,7 @@ export const sendEmailWithGmailAPI = async (emailTemplate: EmailTemplate): Promi
     }
     const gapiClient = window.gapi.client as unknown as GmailClient;
     if (!window.gapi || !window.gapi.client || !gapiClient.gmail || !gapiClient.gmail.users) {
-      log.error('Gmail API 초기화 상태:');
+      log.error('Gmail API 초기화 상태');
       throw new Error('Gmail API가 초기화되지 않았습니다. 페이지를 새로고침해주세요.');
     }
     
@@ -75,10 +75,10 @@ export const sendEmailWithGmailAPI = async (emailTemplate: EmailTemplate): Promi
       }
     });
     
-    const response = await request;
+    await request;
     
   } catch (error) {
-    log.error('Gmail API 이메일 전송 실패:');
+    log.error('Gmail API 이메일 전송 실패');
     throw error;
   }
 };

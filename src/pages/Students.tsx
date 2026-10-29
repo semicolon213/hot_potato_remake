@@ -170,7 +170,7 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
     }
     
     // 디버깅: 필터링 결과 확인
-    log.debug('filteredCouncilData:');
+    log.debug('filteredCouncilData');
     
     return filtered;
   }, [allCouncilData, selectedYear]);
@@ -189,10 +189,6 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
   const handleCreateStudent = (newStudentData: StudentWithCouncil) => {
     addStudent(newStudentData);
     setIsAddStudentModalOpen(false);
-  };
-
-  // Council 데이터용 정렬 함수
-  const handleCouncilSort = (key: string) => {
   };
 
   // 학생 더블클릭 핸들러

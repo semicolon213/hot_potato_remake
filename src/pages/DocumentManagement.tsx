@@ -20,7 +20,6 @@ import { fetchTags as fetchPersonalTags } from "../utils/database/personalTagMan
 import EmailAutocomplete from "../components/ui/common/EmailAutocomplete";
 import type { DocumentMap } from "../types/documents";
 import type { DocumentInfo } from "../types/documents";
-import type { WorkflowRequestResponse } from "../types/api/apiResponses";
 import RightArrowIcon from "../assets/Icons/right_black.svg";
 import TableColumnFilter, { type SortDirection, type FilterOption } from "../components/ui/common/TableColumnFilter";
 import { FaFilter, FaTimes, FaFileAlt, FaUsers, FaLock, FaEdit, FaUpload, FaShare, FaTrash, FaPlus, FaFolderOpen, FaTag, FaFile } from "react-icons/fa";
@@ -1440,7 +1439,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
         documentId={selectedDocument?.id}
         documentTitle={selectedDocument?.title}
         isPersonalDocument={selectedDocument?.documentType === 'personal'}
-        onSuccess={(response: WorkflowRequestResponse) => {
+        onSuccess={() => {
           // 통계 갱신
           const userInfo = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
           if (userInfo.email) {

@@ -103,8 +103,8 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     try {
       const result = await apiClient.request<string>('decryptEmail', { data: encryptedPhone });
       return result.success && result.data ? result.data : encryptedPhone;
-    } catch (error) {
-      log.error('전화번호 복호화 실패:');
+    } catch {
+      log.error('전화번호 복호화 실패');
       return encryptedPhone;
     }
   };
@@ -124,7 +124,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
           const parsed = parseCouncil(student.council);
           // 디버깅: 파싱 결과 확인
           if (student.council && parsed.length === 0) {
-            log.warn('학생회 파싱 실패:');
+            log.warn('학생회 파싱 실패');
           }
           return {
             ...student,
@@ -134,9 +134,6 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
 
         setStudents(studentData);
         
-        // 디버깅: 전체 파싱 결과 요약
-        const totalCouncilItems = studentData.reduce((sum, s) => sum + s.parsedCouncil.length, 0);
-        const studentsWithCouncil = studentData.filter(s => s.parsedCouncil.length > 0).length;
       } else {
         setStudents([]);
       }

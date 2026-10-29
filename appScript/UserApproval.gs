@@ -90,7 +90,7 @@ function getAllUsers() {
         studentId: user.no_member || '',
         name: user.name_member || '',
         userType: (() => {
-          logDebug_('UserApproval', 'user_type 값 확인:', '타입:');
+          logDebug_('UserApproval', '사용자 유형 확인');
           return user.user_type || 'student';
         })(),
         isAdmin: user.is_admin === 'O',

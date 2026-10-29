@@ -22,7 +22,7 @@ export const testAppsScriptMigration = async () => {
       mode: 'cors',
       cache: 'no-cache'
     });
-    const systemData = await systemResponse.json();
+    await systemResponse.json();
     results.systemInfo = true;
   } catch (error) {
     log.error('시스템 정보 테스트 실패:', error);
@@ -30,21 +30,21 @@ export const testAppsScriptMigration = async () => {
 
     // 2. 사용자 목록 조회 테스트
     try {
-      const usersResponse = await apiClient.getPendingUsers();
+      await apiClient.getPendingUsers();
       results.pendingUsers = true;
     } catch (error) {
       log.error('사용자 목록 조회 테스트 실패:', error);
     }
     try {
-      const encryptionResponse = await apiClient.testEmailEncryption();
+      await apiClient.testEmailEncryption();
       results.emailEncryption = true;
-    } catch (error) {
-      log.error('이메일 암호화 테스트 실패:');
+    } catch {
+      log.error('이메일 암호화 테스트 실패');
     }
 
     // 4. 전체 테스트
     try {
-      const allTestsResponse = await apiClient.testAllAppScript();
+      await apiClient.testAllAppScript();
       results.allTests = true;
     } catch (error) {
       log.error('전체 테스트 실패:', error);
@@ -102,7 +102,7 @@ if (typeof window !== 'undefined') {
     }
   };
   
-  log.debug('브라우저 콘솔에서 다음 함수들을 사용할 수 있습니다:');
+  log.debug('브라우저 콘솔에서 다음 함수들을 사용할 수 있습니다');
   log.debug('- testAppsScriptMigration(): 전체 마이그레이션 테스트');
   log.debug('- testConnection(): 간단한 연결 테스트');
   log.debug('- testDirectUrl(): 직접 Apps Script URL 테스트');

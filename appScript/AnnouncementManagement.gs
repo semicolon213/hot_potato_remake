@@ -404,14 +404,14 @@ function getAnnouncements(req) {
     const headerMap = {};
     header.forEach((h, index) => {
       headerMap[h] = index;
-    }); // DEBUG LOG
+    });
     
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       
       // no_notice가 비어있으면 건너뛰기
-      const noticeId = row[headerMap['no_notice']]; // DEBUG LOG
-      if (!noticeId || noticeId === '') { // DEBUG LOG
+      const noticeId = row[headerMap['no_notice']];
+      if (!noticeId || noticeId === '') {
         continue;
       }
       
@@ -427,7 +427,7 @@ function getAnnouncements(req) {
         view_count: parseInt(row[headerMap['view_count']] || '0', 10),
         file_notice: row[headerMap['file_notice']] || '',
         fix_notice: row[headerMap['fix_notice']] || ''
-      }; // DEBUG LOG
+      };
       
       // writer_email에서 writer_id 추출 (암호화된 이메일에서 사용자 찾기)
       if (announcement.writer_email) {
@@ -435,36 +435,36 @@ function getAnnouncements(req) {
           const decryptedEmail = decryptEmailMain(announcement.writer_email);
           const writer = getUserByEmail(decryptedEmail);
           if (writer) {
-            announcement.writer_id = String(writer.no_member); // DEBUG LOG
-          } else { // DEBUG LOG
+            announcement.writer_id = String(writer.no_member);
+          } else {
             announcement.writer_id = ''; // 명시적으로 빈 문자열 설정
           }
-        } catch (error) { // DEBUG LOG
+        } catch (error) {
           announcement.writer_id = ''; // 명시적으로 빈 문자열 설정
           // 복호화 실패해도 계속 진행 (작성자 정보만 없을 뿐)
         }
-      } else { // DEBUG LOG
+      } else {
         announcement.writer_id = ''; // 명시적으로 빈 문자열 설정
       }
       
       // 권한 확인
-      const canRead = canReadAnnouncement(announcement, String(userId), userType); // DEBUG LOG
+      const canRead = canReadAnnouncement(announcement, String(userId), userType);
       
       if (canRead) {
-        announcements.push(announcement); // DEBUG LOG
-      } else { // DEBUG LOG
+        announcements.push(announcement);
+      } else {
       }
-    } // DEBUG LOG
+    }
     
     // 고정 공지 분리 및 정렬
     const pinnedAnnouncements = announcements.filter(a => a.fix_notice === 'O');
-    const normalAnnouncements = announcements.filter(a => a.fix_notice !== 'O'); // DEBUG LOG
+    const normalAnnouncements = announcements.filter(a => a.fix_notice !== 'O');
     
     // 고정 공지와 일반 공지를 각각 ID 역순으로 정렬 (최신순)
     pinnedAnnouncements.sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10));
-    normalAnnouncements.sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10)); // DEBUG LOG
+    normalAnnouncements.sort((a, b) => parseInt(b.id, 10) - parseInt(a.id, 10));
     
-    const sortedAnnouncements = [...pinnedAnnouncements, ...normalAnnouncements]; // DEBUG LOG
+    const sortedAnnouncements = [...pinnedAnnouncements, ...normalAnnouncements];
     
     return {
       success: true,

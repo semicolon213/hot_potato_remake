@@ -48,7 +48,7 @@ function verifyAdminKey(inputKey) {
     }
     
   } catch (error) {
-    logError_('KeyVerification', '관리자 키 검증 오류:');
+    logError_('KeyVerification', '관리자 키 검증 오류');
     return {
       success: false,
       message: '관리자 키 검증 중 오류가 발생했습니다: ' + error.message,
@@ -96,7 +96,7 @@ function decryptAndVerifyKey(encryptedKey, layers) {
     };
     
   } catch (error) {
-    logError_('KeyVerification', '키 복호화 및 검증 오류:');
+    logError_('KeyVerification', '키 복호화 및 검증 오류');
     return {
       success: false,
       error: error.message,
@@ -149,7 +149,7 @@ function analyzeKeyStrength(key, layers) {
     };
     
   } catch (error) {
-    logError_('KeyVerification', '키 강도 분석 오류:');
+    logError_('KeyVerification', '키 강도 분석 오류');
     return {
       success: false,
       error: error.message
@@ -192,7 +192,7 @@ function validateKeyFormat(key) {
     };
     
   } catch (error) {
-    logError_('KeyVerification', '키 유효성 검사 오류:');
+    logError_('KeyVerification', '키 유효성 검사 오류');
     return {
       success: false,
       message: '키 유효성 검사 중 오류가 발생했습니다: ' + error.message
@@ -225,7 +225,7 @@ function compareKeys(key1, key2) {
     };
     
   } catch (error) {
-    logError_('KeyVerification', '키 비교 오류:');
+    logError_('KeyVerification', '키 비교 오류');
     return {
       success: false,
       message: '키 비교 중 오류가 발생했습니다: ' + error.message

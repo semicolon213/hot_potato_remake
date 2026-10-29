@@ -284,7 +284,7 @@
         PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_METHOD', method);
         return true;
     }
-    logError_('CONFIG', '유효하지 않은 암호화 방법:');
+    logError_('CONFIG', '유효하지 않은 암호화 방법');
     logDebug_('CONFIG', '사용 가능한 방법들:', validMethods);
     return false;
     }
@@ -308,7 +308,7 @@
         PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_LAYER_METHODS', JSON.stringify(methods));
         return true;
         } else {
-        logError_('CONFIG', '유효하지 않은 암호화 방법들:');
+        logError_('CONFIG', '유효하지 않은 암호화 방법들');
         logDebug_('CONFIG', '사용 가능한 방법들:', validMethods);
         return false;
         }
@@ -571,7 +571,7 @@
             }
             return Object.keys(result).length > 0 ? result : null;
         } catch (e) {
-            logWarn_('CONFIG', 'GROUP_EMAIL_JSON 파싱 실패:');
+            logWarn_('CONFIG', 'GROUP_EMAIL_JSON 파싱 실패');
             return null;
         }
     }

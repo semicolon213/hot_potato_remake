@@ -176,7 +176,7 @@ function multiEncode(text) {
     const encoded = Utilities.base64Encode(blob.getBytes());
     return encoded + '_' + encoded;
   } catch (error) {
-    logError_('EncryptionAlgorithms', 'MultiEncode 인코딩 오류:');
+    logError_('EncryptionAlgorithms', 'MultiEncode 인코딩 오류');
     return text;
   }
 }
@@ -195,7 +195,7 @@ function multiDecode(text) {
     }
     return text;
   } catch (error) {
-    logError_('EncryptionAlgorithms', 'MultiDecode 디코딩 오류:');
+    logError_('EncryptionAlgorithms', 'MultiDecode 디코딩 오류');
     return text;
   }
 }

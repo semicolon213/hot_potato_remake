@@ -16,7 +16,7 @@
 function applyEncryption(text, method, key) {
   try {
     if (!text || typeof text !== 'string') {
-      logWarn_('EncryptionCore', '암호화할 텍스트가 유효하지 않습니다:');
+      logWarn_('EncryptionCore', '암호화할 텍스트가 유효하지 않습니다');
       return text || '';
     }
 
@@ -112,7 +112,7 @@ function applyEncryption(text, method, key) {
 function applyDecryption(text, method, key) {
   try {
     if (!text || typeof text !== 'string') {
-      logWarn_('EncryptionCore', '복호화할 텍스트가 유효하지 않습니다:');
+      logWarn_('EncryptionCore', '복호화할 텍스트가 유효하지 않습니다');
       return text || '';
     }
 
@@ -123,7 +123,7 @@ function applyDecryption(text, method, key) {
           const decoded = Utilities.base64Decode(text);
           result = Utilities.newBlob(decoded).getDataAsString();
         } catch (error) {
-          logError_('EncryptionCore', 'Base64 복호화 오류:');
+          logError_('EncryptionCore', 'Base64 복호화 오류');
           result = text;
         }
         break;
@@ -237,7 +237,7 @@ function multiLayerEncrypt(text, methods) {
     };
     
   } catch (error) {
-    logError_('EncryptionCore', '다중 레이어 암호화 오류:');
+    logError_('EncryptionCore', '다중 레이어 암호화 오류');
     return {
       success: false,
       error: error.message,
@@ -280,7 +280,7 @@ function multiLayerDecrypt(encryptedText, methods) {
     };
     
   } catch (error) {
-    logError_('EncryptionCore', '다중 레이어 복호화 오류:');
+    logError_('EncryptionCore', '다중 레이어 복호화 오류');
     return {
       success: false,
       error: error.message,

@@ -53,7 +53,7 @@ function generateNewAdminKey() {
     };
     
   } catch (error) {
-    logError_('KeyGeneration', '새로운 관리자 키 생성 오류:');
+    logError_('KeyGeneration', '새로운 관리자 키 생성 오류');
     return {
       success: false,
       message: '관리자 키 생성 중 오류가 발생했습니다: ' + error.message
@@ -108,7 +108,7 @@ function updateAdminKey(newKey, layers) {
     };
     
   } catch (error) {
-    logError_('KeyGeneration', '관리자 키 업데이트 오류:');
+    logError_('KeyGeneration', '관리자 키 업데이트 오류');
     return {
       success: false,
       message: '관리자 키 업데이트 중 오류가 발생했습니다: ' + error.message
@@ -163,7 +163,7 @@ function createKeyBackup(key, layers) {
     };
     
   } catch (error) {
-    logError_('KeyGeneration', '관리자 키 백업 생성 오류:');
+    logError_('KeyGeneration', '관리자 키 백업 생성 오류');
     return {
       success: false,
       message: '관리자 키 백업 생성 중 오류가 발생했습니다: ' + error.message
@@ -224,7 +224,7 @@ function restoreKeyBackup(backupKey) {
     }
     
   } catch (error) {
-    logError_('KeyGeneration', '관리자 키 백업 복원 오류:');
+    logError_('KeyGeneration', '관리자 키 백업 복원 오류');
     return {
       success: false,
       message: '관리자 키 백업 복원 중 오류가 발생했습니다: ' + error.message
@@ -270,7 +270,7 @@ function getKeyHistory() {
     };
     
   } catch (error) {
-    logError_('KeyGeneration', '관리자 키 히스토리 조회 오류:');
+    logError_('KeyGeneration', '관리자 키 히스토리 조회 오류');
     return {
       success: false,
       message: '관리자 키 히스토리 조회 중 오류가 발생했습니다: ' + error.message

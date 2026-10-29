@@ -364,8 +364,8 @@ export const useAuth = (onLogin: (user: User) => void) => {
       } else {
         setLoginState(prev => ({ ...prev, error: result.error || '관리자 키 인증에 실패했습니다.' }));
       }
-    } catch (error) {
-      log.error('관리자 키 인증 실패:');
+    } catch {
+      log.error('관리자 키 인증 실패');
       setLoginState(prev => ({ ...prev, error: '관리자 키 인증 중 오류가 발생했습니다.' }));
     } finally {
       setLoginState(prev => ({ ...prev, isLoading: false }));
@@ -423,8 +423,8 @@ export const useAuth = (onLogin: (user: User) => void) => {
           isApproved: false
         });
       } else {
-        log.error('회원가입 실패 응답:');
-        log.error('상세 오류 정보:');
+        log.error('회원가입 실패 응답');
+        log.error('상세 오류 정보');
 
         // 더 자세한 오류 메시지 표시
         let errorMessage = '회원가입에 실패했습니다.';

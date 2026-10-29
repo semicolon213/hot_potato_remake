@@ -219,8 +219,6 @@ export function useTemplateUI(
             } else {
                 const errorMessage = result ? result.message : 'API 응답이 null입니다';
                 log.error('동적 템플릿 로드 실패:', errorMessage);
-                const createResponse = result as CreateDocumentResponse;
-                log.error('디버깅 정보:');
                 setTemplateError(errorMessage || '템플릿을 불러올 수 없습니다');
             }
         } catch (error) {
@@ -337,7 +335,7 @@ export function useTemplateUI(
     }, [templates, searchTerm, activeTab]);
 
     // 템플릿 사용 버튼 클릭 시 실행되는 함수
-    const onUseTemplate = useCallback((type: string, title: string, role: string) => {
+    const onUseTemplate = useCallback((type: string, title: string) => {
         
         const isDefault = allDefaultTemplates.some(t => t.type === type);
         
@@ -396,7 +394,7 @@ export function useTemplateUI(
                 
                 if (selectedTemplate.documentId) {
                     // 커스텀 템플릿 복사 (태그 포함)
-                    const copyResult = await copyGoogleDocument(selectedTemplate.documentId, selectedTemplate.title, selectedTemplate.tag);
+                    const copyResult = await copyGoogleDocument(selectedTemplate.documentId, selectedTemplate.title);
                     if (copyResult && copyResult.webViewLink) {
                         window.open(copyResult.webViewLink, '_blank');
                         showNotification('문서가 개인 드라이브에 생성되었습니다!', 'success');

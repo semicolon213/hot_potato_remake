@@ -545,7 +545,7 @@ function NewDocument({
                     const templateDocumentId = selectedTemplate.documentId || (selectedTemplate.type && selectedTemplate.type.length > 20 ? selectedTemplate.type : null);
                     
                     if (templateDocumentId) {
-                        const copyResult = await copyGoogleDocument(templateDocumentId, documentTitle, selectedTemplate.tag);
+                        const copyResult = await copyGoogleDocument(templateDocumentId, documentTitle);
                         
                         if (copyResult && copyResult.webViewLink) {
                             window.open(copyResult.webViewLink, '_blank');
@@ -635,12 +635,12 @@ function NewDocument({
       // Intentionally ignored.
 
                     } else if (result.debug.metadataStatus === 'failed') {
-                        log.warn('메타데이터 저장 실패:');
+                        log.warn('메타데이터 저장 실패');
                         showNotification(`문서는 생성되었지만 메타데이터 저장에 실패했습니다: ${result.debug.metadataError}`, 'warning');
                     }
                 }
             } else {
-                log.error('문서 생성 실패:');
+                log.error('문서 생성 실패');
                 showNotification('문서 생성에 실패했습니다: ' + result.message, 'error');
                 setIsCreating(false);
             }
@@ -826,10 +826,10 @@ function NewDocument({
                     });
                     
                     if (verifyResponse.ok) {
-                        const verifyData = await verifyResponse.json();
+                        await verifyResponse.json();
                     }
                 } else {
-                    log.warn('메타데이터 추가 실패:');
+                    log.warn('메타데이터 추가 실패');
                 }
             } catch (metadataError) {
                 log.warn('메타데이터 추가 오류:', metadataError);
@@ -894,7 +894,7 @@ function NewDocument({
                     const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
                     const creatorEmail = userInfo.email || '';
                     
-                    const metadataResult = await gapi.client.drive.files.update({
+                    await gapi.client.drive.files.update({
                         fileId: documentId,
                         resource: {
                             properties: {
@@ -908,7 +908,7 @@ function NewDocument({
                     });
                     
                     // 메타데이터 저장 확인
-                    const verifyResult = await gapi.client.drive.files.get({
+                    await gapi.client.drive.files.get({
                         fileId: documentId,
                         fields: 'properties'
                     });
@@ -1263,7 +1263,7 @@ function NewDocument({
                 if (response.success && response.data) {
                     setStaticTags(response.data);
                 } else {
-                    log.warn('기본 태그 로드 실패:');
+                    log.warn('기본 태그 로드 실패');
                     setStaticTags([]);
                 }
             } catch (error) {
@@ -1338,7 +1338,7 @@ function NewDocument({
       // Intentionally ignored.
 
                 } else {
-                    log.error('개인 템플릿 즐겨찾기 업데이트 실패:');
+                    log.error('개인 템플릿 즐겨찾기 업데이트 실패');
                     showNotification('즐겨찾기 업데이트에 실패했습니다: ' + result.error, 'error');
                 }
             } catch (error) {
