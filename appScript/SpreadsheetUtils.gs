@@ -28,18 +28,25 @@ function sheetIdCacheKey_(rootId, name) {
 function getProjectRootFolderId_() {
   if (rootFolderIdMemo_) return rootFolderIdMemo_;
 
-  var props = PropertiesService.getScriptProperties();
-  var fromProps = props && props.getProperty('ROOT_FOLDER_ID');
-  if (fromProps) {
-    rootFolderIdMemo_ = fromProps;
-    return rootFolderIdMemo_;
-  }
-
   var cache = CacheService.getScriptCache();
   var cached = cache.get(ROOT_FOLDER_CACHE_KEY_);
   if (cached) {
     rootFolderIdMemo_ = cached;
     return rootFolderIdMemo_;
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  var fromProps = props && props.getProperty('ROOT_FOLDER_ID');
+  if (fromProps) {
+    try {
+      var configuredFolder = DriveApp.getFolderById(fromProps);
+      configuredFolder.getName();
+      rootFolderIdMemo_ = configuredFolder.getId();
+      cache.put(ROOT_FOLDER_CACHE_KEY_, rootFolderIdMemo_, SHEET_ID_CACHE_TTL_SEC_);
+      return rootFolderIdMemo_;
+    } catch (error) {
+      console.warn('📁 ROOT_FOLDER_ID 사용 불가, hp_member 부모 폴더를 사용합니다:', error.message);
+    }
   }
 
   try {
@@ -138,11 +145,19 @@ function findSpreadsheetIdsByNames_(names) {
     }
   } catch (error) {
     console.warn('📊 Drive 검색 실패, 폴더 탐색으로 대체:', error.message);
-    var rootFolder = DriveApp.getFolderById(rootId);
-    missing.forEach(function(name) {
-      var matchingFiles = findSpreadsheetInFolderTreeByName_(rootFolder, name);
-      if (matchingFiles.length > 0) found[name] = matchingFiles[0].getId();
-    });
+  }
+
+  var unresolved = missing.filter(function(name) { return !found[name]; });
+  if (unresolved.length > 0) {
+    try {
+      var rootFolder = DriveApp.getFolderById(rootId);
+      unresolved.forEach(function(name) {
+        var matchingFiles = findSpreadsheetInFolderTreeByName_(rootFolder, name);
+        if (matchingFiles.length > 0) found[name] = matchingFiles[0].getId();
+      });
+    } catch (error) {
+      console.warn('📊 폴더 탐색 대체 경로 실패:', error.message);
+    }
   }
 
   var toCache = {};

@@ -42,12 +42,30 @@ export interface ApiResponse<T = unknown> {
   message?: string;
   data?: T;
   error?: string;
+  notFound?: string[];
   debug?: Record<string, unknown>;
   permissionResult?: {
     successCount: number;
     failCount: number;
   };
 }
+
+const RETRYABLE_READ_ACTIONS = new Set([
+  'checkUserStatus',
+  'decryptEmail',
+  'decryptEmailBatch',
+  'encryptEmail',
+  'getFieldList',
+  'getGraduationGrade',
+  'getEmploymentByStdNum',
+  'validateStudentForEmployment'
+]);
+
+const hasIncompleteSpreadsheetIds = (action: string, response: ApiResponse<unknown>): boolean => {
+  if (action !== 'getSpreadsheetIds') return false;
+  const ids = response.data as Record<string, unknown> | undefined;
+  return Boolean(response.notFound?.length) || Object.values(ids || {}).some(id => !id);
+};
 
 // API 요청 옵션 타입 정의
 interface ApiRequestOptions {
@@ -106,6 +124,7 @@ export class ApiClient {
 
     // 캐시 가능한 요청인지 확인
     const isCacheable = CACHEABLE_ACTIONS.includes(action);
+    const isRetryableReadAction = isCacheable || RETRYABLE_READ_ACTIONS.has(action);
     let cacheKey: string | null = null;
     
     if (isCacheable) {
@@ -115,10 +134,11 @@ export class ApiClient {
       
       // 캐시에서 데이터 조회
       const cachedData = await this.cacheManager.get<ApiResponse<T>>(cacheKey);
-      if (cachedData) {
+      if (cachedData && !hasIncompleteSpreadsheetIds(action, cachedData)) {
         console.log('✅ 캐시에서 데이터 로드:', cacheKey);
         return cachedData;
       }
+      if (cachedData) await this.cacheManager.invalidate(cacheKey);
 
       const inFlightRequest = this.inFlightRequests.get(cacheKey);
       if (inFlightRequest) {
@@ -194,7 +214,7 @@ export class ApiClient {
 
           const result = await response.json();
 
-          if (isCacheable && result.success && cacheKey) {
+          if (isCacheable && result.success && cacheKey && !hasIncompleteSpreadsheetIds(action, result)) {
             const ttl = getCacheTTL(action);
             await this.cacheManager.set(cacheKey, result as ApiResponse<T>, ttl);
             console.log('💾 캐시에 데이터 저장:', cacheKey, `TTL: ${ttl / 1000}초`);
@@ -223,7 +243,7 @@ export class ApiClient {
         } catch (error) {
           lastError = error as Error;
           const retryable = (error as Error & {retryable?: boolean}).retryable !== false;
-          const canRetry = attempt < retries && isCacheable && !isWriteAction && retryable;
+          const canRetry = attempt < retries && isRetryableReadAction && !isWriteAction && retryable;
           console.warn(`API 요청 실패 (시도 ${attempt + 1}/${retries + 1}):`, error);
 
           if (!canRetry) throw lastError;
@@ -827,7 +847,7 @@ export class ApiClient {
     const writeActions = [
       // 문서 관리
       'createDocument', 'deleteDocuments',
-      'uploadSharedTemplate', 'updateSharedTemplateMeta', 'deleteSharedTemplate',
+      'uploadSharedDocument', 'uploadSharedTemplate', 'updateSharedTemplateMeta', 'deleteSharedTemplate',
       'addStaticTag', 'updateStaticTag', 'deleteStaticTag',
       
       // 워크플로우
@@ -841,12 +861,13 @@ export class ApiClient {
       'createLedger', 'updateAccountSubManagers',
       
       // 사용자 관리
-      'approveUserWithGroup', 'rejectUser', 'addUsersToSpreadsheet',
+      'registerUser', 'approveUserWithGroup', 'rejectUser', 'addUsersToSpreadsheet',
       'requestPinnedAnnouncementApproval',
       'requestPinnedAnnouncement',
       'createAnnouncement',
       'updateAnnouncement',
       'deleteAnnouncement',
+      'incrementAnnouncementView',
       'approvePinnedAnnouncement',
       
       // 기타
@@ -854,7 +875,7 @@ export class ApiClient {
       // 학생 취업관리
       'saveEmployment', 'updateEmploymentAfter', 'createField', 'updateField', 'deleteField',
       // 학년/유급
-      'updateStudentRetained', 'setGraduationGrade', 'updateStudentGrades',
+      'updateStudentRetained', 'setGraduationGrade', 'updateStudentGrades', 'setGraduatedAdvanced',
     ];
     return writeActions.includes(action);
   }

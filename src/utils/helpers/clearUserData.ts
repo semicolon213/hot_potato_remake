@@ -11,6 +11,7 @@ import { clearPersonalConfigSpreadsheetId } from '../database/personalConfigMana
 import { resetGoogleAPIInitialization } from '../google/googleSheetUtils';
 import { resetGoogleApiInitializer } from '../google/googleApiInitializer';
 import { tokenManager } from '../auth/tokenManager';
+import { getCacheManager } from '../cache/cacheManager';
 
 /**
  * @brief localStorage에서 사용자 관련 항목 제거
@@ -51,6 +52,9 @@ export const clearLocalStorageUserData = (): void => {
         localStorage.removeItem(key);
         console.log(`  ✅ 제거됨: ${key}`);
     });
+
+    // API 메모리 캐시와 cache_* localStorage 항목 정리
+    void getCacheManager().clear();
     
     // Zustand persist 스토리지 정리
     localStorage.removeItem('auth-storage');

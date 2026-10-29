@@ -312,7 +312,18 @@ export const initializeSpreadsheetIds = async (): Promise<{
         studentSpreadsheetId = studentId;
         staffSpreadsheetId = staffId;
         accountingFolderId = accountingId;
-        hasInitializedSpreadsheetIds = true;
+        hasInitializedSpreadsheetIds = [
+            announcementId,
+            calendarProfessorId,
+            calendarCouncilId,
+            calendarADProfessorId,
+            calendarSuppId,
+            calendarStudentId,
+            personalConfigId,
+            studentId,
+            staffId,
+            accountingId
+        ].every(Boolean);
 
         console.log('✅ 스프레드시트 ID 초기화 완료:', {
             announcement: !!announcementId,
