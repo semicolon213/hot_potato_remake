@@ -163,7 +163,7 @@ export const useAuth = (onLogin: (user: User) => void) => {
       'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/calendar.readonly',
       'https://www.googleapis.com/auth/spreadsheets',
-      'https://www.googleapis.com/auth/drive',
+      'https://www.googleapis.com/auth/drive.file',
       'profile',
       'email'
     ].join(' ');
