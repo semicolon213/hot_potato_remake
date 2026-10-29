@@ -61,14 +61,6 @@ interface GapiClient {
     };
 }
 
-declare global {
-    interface Window {
-        gapi: {
-            client: GapiClient;
-        };
-    }
-}
-
 interface CalendarProps {
     onAddEvent: () => void;
     onSelectEvent: (event: Event, rect: DOMRect) => void;
