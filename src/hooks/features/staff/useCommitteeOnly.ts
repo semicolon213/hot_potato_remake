@@ -14,7 +14,6 @@ import {
   updateCommittee as updateCommitteeInPapyrus,
   deleteCommittee as deleteCommitteeFromPapyrus
 } from '../../../utils/database/papyrusManager';
-import { useAppState } from '../../core/useAppState';
 import { apiClient } from '../../../utils/api/apiClient';
 import type { Committee, CareerItem } from '../../../types/features/staff';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
@@ -26,8 +25,11 @@ interface CommitteeFilters {
   position: string; // 위원회의 'position'에 해당
 }
 
-export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
-  const { hotPotatoDBSpreadsheetId } = useAppState();
+export const useCommitteeOnly = (
+  staffSpreadsheetId: string | null,
+  hotPotatoDBSpreadsheetId: string | null
+) => {
+  const committeeSpreadsheetId = staffSpreadsheetId || hotPotatoDBSpreadsheetId;
   const [committee, setCommittee] = useState<Committee[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,20 +84,20 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
     setIsLoading(true);
     setError(null);
     try {
-      const committeeData = await fetchCommitteeFromPapyrus(staffSpreadsheetId!);
+      const committeeData = await fetchCommitteeFromPapyrus(committeeSpreadsheetId!);
       setCommittee(committeeData);
     } catch (err) {
       setError(err instanceof Error ? err.message : '학과 위원회 목록 조회 실패');
     } finally {
       setIsLoading(false);
     }
-  }, [staffSpreadsheetId]);
+  }, [committeeSpreadsheetId]);
 
   useEffect(() => {
-    if (staffSpreadsheetId) {
+    if (committeeSpreadsheetId) {
       fetchCommittee();
     }
-  }, [staffSpreadsheetId, fetchCommittee]);
+  }, [committeeSpreadsheetId, fetchCommittee]);
 
   // 필터링된 위원회 목록
   const filteredCommittee = useMemo(() => {

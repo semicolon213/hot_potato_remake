@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
 import "../styles/pages/Mypage.css";
-import { useAppState } from "../hooks/core/useAppState";
 import { apiClient } from "../utils/api/apiClient";
 import { lastUserManager } from "../utils/auth/lastUserManager";
+import type { User } from "../types/app";
 
-const Mypage: React.FC = () => {
-  const { user } = useAppState();
+const Mypage: React.FC<{ user: User | null }> = ({ user }) => {
   const [appScriptName, setAppScriptName] = useState<string>("");
   const [isLoadingName, setIsLoadingName] = useState<boolean>(false);
   const [statusLoading, setStatusLoading] = useState<boolean>(false);

@@ -254,7 +254,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           <div>환경설정 페이지 (구현 예정)</div>
         );
       case "mypage":
-        return <Mypage data-oid="d01oi2r" />;
+        return <Mypage user={user} data-oid="d01oi2r" />;
       case "empty_document":
         return <EmptyDocument data-oid="n.rsz_n" />;
       case "proceedings":
@@ -290,11 +290,13 @@ const PageRenderer: React.FC<PageRendererProps> = ({
         return <Staff
           onPageChange={onPageChange}
           staffSpreadsheetId={hotPotatoDBSpreadsheetId}
+          hotPotatoDBSpreadsheetId={hotPotatoDBSpreadsheetId}
           initialTab="staff" />;
       case 'staff_committee':
         return <Staff
           onPageChange={onPageChange}
           staffSpreadsheetId={hotPotatoDBSpreadsheetId}
+          hotPotatoDBSpreadsheetId={hotPotatoDBSpreadsheetId}
           initialTab="committee" />;
       case 'documents':
         return <div>문서 페이지 (구현 예정)</div>;
