@@ -471,7 +471,7 @@ function holdReview(req) {
  * @param {string} action - 액션 타입 ('approve' | 'reject' | 'hold')
  * @returns {Object} 처리 결과
  */
-function processReviewAction(req, action) {
+function processReviewActionUnlocked_(req, action) {
   try {
     
     // 워크플로우 찾기
@@ -760,7 +760,7 @@ function holdPayment(req) {
  * @param {string} action - 액션 타입 ('approve' | 'reject' | 'hold')
  * @returns {Object} 처리 결과
  */
-function processPaymentAction(req, action) {
+function processPaymentActionUnlocked_(req, action) {
   try {
     
     // 워크플로우 찾기
@@ -1033,7 +1033,7 @@ function processPaymentAction(req, action) {
  * @param {Object} req - 요청 데이터
  * @returns {Object} 처리 결과
  */
-function resubmitWorkflow(req) {
+function resubmitWorkflowUnlocked_(req) {
   try {
     
     // 필수 필드 검증

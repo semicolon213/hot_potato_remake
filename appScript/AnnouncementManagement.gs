@@ -598,7 +598,7 @@ function processAndUploadImages_(content) {
  * @param {Object} req - 요청 데이터
  * @returns {Object} 작성 결과
  */
-function createAnnouncement(req) {
+function createAnnouncementUnlocked_(req) {
   try {
     const { 
       spreadsheetName, 

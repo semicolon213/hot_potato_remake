@@ -239,7 +239,7 @@ function setGraduationGrade(spreadsheetId, grade, userEmail) {
  * @param {number} [graduationGrade] - 졸업 학년 (미전달 시 스크립트 속성 값 사용)
  * @returns {Object} 업데이트 결과
  */
-function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, graduationTerm) {
+function updateStudentGradesUnlocked_(spreadsheetId, graduationGrade, graduationYear, graduationTerm) {
   try {
     
     if (!spreadsheetId) {
@@ -408,7 +408,7 @@ function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, gra
  * @param {number|string} graduationYear
  * @param {string} graduationTerm
  */
-function updateStudentGradesSelected(spreadsheetId, studentIds, graduationGrade, graduationYear, graduationTerm) {
+function updateStudentGradesSelectedUnlocked_(spreadsheetId, studentIds, graduationGrade, graduationYear, graduationTerm) {
   try {
     if (!spreadsheetId) return { success: false, message: '스프레드시트 ID가 필요합니다.' };
     if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {

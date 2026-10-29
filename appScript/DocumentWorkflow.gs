@@ -21,7 +21,7 @@ function generateWorkflowId() {
  * @param {Object} req - 요청 데이터
  * @returns {Object} 응답 데이터
  */
-function requestWorkflow(req) {
+function requestWorkflowUnlocked_(req) {
   try {
     
     // 필수 필드 검증
