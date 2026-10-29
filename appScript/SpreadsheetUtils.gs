@@ -180,9 +180,19 @@ function clearSpreadsheetIdCache() {
   var props = PropertiesService.getScriptProperties();
   var version = parseInt(props.getProperty(SHEET_ID_CACHE_VERSION_PROP_) || '0', 10);
   props.setProperty(SHEET_ID_CACHE_VERSION_PROP_, String(version + 1));
-  CacheService.getScriptCache().remove(ROOT_FOLDER_CACHE_KEY_);
+  var cache = CacheService.getScriptCache();
+  var rootId = rootFolderIdMemo_ || cache.get(ROOT_FOLDER_CACHE_KEY_);
+  if (rootId) {
+    cache.removeAll([
+      workflowSpreadsheetCacheKey_(rootId),
+      accountingFolderCacheKey_(rootId)
+    ]);
+  }
+  cache.remove(ROOT_FOLDER_CACHE_KEY_);
   rootFolderIdMemo_ = null;
   sheetIdMemo_ = {};
+  workflowSpreadsheetMemo_ = null;
+  accountingFolderIdMemo_ = null;
   logDebug_('SpreadsheetUtils', '스프레드시트 ID 캐시를 비웠습니다.');
 }
 

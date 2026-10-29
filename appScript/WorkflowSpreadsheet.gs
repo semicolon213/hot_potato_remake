@@ -6,6 +6,13 @@
 
 // ===== 워크플로우 스프레드시트 관리 =====
 
+var workflowSpreadsheetMemo_ = null;
+var WORKFLOW_SPREADSHEET_CACHE_PREFIX_ = 'workflowSpreadsheetId:';
+
+function workflowSpreadsheetCacheKey_(rootFolderId) {
+  return WORKFLOW_SPREADSHEET_CACHE_PREFIX_ + rootFolderId;
+}
+
 /**
  * 워크플로우 스프레드시트 이름 가져오기 (Script Properties 또는 기본값)
  * @returns {string} 스프레드시트 이름
@@ -20,12 +27,36 @@ function getWorkflowSpreadsheetName() {
  * @returns {Object} 스프레드시트 객체
  */
 function getWorkflowSpreadsheet() {
+  if (workflowSpreadsheetMemo_) return workflowSpreadsheetMemo_;
+
   try {
     const spreadsheetName = getWorkflowSpreadsheetName();
-    
+    const cache = CacheService.getScriptCache();
+
     // 루트 폴더에서 먼저 찾기
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
-    const rootFolder = getFolderByName(rootFolderName);
+    const rootFolderId = getProjectRootFolderId_();
+    let rootFolder = null;
+    if (rootFolderId) {
+      try {
+        rootFolder = DriveApp.getFolderById(rootFolderId);
+      } catch (error) {
+        logWarn_('WorkflowSpreadsheet', '캐시된 루트 폴더를 열 수 없어 이름으로 다시 찾습니다:', error.message);
+      }
+    }
+    if (!rootFolder) rootFolder = getFolderByName(rootFolderName);
+
+    const cacheKey = rootFolder ? workflowSpreadsheetCacheKey_(rootFolder.getId()) : null;
+    const cachedId = cacheKey ? cache.get(cacheKey) : null;
+    if (cachedId) {
+      try {
+        workflowSpreadsheetMemo_ = SpreadsheetApp.openById(cachedId);
+        return workflowSpreadsheetMemo_;
+      } catch (error) {
+        cache.remove(cacheKey);
+      }
+    }
+
     let spreadsheetId = null;
     
     if (rootFolder) {
@@ -144,8 +175,9 @@ function getWorkflowSpreadsheet() {
       }
     }
     
-    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
-    return spreadsheet;
+    workflowSpreadsheetMemo_ = SpreadsheetApp.openById(spreadsheetId);
+    if (cacheKey) cache.put(cacheKey, spreadsheetId, 6 * 60 * 60);
+    return workflowSpreadsheetMemo_;
     
   } catch (error) {
     logError_('WorkflowSpreadsheet', '워크플로우 스프레드시트 조회/생성 오류:', error);

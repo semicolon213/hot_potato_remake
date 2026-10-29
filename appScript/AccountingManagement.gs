@@ -79,22 +79,55 @@ function isLikelyMisplacedEvidenceRootFolder_(folderName) {
 
 // ===== 회계 폴더 초기화 =====
 
+var accountingFolderIdMemo_ = null;
+var ACCOUNTING_FOLDER_CACHE_PREFIX_ = 'accountingFolderId:';
+
+function accountingFolderCacheKey_(rootFolderId) {
+  return ACCOUNTING_FOLDER_CACHE_PREFIX_ + rootFolderId;
+}
+
 /**
  * 회계 폴더 초기화 (없으면 생성)
  * @returns {string} 회계 폴더 ID
  */
 function initializeAccountingFolder() {
+  if (accountingFolderIdMemo_) return accountingFolderIdMemo_;
+
   try {
-    
+    const cache = CacheService.getScriptCache();
+
     // 루트 폴더 찾기 (스크립트 속성 또는 기본값)
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
     const accountingFolderName = PropertiesService.getScriptProperties().getProperty('ACCOUNT_FOLDER_NAME') || 'account';
-    
-    const rootFolders = DriveApp.getFoldersByName(rootFolderName);
-    if (!rootFolders.hasNext()) {
-      throw new Error('루트 폴더를 찾을 수 없습니다: ' + rootFolderName);
+
+    let rootFolder = null;
+    const rootFolderId = getProjectRootFolderId_();
+    if (rootFolderId) {
+      try {
+        rootFolder = DriveApp.getFolderById(rootFolderId);
+      } catch (error) {
+        logWarn_('AccountingManagement', '캐시된 루트 폴더를 열 수 없어 이름으로 다시 찾습니다:', error.message);
+      }
     }
-    const rootFolder = rootFolders.next();
+    if (!rootFolder) {
+      const rootFolders = DriveApp.getFoldersByName(rootFolderName);
+      if (!rootFolders.hasNext()) {
+        throw new Error('루트 폴더를 찾을 수 없습니다: ' + rootFolderName);
+      }
+      rootFolder = rootFolders.next();
+    }
+
+    const cacheKey = accountingFolderCacheKey_(rootFolder.getId());
+    const cachedId = cache.get(cacheKey);
+    if (cachedId) {
+      try {
+        DriveApp.getFolderById(cachedId).getName();
+        accountingFolderIdMemo_ = cachedId;
+        return accountingFolderIdMemo_;
+      } catch (error) {
+        cache.remove(cacheKey);
+      }
+    }
     
     // 회계 폴더 찾기 또는 생성
     let accountingFolder;
@@ -108,7 +141,9 @@ function initializeAccountingFolder() {
       logDebug_('AccountingManagement', '새 회계 폴더 생성:', accountingFolder.getId());
     }
     
-    return accountingFolder.getId();
+    accountingFolderIdMemo_ = accountingFolder.getId();
+    cache.put(cacheKey, accountingFolderIdMemo_, 6 * 60 * 60);
+    return accountingFolderIdMemo_;
     
   } catch (error) {
     logError_('AccountingManagement', '회계 폴더 초기화 오류:', error);
