@@ -28,6 +28,33 @@ interface InitialDataTaskConfig {
   fn: (user: User) => Promise<unknown>;
 }
 
+type InitialDataTask = { name: string; category: string; fn: () => Promise<unknown> };
+
+const runTaskPool = async (
+  tasks: InitialDataTask[],
+  concurrency: number,
+  onComplete: (task: InitialDataTask) => void
+): Promise<void> => {
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < tasks.length) {
+      const task = tasks[nextIndex++];
+      try {
+        await task.fn();
+      } catch (error) {
+        log.error(`${task.name} 로딩 실패:`, error);
+      } finally {
+        onComplete(task);
+      }
+    }
+  };
+
+  await Promise.all(Array.from(
+    { length: Math.min(concurrency, tasks.length) },
+    () => worker()
+  ));
+};
+
 const INITIAL_DATA_TASKS: InitialDataTaskConfig[] = [
   {
     key: 'announcements',
@@ -307,7 +334,7 @@ export class DataSyncService {
       const applicableTasks = INITIAL_DATA_TASKS.filter(
         (task) => task.runIf(user) && task.phase === 1
       );
-      const tasks: Array<{ name: string; category: string; fn: () => Promise<unknown> }> = applicableTasks.map((task) => ({
+      const tasks: InitialDataTask[] = applicableTasks.map((task) => ({
         name: task.name,
         category: task.category,
         fn: () => task.fn(user)
@@ -325,21 +352,10 @@ export class DataSyncService {
 
       onProgress?.({ current: 0, total, message: '모든 데이터 로딩 중...' });
 
-      for (let i = 0; i < tasks.length; i += CONCURRENCY) {
-        const chunk = tasks.slice(i, i + CONCURRENCY);
-        await Promise.allSettled(
-          chunk.map(async (task) => {
-            try {
-              await task.fn();
-            } catch (error) {
-              log.error(`${task.name} 로딩 실패:`, error);
-            } finally {
-              completed++;
-              onProgress?.({ current: completed, total, category: task.category, message: `${task.name} 완료` });
-            }
-          })
-        );
-      }
+      await runTaskPool(tasks, CONCURRENCY, (task) => {
+        completed++;
+        onProgress?.({ current: completed, total, category: task.category, message: `${task.name} 완료` });
+      });
 
       this.lastSyncTime = new Date();
       return spreadsheetIds;
@@ -371,7 +387,7 @@ export class DataSyncService {
     const applicableTasks = INITIAL_DATA_TASKS.filter(
       (task) => task.runIf(user) && task.phase === 2
     );
-    const tasks: Array<{ name: string; category: string; fn: () => Promise<unknown> }> = applicableTasks.map((task) => ({
+    const tasks: InitialDataTask[] = applicableTasks.map((task) => ({
       name: task.name,
       category: task.category,
       fn: () => task.fn(user)
@@ -393,21 +409,10 @@ export class DataSyncService {
 
     onProgress?.({ current: 0, total, message: '백그라운드 동기화 중...' });
 
-    for (let i = 0; i < tasks.length; i += CONCURRENCY) {
-      const chunk = tasks.slice(i, i + CONCURRENCY);
-      await Promise.allSettled(
-        chunk.map(async (task) => {
-          try {
-            await task.fn();
-          } catch (error) {
-            log.error(`${task.name} 로딩 실패:`, error);
-          } finally {
-            completed++;
-            onProgress?.({ current: completed, total, category: task.category, message: `${task.name} 완료` });
-          }
-        })
-      );
-    }
+    await runTaskPool(tasks, CONCURRENCY, (task) => {
+      completed++;
+      onProgress?.({ current: completed, total, category: task.category, message: `${task.name} 완료` });
+    });
 
     this.lastSyncTime = new Date();
   }
