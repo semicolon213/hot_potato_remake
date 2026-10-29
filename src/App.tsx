@@ -123,17 +123,6 @@ const App: React.FC = () => {
     students,
     staff,
 
-    // Widget state and handlers
-    isModalOpen,
-    setIsModalOpen,
-    widgets,
-    handleAddWidget,
-    handleRemoveWidget,
-    handleDragStart,
-    handleDragEnter,
-    handleDrop,
-    widgetOptions,
-
     // DataSyncService 관련 상태
     isInitializingData,
     dataSyncProgress,
@@ -1216,16 +1205,6 @@ const App: React.FC = () => {
               onAddTemplate={handleAddTemplate}
               onUpdateTemplate={handleUpdateTemplate}
               onUpdateTemplateFavorite={handleUpdateTemplateFavorite}
-              // Widget props
-              isModalOpen={isModalOpen}
-              setIsModalOpen={setIsModalOpen}
-              widgets={widgets}
-              handleAddWidget={handleAddWidget}
-              handleRemoveWidget={handleRemoveWidget}
-              handleDragStart={handleDragStart}
-              handleDragEnter={handleDragEnter}
-              handleDrop={handleDrop}
-              widgetOptions={widgetOptions}
               // DataSyncService 관련 props
               lastSyncTime={lastSyncTime}
               onRefresh={handleRefreshAllData}
