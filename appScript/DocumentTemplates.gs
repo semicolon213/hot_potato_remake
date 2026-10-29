@@ -463,53 +463,24 @@ function getSharedTemplates() {
     }
     
     // 메타데이터(properties) 포함하여 API 호출 (Drive API v2 호환)
-    var files;
+    var fileList = [];
     var maxRetries = 3;
     var retryCount = 0;
     
     while (retryCount < maxRetries) {
       try {
-        // Drive API v2에서는 fields 파라미터 없이 모든 필드를 가져온 후 필요한 것만 사용
-        // 또는 올바른 형식으로 fields 사용
-        files = Drive.Files.list({
-          q: '\'' + folderRes.data.id + '\' in parents and trashed=false',
-          maxResults: 1000 // 최대 결과 수 제한
-        });
-        
-        // 각 파일의 properties를 별도로 가져오기 (v2에서는 list에서 properties를 직접 가져올 수 없을 수 있음)
-        // properties를 가져온 후 각 파일 객체에 확실하게 합치기
-        var fileArray = files.items || files.files || [];
-        
-        for (var i = 0; i < fileArray.length; i++) {
-          try {
-            // properties만 가져오기 위해 fields 지정
-            var fileDetail = Drive.Files.get(fileArray[i].id, { fields: 'properties' });
-            
-            if (fileDetail && fileDetail.properties) {
-              // properties 객체를 직접 할당 (확실하게)
-              fileArray[i].properties = fileDetail.properties;
-            } else {
-              // properties가 없으면 빈 배열로 초기화
-              fileArray[i].properties = [];
-            }
-            
-            // API 제한 방지를 위해 잠시 대기
-            if (i % 10 === 0 && i > 0) {
-              Utilities.sleep(100);
-            }
-          } catch (getError) {
-            // 에러 발생 시에도 빈 배열로 초기화하여 계속 진행
-            fileArray[i].properties = [];
-            logWarn_('DocumentTemplates', '파일 상세 정보 가져오기 실패:', fileArray[i].id, getError.message);
-          }
-        }
-        
-        // properties를 가져온 후 files 객체에 다시 할당 (확실하게)
-        if (files.items) {
-          files.items = fileArray;
-        } else if (files.files) {
-          files.files = fileArray;
-        }
+        fileList = [];
+        var pageToken = null;
+        do {
+          var files = Drive.Files.list({
+            q: '\'' + folderRes.data.id + '\' in parents and trashed=false',
+            pageSize: 1000,
+            pageToken: pageToken || undefined,
+            fields: 'nextPageToken,files(id,name,mimeType,modifiedTime,createdTime,owners(displayName,emailAddress),description,properties)'
+          });
+          fileList = fileList.concat(files.files || []);
+          pageToken = files.nextPageToken;
+        } while (pageToken);
         
         break; // 성공하면 루프 종료
       } catch (listError) {
@@ -533,10 +504,6 @@ function getSharedTemplates() {
         Utilities.sleep(Math.pow(2, retryCount) * 1000);
       }
     }
-    
-    // 문서와 스프레드시트 모두 포함 (v2: files.items, v3: files.files 모두 지원)
-    // properties를 가져온 후 fileList 생성 (properties가 포함된 상태)
-    var fileList = files.items || files.files || [];
     
     var items = fileList.filter(function(f){ 
       return f.mimeType === 'application/vnd.google-apps.document' || 

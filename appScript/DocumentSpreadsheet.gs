@@ -109,16 +109,24 @@ function getSharedDocumentsFromFolder() {
     const targetFolderId = folderResult.data.id;
     
     // 1단계: 파일 목록 먼저 조회 (기본 템플릿처럼)
-    var files;
+    var fileArray = [];
     var maxRetries = 3;
     var retryCount = 0;
     
     while (retryCount < maxRetries) {
       try {
-        files = Drive.Files.list({
-          q: '\'' + targetFolderId + '\' in parents and trashed=false',
-          maxResults: 1000
-        });
+        fileArray = [];
+        var pageToken = null;
+        do {
+          var files = Drive.Files.list({
+            q: '\'' + targetFolderId + '\' in parents and trashed=false',
+            pageSize: 1000,
+            pageToken: pageToken || undefined,
+            fields: 'nextPageToken,files(id,name,mimeType,modifiedTime,createdTime,owners(displayName,emailAddress),webViewLink,description,properties)'
+          });
+          fileArray = fileArray.concat(files.files || []);
+          pageToken = files.nextPageToken;
+        } while (pageToken);
         break; // 성공하면 루프 종료
       } catch (listError) {
         retryCount++;
@@ -139,40 +147,6 @@ function getSharedDocumentsFromFolder() {
         
         Utilities.sleep(Math.pow(2, retryCount) * 1000);
       }
-    }
-    
-    // 2단계: 각 파일의 메타데이터(properties) 따로 조회 (기본 템플릿처럼)
-    var fileArray = files.items || files.files || [];
-    
-    for (var i = 0; i < fileArray.length; i++) {
-      try {
-        // properties만 가져오기 위해 fields 지정
-        var fileDetail = Drive.Files.get(fileArray[i].id, { fields: 'properties' });
-        
-        if (fileDetail && fileDetail.properties) {
-          // properties 객체를 직접 할당
-          fileArray[i].properties = fileDetail.properties;
-        } else {
-          // properties가 없으면 빈 객체로 초기화
-          fileArray[i].properties = {};
-        }
-        
-        // API 제한 방지를 위해 잠시 대기
-        if (i % 10 === 0 && i > 0) {
-          Utilities.sleep(100);
-        }
-      } catch (getError) {
-        // 에러 발생 시에도 빈 객체로 초기화하여 계속 진행
-        fileArray[i].properties = {};
-        logWarn_('DocumentSpreadsheet', '파일 상세 정보 가져오기 실패:', fileArray[i].id, getError.message);
-      }
-    }
-    
-    // properties를 가져온 후 files 객체에 다시 할당
-    if (files.items) {
-      files.items = fileArray;
-    } else if (files.files) {
-      files.files = fileArray;
     }
     
     // 기존 형식 유지하여 반환
