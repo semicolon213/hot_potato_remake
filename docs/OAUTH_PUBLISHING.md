@@ -52,7 +52,7 @@ restricted 범위를 남길 때 생기는 일:
 | 6 | 개인정보처리방침: 홈페이지와 같은 도메인, 접근·사용·저장·공유 방식 공개 | 4줄짜리 일반 문구, Google 데이터 설명 없음 | 범위별 사용 목적, 저장 위치, 공유, 삭제, 권한 철회, 방침 변경 고지를 코드 기준으로 작성 | 완료 |
 | 7 | Limited Use 준수 문구 | 없음 | 영문·국문 문구를 `privacy.html` 6절과 소개 페이지에 추가 | 완료 |
 | 8 | 개인정보처리방침의 사실 정확성 | 관리자 키 메일 요청이 액세스 토큰을 Apps Script로 보내고 `appScript/Main.gs:15`가 요청 전체를 로그에 남김 | 토큰 전송 제거, 요청 로그 축소. **이 수정이 배포되기 전에는 새 `privacy.html`을 배포하지 않음** | Codex |
-| 9 | 개인정보처리방침의 미확정 값 | 시행일, 운영 주체, 문의 이메일, 회원 정보 보관 기간이 TODO | 값을 정해 `public/privacy.html`, `public/terms.html`의 TODO 주석 위치를 바꿈 | 사용자 |
+| 9 | 개인정보처리방침의 미확정 값 | 시행일, 운영 주체, 문의 이메일, 회원 정보 보관 기간이 TODO | 값을 정해 `public/privacy.html`, `public/terms.html`의 TODO 주석 위치를 바꿈 | 완료 (운영: 유한대학교 감자도리, 문의 khk213624@gmail.com, 보관 기간은 운영 주체 지침, 시행일 2026-11-01) |
 | 10 | 범위 축소 후 방침 갱신 | `documents`, `gmail.compose` 행이 "제거 예정"으로 남아 있음 | Codex 1단계 배포 후 해당 행 삭제, `drive.file` 전환 시 드라이브 행 수정 | Codex / 문서 |
 | 11 | 이용약관(선택) | 일반 문구 | Google 연동, 권한 철회, 책임 조항 보강 | 완료 |
 | 12 | 승인된 도메인: 홈페이지, 방침, 약관, 리디렉션 URI의 최상위 비공개 도메인 | `netlify.app`은 공개 접미사 목록(PSL)에 있으므로 `yuhancse.netlify.app` 자체가 최상위 비공개 도메인 | Branding > Authorized domains에 `yuhancse.netlify.app` 추가 | 사용자 |
