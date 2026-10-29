@@ -282,6 +282,7 @@
     const validMethods = getConfig('encryption_methods');
     if (validMethods && validMethods.includes(method)) {
         PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_METHOD', method);
+        emailEncryptionConfigMemo_ = null;
         return true;
     }
     logError_('CONFIG', '유효하지 않은 암호화 방법');
@@ -293,6 +294,7 @@
     function setEmailEncryptionLayers(layers) {
     if (layers && layers >= 1 && layers <= 5) {
         PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_LAYERS', layers.toString());
+        emailEncryptionConfigMemo_ = null;
         return true;
     }
     logError_('CONFIG', '유효하지 않은 레이어 수:', layers, '(1-5 범위)');
@@ -306,6 +308,7 @@
         const invalidMethods = methods.filter(method => !validMethods.includes(method));
         if (invalidMethods.length === 0) {
         PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_LAYER_METHODS', JSON.stringify(methods));
+        emailEncryptionConfigMemo_ = null;
         return true;
         } else {
         logError_('CONFIG', '유효하지 않은 암호화 방법들');
@@ -319,18 +322,22 @@
 
     // 현재 이메일 암호화 설정 가져오기
     function getCurrentEmailEncryptionConfig() {
-    const storedMethod = PropertiesService.getScriptProperties().getProperty('EMAIL_ENCRYPTION_METHOD');
-    const storedLayers = PropertiesService.getScriptProperties().getProperty('EMAIL_ENCRYPTION_LAYERS');
-    const storedLayerMethods = PropertiesService.getScriptProperties().getProperty('EMAIL_ENCRYPTION_LAYER_METHODS');
+    if (emailEncryptionConfigMemo_) return emailEncryptionConfigMemo_;
+
+    const properties = PropertiesService.getScriptProperties().getProperties();
+    const storedMethod = properties.EMAIL_ENCRYPTION_METHOD;
+    const storedLayers = properties.EMAIL_ENCRYPTION_LAYERS;
+    const storedLayerMethods = properties.EMAIL_ENCRYPTION_LAYER_METHODS;
     
     const defaultConfig = getConfig('email_encryption_config');
     
-    return {
+    emailEncryptionConfigMemo_ = {
         method: storedMethod || defaultConfig.METHOD,
         layers: storedLayers ? parseInt(storedLayers) : defaultConfig.LAYERS,
         layerMethods: storedLayerMethods ? JSON.parse(storedLayerMethods) : defaultConfig.LAYER_METHODS,
         identificationPatterns: defaultConfig.IDENTIFICATION_PATTERNS
     };
+    return emailEncryptionConfigMemo_;
     }
 
     // 이메일 암호화 설정 초기화
@@ -345,6 +352,7 @@
     PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_METHOD', defaultConfig.METHOD);
     PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_LAYERS', defaultConfig.LAYERS.toString());
     PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_LAYER_METHODS', JSON.stringify(defaultConfig.LAYER_METHODS));
+    emailEncryptionConfigMemo_ = null;
     
     // 초기화 후 검증
     const validation = validateEmailEncryptionConfig();
@@ -598,3 +606,5 @@
     function getGroupNameByRole(role) {
         return GROUP_ROLE_MAPPING[role]?.name || '알 수 없는 그룹스';
     }
+var emailEncryptionConfigMemo_ = null;
+

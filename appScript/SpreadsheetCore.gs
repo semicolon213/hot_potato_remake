@@ -6,17 +6,21 @@
 
 // ===== 스프레드시트 핵심 함수들 =====
 
+var hpMemberSpreadsheetMemo_ = null;
+
 /**
  * hp_member 스프레드시트 가져오기 (연결된 스프레드시트 사용)
  * @returns {Object} 스프레드시트 객체
  */
 function getHpMemberSpreadsheet() {
+  if (hpMemberSpreadsheetMemo_) return hpMemberSpreadsheetMemo_;
+
   try {
     // Apps Script 프로젝트에 연결된 스프레드시트 사용
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     if (spreadsheet) {
-      logDebug_('SpreadsheetCore', '연결된 스프레드시트 사용:', spreadsheet.getName());
-      return spreadsheet;
+      hpMemberSpreadsheetMemo_ = spreadsheet;
+      return hpMemberSpreadsheetMemo_;
     }
   } catch (error) {
     logWarn_('SpreadsheetCore', '연결된 스프레드시트를 찾을 수 없습니다:', error.message);
@@ -26,7 +30,8 @@ function getHpMemberSpreadsheet() {
   const spreadsheetId = getSpreadsheetId();
   if (spreadsheetId) {
     logDebug_('SpreadsheetCore', '스크립트 속성 SPREADSHEET_ID 사용:', spreadsheetId);
-    return SpreadsheetApp.openById(spreadsheetId);
+    hpMemberSpreadsheetMemo_ = SpreadsheetApp.openById(spreadsheetId);
+    return hpMemberSpreadsheetMemo_;
   }
   
   throw new Error('스프레드시트를 찾을 수 없습니다. 프로젝트 설정 > 스크립트 속성에 SPREADSHEET_ID(회원/로그인용 스프레드시트 ID)를 설정하세요.');
