@@ -30,7 +30,6 @@ import { apiClient } from '../../../utils/api/apiClient';
 import { API_ACTIONS } from '../../../config/api';
 import { fetchAnnouncements, getNoticeSpreadsheetApiFields } from '../../../utils/database/papyrusManager';
 import type { ApiResponse } from '../../../config/api';
-import { tokenManager } from '../../../utils/auth/tokenManager';
 import { useAppDataStore } from '../../../stores/appDataStore';
 const log = logger.scope('hooks/features/admin/useAdminPanel');
 
@@ -367,31 +366,8 @@ export const useAdminPanel = () => {
         return;
       }
 
-      let adminAccessToken: string;
-      try {
-        const storedToken = tokenManager.get();
-        if (storedToken) {
-          adminAccessToken = storedToken;
-        } else {
-          const gapi = window.gapi;
-          if (!gapi || !gapi.client) {
-            throw new Error('Google API가 초기화되지 않았습니다.');
-          }
-          const token = gapi.client.getToken();
-          if (!token || !token.access_token) {
-            throw new Error('액세스 토큰을 가져올 수 없습니다. 다시 로그인해주세요.');
-          }
-          adminAccessToken = token.access_token;
-        }
-      } catch {
-        log.error('토큰 가져오기 실패');
-        setMessage('Google 인증이 필요합니다. 다시 로그인해주세요.');
-        setEmailStatus('error');
-        return;
-      }
-      
       // 백엔드에서 관리자 키 이메일 전송 처리
-      const result = await sendAdminKeyEmail(emailToSend, adminAccessToken) as ApiResponse<{
+      const result = await sendAdminKeyEmail(emailToSend) as ApiResponse<{
         adminKey: string;
         encryptedKey: string;
         layersUsed: number;

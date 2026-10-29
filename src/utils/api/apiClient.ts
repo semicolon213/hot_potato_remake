@@ -302,11 +302,8 @@ export class ApiClient {
   }
 
   // 관리자 키 API
-  async sendAdminKeyEmail(userEmail: string, adminAccessToken: string) {
-    return this.request(API_ACTIONS.SEND_ADMIN_KEY_EMAIL, {
-      userEmail,
-      adminAccessToken
-    });
+  async sendAdminKeyEmail(userEmail: string) {
+    return this.request(API_ACTIONS.SEND_ADMIN_KEY_EMAIL, { userEmail });
   }
 
   // 이메일 마이그레이션 API
@@ -1058,8 +1055,8 @@ export class ApiClient {
 export const apiClient = new ApiClient();
 
 // 기존 API 함수들과의 호환성을 위한 래퍼 함수들
-export const sendAdminKeyEmail = (userEmail: string, adminAccessToken: string) =>
-  apiClient.sendAdminKeyEmail(userEmail, adminAccessToken);
+export const sendAdminKeyEmail = (userEmail: string) =>
+  apiClient.sendAdminKeyEmail(userEmail);
 
 export const fetchAllUsers = () =>
   apiClient.getAllUsers();
