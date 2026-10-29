@@ -9,13 +9,61 @@
     <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups" />
     <!-- Google OAuth 및 API 호환성을 위한 CSP 설정 -->
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com https://www.gstatic.com https://apis.google.com https://content.googleapis.com https://ssl.gstatic.com https://www.googleapis.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com/_/mss/boq-identity/; frame-src 'self' https://accounts.google.com https://content-sheets.googleapis.com https://content.googleapis.com https://sheets.googleapis.com https://www.gstatic.com https://ssl.gstatic.com https://*.googleapis.com https://*.gstatic.com; connect-src 'self' https://accounts.google.com https://apis.google.com https://www.googleapis.com https://dailykeyupdate-651515712118.asia-northeast3.run.app https://sheets.googleapis.com https://content.googleapis.com https://content-sheets.googleapis.com https://www.gstatic.com https://ssl.gstatic.com https://oauth2.googleapis.com https://*.googleapis.com https://*.gstatic.com https://script.google.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; object-src 'none'; base-uri 'self';">
-    <title>HP ERP</title>
+    <title>HP ERP (뜨거운 감자)</title>
+    <meta name="description" content="HP ERP 뜨거운 감자 — 학과 행정 업무 서비스" />
+    <style>
+      :root {
+        --site-static-nav-bg: #f8fafc;
+        --site-static-nav-border: #e2e8f0;
+        --site-static-link: #1e3a5f;
+      }
+      .site-static-compliance {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 8px 12px;
+        padding: 10px 16px;
+        font-size: 13px;
+        background: var(--site-static-nav-bg);
+        border-bottom: 1px solid var(--site-static-nav-border);
+        box-sizing: border-box;
+      }
+      .site-static-brand {
+        font-weight: 600;
+        color: #0f172a;
+      }
+      .site-static-brand-sub {
+        font-weight: 500;
+        color: #475569;
+      }
+      .site-static-compliance a {
+        color: var(--site-static-link);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .site-static-compliance a:hover {
+        color: #0f172a;
+      }
+      .site-static-sep {
+        color: #94a3b8;
+        user-select: none;
+      }
+    </style>
     <!-- Google Identity Services (GIS) - 새로운 인증 라이브러리 -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Google API Client Library - 단일 스크립트로 통합 -->
     <script src="https://apis.google.com/js/api.js" async defer onload="console.log('Google API script loaded'); window.gapiLoaded = true;" onerror="console.error('Google API script failed to load')"></script>
   </head>
   <body>
+    <!-- Google OAuth 브랜딩 검증: 홈페이지에 JS 없이 보이는 앱명·개인정보 링크 (크롤러·수동 검토용) -->
+    <nav class="site-static-compliance" aria-label="앱 정보 및 약관">
+      <span class="site-static-brand">HP ERP <span class="site-static-brand-sub">(뜨거운 감자)</span></span>
+      <span class="site-static-sep" aria-hidden="true">|</span>
+      <a href="/privacy.html">개인정보처리방침</a>
+      <span class="site-static-sep" aria-hidden="true">·</span>
+      <a href="/terms.html">이용약관</a>
+    </nav>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

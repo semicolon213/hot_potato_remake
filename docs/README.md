@@ -1,73 +1,59 @@
-# 문서 안내
+# HP ERP 문서
 
-**HP ERP (Hot Potato)** 프로젝트 문서입니다. 팀 **김원일의 보석함**.
+개발 단계별 산출물을 정리한 문서 모음입니다. 처음이라면 **역할별 시작점**부터 보세요.
 
----
+## 역할별 시작점
 
-## 빠르게 찾기
+| 나는 | 먼저 읽을 문서 |
+|---|---|
+| 프로젝트를 처음 보는 사람 | [루트 README](../README.md) → [PROBLEM_DEFINITION](./PROBLEM_DEFINITION.md) → [ARCHITECTURE](./ARCHITECTURE.md) |
+| 새로 합류한 개발자 | [GETTING_STARTED](./GETTING_STARTED.md) → [CONVENTIONS](./CONVENTIONS.md) → [ARCHITECTURE](./ARCHITECTURE.md) → [STATUS](./STATUS.md) |
+| 기능을 추가하는 개발자 | [SRS](./SRS.md) → [API_SPEC](./API_SPEC.md) → [DATA_MODEL](./DATA_MODEL.md) |
+| 운영자(조교·관리자) | [OPERATOR_MANUAL](./OPERATOR_MANUAL.md) → [RUNBOOK](./RUNBOOK.md) |
+| 새 환경을 세팅하는 사람 | [DEPLOYMENT](./DEPLOYMENT.md) |
 
-| 하고 싶은 일 | 문서 |
-|-------------|------|
-| **초기 환경 세팅 (Netlify + Google API)** | [초기 세팅 가이드](./INITIAL_SETUP_GUIDE.md) |
-| **Netlify 배포 체크리스트** | [Netlify 배포 체크리스트](./NETLIFY_DEPLOYMENT_CHECKLIST.md) |
-| 처음 세팅·클론·빌드 | [설치 가이드](./INSTALLATION_GUIDE.md) |
-| `.env`·JSON 환경변수 | [환경 변수](./ENVIRONMENT_VARIABLES_SETUP.md), [ENV V2 전환](./ENV_CONFIG_V2_전환_가이드.md) |
-| 웹/Electron 배포·태그 릴리즈 | [배포 가이드](./DEPLOYMENT_GUIDE.md) |
-| CI 워크플로우 수정·검증 기준 | [CI/CD 업데이트](./CI_CD_UPDATE_GUIDE.md), [검증 기준](./CI_CD_VALIDATION_CRITERIA.md) |
-| 폴더·시트 이름 규칙 | [Drive 폴더 구조](./DRIVE_FOLDER_STRUCTURE.md) |
-| `src/` 구조 | [프론트엔드 구조](./FRONTEND_STRUCTURE.md) |
-| GAS 로컬 편집·배포 | [Clasp 가이드](./CLASP_GUIDE.md) |
-| Apps Script 액션·엔드포인트 개요 | [API 문서](./API_DOCUMENTATION.md) |
-| 캐시·동기화(IndexedDB, ApiClient) | [데이터 캐싱](./DATA_CACHING_STRATEGY.md) — *상세·장문* |
-| 아키텍처·모듈 개요 | [프로젝트 문서](./PROJECT_DOCUMENTATION.md) |
+## 개발 단계별 산출물
 
-백엔드 스크립트 일괄 배포·파일 설명: **[`../appScript/README.md`](../appScript/README.md)**
+```mermaid
+flowchart LR
+    S1["① 문제 정의"] --> S2["② 요구사항"] --> S3["③ 설계"] --> S4["④ 구조 생성"] --> S5["⑤ 구현"] --> S6["⑥ 테스트"] --> S7["⑦ 수정·문서화"]
+```
 
----
+| 단계 | 산출물 | UML 다이어그램 |
+|---|---|---|
+| ① 문제 정의 | [PROBLEM_DEFINITION](./PROBLEM_DEFINITION.md): 배경, 문제, 목표, KPI, 범위, 제약 | [Activity](./PROBLEM_DEFINITION.md#현행as-is-결재-흐름) (현행 결재 흐름) |
+| ② 요구사항 | [SRS](./SRS.md): 액터, 사용자 스토리, 기능·비기능 요구사항(MoSCoW) · [GLOSSARY](./GLOSSARY.md) | [Use Case](./SRS.md#2-use-case-다이어그램) |
+| ③ 설계 | [DATA_MODEL](./DATA_MODEL.md): ERD, Drive 구조 · [API_SPEC](./API_SPEC.md): 액션 명세 | [ERD](./DATA_MODEL.md#2-erd) · [Sequence](./ARCHITECTURE.md#4-sequence-다이어그램) · [Class](./ARCHITECTURE.md#5-class-다이어그램-프론트엔드-핵심-타입) |
+| ④ 구조 생성 | [ARCHITECTURE](./ARCHITECTURE.md) · [ADR](./ADR.md): 결정 기록 · [CONVENTIONS](./CONVENTIONS.md): 코딩 규칙, 브랜치 전략 · [DEPLOYMENT](./DEPLOYMENT.md): 인프라, 배포 | [Component](./ARCHITECTURE.md#2-component-다이어그램) · [Deployment](./ARCHITECTURE.md#3-deployment-다이어그램) |
+| ⑤ 구현 | 소스 코드 · [GETTING_STARTED](./GETTING_STARTED.md) · [STATUS](./STATUS.md): 구현 현황 | [State](./ARCHITECTURE.md#6-상태-다이어그램) (회원, 결재, 예산, 공지 고정) |
+| ⑥ 테스트 | [TEST_PLAN](./TEST_PLAN.md): TC 시트, 자동 검사 결과, 결함 리포트 | [Communication](./ARCHITECTURE.md#7-communication-다이어그램-결재-승인) |
+| ⑦ 수정·문서화 | [OPERATOR_MANUAL](./OPERATOR_MANUAL.md) · [RUNBOOK](./RUNBOOK.md): 장애 대응 · [SECURITY](./SECURITY.md) · [STATUS](./STATUS.md): 기술 백로그 | [Package](./ARCHITECTURE.md#8-package-다이어그램) |
 
-## 문서 구성
+## 문서 목록
 
-### 1. 온보딩
+| 문서 | 내용 |
+|---|---|
+| [PROBLEM_DEFINITION.md](./PROBLEM_DEFINITION.md) | 왜 만들었나, 무엇을 해결하나, 어떻게 측정하나 |
+| [SRS.md](./SRS.md) | 누가 무엇을 할 수 있어야 하나 |
+| [GLOSSARY.md](./GLOSSARY.md) | 업무·기술 용어 |
+| [DATA_MODEL.md](./DATA_MODEL.md) | 스프레드시트·시트·열, Drive 폴더 구조 |
+| [API_SPEC.md](./API_SPEC.md) | Apps Script 액션 79개 (진단용 3개 포함) |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | 구성 요소, 배포 구조, 흐름, 상태, 패키지, 캐시 |
+| [ADR.md](./ADR.md) | 설계 결정 13건과 그 이유 |
+| [CONVENTIONS.md](./CONVENTIONS.md) | 브랜치, 커밋, 코드, Apps Script 규칙 |
+| [GETTING_STARTED.md](./GETTING_STARTED.md) | 로컬 개발 환경 |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | 처음부터 세팅, 변경 배포, 롤백 |
+| [TEST_PLAN.md](./TEST_PLAN.md) | 테스트 전략, TC, 결과, 결함 |
+| [STATUS.md](./STATUS.md) | 기능별 상태, 프로젝트 이력, 백로그 |
+| [OPERATOR_MANUAL.md](./OPERATOR_MANUAL.md) | 운영자 작업 절차 |
+| [RUNBOOK.md](./RUNBOOK.md) | 장애 유형별 대응 |
+| [SECURITY.md](./SECURITY.md) | 인증, 권한, 데이터 보호, 신고 |
+| [OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md) | Google OAuth 앱 게시와 인증 체크리스트 |
+| [EASY_SETUP_DESIGN.md](./EASY_SETUP_DESIGN.md) | 쉬운 설치 도구 설계 (브라우저 설치 마법사) |
+| [archive/](./archive/README.md) | 재정리 전 문서 (참고용) |
 
-- **INITIAL_SETUP_GUIDE** — Netlify 배포, Google API, Drive 초기화 (처음 세팅 시 필수)
-- **INSTALLATION_GUIDE** — 클론, `npm install`, `dev` / `build`
-- **ENVIRONMENT_VARIABLES_SETUP** + **ENV_CONFIG_V2_전환_가이드** — `VITE_*`, JSON `.env`
+## 문서 관리 규칙
 
-### 2. 배포·자동화
-
-- **DEPLOYMENT_GUIDE** — GitHub Actions, Electron 릴리즈, 태그
-- **CI_CD_UPDATE_GUIDE**, **CI_CD_VALIDATION_CRITERIA** — 파이프라인 유지보수
-
-### 3. 구조·연동
-
-- **DRIVE_FOLDER_STRUCTURE** — Google Drive 디렉터리·폴더명 규칙
-- **FRONTEND_STRUCTURE** — React 컴포넌트·훅 배치
-- **PROJECT_DOCUMENTATION** — 기술 스택·디렉터리·리팩터링 요약
-- **CLASP_GUIDE** — Apps Script ↔ 저장소 동기화
-
-### 4. API·데이터
-
-- **API_DOCUMENTATION** — 프록시·액션 문자열 개요
-- **DATA_CACHING_STRATEGY** — 캐시 키, 무효화, DataSync (구현 상세)
-
----
-
-## 보관 문서 (`archive/`)
-
-과거 **이슈 분석·디자인 초안·리팩터링 기록**만 두었습니다. 일상 개발·온보딩에는 위 표의 문서만 보면 됩니다.
-
-| 파일 | 비고 |
-|------|------|
-| [archive/BUG_FIXES_personalFavoriteManager.md](./archive/BUG_FIXES_personalFavoriteManager.md) | 즐겨찾기 버그 수정 기록 |
-| [archive/TYPE_ERROR_FIXES.md](./archive/TYPE_ERROR_FIXES.md) | TS 타입 정리 이력 |
-| [archive/REFACTORING_DOCUMENTATION.md](./archive/REFACTORING_DOCUMENTATION.md) | 대규모 리팩터링 노트 |
-| [archive/DESIGN_ANALYSIS.md](./archive/DESIGN_ANALYSIS.md) | UI/디자인 분석 초안 |
-| [archive/초기_로딩_분석.md](./archive/초기_로딩_분석.md) | 초기 로딩 성능 메모 |
-
-자세한 안내: [archive/README.md](./archive/README.md)
-
----
-
-## 루트 README
-
-프로젝트 요약·팀명·빠른 시작: 저장소 루트 [**`README.md`**](../README.md).
+- 구현 상태는 [STATUS.md](./STATUS.md)에서만 관리합니다.
+- 코드를 바꾸면 같은 커밋에서 관련 문서도 고칩니다.
+- 다이어그램은 Mermaid로 문서 안에 씁니다.

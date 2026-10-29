@@ -220,6 +220,18 @@ const App: React.FC = () => {
     return unsubscribe;
   }, [showNotification]);
 
+  /** index.html 정적 약관 바 — 로그인·승인대기 화면에서는 숨겨 중복 표시 방지 (브랜딩 검증용 HTML은 비로그인 시에만) */
+  useEffect(() => {
+    if (user) {
+      document.body.classList.add('app-authenticated');
+    } else {
+      document.body.classList.remove('app-authenticated');
+    }
+    return () => {
+      document.body.classList.remove('app-authenticated');
+    };
+  }, [user]);
+
   // 토큰 만료 체크 및 자동 갱신/로그아웃
   useEffect(() => {
     if (!user) {
