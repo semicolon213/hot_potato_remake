@@ -40,6 +40,19 @@ import type {Post, Event, DateRange, CustomPeriod, Student, Staff} from '../../t
 import type {Template} from '../../hooks/features/templates/useTemplateUI';
 const log = logger.scope('utils/database/papyrusManager');
 
+const inFlight = new Map<string, Promise<unknown>>();
+
+const dedupe = <T>(key: string, task: () => Promise<T>): Promise<T> => {
+    const existing = inFlight.get(key) as Promise<T> | undefined;
+    if (existing) return existing;
+
+    const promise = task().finally(() => {
+        if (inFlight.get(key) === promise) inFlight.delete(key);
+    });
+    inFlight.set(key, promise);
+    return promise;
+};
+
 
 // 스프레드시트 ID들을 저장할 변수들
 let hotPotatoDBSpreadsheetId: string | null = null;
@@ -1025,35 +1038,31 @@ export const fetchCalendarEvents = async (): Promise<Event[]> => {
     const category = getActionCategory(action);
     const cacheKey = generateCacheKey(category, action, {});
     
-    // 캐시에서 먼저 확인
-    const cachedData = await cacheManager.get<Event[]>(cacheKey);
-    if (cachedData) {
-        log.debug('캐시에서 캘린더 이벤트 로드:', cachedData.length, '개');
-        return cachedData;
-    }
+    return dedupe(cacheKey, async () => {
+        const cachedData = await cacheManager.get<Event[]>(cacheKey);
+        if (cachedData) {
+            log.debug('캐시에서 캘린더 이벤트 로드:', cachedData.length, '개');
+            return cachedData;
+        }
 
-    const allCalendarIds = [
-        calendarProfessorSpreadsheetId,
-        calendarStudentSpreadsheetId,
-        calendarCouncilSpreadsheetId,
-        calendarADProfessorSpreadsheetId,
-        calendarSuppSpreadsheetId
-    ].filter((id): id is string => !!id); // Filter out null/undefined IDs and assert type
+        const allCalendarIds = [
+            calendarProfessorSpreadsheetId,
+            calendarStudentSpreadsheetId,
+            calendarCouncilSpreadsheetId,
+            calendarADProfessorSpreadsheetId,
+            calendarSuppSpreadsheetId
+        ].filter((id): id is string => !!id);
 
-    if (allCalendarIds.length === 0) {
-        return [];
-    }
+        if (allCalendarIds.length === 0) return [];
 
-    try {
         const allEvents: Event[] = [];
-        
-        for (const spreadsheetId of allCalendarIds) {
-            try {
+
+        const results = await Promise.allSettled(allCalendarIds.map(async spreadsheetId => {
                 log.debug(`Fetching calendar events from spreadsheet: ${spreadsheetId}`);
                 const data = await getSheetData(spreadsheetId, ENV_CONFIG.CALENDAR_SHEET_NAME); // ENV v2: DEFAULT_SHEET_NAME 기반 캘린더 시트명
 
                 if (data && data.values && data.values.length > 1) {
-                    const events = data.values.slice(1).map((row: string[], index: number) => ({
+                    return data.values.slice(1).map((row: string[], index: number) => ({
                         id: `${spreadsheetId}-${row[0] || index}`,
                         title: row[1] || '',
                         startDate: row[2] || '',
@@ -1066,28 +1075,34 @@ export const fetchCalendarEvents = async (): Promise<Event[]> => {
                         rrule: row[9] || '',
                         attendees: row[10] || '',
                     }));
-                    allEvents.push(...events);
                 }
-            } catch (error: any) {
+                return [];
+        }));
+
+        results.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+                allEvents.push(...result.value);
+            } else {
+                const spreadsheetId = allCalendarIds[index];
+                const error = result.reason;
                 // 403 오류는 권한 문제이므로 경고만 출력하고 계속 진행
                 if (error?.status === 403 || error?.code === 403) {
                     log.warn(`스프레드시트 ${spreadsheetId}에 접근 권한이 없습니다.`);
                 } else {
                     log.error(`Error fetching events from spreadsheet ${spreadsheetId}:`, error);
                 }
-                // Continue to next spreadsheet even if one fails
             }
-        }
+        });
         
         // 캐시에 저장
         const ttl = getCacheTTL(action);
         await cacheManager.set(cacheKey, allEvents, ttl);
         
         return allEvents;
-    } catch (error) {
+    }).catch(error => {
         log.error('Error fetching calendar events from Google Sheets:', error);
         return [];
-    }
+    });
 };
 
 export const addCalendarEvent = async (spreadsheetId: string, eventData: Omit<Event, 'id'>, userType: string): Promise<void> => {
@@ -1339,13 +1354,11 @@ export const fetchStudents = async (spreadsheetId?: string): Promise<Student[]> 
     const targetSpreadsheetId = spreadsheetId || studentSpreadsheetId;
     const cacheKey = generateCacheKey(category, action, { spreadsheetId: targetSpreadsheetId });
     
-    // 캐시에서 먼저 확인
-    const cachedData = await cacheManager.get<Student[]>(cacheKey);
-    if (cachedData) {
-        return cachedData;
-    }
+    return dedupe(cacheKey, async () => {
+      const cachedData = await cacheManager.get<Student[]>(cacheKey);
+      if (cachedData) return cachedData;
 
-    try {
+      try {
         if (!targetSpreadsheetId) {
             log.warn('Student spreadsheet ID not found');
             return [];
@@ -1385,10 +1398,11 @@ export const fetchStudents = async (spreadsheetId?: string): Promise<Student[]> 
         await cacheManager.set(cacheKey, decryptedStudents, ttl);
         
         return decryptedStudents;
-    } catch (error) {
-        log.error('Error fetching students from Google Sheet:', error);
-        return [];
-    }
+      } catch (error) {
+          log.error('Error fetching students from Google Sheet:', error);
+          return [];
+      }
+    });
 };
 
 export const deleteStudent = async (spreadsheetId: string, studentNo: string): Promise<void> => {
@@ -1541,13 +1555,11 @@ export const fetchStaff = async (): Promise<Staff[]> => {
     const category = getActionCategory(action);
     const cacheKey = generateCacheKey(category, action, {});
     
-    // 캐시에서 먼저 확인
-    const cachedData = await cacheManager.get<Staff[]>(cacheKey);
-    if (cachedData) {
-        return cachedData;
-    }
+    return dedupe(cacheKey, async () => {
+      const cachedData = await cacheManager.get<Staff[]>(cacheKey);
+      if (cachedData) return cachedData;
 
-    try {
+      try {
         if (!studentSpreadsheetId) {
             log.warn('Student spreadsheet ID not found');
             return [];
@@ -1574,10 +1586,11 @@ export const fetchStaff = async (): Promise<Staff[]> => {
         await cacheManager.set(cacheKey, staff, ttl);
         
         return staff;
-    } catch (error) {
-        log.error('Error fetching staff from Google Sheet:', error);
-        return [];
-    }
+      } catch (error) {
+          log.error('Error fetching staff from Google Sheet:', error);
+          return [];
+      }
+    });
 };
 
 export const fetchAttendees = async (): Promise<{ students: Student[], staff: Staff[] }> => {
@@ -1586,13 +1599,11 @@ export const fetchAttendees = async (): Promise<{ students: Student[], staff: St
     const category = getActionCategory(action);
     const cacheKey = generateCacheKey(category, action, {});
     
-    // 캐시에서 먼저 확인
-    const cachedData = await cacheManager.get<{ students: Student[], staff: Staff[] }>(cacheKey);
-    if (cachedData) {
-        return cachedData;
-    }
+    return dedupe(cacheKey, async () => {
+      const cachedData = await cacheManager.get<{ students: Student[], staff: Staff[] }>(cacheKey);
+      if (cachedData) return cachedData;
 
-    try {
+      try {
         const [students, staff] = await Promise.all([
             fetchStudents(),
             fetchStaffFromPapyrus(staffSpreadsheetId || '')
@@ -1605,10 +1616,11 @@ export const fetchAttendees = async (): Promise<{ students: Student[], staff: St
         await cacheManager.set(cacheKey, result, ttl);
         
         return result;
-    } catch (error) {
-        log.error('Error fetching attendees:', error);
-        return {students: [], staff: []};
-    }
+      } catch (error) {
+          log.error('Error fetching attendees:', error);
+          return {students: [], staff: []};
+      }
+    });
 };
 
 // 학생 이슈 타입 정의
@@ -1985,13 +1997,11 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
   const category = getActionCategory(action);
   const cacheKey = generateCacheKey(category, action, { spreadsheetId });
   
-  // 캐시에서 먼저 확인
-  const cachedData = await cacheManager.get<Staff[]>(cacheKey);
-  if (cachedData) {
-    return cachedData;
-  }
+  return dedupe(cacheKey, async () => {
+    const cachedData = await cacheManager.get<Staff[]>(cacheKey);
+    if (cachedData) return cachedData;
 
-  try {
+    try {
     setupPapyrusAuth();
 
     if (!staffSpreadsheetId) {
@@ -2067,10 +2077,11 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
     await cacheManager.set(cacheKey, decryptedStaffData, ttl);
     
     return decryptedStaffData;
-  } catch (error) {
-    log.error('Error fetching staff from Papyrus DB:', error);
-    throw error;
-  }
+    } catch (error) {
+      log.error('Error fetching staff from Papyrus DB:', error);
+      throw error;
+    }
+  });
 };
 
 /**
