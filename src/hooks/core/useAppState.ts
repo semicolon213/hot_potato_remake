@@ -252,8 +252,7 @@ export const useAppState = () => {
         dataSyncService.setCurrentPage(currentPage);
     }, [currentPage]);
 
-    // 사용자 로그인 시: 모든 데이터를 한 번에 병렬 로드 후 앱 표시 → 페이지 이동 시 데이터 즉시 표시
-    // 구글 시트 변경은 DataSyncService 주기 백그라운드 동기화로 반영
+    // 사용자 로그인 시 ID가 준비되면 앱을 표시하고 나머지 데이터는 백그라운드에서 로드
     useEffect(() => {
         if (user && user.isApproved && !isLoading && !isInitializingData && !hasInitialized) {
             const initAndFetch = async () => {
@@ -279,18 +278,7 @@ export const useAppState = () => {
                         accounting: '회계'
                     };
 
-                    const spreadsheetIds = await dataSyncService.initializeDataFull(user, (progress) => {
-                        const label = progress.category ? categoryLabels[progress.category] : undefined;
-                        const message =
-                            progress.message ||
-                            (label ? `${label} 데이터를 로딩 중입니다...` : '데이터 로딩 중...');
-
-                        setDataSyncProgress({
-                            current: progress.current,
-                            total: progress.total,
-                            message
-                        });
-                    });
+                    const spreadsheetIds = await initializeSpreadsheetIds();
 
                     setAnnouncementSpreadsheetId(spreadsheetIds.announcementSpreadsheetId);
                     setCalendarProfessorSpreadsheetId(spreadsheetIds.calendarProfessorSpreadsheetId);
@@ -306,8 +294,22 @@ export const useAppState = () => {
                     setIsGoogleAuthenticatedForAnnouncements(true);
                     setHasInitialized(true);
                     setIsInitializingData(false);
+
+                    await dataSyncService.initializeDataFull(user, (progress) => {
+                        const label = progress.category ? categoryLabels[progress.category] : undefined;
+                        const message =
+                            progress.message ||
+                            (label ? `${label} 데이터를 로딩 중입니다...` : '데이터 로딩 중...');
+
+                        setDataSyncProgress({
+                            current: progress.current,
+                            total: progress.total,
+                            message
+                        });
+                    });
+
                     setLastSyncTime(dataSyncService.getLastSyncTime());
-                    showNotification('준비되었습니다. 모든 데이터가 로드되었습니다.', 'success');
+                    showNotification('준비되었습니다. 핵심 데이터가 로드되었습니다.', 'success');
                     // 2단계(문서/학생·교직원 등)는 백그라운드에서 로드
                     void dataSyncService.initializePhase2(user, (progress) => {
                         const label = progress.category ? categoryLabels[progress.category] : undefined;
