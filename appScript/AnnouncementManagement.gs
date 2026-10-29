@@ -560,12 +560,14 @@ function processAndUploadImages_(content) {
   
   while ((match = imgRegex.exec(content)) !== null) {
     const fullDataUrl = match[1];
-    const mimeType = `image/${match[2]}`;
+    const mimeSubType = match[2];
+    const mimeType = `image/${mimeSubType}`;
     const base64Data = match[3];
     
     try {
-      const decodedData = Utilities.base64Decode(base64Data, Utilities.Charset.UTF_8);
-      const blob = Utilities.newBlob(decodedData, mimeType, `announcement-image-${new Date().getTime()}.png`);
+      const decodedData = Utilities.base64Decode(base64Data);
+      const extension = mimeSubType === 'jpeg' ? 'jpg' : mimeSubType;
+      const blob = Utilities.newBlob(decodedData, mimeType, `announcement-image-${Date.now()}.${extension}`);
       
       const file = targetFolder.createFile(blob);
       

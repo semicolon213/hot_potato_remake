@@ -521,7 +521,7 @@
     const GROUP_ROLE_MAPPING = {
         'ad_professor': {
             name: '겸임교원',
-            email: 'adj_professor_hp@googlegroups.com',
+            email: 'ad_professor_hp@googlegroups.com',
             description: '뜨거운 감자 겸임 교원'
         },
         'professor': {
@@ -531,7 +531,7 @@
         },
         'supp': {
             name: '조교',
-            email: 'assistant_hp@googlegroups.com',
+            email: 'hp_supp@googlegroups.com',
             description: '뜨거운 감자 조교 그룹'
         },
         'std_council': {

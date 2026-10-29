@@ -725,7 +725,7 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
       'WORKFLOW_SPREADSHEET_NAME': 'workflow',
       
       // 그룹스 워크스페이스 자동 멤버 추가용 (.env VITE_GROUP_EMAIL과 동일 JSON)
-      'GROUP_EMAIL_JSON': '{"STUDENT":"student_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","ADJ_PROFESSOR":"adj_professor_hp@googlegroups.com","ASSISTANT":"assistant_hp@googlegroups.com"}'
+      'GROUP_EMAIL_JSON': '{"STUDENT":"student_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","ADJ_PROFESSOR":"ad_professor_hp@googlegroups.com","ASSISTANT":"hp_supp@googlegroups.com"}'
     };
     
     const setProperties = {};
