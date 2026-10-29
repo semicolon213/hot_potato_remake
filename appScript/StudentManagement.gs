@@ -317,6 +317,7 @@ function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, gra
     var graduatedCount = 0;
     var skippedCount = 0;
     var graduatedStudents = [];
+    var changedColumns = {};
     
     for (var i = 1; i < data.length; i++) {
       var row = data[i];
@@ -337,7 +338,8 @@ function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, gra
       
       if (retainedValue === 'O' || retainedValue === 'TRUE' || retainedValue === '1') {
         // 이번 학년도에 유급 처리된 학생: 학년은 그대로 두고, 유급 표시는 초기화
-        sheet.getRange(i + 1, retainedColIndex + 1).setValue('');
+        row[retainedColIndex] = '';
+        changedColumns[retainedColIndex] = true;
         skippedCount++;
         continue;
       }
@@ -350,13 +352,17 @@ function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, gra
       
       if (gradeNum >= gradGrade) {
         // 이번 실행에서 새로 졸업 처리되는 경우에만 졸업 연도/구분 설정
-        sheet.getRange(i + 1, gradeColIndex + 1).setValue('-');
-        sheet.getRange(i + 1, stateColIndex + 1).setValue('졸업');
+        row[gradeColIndex] = '-';
+        row[stateColIndex] = '졸업';
+        changedColumns[gradeColIndex] = true;
+        changedColumns[stateColIndex] = true;
         if (!existingGradYear && graduationYear) {
-          sheet.getRange(i + 1, gradYearColIndex + 1).setValue(String(graduationYear));
+          row[gradYearColIndex] = String(graduationYear);
+          changedColumns[gradYearColIndex] = true;
         }
         if (!existingGradTerm && graduationTerm) {
-          sheet.getRange(i + 1, gradTermColIndex + 1).setValue(String(graduationTerm));
+          row[gradTermColIndex] = String(graduationTerm);
+          changedColumns[gradTermColIndex] = true;
         }
         graduatedStudents.push({
           no_student: String(studentId),
@@ -365,10 +371,17 @@ function updateStudentGrades(spreadsheetId, graduationGrade, graduationYear, gra
         });
         graduatedCount++;
       } else {
-        sheet.getRange(i + 1, gradeColIndex + 1).setValue(String(gradeNum + 1));
+        row[gradeColIndex] = String(gradeNum + 1);
+        changedColumns[gradeColIndex] = true;
         updatedCount++;
       }
     }
+
+    Object.keys(changedColumns).forEach(function(columnIndex) {
+      var index = Number(columnIndex);
+      sheet.getRange(2, index + 1, data.length - 1, 1)
+        .setValues(data.slice(1).map(function(row) { return [row[index]]; }));
+    });
     
     return {
       success: true,
@@ -474,6 +487,7 @@ function updateStudentGradesSelected(spreadsheetId, studentIds, graduationGrade,
     var skippedCount = 0;
     var graduatedStudents = [];
     var touchedCount = 0;
+    var changedColumns = {};
 
     for (var i = 1; i < data.length; i++) {
       var row = data[i];
@@ -492,7 +506,8 @@ function updateStudentGradesSelected(spreadsheetId, studentIds, graduationGrade,
         continue;
       }
       if (retainedValue === 'O' || retainedValue === 'TRUE' || retainedValue === '1') {
-        sheet.getRange(i + 1, retainedColIndex + 1).setValue('');
+        row[retainedColIndex] = '';
+        changedColumns[retainedColIndex] = true;
         skippedCount++;
         continue;
       }
@@ -504,13 +519,17 @@ function updateStudentGradesSelected(spreadsheetId, studentIds, graduationGrade,
       }
 
       if (gradeNum >= gradGrade) {
-        sheet.getRange(i + 1, gradeColIndex + 1).setValue('-');
-        sheet.getRange(i + 1, stateColIndex + 1).setValue('졸업');
+        row[gradeColIndex] = '-';
+        row[stateColIndex] = '졸업';
+        changedColumns[gradeColIndex] = true;
+        changedColumns[stateColIndex] = true;
         if (!existingGradYear && graduationYear) {
-          sheet.getRange(i + 1, gradYearColIndex + 1).setValue(String(graduationYear));
+          row[gradYearColIndex] = String(graduationYear);
+          changedColumns[gradYearColIndex] = true;
         }
         if (!existingGradTerm && graduationTerm) {
-          sheet.getRange(i + 1, gradTermColIndex + 1).setValue(String(graduationTerm));
+          row[gradTermColIndex] = String(graduationTerm);
+          changedColumns[gradTermColIndex] = true;
         }
         graduatedStudents.push({
           no_student: String(studentId),
@@ -519,10 +538,17 @@ function updateStudentGradesSelected(spreadsheetId, studentIds, graduationGrade,
         });
         graduatedCount++;
       } else {
-        sheet.getRange(i + 1, gradeColIndex + 1).setValue(String(gradeNum + 1));
+        row[gradeColIndex] = String(gradeNum + 1);
+        changedColumns[gradeColIndex] = true;
         updatedCount++;
       }
     }
+
+    Object.keys(changedColumns).forEach(function(columnIndex) {
+      var index = Number(columnIndex);
+      sheet.getRange(2, index + 1, data.length - 1, 1)
+        .setValues(data.slice(1).map(function(row) { return [row[index]]; }));
+    });
 
     return {
       success: true,
@@ -583,8 +609,13 @@ function setGraduatedAdvanced(spreadsheetId, graduatedStudentIds, advancedStuden
     for (var i = 1; i < data.length; i++) {
       var sid = String(data[i][studentIdColIndex] || '').trim();
       if (!sid || !gradSet[sid]) continue;
-      sheet.getRange(i + 1, advancedColIndex + 1).setValue(advSet[sid] ? 'O' : '');
+      data[i][advancedColIndex] = advSet[sid] ? 'O' : '';
       updatedCount++;
+    }
+
+    if (updatedCount > 0) {
+      sheet.getRange(2, advancedColIndex + 1, data.length - 1, 1)
+        .setValues(data.slice(1).map(function(row) { return [row[advancedColIndex]]; }));
     }
 
     return {

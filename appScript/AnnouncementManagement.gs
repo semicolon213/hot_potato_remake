@@ -925,6 +925,7 @@ function deleteAnnouncement(req) {
       if (noNoticeColIndex !== undefined && noNoticeColIndex !== null) {
         // 헤더를 제외한 실제 데이터가 있는 행들만 번호 매기기
         let noticeNumber = 1; // 실제 데이터 행 번호 (1부터 시작)
+        let numberChanged = false;
         
         for (let i = 1; i < updatedData.length; i++) {
           const row = updatedData[i];
@@ -937,14 +938,18 @@ function deleteAnnouncement(req) {
           
           // 현재 값이 행 번호와 다르면 업데이트
           if (String(currentNoticeId) !== String(noticeNumber)) {
-            sheet.getRange(i + 1, noNoticeColIndex + 1).setValue(noticeNumber);
+            row[noNoticeColIndex] = noticeNumber;
+            numberChanged = true;
           }
           
           noticeNumber++; // 다음 번호로 증가
         }
         
-        // 변경사항 즉시 반영
-        SpreadsheetApp.flush();
+        if (numberChanged) {
+          sheet.getRange(2, noNoticeColIndex + 1, updatedData.length - 1, 1)
+            .setValues(updatedData.slice(1).map(row => [row[noNoticeColIndex]]));
+          SpreadsheetApp.flush();
+        }
       }
     }
     
