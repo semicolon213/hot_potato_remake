@@ -150,6 +150,64 @@ function isApprovedUser_(userRow) {
 }
 
 /**
+ * 승인된 사용자 이메일을 회원번호로 매핑한다.
+ * @returns {Object<string, *>}
+ */
+function buildApprovedMemberIndex_() {
+  const index = {};
+  const spreadsheet = getHpMemberSpreadsheet();
+  if (!spreadsheet) return index;
+
+  const data = getSheetData(spreadsheet.getId(), getUserSheetName(), 'A:G');
+  if (!data || data.length <= 1) return index;
+
+  const header = data[0];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const user = {};
+    header.forEach((key, columnIndex) => {
+      user[key] = row[columnIndex];
+    });
+    const encryptedEmail = user.google_member;
+    if (encryptedEmail && isApprovedUser_(user) && !Object.prototype.hasOwnProperty.call(index, encryptedEmail)) {
+      index[encryptedEmail] = user.no_member;
+    }
+  }
+  return index;
+}
+
+/**
+ * 공지에 저장된 암호화 이메일을 승인 회원번호로 변환한다.
+ * @param {string} encryptedEmail
+ * @param {Object<string, *>} memberIndex
+ * @param {Object<string, *>} writerMemo
+ * @param {string=} decryptedEmail
+ * @returns {*}
+ */
+function resolveApprovedMemberId_(encryptedEmail, memberIndex, writerMemo, decryptedEmail) {
+  if (!encryptedEmail) return '';
+  if (Object.prototype.hasOwnProperty.call(writerMemo, encryptedEmail)) {
+    return writerMemo[encryptedEmail];
+  }
+
+  let memberId = '';
+  try {
+    const email = decryptedEmail || decryptEmailMain(encryptedEmail);
+    const variants = getEncryptedEmailsForLookup(email);
+    for (let i = 0; i < variants.length; i++) {
+      if (Object.prototype.hasOwnProperty.call(memberIndex, variants[i])) {
+        memberId = memberIndex[variants[i]];
+        break;
+      }
+    }
+  } catch (error) {
+    memberId = '';
+  }
+  writerMemo[encryptedEmail] = memberId;
+  return memberId;
+}
+
+/**
  * 사용자 정보 가져오기 (이메일로)
  * @param {string} email - 사용자 이메일
  * @returns {Object} 사용자 정보
@@ -399,6 +457,8 @@ function getAnnouncements(req) {
     
     const header = data[0];
     const announcements = [];
+    const memberIndex = buildApprovedMemberIndex_();
+    const writerMemo = {};
     
     // 헤더 인덱스 찾기
     const headerMap = {};
@@ -430,22 +490,8 @@ function getAnnouncements(req) {
       };
       
       // writer_email에서 writer_id 추출 (암호화된 이메일에서 사용자 찾기)
-      if (announcement.writer_email) {
-        try {
-          const decryptedEmail = decryptEmailMain(announcement.writer_email);
-          const writer = getUserByEmail(decryptedEmail);
-          if (writer) {
-            announcement.writer_id = String(writer.no_member);
-          } else {
-            announcement.writer_id = ''; // 명시적으로 빈 문자열 설정
-          }
-        } catch (error) {
-          announcement.writer_id = ''; // 명시적으로 빈 문자열 설정
-          // 복호화 실패해도 계속 진행 (작성자 정보만 없을 뿐)
-        }
-      } else {
-        announcement.writer_id = ''; // 명시적으로 빈 문자열 설정
-      }
+      const writerId = resolveApprovedMemberId_(announcement.writer_email, memberIndex, writerMemo);
+      announcement.writer_id = writerId === '' ? '' : String(writerId);
       
       // 권한 확인
       const canRead = canReadAnnouncement(announcement, String(userId), userType);
@@ -713,6 +759,8 @@ function updateAnnouncement(req) {
     header.forEach((h, index) => {
       headerMap[h] = index;
     });
+    const memberIndex = buildApprovedMemberIndex_();
+    const writerMemo = {};
 
     // 공지사항 찾기
     let targetRowIndex = -1;
@@ -723,12 +771,7 @@ function updateAnnouncement(req) {
       if (String(row[headerMap['no_notice']]) === String(announcementId)) {
         targetRowIndex = i + 1; // 시트 행 번호 (1-based)
         announcement = {
-          writer_id: row[headerMap['writer_email']] ? 
-            (() => {
-              const decryptedEmail = decryptEmailMain(row[headerMap['writer_email']]);
-              const writer = getUserByEmail(decryptedEmail);
-              return writer ? writer.no_member : '';
-            })() : ''
+          writer_id: resolveApprovedMemberId_(row[headerMap['writer_email']], memberIndex, writerMemo)
         };
         break;
       }
@@ -835,6 +878,8 @@ function deleteAnnouncement(req) {
     header.forEach((h, index) => {
       headerMap[h] = index;
     });
+    const memberIndex = buildApprovedMemberIndex_();
+    const writerMemo = {};
     
     // 공지사항 찾기 및 권한 확인
     let targetRowIndex = -1;
@@ -849,10 +894,9 @@ function deleteAnnouncement(req) {
       
       if (String(noticeId) === String(announcementId)) {
         const writerEmail = row[headerMap['writer_email']];
-        const decryptedEmail = decryptEmailMain(writerEmail);
-        const writer = getUserByEmail(decryptedEmail);
+        const writerId = resolveApprovedMemberId_(writerEmail, memberIndex, writerMemo);
         
-        if (!writer || !canEditAnnouncement(writer.no_member, userId)) {
+        if (writerId === '' || !canEditAnnouncement(writerId, userId)) {
           return {
             success: false,
             message: '삭제 권한이 없습니다.'
@@ -1054,15 +1098,16 @@ function requestPinnedAnnouncement(req) {
     header.forEach((h, index) => {
       headerMap[h] = index;
     });
+    const memberIndex = buildApprovedMemberIndex_();
+    const writerMemo = {};
     
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       if (String(row[headerMap['no_notice']]) === String(announcementId)) {
         const writerEmail = row[headerMap['writer_email']];
-        const decryptedEmail = decryptEmailMain(writerEmail);
-        const writer = getUserByEmail(decryptedEmail);
+        const writerId = resolveApprovedMemberId_(writerEmail, memberIndex, writerMemo);
         
-        if (!writer || !canEditAnnouncement(writer.no_member, userId)) {
+        if (writerId === '' || !canEditAnnouncement(writerId, userId)) {
           return {
             success: false,
             message: '권한이 없습니다.'
@@ -1277,6 +1322,8 @@ function getPinnedAnnouncementRequests(req) {
     header.forEach((h, index) => {
       headerMap[h] = index;
     });
+    const memberIndex = buildApprovedMemberIndex_();
+    const writerMemo = {};
     
     const requests = [];
     
@@ -1288,14 +1335,14 @@ function getPinnedAnnouncementRequests(req) {
       if (fixNotice === '-') {
         const writerEmail = row[headerMap['writer_email']];
         const decryptedEmail = decryptEmailMain(writerEmail);
-        const writer = getUserByEmail(decryptedEmail);
+        const writerId = resolveApprovedMemberId_(writerEmail, memberIndex, writerMemo, decryptedEmail);
         
         requests.push({
           id: row[headerMap['no_notice']] || '',
           title: row[headerMap['title_notice']] || '',
           writer: row[headerMap['writer_notice']] || '',
           writerEmail: decryptedEmail,
-          writerId: writer ? writer.no_member : '',
+          writerId: writerId,
           date: row[headerMap['date']] || '',
           status: 'pending'
         });
