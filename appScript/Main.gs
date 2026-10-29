@@ -5,10 +5,43 @@
  */
 
 // ===== 메인 엔트리 포인트 =====
+function getBootstrapData(req) {
+  function run(name, action) {
+    try {
+      return action();
+    } catch (error) {
+      logError_('Main', name + ' 부트스트랩 조회 오류:', error);
+      return { success: false, message: name + ' 조회 중 오류가 발생했습니다: ' + error.message };
+    }
+  }
+
+  return {
+    success: true,
+    data: {
+      getStaticTags: run('기본 태그', function() { return getStaticTags(req); }),
+      getWorkflowTemplates: run('워크플로우 템플릿', function() {
+        initializeWorkflowSheets();
+        return getWorkflowTemplates(req);
+      }),
+      getLedgerList: run('장부 목록', function() {
+        return { success: true, data: getLedgerList() };
+      }),
+      getTemplates: run('템플릿 목록', function() { return getTemplatesFromFolder(); }),
+      getAnnouncements: run('공지사항', function() { return getAnnouncements(req); })
+    }
+  };
+}
+
 function doPost(e) {
   try {
     // 요청 데이터 파싱
     const req = parseRequest(e);
+
+    if (req.action === 'getBootstrapData') {
+      return ContentService
+        .createTextOutput(JSON.stringify(getBootstrapData(req)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     
     // 암복호화 액션 처리
     if (req.action === 'encryptEmail') {

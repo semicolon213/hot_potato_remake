@@ -335,6 +335,37 @@ export class ApiClient {
     return this.request('getTemplates');
   }
 
+  async getBootstrapData(params: Record<string, unknown>) {
+    type BootstrapPayload = Record<string, ApiResponse<unknown>>;
+    const actions = ['getStaticTags', 'getWorkflowTemplates', 'getLedgerList', 'getTemplates', 'getAnnouncements'];
+    const bootstrapPromise = this.request<BootstrapPayload>('getBootstrapData', params);
+
+    const cachePromises = actions.map((action) => {
+      const actionParams = action === 'getAnnouncements' ? params : {};
+      const cacheKey = generateCacheKey(getActionCategory(action), action, actionParams);
+      const actionPromise = bootstrapPromise.then(async (response) => {
+        const actionResponse = response.data?.[action];
+        if (actionResponse?.success) {
+          await this.cacheManager.set(cacheKey, actionResponse, getCacheTTL(action));
+        }
+        return actionResponse || { success: false, message: `${action} 응답이 없습니다.` };
+      });
+
+      this.inFlightRequests.set(cacheKey, actionPromise as Promise<ApiResponse<unknown>>);
+      const cleanup = () => {
+        if (this.inFlightRequests.get(cacheKey) === actionPromise) {
+          this.inFlightRequests.delete(cacheKey);
+        }
+      };
+      void actionPromise.then(cleanup, cleanup);
+      return actionPromise;
+    });
+
+    const response = await bootstrapPromise;
+    await Promise.all(cachePromises);
+    return response;
+  }
+
   // 공유 템플릿 업로드(파일 업로드)
   async uploadSharedTemplate(params: {
     fileName: string;

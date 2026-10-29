@@ -9,7 +9,7 @@ import { apiClient } from '../utils/api/apiClient';
 import { getCacheManager } from '../utils/cache/cacheManager';
 import { generateCacheKey, getActionCategory, CACHEABLE_ACTIONS } from '../utils/cache/cacheUtils';
 import { tokenManager } from '../utils/auth/tokenManager';
-import { clearSpreadsheetIds, initializeSpreadsheetIds } from '../utils/database/papyrusManager';
+import { clearSpreadsheetIds, getNoticeSpreadsheetApiFields, initializeSpreadsheetIds } from '../utils/database/papyrusManager';
 import type { User } from '../types/app';
 const log = logger.scope('services/dataSyncService');
 
@@ -57,17 +57,18 @@ const runTaskPool = async (
 
 const INITIAL_DATA_TASKS: InitialDataTaskConfig[] = [
   {
-    key: 'announcements',
-    name: '공지사항',
-    category: 'announcements',
+    key: 'bootstrap',
+    name: '초기 공통 데이터',
+    category: 'bootstrap',
     scope: 'global',
     phase: 1,
     required: true,
-    runIf: (user) => !!(user.studentId && user.userType),
-    fn: async (user) => {
-      const { fetchAnnouncements } = await import('../utils/database/papyrusManager');
-      return fetchAnnouncements(user.studentId!, user.userType!);
-    }
+    runIf: () => true,
+    fn: async (user) => apiClient.getBootstrapData({
+      ...getNoticeSpreadsheetApiFields(),
+      userId: user.studentId || '',
+      userType: user.userType || ''
+    })
   },
   {
     key: 'calendar-events',
@@ -96,16 +97,6 @@ const INITIAL_DATA_TASKS: InitialDataTaskConfig[] = [
     }
   },
   {
-    key: 'templates',
-    name: '템플릿 목록',
-    category: 'templates',
-    scope: 'global',
-    phase: 1,
-    required: true,
-    runIf: () => true,
-    fn: async () => apiClient.getTemplates()
-  },
-  {
     key: 'shared-templates',
     name: '공유 템플릿 목록',
     category: 'templates',
@@ -114,26 +105,6 @@ const INITIAL_DATA_TASKS: InitialDataTaskConfig[] = [
     required: false,
     runIf: () => true,
     fn: async () => apiClient.getSharedTemplates()
-  },
-  {
-    key: 'static-tags',
-    name: '기본 태그 목록',
-    category: 'tags',
-    scope: 'global',
-    phase: 1,
-    required: true,
-    runIf: () => true,
-    fn: async () => apiClient.getStaticTags()
-  },
-  {
-    key: 'workflow-templates',
-    name: '워크플로우 템플릿',
-    category: 'workflow',
-    scope: 'global',
-    phase: 1,
-    required: true,
-    runIf: () => true,
-    fn: async () => apiClient.getWorkflowTemplates()
   },
   {
     key: 'students',
@@ -173,16 +144,6 @@ const INITIAL_DATA_TASKS: InitialDataTaskConfig[] = [
       const { fetchAttendees } = await import('../utils/database/papyrusManager');
       return fetchAttendees();
     }
-  },
-  {
-    key: 'ledger-list',
-    name: '장부 목록',
-    category: 'accounting',
-    scope: 'global',
-    phase: 1,
-    required: true,
-    runIf: () => true,
-    fn: async () => apiClient.getLedgerList()
   },
   {
     key: 'my-requested-workflows',
@@ -339,12 +300,6 @@ export class DataSyncService {
         category: task.category,
         fn: () => task.fn(user)
       }));
-
-      // 태스크에서 사용하는 동적 import 모듈 선로딩 (첫 요청 지연 감소)
-      await Promise.all([
-        import('../utils/database/papyrusManager'),
-        import('../utils/helpers/loadDocumentsFromDrive')
-      ]);
 
       const total = tasks.length;
       let completed = 0;
