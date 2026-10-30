@@ -543,15 +543,15 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
         log.debug(`검토 필요: ${budgetId} (${title})`);
       }
       
-      // 승인자 확인: main_manager_id이고, status가 pending이며, 검토 완료되었지만 아직 승인하지 않은 경우
-      if (isMainManager && status === 'pending' && subManagerReviewed === 'TRUE' && mainManagerApproved !== 'TRUE') {
+      // 승인자 확인: 검토가 끝났지만 아직 승인하지 않은 경우
+      if (isMainManager && status === 'reviewed' && mainManagerApproved !== 'TRUE') {
         actionRequired = 'approve';
         isRelated = true;
         log.debug(`승인 필요: ${budgetId} (${title})`);
       }
       
       // 집행자 확인: 승인 완료되었지만 아직 집행하지 않은 경우 (주관리인 또는 별도 관리인)
-      if ((isMainManager || isSubManager) && status === 'pending' && mainManagerApproved === 'TRUE' && (!executedDate || executedDate === '')) {
+      if ((isMainManager || isSubManager) && status === 'approved' && (!executedDate || executedDate === '')) {
         actionRequired = 'execute';
         isRelated = true;
         log.debug(`집행 필요: ${budgetId} (${title})`);
