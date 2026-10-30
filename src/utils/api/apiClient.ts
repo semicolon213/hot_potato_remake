@@ -437,7 +437,7 @@ export class ApiClient {
   }
 
   // 증빙 파일 업로드 (Apps Script가 장부 증빙 폴더에 저장)
-  async uploadEvidenceFile(params: { evidenceFolderId: string; fileName: string; mimeType: string; fileData: string }) {
+  async uploadEvidenceFile(params: { spreadsheetId: string; evidenceFolderId: string; userEmail: string; userType: string; fileName: string; mimeType: string; fileData: string }) {
     return this.request<{ fileId: string; fileName: string }>('uploadEvidenceFile', params);
   }
 
