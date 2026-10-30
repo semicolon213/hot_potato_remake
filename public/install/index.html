@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HP ERP 설치 마법사</title>
+  <style>
+    :root{font-family:Inter,Pretendard,"Noto Sans KR",system-ui,-apple-system,sans-serif;color:#1a1a1a;background:#f5f5f5;font-synthesis:none}
+    *{box-sizing:border-box}body{margin:0;min-width:320px;background:#f5f5f5;color:#1a1a1a}button,input{font:inherit}a{color:#1a1a1a}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+    .operator-warning{position:sticky;top:0;z-index:5;padding:12px 20px;background:#fff3cd;border-bottom:1px solid #e2c66d;text-align:center;font-weight:700;color:#6d5300}
+    .page{min-height:100vh;display:grid;place-items:center;padding:32px 20px}.wizard{width:min(960px,100%);min-height:720px;display:grid;grid-template-columns:300px minmax(0,1fr);background:#fff;border-radius:18px;box-shadow:0 12px 40px rgba(26,26,26,.14);overflow:hidden}
+    .sidebar{display:flex;flex-direction:column;gap:24px;padding:36px 28px;background:#1a1a1a;color:#fff}.brand{text-align:center}.brand img{width:72px;height:72px;padding:8px;border-radius:16px;background:#fff}.brand h1{margin:16px 0 4px;font-size:30px}.brand p{margin:0;color:rgba(255,255,255,.76)}
+    .step-nav{display:grid;gap:5px}.step-jump{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:9px;background:transparent;color:rgba(255,255,255,.74);text-align:left;cursor:pointer}.step-jump:hover,.step-jump:focus-visible{background:rgba(255,255,255,.1);color:#fff}.step-jump.active{background:#fff;color:#1a1a1a;font-weight:700}.step-jump.done .step-number{background:#fff;color:#1a1a1a}.step-number{display:grid;place-items:center;flex:0 0 24px;height:24px;border:1px solid currentColor;border-radius:50%;font-size:12px}.step-label{font-size:13px;line-height:1.35}
+    .sidebar-note{margin-top:auto;font-size:12px;line-height:1.6;color:rgba(255,255,255,.65)}
+    .content{display:flex;flex-direction:column;min-width:0;padding:36px 40px}.content-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}.eyebrow{margin:0 0 6px;color:#666;font-size:13px;font-weight:700}.content-head h2{margin:0;font-size:27px;line-height:1.25}.progress{white-space:nowrap;color:#666;font-size:13px}
+    .message{margin:0 0 18px;padding:12px 14px;border-radius:10px;background:#f2f2f2;line-height:1.5}.message.error{background:#fff0f0;color:#a51d1d}.message.success{background:#eef8f0;color:#17682a}.message[hidden]{display:none}
+    .steps{flex:1}.wizard-step{display:none}.wizard-step.active{display:block}.wizard-step>p{line-height:1.7;color:#555}.lead{font-size:17px;color:#333!important}.checklist,.plain-list{padding-left:22px;line-height:1.75}.callout{margin:16px 0;padding:14px 16px;border-left:4px solid #1a1a1a;background:#f5f5f5;line-height:1.6}.success-box{margin:16px 0;padding:16px;border:1px solid #b9d9c0;border-radius:12px;background:#f3fbf5}.success-box[hidden]{display:none}
+    .action-link,.primary,.secondary,.copy-button,.complete-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border-radius:9px;border:1px solid #1a1a1a;font-weight:700;text-decoration:none;cursor:pointer}.primary,.action-link,.complete-button{background:#1a1a1a;color:#fff}.primary:hover,.action-link:hover,.complete-button:hover{background:#fff;color:#1a1a1a}.secondary,.copy-button{background:#fff;color:#1a1a1a}.secondary:hover,.copy-button:hover{background:#f0f0f0}.primary:disabled,.complete-button:disabled{opacity:.55;cursor:not-allowed}
+    .field{display:grid;gap:7px;margin:16px 0}.field label{font-weight:700}.field input{width:100%;min-height:44px;padding:10px 12px;border:1px solid #bbb;border-radius:9px;background:#fff}.field input:focus{outline:2px solid #1a1a1a;outline-offset:2px}.field-error{min-height:18px;color:#b42318;font-size:13px}.copy-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch;margin:10px 0}.copy-value{min-width:0;padding:11px 12px;border:1px solid #ccc;border-radius:9px;background:#f7f7f7;overflow-wrap:anywhere}.copy-button{min-width:88px}.copy-button.copied{background:#1a1a1a;color:#fff}
+    details{margin-top:20px;padding:12px 14px;border:1px solid #ddd;border-radius:10px;background:#fafafa}summary{font-weight:700;cursor:pointer}details p,details li{color:#555;line-height:1.65}.substeps{display:grid;gap:14px}.substep{padding:16px;border:1px solid #ddd;border-radius:12px}.substep h3{margin:0 0 8px;font-size:17px}.substep p{margin:8px 0;line-height:1.6;color:#555}.scope-box{white-space:pre-wrap;font-size:12px}.api-links{display:flex;flex-wrap:wrap;gap:8px}.api-links a{padding:8px 10px;border:1px solid #bbb;border-radius:8px;text-decoration:none}.api-links a:hover{background:#f1f1f1}
+    .status-list{display:grid;gap:8px;margin:16px 0}.status-item{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px;border:1px solid #ddd;border-radius:9px}.status-item.ok{border-color:#92c69e;background:#f3fbf5}.status-item.fail{border-color:#e0a2a2;background:#fff5f5}.status-item a{font-size:12px;font-weight:700}.status-dot{font-weight:900}.footer{display:flex;align-items:center;gap:10px;margin-top:26px;padding-top:20px;border-top:1px solid #e4e4e4}.footer .complete-button{margin-left:auto}.footer .secondary:disabled{opacity:.4;cursor:not-allowed}
+    @media(max-width:760px){.page{display:block;padding:0}.wizard{min-height:100vh;grid-template-columns:1fr;border-radius:0}.sidebar{padding:24px 18px 18px;gap:16px}.brand{display:grid;grid-template-columns:56px 1fr;grid-template-rows:auto auto;column-gap:14px;text-align:left}.brand img{grid-row:1/3;width:56px;height:56px}.brand h1{margin:2px 0 0;font-size:24px}.step-nav{display:flex;overflow-x:auto;padding-bottom:4px}.step-jump{flex:0 0 auto;width:auto}.step-label{display:none}.sidebar-note{display:none}.content{padding:26px 20px}.content-head h2{font-size:23px}.copy-row{grid-template-columns:1fr}.footer{flex-wrap:wrap}.footer .complete-button{width:100%;margin:0;order:-1}.status-item{grid-template-columns:22px minmax(0,1fr)}.status-item a{grid-column:2}}
+  </style>
+</head>
+<body>
+  <div id="operator-warning" class="operator-warning" role="alert" hidden>설치용 클라이언트 ID가 설정되지 않았습니다. 운영자가 <code>VITE_INSTALL_CLIENT_ID</code> 또는 <code>public/install/config.js</code>를 설정해야 합니다.</div>
+  <main class="page">
+    <div class="wizard">
+      <aside class="sidebar">
+        <div class="brand"><img src="/logo.svg" alt="Hot Potato 로고"><h1>HP ERP</h1><p>설치 마법사</p></div>
+        <nav id="step-nav" class="step-nav" aria-label="설치 단계"></nav>
+        <p class="sidebar-note">입력한 주소와 진행 상황은 이 브라우저에만 저장됩니다. Google 액세스 토큰과 설치 토큰은 저장하지 않습니다.</p>
+      </aside>
+      <section class="content">
+        <header class="content-head"><div><p id="eyebrow" class="eyebrow"></p><h2 id="step-title"></h2></div><span id="progress" class="progress"></span></header>
+        <p id="message" class="message" role="status" hidden></p>
+        <div class="steps">
+          <section class="wizard-step" data-step="0">
+            <p class="lead">준비물 두 가지만 있으면 약 25분 안에 설치할 수 있습니다.</p>
+            <ul class="checklist"><li>학과 운영용 Google 계정 — 개인 계정보다 담당자가 바뀌어도 넘겨줄 수 있는 계정을 권장합니다.</li><li>GitHub 계정 — Netlify 사이트를 만드는 데 사용합니다.</li></ul>
+            <div class="callout"><strong>성공 모습</strong><br>두 계정에 로그인할 수 있으면 준비가 끝났습니다.</div>
+            <details><summary>막히면</summary><p>Google 계정이나 GitHub 계정의 비밀번호를 모르면 먼저 기관의 계정 관리자에게 문의하세요.</p></details>
+          </section>
+
+          <section class="wizard-step" data-step="1">
+            <p class="lead">아래 버튼을 눌러 Apps Script API를 <strong>켜짐</strong>으로 바꾸세요.</p>
+            <a class="action-link" href="https://script.google.com/home/usersettings" target="_blank" rel="noreferrer">Apps Script API 설정 열기</a>
+            <div class="callout"><strong>무엇을 누르면 → 무엇이 보이면 성공</strong><br>Google Apps Script API 스위치를 누르면 → 스위치가 파란색 ‘켜짐’으로 보입니다.</div>
+            <p id="api-error" class="message error" hidden></p>
+            <details><summary>막히면</summary><p>2단계에서 403 오류가 나오면 대부분 이 스위치가 꺼져 있습니다. 켠 뒤 1분 정도 기다리고 다시 시도하세요.</p></details>
+          </section>
+
+          <section class="wizard-step" data-step="2">
+            <p class="lead">Google로 로그인하면 백엔드 프로젝트 생성부터 배포까지 자동으로 진행됩니다.</p>
+            <button id="login" class="primary" type="button">Google로 로그인하고 백엔드 만들기</button>
+            <ol id="backend-progress" class="plain-list"><li>Google 로그인 기다리는 중</li><li>프로젝트 만들기</li><li>코드 올리기</li><li>웹앱 배포하기</li></ol>
+            <div id="backend-result" class="success-box" hidden>
+              <strong>백엔드가 만들어졌습니다.</strong>
+              <div class="copy-row"><code id="backend-url" class="copy-value"></code><button class="copy-button" type="button" data-copy="#backend-url">주소 복사</button></div>
+              <div class="copy-row"><code id="script-id" class="copy-value"></code><button class="copy-button" type="button" data-copy="#script-id">ID 복사</button></div>
+            </div>
+            <details><summary>막히면</summary><p>권한 화면에서 계정을 선택하고 허용을 누르세요. 403이면 마법사가 1단계로 돌아갑니다. 이미 만든 프로젝트가 있으면 같은 프로젝트에서 이어서 진행합니다.</p></details>
+          </section>
+
+          <section class="wizard-step" data-step="3">
+            <p class="lead">Netlify 버튼으로 사이트를 만든 뒤, 만들어진 사이트 주소를 적으세요.</p>
+            <a id="deploy-netlify" class="action-link" target="_blank" rel="noreferrer">Deploy to Netlify</a>
+            <div class="callout"><strong>Netlify 입력값</strong><br><code>VITE_APP_SCRIPT_URL</code>에는 아래 백엔드 주소를 넣고, <code>VITE_GOOGLE_CLIENT_ID</code>는 지금은 비워 두세요.</div>
+            <div class="copy-row"><code id="netlify-backend-url" class="copy-value">2단계에서 먼저 백엔드를 만드세요.</code><button class="copy-button" type="button" data-copy="#netlify-backend-url">복사</button></div>
+            <div class="field"><label for="site-url">배포된 사이트 주소</label><input id="site-url" type="url" inputmode="url" placeholder="https://example.netlify.app"><span id="site-url-error" class="field-error"></span></div>
+            <div class="callout"><strong>성공 모습</strong><br>Netlify의 Deploys 화면에 Published가 보이고, 입력한 주소가 <code>https://…netlify.app</code>처럼 열립니다.</div>
+            <details><summary>막히면</summary><p>배포가 실패하면 Netlify의 Deploy log를 열어 첫 번째 빨간 오류를 확인하세요. 백엔드 주소는 반드시 <code>/exec</code>로 끝나야 합니다.</p></details>
+          </section>
+
+          <section class="wizard-step" data-step="4">
+            <p class="lead">운영 사이트에서 Google 로그인을 쓰기 위한 웹 클라이언트를 만듭니다. 아래 순서대로 한 칸씩 진행하세요.</p>
+            <div class="substeps">
+              <article class="substep"><h3>4-1. 프로젝트 만들기</h3><p>‘프로젝트 만들기’를 누르고 이름을 정한 뒤 만들기를 누릅니다.</p><a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noreferrer">프로젝트 만들기 열기</a><details><summary>막히면</summary><p>기관 계정에서 프로젝트 생성을 막았다면 Google Workspace 관리자에게 프로젝트 생성 권한을 요청하세요.</p></details></article>
+              <article class="substep"><h3>4-2. Google Auth Platform 시작</h3><p>앱 이름은 <strong>HP ERP</strong>, 지원 이메일과 연락처를 입력하고 대상은 <strong>External</strong>을 고릅니다.</p><a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noreferrer">Google Auth Platform 열기</a><details><summary>막히면</summary><p>방금 만든 프로젝트가 화면 위쪽 프로젝트 선택기에 선택되어 있는지 확인하세요.</p></details></article>
+              <article class="substep"><h3>4-3. 범위 추가</h3><p>Data Access에서 아래 4개 범위를 추가하세요. <code>email</code>, <code>profile</code>은 기본 범위입니다.</p><div class="copy-row"><code id="oauth-scopes" class="copy-value scope-box">https://www.googleapis.com/auth/spreadsheets
+https://www.googleapis.com/auth/calendar.events
+https://www.googleapis.com/auth/calendar.readonly
+https://www.googleapis.com/auth/drive.file</code><button class="copy-button" type="button" data-copy="#oauth-scopes">전체 복사</button></div><a href="https://console.cloud.google.com/auth/scopes" target="_blank" rel="noreferrer">Data Access 열기</a><details><summary>막히면</summary><p>‘범위 추가 또는 삭제’를 누르고 주소를 하나씩 검색하세요. 네 범위는 앱의 로그인 코드와 정확히 같습니다.</p></details></article>
+              <article class="substep"><h3>4-4. 테스트 사용자 추가</h3><p>Audience에서 Testing 상태로 사용할 사람의 Google 이메일을 등록하세요. 최대 100명이며 동의는 7일 뒤 만료됩니다. 계속 운영하려면 나중에 인증을 신청해야 합니다.</p><a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noreferrer">Audience 열기</a> · <a href="https://github.com/semicolon213/hot_potato_remake/blob/main/docs/oauth/VERIFICATION_PACKAGE.md" target="_blank" rel="noreferrer">인증 준비 문서</a><details><summary>막히면</summary><p>로그인할 계정이 테스트 사용자 목록에 없으면 ‘액세스 차단됨’이 나옵니다.</p></details></article>
+              <article class="substep"><h3>4-5. 웹 클라이언트 만들기</h3><p>유형은 <strong>웹 애플리케이션</strong>입니다. 승인된 JavaScript 원본과 리디렉션 URI 양쪽에 아래 주소를 끝 슬래시 없이 넣으세요.</p><div class="copy-row"><code id="oauth-origin" class="copy-value">3단계에서 사이트 주소를 입력하세요.</code><button class="copy-button" type="button" data-copy="#oauth-origin">주소 복사</button></div><a href="https://console.cloud.google.com/auth/clients/create" target="_blank" rel="noreferrer">클라이언트 만들기 열기</a><details><summary>막히면</summary><p><code>https://example.netlify.app/</code>처럼 마지막에 슬래시를 붙이지 마세요. 두 입력란에 같은 주소가 들어갑니다.</p></details></article>
+              <article class="substep"><h3>4-6. API 3개 켜기</h3><p>아래 API마다 ‘사용’을 누르세요.</p><div class="api-links"><a href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank" rel="noreferrer">Google Sheets API</a><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noreferrer">Google Calendar API</a><a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noreferrer">Google Drive API</a></div><details><summary>막히면</summary><p>각 화면 위쪽에 방금 만든 프로젝트가 선택되어 있는지 확인한 뒤 ‘사용’을 누르세요.</p></details></article>
+              <article class="substep"><h3>4-7. 클라이언트 ID 붙여 넣기</h3><div class="field"><label for="app-client-id">웹 클라이언트 ID</label><input id="app-client-id" autocomplete="off" placeholder="1234-abc.apps.googleusercontent.com"><span id="client-id-error" class="field-error"></span></div><div class="callout"><strong>성공 모습</strong><br>입력값이 <code>.apps.googleusercontent.com</code>으로 끝나고 오류 문구가 사라집니다.</div><details><summary>막히면</summary><p>클라이언트 보안 비밀번호가 아니라 ‘클라이언트 ID’를 복사하세요.</p></details></article>
+            </div>
+          </section>
+
+          <section class="wizard-step" data-step="5">
+            <p class="lead">Apps Script 편집기에서 설치 토큰을 한 번 만듭니다.</p>
+            <a id="editor-link" class="action-link" target="_blank" rel="noreferrer">Apps Script 편집기 열기</a>
+            <ol class="plain-list"><li>위쪽 함수 선택 드롭다운에서 <code>createSetupToken</code>을 고릅니다.</li><li><strong>실행</strong>을 누릅니다.</li><li>권한 검토 화면에서 계정을 선택합니다. 미인증 경고가 나오면 <strong>고급 → 안전하지 않음으로 이동</strong>을 누릅니다.</li><li>실행 로그의 <code>SETUP_TOKEN:</code> 뒤 값을 복사합니다.</li></ol>
+            <div class="callout"><strong>성공 모습</strong><br>실행 로그에 긴 영문·숫자 토큰이 보입니다. 토큰은 이 페이지나 주소창에 넣지 말고 다음 단계의 백엔드 설치 화면에만 붙여 넣으세요.</div>
+            <details><summary>막히면</summary><p>편집기 링크가 열리지 않으면 2단계의 스크립트 ID가 있는지 확인하세요. 토큰 함수는 배포 계정으로 실행해야 합니다.</p></details>
+          </section>
+
+          <section class="wizard-step" data-step="6">
+            <p class="lead">백엔드 설치 화면에서 토큰과 기관 정보를 입력하세요. 웹 클라이언트 ID는 주소로 미리 채워집니다.</p>
+            <a id="backend-setup-link" class="action-link" target="_blank" rel="noreferrer">백엔드 설치 화면 열기</a>
+            <div class="callout"><strong>그룹 이메일 5개</strong><br>학생, 집행부, 조교, 교수, 겸임교원 그룹의 이메일입니다. 그룹이 없다면 먼저 Google Groups에서 만드세요.</div>
+            <a href="https://groups.google.com/my-groups" target="_blank" rel="noreferrer">Google Groups 열기</a>
+            <div class="callout"><strong>성공 모습</strong><br>설치 버튼을 누르면 ‘설치가 완료되었습니다’가 보입니다.</div>
+            <details><summary>막히면</summary><p>설치 토큰 오류가 나오면 편집기에서 새로 만들지 말고 실행 로그에 이미 나온 토큰을 사용하세요. 토큰은 한 번 설치가 끝나면 삭제됩니다.</p></details>
+          </section>
+
+          <section class="wizard-step" data-step="7">
+            <p class="lead">Netlify 환경 변수에 앱용 클라이언트 ID를 넣고 다시 배포하세요.</p>
+            <div class="copy-row"><code id="netlify-client-id" class="copy-value">4-7에서 클라이언트 ID를 입력하세요.</code><button class="copy-button" type="button" data-copy="#netlify-client-id">복사</button></div>
+            <ol class="plain-list"><li>Netlify 사이트의 <strong>Site configuration → Environment variables</strong>를 엽니다.</li><li><code>VITE_GOOGLE_CLIENT_ID</code> 값을 위 ID로 저장합니다.</li><li><strong>Deploys → Trigger deploy → Deploy site</strong>를 누릅니다.</li></ol>
+            <div class="callout"><strong>성공 모습</strong><br>새 배포가 Published 상태가 되고 사이트가 다시 열립니다.</div>
+            <details><summary>막히면</summary><p>환경 변수만 저장하면 예전 화면은 바뀌지 않습니다. 반드시 Trigger deploy로 다시 빌드하세요.</p></details>
+          </section>
+
+          <section class="wizard-step" data-step="8">
+            <p class="lead">자동 점검과 사이트의 상세 점검 화면을 모두 확인하세요.</p>
+            <button id="run-check" class="primary" type="button">지금 자동 점검하기</button>
+            <div id="status-list" class="status-list" aria-live="polite"></div>
+            <a id="setup-link" class="action-link" target="_blank" rel="noreferrer">사이트 /setup 상세 점검 열기</a>
+            <div class="callout"><strong>성공 모습</strong><br>자동 점검이 모두 초록색이고, <code>/setup</code> 화면의 항목도 모두 정상으로 보입니다.</div>
+            <details><summary>막히면</summary><p>빨간 항목의 ‘해당 단계로 이동’을 누르면 고칠 위치로 돌아갑니다. Netlify 재배포 직후에는 1분 정도 기다렸다가 다시 점검하세요.</p></details>
+          </section>
+        </div>
+        <footer class="footer"><button id="previous" class="secondary" type="button">뒤로</button><button id="next" class="secondary" type="button">다음</button><button id="complete" class="complete-button" type="button">다 했어요</button></footer>
+      </section>
+    </div>
+  </main>
+  <script src="config.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

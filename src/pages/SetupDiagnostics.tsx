@@ -50,13 +50,13 @@ export default function SetupDiagnostics() {
   const backendState = (ok: boolean | undefined): CheckState =>
     backend ? (ok ? 'ok' : 'fail') : backendError ? 'fail' : 'pending';
 
-  const checks: Array<{ label: string; state: CheckState; detail: string }> = [
-    { label: 'OAuth 클라이언트 ID', state: ENV_CONFIG.GOOGLE_CLIENT_ID ? 'ok' : 'fail', detail: ENV_CONFIG.GOOGLE_CLIENT_ID ? '설정됨' : 'Netlify 환경 변수를 입력하세요.' },
-    { label: '백엔드 연결', state: backendState(true), detail: backend ? `연결됨 (v${backend.version})` : backendError || '확인 중…' },
-    { label: '백엔드 설치', state: backendState(backend?.installed), detail: !backend ? '백엔드 연결 후 확인합니다.' : backend.installed ? '완료' : '백엔드 주소의 ?page=setup 화면에서 설치하세요.' },
-    { label: '회원 시트', state: backendState(backend?.spreadsheetReady), detail: !backend ? '백엔드 연결 후 확인합니다.' : backend.spreadsheetReady ? '찾음' : '백엔드 설치와 SPREADSHEET_ID를 확인하세요.' },
-    { label: '서버·사이트 클라이언트 ID 일치', state: backendState(backend?.clientIdMatches), detail: backend?.clientIdMatches ? '일치' : !backend ? '백엔드 연결 후 확인합니다.' : !backend.serverClientIdConfigured ? '백엔드 설치 화면에서 Google OAuth 클라이언트 ID를 설정하세요.' : 'Apps Script의 GOOGLE_CLIENT_ID와 Netlify의 VITE_GOOGLE_CLIENT_ID를 같은 값으로 설정하세요.' },
-    { label: 'OAuth 자바스크립트 원본', state: oauth === 'ok' ? 'ok' : oauth === 'error' ? 'fail' : 'pending', detail: oauth === 'ok' ? '로그인 성공' : oauth === 'error' ? 'Google Cloud Console의 승인된 자바스크립트 원본을 확인하세요.' : '아래 버튼으로 확인하세요.' }
+  const checks: Array<{ label: string; state: CheckState; detail: string; step: number }> = [
+    { label: 'OAuth 클라이언트 ID', state: ENV_CONFIG.GOOGLE_CLIENT_ID ? 'ok' : 'fail', detail: ENV_CONFIG.GOOGLE_CLIENT_ID ? '설정됨' : 'Netlify 환경 변수를 입력하세요.', step: 7 },
+    { label: '백엔드 연결', state: backendState(true), detail: backend ? `연결됨 (v${backend.version})` : backendError || '확인 중…', step: 3 },
+    { label: '백엔드 설치', state: backendState(backend?.installed), detail: !backend ? '백엔드 연결 후 확인합니다.' : backend.installed ? '완료' : '백엔드 주소의 ?page=setup 화면에서 설치하세요.', step: 6 },
+    { label: '회원 시트', state: backendState(backend?.spreadsheetReady), detail: !backend ? '백엔드 연결 후 확인합니다.' : backend.spreadsheetReady ? '찾음' : '백엔드 설치와 SPREADSHEET_ID를 확인하세요.', step: 6 },
+    { label: '서버·사이트 클라이언트 ID 일치', state: backendState(backend?.clientIdMatches), detail: backend?.clientIdMatches ? '일치' : !backend ? '백엔드 연결 후 확인합니다.' : !backend.serverClientIdConfigured ? '백엔드 설치 화면에서 Google OAuth 클라이언트 ID를 설정하세요.' : 'Apps Script의 GOOGLE_CLIENT_ID와 Netlify의 VITE_GOOGLE_CLIENT_ID를 같은 값으로 설정하세요.', step: backend?.serverClientIdConfigured ? 7 : 6 },
+    { label: 'OAuth 자바스크립트 원본', state: oauth === 'ok' ? 'ok' : oauth === 'error' ? 'fail' : 'pending', detail: oauth === 'ok' ? '로그인 성공' : oauth === 'error' ? 'Google Cloud Console의 승인된 자바스크립트 원본을 확인하세요.' : '아래 버튼으로 확인하세요.', step: 4 }
   ];
 
   return (
@@ -82,6 +82,7 @@ export default function SetupDiagnostics() {
                   <span className="setup-check-text">
                     <strong>{check.label}</strong>
                     <span>{check.detail}</span>
+                    {check.state === 'fail' && <a className="setup-guide-link" href={`/install/#step-${check.step}`}>설치 안내 열기</a>}
                   </span>
                 </li>
               ))}

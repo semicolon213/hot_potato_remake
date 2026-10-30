@@ -28,6 +28,10 @@
   <script>
     const form = document.querySelector('#setup');
     const status = document.querySelector('#status');
+    google.script.url.getLocation(location => {
+      const clientId = String((location.parameter || {}).clientId || '').trim();
+      if (/\.apps\.googleusercontent\.com$/.test(clientId)) googleClientId.value = clientId;
+    });
     google.script.run.withSuccessHandler(({installed, groupEmails}) => {
       student.value=groupEmails.STUDENT;council.value=groupEmails.COUNCIL;assistant.value=groupEmails.ASSISTANT;professor.value=groupEmails.PROFESSOR;adjProfessor.value=groupEmails.ADJ_PROFESSOR;
       if(installed){form.hidden=true;status.textContent='설치가 완료된 백엔드입니다.'}
