@@ -167,21 +167,7 @@ function convertRoleCodesToGroupEmails(roleCodes) {
     
     // CONFIG.gs의 getGroupEmailByRole 함수 사용
     return roleCodes
-      .map(role => {
-        if (typeof getGroupEmailByRole === 'function') {
-          return getGroupEmailByRole(role);
-        } else {
-          // 직접 매핑 (CONFIG.gs 함수가 없는 경우)
-          const roleToEmail = {
-            'student': 'student_hp@googlegroups.com',
-            'std_council': 'std_council_hp@googlegroups.com',
-            'supp': 'hp_supp@googlegroups.com',
-            'professor': 'professor_hp@googlegroups.com',
-            'ad_professor': 'ad_professor_hp@googlegroups.com'
-          };
-          return roleToEmail[role] || null;
-        }
-      })
+      .map(role => getGroupEmailByRole(role))
       .filter(email => email && email.trim() !== '');
       
   } catch (error) {

@@ -85,8 +85,8 @@ const DEFAULT_GROUP_EMAIL: Record<string, string> = {
   STUDENT: 'student_hp@googlegroups.com',
   PROFESSOR: 'professor_hp@googlegroups.com',
   COUNCIL: 'std_council_hp@googlegroups.com',
-  ADJ_PROFESSOR: 'ad_professor_hp@googlegroups.com',
-  ASSISTANT: 'hp_supp@googlegroups.com',
+  ADJ_PROFESSOR: 'adj_professor_hp@googlegroups.com',
+  ASSISTANT: 'assistant_hp@googlegroups.com',
 };
 
 // ========== 파싱 결과 ==========

@@ -616,7 +616,7 @@ function NewDocument({
 
                     }
                     if (result.permissionResult.failCount > 0) {
-                        log.warn("?? ??? ??");
+                        log.warn('일부 사용자 권한 설정 실패:', result.permissionResult.failCount);
                     }
                 }
                 

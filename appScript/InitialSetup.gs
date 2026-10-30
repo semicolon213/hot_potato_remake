@@ -785,8 +785,8 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
       // 워크플로우 설정
       'WORKFLOW_SPREADSHEET_NAME': 'workflow',
       
-      // 그룹스 워크스페이스 자동 멤버 추가용 (.env VITE_GROUP_EMAIL과 동일 JSON)
-      'GROUP_EMAIL_JSON': '{"STUDENT":"student_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","ADJ_PROFESSOR":"ad_professor_hp@googlegroups.com","ASSISTANT":"hp_supp@googlegroups.com"}'
+      // 그룹스 이메일 (기관마다 다름. 프론트 VITE_GROUP_EMAIL과 같은 값으로 맞춘다)
+      'GROUP_EMAIL_JSON': '{"STUDENT":"student_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","ADJ_PROFESSOR":"adj_professor_hp@googlegroups.com","ASSISTANT":"assistant_hp@googlegroups.com"}'
     };
     
     const setProperties = {};
@@ -797,9 +797,9 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
       if (!existingValue) {
         properties.setProperty(key, value);
         setProperties[key] = value;
-        logInfo_('InitialSetup', "?? ??? ??");
+        logInfo_('InitialSetup', '스크립트 속성 설정:', key);
       } else {
-        logInfo_('InitialSetup', "?? ??? ??");
+        logInfo_('InitialSetup', '스크립트 속성 이미 존재:', key);
         setProperties[key] = existingValue;
       }
     }
