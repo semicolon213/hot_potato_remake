@@ -169,7 +169,7 @@ export const initializeSpreadsheetIds = async (): Promise<{
         const [response, personalConfigId, accountingFolderResponse] = await Promise.all([
             apiClient.getSpreadsheetIds(spreadsheetNames),
             import('./personalConfigManager')
-                .then(({findPersonalConfigFile}) => findPersonalConfigFile())
+                .then(({initializePersonalConfigFile}) => initializePersonalConfigFile())
                 .catch(() => null),
             apiClient.request<{ accountingFolderId: string }>('getAccountingFolderId', {})
                 .catch(() => ({success: false} as const))
@@ -252,8 +252,8 @@ export const initializeSpreadsheetIds = async (): Promise<{
         log.error('스프레드시트 ID 초기화 중 오류:', error);
         log.warn('일부 기능이 제한될 수 있습니다.');
         // 개인 설정 파일은 별도로 초기화 시도
-        const {findPersonalConfigFile} = await import('./personalConfigManager');
-        const personalConfigId = await findPersonalConfigFile().catch(() => null);
+        const {initializePersonalConfigFile} = await import('./personalConfigManager');
+        const personalConfigId = await initializePersonalConfigFile().catch(() => null);
 
         // 회계 폴더 ID는 에러 시에도 null로 반환
         return {

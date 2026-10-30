@@ -309,7 +309,19 @@ export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise
  * @details 개인 설정 파일을 찾거나 생성합니다.
  * @returns {Promise<string | null>} 스프레드시트 ID 또는 null
  */
-export const initializePersonalConfigFile = async (): Promise<string | null> => {
+// 첫 로그인 때 여러 곳이 동시에 호출해도 파일을 한 번만 만들도록 진행 중인 작업을 공유한다.
+let initializingPersonalConfig: Promise<string | null> | null = null;
+
+export const initializePersonalConfigFile = (): Promise<string | null> => {
+  if (!initializingPersonalConfig) {
+    initializingPersonalConfig = initializePersonalConfigFileOnce().finally(() => {
+      initializingPersonalConfig = null;
+    });
+  }
+  return initializingPersonalConfig;
+};
+
+const initializePersonalConfigFileOnce = async (): Promise<string | null> => {
   try {
     // 먼저 기존 파일 찾기
     let spreadsheetId = await findPersonalConfigFile();

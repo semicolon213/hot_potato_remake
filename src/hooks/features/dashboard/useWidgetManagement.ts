@@ -539,7 +539,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       log.debug('syncWidgetsWithGoogleSheets 호출');
       syncWidgetsWithGoogleSheets();
     } else {
-      log.warn('hotPotatoDBSpreadsheetId가 없어서 위젯 동기화를 건너뜁니다.');
+      log.debug('개인 설정 파일 ID를 기다리는 중이라 위젯 동기화를 미룹니다.');
     }
   }, [hotPotatoDBSpreadsheetId]);
 
