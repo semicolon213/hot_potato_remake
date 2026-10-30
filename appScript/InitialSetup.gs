@@ -154,19 +154,31 @@ function applyRoleFolderSharing() {
   return results;
 }
 
+/**
+ * 이 스크립트가 붙어 있는 스프레드시트 (독립 스크립트면 null)
+ */
+function getBoundSpreadsheet_() {
+  try {
+    return SpreadsheetApp.getActiveSpreadsheet();
+  } catch (error) {
+    return null;
+  }
+}
+
 function getOrCreateRootFolder() {
   try {
     // 이미 설치된 환경이면 hp_member 부모 폴더(없으면 ROOT_FOLDER_ID)를 그대로 쓴다.
     const existingRootId = getProjectRootFolderId_();
     if (existingRootId) return DriveApp.getFolderById(existingRootId);
+
+    // 처음 설치: 내 드라이브 최상위에서만 루트 폴더를 찾거나 만들고, 스크립트가 붙은 hp_member를 그 안으로 옮긴다.
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
-    const folders = DriveApp.getFoldersByName(rootFolderName);
-    
-    if (folders.hasNext()) {
-      return folders.next();
-    } else {
-      return DriveApp.createFolder(rootFolderName);
-    }
+    const folders = DriveApp.getRootFolder().getFoldersByName(rootFolderName);
+    const rootFolder = folders.hasNext() ? folders.next() : DriveApp.createFolder(rootFolderName);
+    const bound = getBoundSpreadsheet_();
+    if (bound) DriveApp.getFileById(bound.getId()).moveTo(rootFolder);
+    clearSpreadsheetIdCache();
+    return rootFolder;
   } catch (error) {
     logError_('InitialSetup', '루트 폴더 생성 오류:', error);
     throw error;
@@ -304,6 +316,13 @@ function createSpreadsheets(rootFolder, folderStructure) {
   
   rootSpreadsheets.forEach(config => {
     try {
+      // 스크립트가 붙은 스프레드시트가 있으면 그것을 hp_member로 쓴다 (같은 이름을 하나 더 만들지 않음).
+      const bound = config.name === 'hp_member' ? getBoundSpreadsheet_() : null;
+      if (bound) {
+        config.sheetConfigs.forEach(sheetConfig => ensureSheetWithHeaders(bound, sheetConfig.name, sheetConfig.headers));
+        results.push({ name: config.name, id: bound.getId(), created: false });
+        return;
+      }
       const result = createSpreadsheetInFolder(rootFolder, config.name, config.sheetConfigs);
       if (result) {
         results.push(result);

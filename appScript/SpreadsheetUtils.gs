@@ -42,7 +42,11 @@ function getProjectRootFolderId_() {
   try {
     var hpSpreadsheet = getHpMemberSpreadsheet();
     var parents = DriveApp.getFileById(hpSpreadsheet.getId()).getParents();
-    if (parents.hasNext()) detected = parents.next().getId();
+    // 설치 직후처럼 hp_member가 내 드라이브 최상위에 있으면 루트로 보지 않는다.
+    if (parents.hasNext()) {
+      var parentId = parents.next().getId();
+      if (parentId !== DriveApp.getRootFolder().getId()) detected = parentId;
+    }
   } catch (error) {
     logWarn_('SpreadsheetUtils', 'hp_member 부모 폴더 사용 불가:', error.message);
   }
