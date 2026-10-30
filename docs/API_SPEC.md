@@ -34,7 +34,7 @@ sequenceDiagram
 
 - 본문: `{ action, ...data }`를 JSON으로 `POST`
 - 타임아웃 60초, 최대 5회 재시도(지수 백오프 1s → 2s → 4s …), 429 응답 시 `Retry-After` 준수
-  - 브랜치 `feature/loading-performance`(미병합): 시도마다 타임아웃 30초, 최대 2회 재시도(1s → 2s). 조회 액션만 재시도하고 쓰기 액션은 재시도하지 않습니다(429는 예외). 4xx는 재시도하지 않습니다. 같은 조회가 진행 중이면 그 요청을 함께 씁니다. 상세는 [ARCHITECTURE.md §9.2](./ARCHITECTURE.md#92-데이터-로딩과-캐시)
+  - 브랜치 `feature/loading-performance`(develop에 반영, 운영 배포 전): 시도마다 타임아웃 30초, 최대 2회 재시도(1s → 2s). 조회 액션만 재시도하고 쓰기 액션은 재시도하지 않습니다(429는 예외). 4xx는 재시도하지 않습니다. 같은 조회가 진행 중이면 그 요청을 함께 씁니다. 상세는 [ARCHITECTURE.md §9.2](./ARCHITECTURE.md#92-데이터-로딩과-캐시)
 - 조회 액션(`CACHEABLE_ACTIONS`)은 응답을 캐시하고, 쓰기 액션이 성공하면 관련 캐시를 무효화
 - 설정값: `src/config/api.ts`
 
@@ -195,6 +195,6 @@ sequenceDiagram
 | 항목 | 내용 |
 |---|---|
 | 프론트에만 남은 액션 | `getAccountingCategorySummary`, `getPendingBudgetPlans`, `setWorkflowLine`, `migrateEmails`, `requestPinnedAnnouncementApproval`, `testEmailEncryption`, `testAllAppScript`는 백엔드 분기가 없어 "알 수 없는 액션"을 받습니다 |
-| 중복 분기 | `Main.gs`에 결재 관련 분기가 두 번 있고, 두 번째 블록은 도달하지 않습니다. 브랜치 `feature/drive-file-scope`에서 제거(develop 병합 전) |
+| 중복 분기 | `Main.gs`에 결재 관련 분기가 두 번 있고, 두 번째 블록은 도달하지 않습니다. 브랜치 `feature/drive-file-scope`에서 제거(develop에 반영, 운영 배포 전) |
 | 응답 형식 | 결과 필드 이름이 액션마다 달라 프론트에 분기 코드가 생깁니다. `{success, data, message}`로 통일하는 것이 목표입니다 |
 | `CONFIG.gs`의 `SUPPORTED_ACTIONS` | 실제 디스패치와 맞지 않는 오래된 목록입니다 |

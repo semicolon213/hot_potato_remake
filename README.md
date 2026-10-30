@@ -110,7 +110,7 @@ flowchart LR
   회원·결재·공지처럼 권한 검사나 Drive 조작이 필요한 일은 Apps Script를 거치고, 캘린더·학생 목록·장부처럼 자주 읽는 데이터는 브라우저가 사용자 토큰으로 Sheets를 직접 읽습니다. 직접 읽는 데이터는 Drive 공유 권한으로 접근을 막을 수 있어서 이렇게 나눴고, 그만큼 Apps Script 호출과 대기 시간이 줄었습니다.
 - **장부마다 스프레드시트를 따로 만들었습니다.**
   학생회비 장부와 행사비 장부는 보는 사람이 다릅니다. 장부를 만들 때 전용 폴더·시트·증빙 폴더를 새로 만들고 지정한 사람에게만 공유하면, 별도 권한 시스템 없이 Drive 권한만으로 접근을 나눌 수 있었습니다.
-- **Drive 범위를 `drive.file`로 줄였습니다(브랜치 `feature/drive-file-scope`, develop 병합 전).**
+- **Drive 범위를 `drive.file`로 줄였습니다(브랜치 `feature/drive-file-scope`, develop에 반영, 운영 배포 전).**
   전체 Drive 범위(`drive`)는 Google 앱 인증 때 매년 유료 보안 평가가 필요합니다. 브라우저는 이 앱이 만든 파일(개인 폴더 `hot_potato_personal`)만 다루고, 배포자 소유 공유 파일의 업로드·검색·복사는 Apps Script가 맡도록 옮겼습니다. 역할 폴더는 Google 그룹에 공유해서, 파일 접근은 그룹 가입으로 정해집니다([docs/ADR.md](docs/ADR.md) ADR-014).
 
 ## 트러블슈팅

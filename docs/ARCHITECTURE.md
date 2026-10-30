@@ -1,7 +1,7 @@
 # HP ERP 아키텍처
 
 > 개발 단계: **④ 구조 생성**(Component·Deployment) · **③ 설계**(Sequence·Class) · **⑤ 구현**(State) · **⑥ 테스트**(Communication) · **⑦ 문서화**(Package)
-> 기준: `main` 브랜치 코드 (2026-10-27). 브랜치 `feature/drive-file-scope`(develop 병합 전)의 변경은 [§9.3](#93-drivefile-범위와-apps-script-경유-브랜치-featuredrive-file-scope)에 모았습니다.
+> 기준: `main` 브랜치 코드 (2026-10-27). 브랜치 `feature/drive-file-scope`(develop에 반영, 운영 배포 전)의 변경은 [§9.3](#93-drivefile-범위와-apps-script-경유-브랜치-featuredrive-file-scope)에 모았습니다.
 
 설계 결정의 **이유**는 [ADR.md](./ADR.md)에, 데이터 구조는 [DATA_MODEL.md](./DATA_MODEL.md)에 있습니다. 이 문서는 시스템이 **어떻게 생겼고 어떻게 움직이는지**를 다룹니다.
 
@@ -469,13 +469,13 @@ Apps Script는 응답이 느리고 호출 할당량이 있어서, **호출 수�
 | 스프레드시트 ID·회계 폴더 ID | 6시간 | 60분 (스프레드시트 ID) |
 | 장부 목록·회계 카테고리 | 45분 | — |
 
-위 표는 브랜치 `feature/loading-performance`(미병합) 기준입니다. `main`에서는 스프레드시트 ID·회계 폴더 ID도 45분입니다. 값은 `src/utils/cache/cacheUtils.ts`의 `CACHE_TTL`, 주기는 `dataSyncService.ts`의 `SYNC_INTERVALS`에 있습니다.
+위 표는 브랜치 `feature/loading-performance`(develop에 반영, 운영 배포 전) 기준입니다. `main`에서는 스프레드시트 ID·회계 폴더 ID도 45분입니다. 값은 `src/utils/cache/cacheUtils.ts`의 `CACHE_TTL`, 주기는 `dataSyncService.ts`의 `SYNC_INTERVALS`에 있습니다.
 
 - 캐시 저장소: 메모리 `Map`(LRU 100개) + `localStorage`(`cache_*`, 항목 100KB 미만, 전체 5MB)
 - 429(호출 초과) 응답이 오면 해당 카테고리 동기화를 30~120분 쉽니다.
 - 결재 관리·문서관리 화면에서는 페이지 이름과 `PAGE_CATEGORY_MAP` 키가 달라 페이지 기반 갱신이 일어나지 않습니다(BUG-13, [TEST_PLAN.md §6](./TEST_PLAN.md#6-결함-리포트-테스트코드-점검으로-발견)).
 
-#### 호출 재시도와 타임아웃 (브랜치 `feature/loading-performance`, 미병합)
+#### 호출 재시도와 타임아웃 (브랜치 `feature/loading-performance`, develop에 반영, 운영 배포 전)
 
 | 구간 | 값 | 동작 |
 |---|---|---|
@@ -493,7 +493,7 @@ Apps Script는 응답이 느리고 호출 할당량이 있어서, **호출 수�
 
 ### 9.3 drive.file 범위와 Apps Script 경유 (브랜치 `feature/drive-file-scope`)
 
-기능 브랜치에 반영, develop 병합 전입니다. 로그인 때 요청하는 범위는 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`입니다. `drive.file`은 이 앱이 만든 파일만 보므로, 배포자 소유 공유 파일을 다루는 일은 Apps Script가 배포자 권한으로 대신합니다.
+develop에 반영, 운영 배포 전입니다. 로그인 때 요청하는 범위는 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`입니다. `drive.file`은 이 앱이 만든 파일만 보므로, 배포자 소유 공유 파일을 다루는 일은 Apps Script가 배포자 권한으로 대신합니다.
 
 | 작업 | 경로 | 비고 |
 |---|---|---|

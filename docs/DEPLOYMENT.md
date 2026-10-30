@@ -27,7 +27,7 @@ flowchart LR
 
 앱이 요청하는 OAuth 범위: `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`
 
-- 브랜치 `feature/drive-file-scope` 기준입니다(develop 병합 전). develop 코드는 아직 `drive`, `documents`, `gmail.compose`를 요청합니다.
+- 브랜치 `feature/drive-file-scope` 기준입니다(develop에 반영, 운영 배포 전). develop 코드는 아직 `drive`, `documents`, `gmail.compose`를 요청합니다.
 - `drive.file`로는 이 앱이 만든 파일만 보입니다. 배포자 소유 공유 파일을 다루는 일은 Apps Script가 대신합니다. 범위별 이유와 인증 절차는 [OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md)에 있습니다.
 
 ## 2. Apps Script

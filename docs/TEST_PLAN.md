@@ -99,7 +99,7 @@
 | BUG-03 | 캘린더 역할 키(`council`, `ADprofessor`)와 실제 값(`std_council`, `ad_professor`) 불일치 | 집행부·겸임교원이 학생 캘린더로 연결됨 | TC-CAL-01 | 미해결 |
 | BUG-04 | 예산계획 시트의 열 순서가 서버 헤더·프론트 쓰기·프론트 읽기마다 다름 | 예산 상태·상세가 잘못 읽힐 수 있음 | TC-ACC-03 | 미해결 |
 | BUG-05 | 프론트 결재 상태 타입이 `결제중/결제완료`(오타), 서버는 `결재중/결재완료/결재보류` | 상태별 표시·필터 누락 가능 | TC-WF-01 | 미해결 |
-| BUG-06 | `apiClient` 재시도가 한 번 타임아웃되면 이후 재시도가 모두 즉시 실패하고, 쓰기 요청도 재시도함 | 느린 응답에서 실패, 쓰기 중복 가능 | TC-SYS-04 | 해결 (브랜치 `feature/loading-performance`, 미병합, §8) |
+| BUG-06 | `apiClient` 재시도가 한 번 타임아웃되면 이후 재시도가 모두 즉시 실패하고, 쓰기 요청도 재시도함 | 느린 응답에서 실패, 쓰기 중복 가능 | TC-SYS-04 | 해결 (브랜치 `feature/loading-performance`, develop에 반영, 운영 배포 전, §8) |
 | BUG-07 | `getAccountingCategories`가 `카테고리` 시트가 아닌 첫 시트를 읽음 | 카테고리 목록 오류 | TC-ACC-02 | 미해결 |
 | BUG-08 | 승인 대기 화면이 자동으로 새로 고쳐지지 않음 | 승인 후에도 재로그인 필요 | TC-AUTH-03 | 개선 과제 |
 | BUG-09 | `initializeSystem`이 일부 실패해도 성공으로 보고 | 초기 세팅 누락을 놓침 | — | 미해결 |
@@ -122,7 +122,7 @@ BUG-10~12는 원본 `hot_potato`에서 발견된 결함으로, 리메이크에�
 
 ## 8. 로딩 성능 개선 검증 (2026-10-29, `feature/loading-performance`)
 
-브랜치는 아직 `main`에 병합되지 않았습니다. 대상 커밋은 `2a81c2a`(로딩 병목·API 재시도 정리), `741691f`(편집기에서만 고쳐져 있던 Apps Script 수정 반영: 실제 그룹 이메일, 공지 이미지 디코딩), `69ee162`(QA 결함 수정), `940670c`(프론트 그룹 이메일 기본값 수정)입니다. 구조는 [ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)에 있습니다.
+브랜치는 develop에 병합됐고, 운영(main)에는 아직 배포되지 않았습니다. 대상 커밋은 `2a81c2a`(로딩 병목·API 재시도 정리), `741691f`(편집기에서만 고쳐져 있던 Apps Script 수정 반영: 실제 그룹 이메일, 공지 이미지 디코딩), `69ee162`(QA 결함 수정), `940670c`(프론트 그룹 이메일 기본값 수정)입니다. 구조는 [ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)에 있습니다.
 
 ### 8.1 원인
 
@@ -162,7 +162,7 @@ BUG-10~12는 원본 `hot_potato`에서 발견된 결함으로, 리메이크에�
 
 ## 9. drive.file 전환 화면 검증 (2026-10-30, `feature/drive-file-scope`)
 
-브랜치는 아직 develop에 병합되지 않았습니다. 로컬 개발 서버(`localhost:5173`)를 Apps Script 테스트 배포(@46~@49, `clasp deploy`)에 연결하고 Chrome에서 직접 조작했습니다. 계정은 `semicolon0213@gmail.com`(회계 메뉴 있음)과 `semicolon@yuhan.ac.kr`(회계 메뉴 없음)을 썼습니다. 테스트 전에 배포 계정이 `script.external_request`를 다시 승인하고 편집기에서 `applyLedgerSharing`을 실행했습니다. 구조는 [ADR-014](./ADR.md#adr-014-drive-범위를-drivefile로-줄이고-공유-파일은-apps-script가-다룬다)에 있습니다.
+브랜치는 develop에 병합됐고, 운영(main)에는 아직 배포되지 않았습니다. 로컬 개발 서버(`localhost:5173`)를 Apps Script 테스트 배포(@46~@49, `clasp deploy`)에 연결하고 Chrome에서 직접 조작했습니다. 계정은 `semicolon0213@gmail.com`(회계 메뉴 있음)과 `semicolon@yuhan.ac.kr`(회계 메뉴 없음)을 썼습니다. 테스트 전에 배포 계정이 `script.external_request`를 다시 승인하고 편집기에서 `applyLedgerSharing`을 실행했습니다. 구조는 [ADR-014](./ADR.md#adr-014-drive-범위를-drivefile로-줄이고-공유-파일은-apps-script가-다룬다)에 있습니다.
 
 ### 9.1 결과
 

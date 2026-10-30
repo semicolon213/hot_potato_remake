@@ -14,7 +14,7 @@ HP ERP 웹 OAuth 클라이언트를 Google Auth Platform에서 "Testing"에서 "
 현실적인 경로는 다음 순서입니다.
 
 1. 지금 당장은 **Testing을 유지**합니다. 테스트 사용자로 등록한 100명까지 쓸 수 있고, 로그인할 때 "Google에서 확인하지 않은 앱" 경고를 한 번 넘기면 됩니다. 다만 민감한 범위를 요청하므로 동의가 7일마다 만료되어 사용자가 주 1회 다시 동의해야 합니다.
-2. Codex가 쓰지 않는 범위(`gmail.compose`, `documents`)를 지우고 `drive`를 `drive.file`로 바꿉니다. **브랜치 `feature/drive-file-scope`에 반영했습니다(develop 병합 전).** 웹 클라이언트가 요청하는 범위는 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`입니다.
+2. Codex가 쓰지 않는 범위(`gmail.compose`, `documents`)를 지우고 `drive`를 `drive.file`로 바꿉니다. **브랜치 `feature/drive-file-scope`에 반영했습니다(develop에 반영, 운영 배포 전).** 웹 클라이언트가 요청하는 범위는 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`입니다.
 3. 병합·배포 뒤 **브랜드 인증과 민감한 범위 인증**(`spreadsheets`, `calendar.events`, `calendar.readonly`)을 신청합니다. 보안 평가(CASA)는 필요 없습니다.
 
 `drive`를 그대로 두면 restricted 범위 인증과 **매년 유료 보안 평가(CASA)**가 필요합니다. 학과 내부 서비스에는 비용과 운영 부담이 커서 권하지 않습니다. 인증 없이 "In production"으로만 바꾸면 "확인되지 않은 앱" 경고가 뜨고 신규 사용자 수가 프로젝트 평생 100명으로 묶이므로 Testing보다 나을 것이 거의 없습니다.
