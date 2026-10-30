@@ -146,55 +146,14 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
   }
 
   try {
-    const { ENV_CONFIG } = await import('../../config/environment');
-    const rootFolderName = ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME;              
-    const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME;       // ENV v2: FOLER.DOCUMENT 기반 문서 폴더명
-    const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME; // ENV v2: FOLER.P_DOC 기반 개인 문서 폴더명
-
-    // 1단계: 루트 폴더 찾기
-    const hotPotatoResponse = await gapi.client.drive.files.list({
-      q: `'root' in parents and name='${rootFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      log.debug(`${rootFolderName} 폴더를 찾을 수 없습니다`);
-      return [];
-    }
-
-    const hotPotatoFolder = hotPotatoResponse.result.files[0];
-
-    // 2단계: 문서 폴더 찾기
-    const documentResponse = await gapi.client.drive.files.list({
-      q: `'${hotPotatoFolder.id}' in parents and name='${documentFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!documentResponse.result.files || documentResponse.result.files.length === 0) {
-      log.debug(`${documentFolderName} 폴더를 찾을 수 없습니다`);
-      return [];
-    }
-
-    const documentFolder = documentResponse.result.files[0];
-
-    // 3단계: 개인 문서 폴더 찾기
-    const personalDocResponse = await gapi.client.drive.files.list({
-      q: `'${documentFolder.id}' in parents and name='${personalDocFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!personalDocResponse.result.files || personalDocResponse.result.files.length === 0) {
+    // 문서 생성 쪽과 같은 경로 함수로 개인 문서 폴더를 찾는다 (중복 폴더가 있어도 같은 폴더를 본다)
+    const { findPersonalDocumentFolder } = await import('../google/googleSheetUtils');
+    const personalDocFolderId = await findPersonalDocumentFolder();
+    if (!personalDocFolderId) {
       log.debug('개인 문서 폴더를 찾을 수 없습니다');
       return [];
     }
-
-    const personalDocFolder = personalDocResponse.result.files[0];
+    const personalDocFolder = { id: personalDocFolderId };
 
     // 4단계: 개인 문서 폴더에서 파일 목록 가져오기 (메타데이터 포함)
     const filesResponse = await gapi.client.drive.files.list({
@@ -302,7 +261,7 @@ export const loadAllDocuments = async (forceRefresh: boolean = false): Promise<D
   } else {
     log.debug('강제 새로고침 모드 - 캐시 무시');
     // 캐시 무효화
-    await cacheManager.delete(cacheKey);
+    await cacheManager.invalidate(cacheKey);
   }
   const [sharedDocs, personalDocs] = await Promise.all([
     loadSharedDocuments(),
