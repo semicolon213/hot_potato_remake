@@ -12,8 +12,13 @@ function installSystem(config) {
   lock.waitLock(30000);
   try {
     const properties = PropertiesService.getScriptProperties();
-    if (properties.getProperty('SETUP_DONE') === 'true') {
+    if (isSetupDone_(properties)) {
       throw new Error('이미 설치가 완료되었습니다.');
+    }
+    // 웹앱은 누구나 열 수 있으므로 배포 계정 본인만 설치를 실행한다 (다른 사람이 관리자로 등록하는 것 방지)
+    const caller = Session.getActiveUser().getEmail();
+    if (!caller || caller !== Session.getEffectiveUser().getEmail()) {
+      throw new Error('설치는 이 백엔드를 배포한 계정으로 로그인한 상태에서만 할 수 있습니다.');
     }
 
     const adminEmail = String(config.adminEmail || '').trim();
@@ -53,9 +58,14 @@ function registerInitialAdmin_(email) {
   }
 }
 
+// SETUP_DONE 이전부터 운영 중인 설치는 SPREADSHEET_ID가 있으면 설치된 것으로 본다
+function isSetupDone_(properties) {
+  return properties.getProperty('SETUP_DONE') === 'true' || Boolean(properties.getProperty('SPREADSHEET_ID'));
+}
+
 function getSetupDefaults() {
   return {
-    installed: PropertiesService.getScriptProperties().getProperty('SETUP_DONE') === 'true',
+    installed: isSetupDone_(PropertiesService.getScriptProperties()),
     groupEmails: DEFAULT_GROUP_EMAILS_
   };
 }
@@ -64,7 +74,7 @@ function getSetupStatus() {
   const properties = PropertiesService.getScriptProperties();
   return {
     success: true,
-    installed: properties.getProperty('SETUP_DONE') === 'true',
+    installed: isSetupDone_(properties),
     spreadsheetReady: Boolean(properties.getProperty('SPREADSHEET_ID')),
     version: getDeploymentInfo().version
   };
