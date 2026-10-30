@@ -443,19 +443,13 @@ function handleDeleteDocuments(req) {
     // 역할에 따른 스프레드시트 선택
     const spreadsheetName = getSpreadsheetNameByRole(role);
     const spreadsheetId = getSheetIdByName(spreadsheetName);
-    
-    if (!spreadsheetId) {
-      return {
-        success: false,
-        message: '스프레드시트를 찾을 수 없습니다.'
-      };
-    }
-    
-    // 스프레드시트에서 문서 정보 삭제
-    const deleteResult = deleteRowsByDocIds(spreadsheetId, 'documents', documentIds);
-    
-    if (!deleteResult.success) {
-      return deleteResult;
+
+    // 공유 문서 목록은 이제 폴더에서 읽으므로 문서 목록 스프레드시트가 없으면 행 정리만 건너뛴다.
+    if (spreadsheetId) {
+      const deleteResult = deleteRowsByDocIds(spreadsheetId, 'documents', documentIds);
+      if (!deleteResult.success) {
+        return deleteResult;
+      }
     }
     
     // Google Drive에서 문서 삭제 (선택사항)

@@ -1655,7 +1655,7 @@ function createGoogleDocumentDirect(title, templateType) {
     // 빈 문서인 경우
     if (templateType === 'empty' || !templateType) {
       logDebug_('Main', '빈 문서 생성 (템플릿 없음)');
-      const file = DriveApp.createFile(Blob.createFromString(''), MimeType.GOOGLE_DOCS);
+      const file = createBlankGoogleDoc_(title);
       file.setName(title);
       
       return {
@@ -1688,7 +1688,7 @@ function createGoogleDocumentDirect(title, templateType) {
         logError_('Main', '템플릿 복사 실패:', copyError);
         // 복사 실패 시 빈 문서로 생성
         logWarn_('Main', '복사 실패로 빈 문서 생성 시도');
-        const file = DriveApp.createFile(Blob.createFromString(''), MimeType.GOOGLE_DOCS);
+        const file = createBlankGoogleDoc_(title);
         file.setName(title);
         
         return {
@@ -1704,7 +1704,7 @@ function createGoogleDocumentDirect(title, templateType) {
     
     // 기본 문서 생성
     logDebug_('Main', '빈 문서 생성 시도');
-    const file = DriveApp.createFile(Blob.createFromString(''), MimeType.GOOGLE_DOCS);
+    const file = createBlankGoogleDoc_(title);
     file.setName(title);
     
     return {
