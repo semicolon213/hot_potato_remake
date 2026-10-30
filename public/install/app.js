@@ -1,5 +1,6 @@
 /* global google */
 import { updateOrCreateDeployment } from './deployment.js';
+import { bundleForAccount } from './bundle-config.js';
 
 const STORAGE_KEY = 'hp-erp-install-wizard:v1';
 const STEP_META = [
@@ -301,21 +302,6 @@ async function appsScriptApi(path, token, options = {}) {
     throw error;
   }
   return body;
-}
-
-// Workspace 전용 고급 서비스. 개인 Gmail 계정에서는 "Service not found: admin v1"로 업로드가 실패한다.
-const WORKSPACE_ONLY_SERVICES = ['admin', 'groupssettings'];
-
-// 개인 계정이면 Workspace 전용 서비스를 빼고 올린다. GroupManagement.gs는 서비스가 없으면 관리자 알림으로 넘어간다.
-function bundleForAccount(bundle, isWorkspace) {
-  if (isWorkspace) return bundle;
-  return { files: bundle.files.map(file => {
-    if (file.name !== 'appsscript') return file;
-    const manifest = JSON.parse(file.source);
-    const services = manifest.dependencies?.enabledAdvancedServices;
-    if (Array.isArray(services)) manifest.dependencies.enabledAdvancedServices = services.filter(service => !WORKSPACE_ONLY_SERVICES.includes(service.serviceId));
-    return { ...file, source: JSON.stringify(manifest, null, 2) };
-  }) };
 }
 
 async function deployBackend(token, email, isWorkspace) {
