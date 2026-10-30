@@ -10,6 +10,7 @@
     "dev:web": "vite",
     "dev:netlify": "npx netlify dev",
     "build": "vite build",
+    "bundle:backend": "node scripts/bundle-backend.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "electron": "electron .",
