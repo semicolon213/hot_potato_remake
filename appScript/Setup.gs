@@ -7,6 +7,7 @@ const DEFAULT_GROUP_EMAILS_ = {
 };
 
 function installSystem(config) {
+  config = config || {};
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -26,7 +27,7 @@ function installSystem(config) {
     });
 
     properties.setProperties({
-      ROOT_FOLDER_NAME: String(config.rootFolderName || 'hot_potato_remake').trim(),
+      ROOT_FOLDER_NAME: String(config.rootFolderName || '').trim() || 'hot_potato_remake',
       GROUP_EMAIL_JSON: JSON.stringify(groupEmails)
     });
 
