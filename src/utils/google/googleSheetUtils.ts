@@ -676,6 +676,26 @@ export const findPersonalDocumentFolder = async (): Promise<string | null> => {
   }
 };
 
+/**
+ * @brief 개인 문서 폴더에 제목을 가진 빈 Google 문서 생성
+ * @details 앱이 만든 파일이라 drive.file 범위에서도 개인 문서 목록에 보인다.
+ */
+export const createBlankGoogleDocument = async (title: string): Promise<{ id: string, webViewLink: string }> => {
+  const personalDocFolderId = await findPersonalDocumentFolder();
+  if (!personalDocFolderId) {
+    throw new Error('개인 문서 폴더를 찾을 수 없습니다.');
+  }
+  const response = await window.gapi.client.drive.files.create({
+    resource: {
+      name: title,
+      mimeType: 'application/vnd.google-apps.document',
+      parents: [personalDocFolderId]
+    },
+    fields: 'id, webViewLink'
+  });
+  return response.result as { id: string, webViewLink: string };
+};
+
 export const copyGoogleDocument = async (fileId: string, newTitle: string): Promise<{ id: string, webViewLink: string } | null> => {
   try {
     // 토큰 확인

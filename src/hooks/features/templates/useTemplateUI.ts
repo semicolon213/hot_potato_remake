@@ -402,9 +402,10 @@ export function useTemplateUI(
                 } else {
                     // 기본 템플릿 (빈 문서 등) - Google Docs 새 문서 생성 URL 사용
                     try {
-                        // Google Docs의 새 문서 생성 URL을 사용
-                        const newDocUrl = 'https://docs.google.com/document/create';
-                        window.open(newDocUrl, '_blank');
+                        // 개인 문서 폴더에 입력한 제목으로 빈 문서를 만든다 (docs.google.com/document/create는 제목·폴더 없이 드라이브 최상위에 만들어짐)
+                        const { createBlankGoogleDocument } = await import('../../../utils/google/googleSheetUtils');
+                        const blankDoc = await createBlankGoogleDocument(selectedTemplate.title);
+                        window.open(blankDoc.webViewLink, '_blank');
                         showNotification('새 문서가 생성되었습니다!', 'success');
                     } catch (error) {
                         log.error('개인 문서 생성 오류:', error);
