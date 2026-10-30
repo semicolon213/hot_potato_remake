@@ -52,3 +52,9 @@ function updateStudentGradesSelected(spreadsheetId, studentIds, graduationGrade,
     return updateStudentGradesSelectedUnlocked_(spreadsheetId, studentIds, graduationGrade, graduationYear, graduationTerm);
   });
 }
+
+function updateStudentRetained(studentId, spreadsheetId, isRetained) {
+  return withScriptLock_(function() {
+    return updateStudentRetainedUnlocked_(studentId, spreadsheetId, isRetained);
+  });
+}
