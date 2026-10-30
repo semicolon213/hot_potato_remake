@@ -9,7 +9,7 @@
 /**
  * 스크립트 속성만 초기화 (폴더/시트 생성 없이)
  * 기존 값이 있으면 유지, 없으면 기본값 설정.
- * ROOT_FOLDER_ID, SPREADSHEET_ID는 initializeSystem 실행 시에만 설정됨.
+ * ROOT_FOLDER_ID, SPREADSHEET_ID는 initializeSystem 실행 때 실제 루트 폴더와 hp_member로 맞춰짐.
  */
 function setupScriptPropertiesOnly() {
   return setScriptProperties(null, null);
@@ -844,28 +844,22 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
       }
     }
     
-    // ROOT_FOLDER_ID 설정 (SpreadsheetUtils에서 루트 폴더 탐색용)
-    if (rootFolderId) {
-      const existingRootId = properties.getProperty('ROOT_FOLDER_ID');
-      if (!existingRootId) {
-        properties.setProperty('ROOT_FOLDER_ID', rootFolderId);
-        setProperties['ROOT_FOLDER_ID'] = rootFolderId;
-        logInfo_('InitialSetup', 'ROOT_FOLDER_ID 설정: ' + rootFolderId);
+    // ROOT_FOLDER_ID, SPREADSHEET_ID는 이번 실행에서 실제로 쓴 루트 폴더와 hp_member로 항상 맞춘다.
+    // (예전 설치에서 남은 값이 그대로 남아 다른 폴더를 가리키는 일을 막는다)
+    const linkProperty = function(key, value) {
+      const previous = properties.getProperty(key);
+      if (previous !== value) {
+        properties.setProperty(key, value);
+        if (previous) logWarn_('InitialSetup', key + ' 갱신:', previous, '->', value);
       }
-    }
-    
-    // SPREADSHEET_ID 설정 (hp_member - getHpMemberSpreadsheet에서 사용)
-    if (spreadsheetResults && Array.isArray(spreadsheetResults)) {
-      const hpMember = spreadsheetResults.find(function(r) { return r.name === 'hp_member'; });
-      if (hpMember && hpMember.id) {
-        const existingSpreadsheetId = properties.getProperty('SPREADSHEET_ID');
-        if (!existingSpreadsheetId) {
-          properties.setProperty('SPREADSHEET_ID', hpMember.id);
-          setProperties['SPREADSHEET_ID'] = hpMember.id;
-          logInfo_('InitialSetup', 'SPREADSHEET_ID (hp_member) 설정: ' + hpMember.id);
-        }
-      }
-    }
+      setProperties[key] = value;
+    };
+    if (rootFolderId) linkProperty('ROOT_FOLDER_ID', rootFolderId);
+    const hpMember = Array.isArray(spreadsheetResults)
+      ? spreadsheetResults.find(function(r) { return r.name === 'hp_member'; })
+      : null;
+    if (hpMember && hpMember.id) linkProperty('SPREADSHEET_ID', hpMember.id);
+    clearSpreadsheetIdCache();
     
     logInfo_('InitialSetup', '스크립트 속성 설정 완료');
     return {
