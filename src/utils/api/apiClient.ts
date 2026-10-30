@@ -103,6 +103,10 @@ export class ApiClient {
     }
   }
 
+  clearInFlightRequests(): void {
+    this.invalidateInFlight(['*']);
+  }
+
   constructor() {
     // 개발(localhost): Vite 프록시 /api → Apps Script
     // 배포(Netlify): Netlify Functions /.netlify/functions/proxy → Apps Script

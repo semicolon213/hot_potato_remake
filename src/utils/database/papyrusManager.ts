@@ -78,6 +78,8 @@ export const clearSpreadsheetIds = (): void => {
     staffSpreadsheetId = null;
     accountingFolderId = null;
     hasInitializedSpreadsheetIds = false;
+    isInitializing = false;
+    initializationPromise = null;
 };
 
 /** 초기화 시 조회해 둔 공지 스프레드시트 ID (관리자 패널·직접 API 호출용) */
