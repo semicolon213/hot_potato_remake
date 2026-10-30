@@ -72,6 +72,7 @@ export const getEvidenceFolderIdFromSpreadsheet = async (spreadsheetId: string):
  * 증빙 문서를 Google Drive에 업로드
  */
 export const uploadEvidenceFile = async (
+  spreadsheetId: string,
   evidenceFolderId: string,
   file: File,
   entryId: string
@@ -83,6 +84,7 @@ export const uploadEvidenceFile = async (
   // 파일명: 증빙_[날짜]_[항목ID].[확장자]
   const fileExtension = file.name.split('.').pop() || '';
   const fileName = `증빙_${new Date().toISOString().split('T')[0].replace(/-/g, '')}_${entryId}.${fileExtension}`;
+  const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
   const fileData = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
@@ -91,7 +93,10 @@ export const uploadEvidenceFile = async (
   });
 
   const response = await apiClient.uploadEvidenceFile({
+    spreadsheetId,
     evidenceFolderId,
+    userEmail: userInfo.email || '',
+    userType: userInfo.userType || userInfo.user_type || '',
     fileName,
     mimeType: file.type || 'application/octet-stream',
     fileData
@@ -197,7 +202,7 @@ export const createLedgerEntry = async (
           log.warn('증빙 폴더를 찾을 수 없습니다. 파일 업로드를 건너뜁니다.');
         } else {
           // 파일 업로드
-          const uploadResult = await uploadEvidenceFile(evidenceFolderId, entryData.evidenceFile, entryId);
+          const uploadResult = await uploadEvidenceFile(spreadsheetId, evidenceFolderId, entryData.evidenceFile, entryId);
           evidenceFileId = uploadResult.fileId;
           evidenceFileName = uploadResult.fileName;
         }
@@ -381,8 +386,7 @@ export const createLedgerEntry = async (
       if (accountData && accountData.values && accountData.values.length > 1) {
         const accountRowIndex = accountData.values.findIndex((row: string[]) => row[0] === account.accountId);
         if (accountRowIndex !== -1) {
-          const finalBalance = sortedEntries.length > 0 ? sortedEntries[sortedEntries.length - 1].balanceAfter : account.initialBalance;
-          await update(spreadsheetId, ACCOUNTING_SHEETS.ACCOUNT, `D${accountRowIndex + 1}`, [[finalBalance]]);
+          await update(spreadsheetId, ACCOUNTING_SHEETS.ACCOUNT, `D${accountRowIndex + 1}`, [[runningBalance]]);
         }
       }
     } catch (sortError) {
@@ -466,7 +470,7 @@ export const updateLedgerEntry = async (
           log.warn('증빙 폴더를 찾을 수 없습니다. 파일 업로드를 건너뜁니다.');
         } else {
           // 파일 업로드
-          const uploadResult = await uploadEvidenceFile(evidenceFolderId, entryData.evidenceFile, entryId);
+          const uploadResult = await uploadEvidenceFile(spreadsheetId, evidenceFolderId, entryData.evidenceFile, entryId);
           evidenceFileId = uploadResult.fileId;
           evidenceFileName = uploadResult.fileName;
         }
@@ -754,7 +758,7 @@ export const deleteLedgerEntry = async (
       await updateCategoryUsageCount(spreadsheetId, entry.category, -1);
 
       // 행 삭제
-      await deleteRow(spreadsheetId, sheetId, rowIndex + 1);
+      await deleteRow(spreadsheetId, sheetId, rowIndex);
     } catch (apiError) {
       // API 실패 시 롤백
       if (rollback) {

@@ -105,7 +105,7 @@ function getStudentRetainedStatus(studentId, spreadsheetId) {
  * @param {boolean} isRetained - 유급 여부
  * @returns {Object} 업데이트 결과
  */
-function updateStudentRetained(studentId, spreadsheetId, isRetained) {
+function updateStudentRetainedUnlocked_(studentId, spreadsheetId, isRetained) {
   try {
     
     if (!studentId || !spreadsheetId) {

@@ -773,11 +773,16 @@ function NewDocument({
                 throw new Error('개인 템플릿 폴더를 찾을 수 없습니다.');
             }
 
-            // 파일을 FormData로 변환
+            const googleMimeType = file.type.includes('spreadsheet') || file.type === 'application/vnd.ms-excel'
+                ? 'application/vnd.google-apps.spreadsheet'
+                : 'application/vnd.google-apps.document';
             const formData = new FormData();
+            formData.append('metadata', new Blob([JSON.stringify({
+                name: fileName,
+                parents: [folderId],
+                mimeType: googleMimeType
+            })], { type: 'application/json' }));
             formData.append('file', file);
-            formData.append('name', fileName);
-            formData.append('parents', folderId);
 
             // Google Drive API로 파일 업로드
             const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name`, {

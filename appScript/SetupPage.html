@@ -19,6 +19,7 @@
     <label for="professor">교수 그룹 이메일</label><input id="professor" type="email" required>
     <label for="adjProfessor">겸임교원 그룹 이메일</label><input id="adjProfessor" type="email" required>
     <label for="admin">최초 관리자 이메일</label><input id="admin" type="email" required>
+    <label for="setupToken">설치 토큰</label><input id="setupToken" type="password" autocomplete="off" required>
     <button type="submit">설치</button>
   </form>
   <p id="status" role="status"></p>
@@ -31,7 +32,7 @@
     }).getSetupDefaults();
     form.addEventListener('submit', event => {
       event.preventDefault();status.textContent='폴더와 시트를 만드는 중입니다…';form.querySelector('button').disabled=true;
-      const config={rootFolderName:root.value,adminEmail:admin.value,groupEmails:{STUDENT:student.value,COUNCIL:council.value,ASSISTANT:assistant.value,PROFESSOR:professor.value,ADJ_PROFESSOR:adjProfessor.value}};
+      const config={rootFolderName:root.value,adminEmail:admin.value,setupToken:setupToken.value,groupEmails:{STUDENT:student.value,COUNCIL:council.value,ASSISTANT:assistant.value,PROFESSOR:professor.value,ADJ_PROFESSOR:adjProfessor.value}};
       google.script.run.withSuccessHandler(() => {form.hidden=true;status.textContent='설치가 완료되었습니다.'}).withFailureHandler(error => {status.textContent=error.message;form.querySelector('button').disabled=false}).installSystem(config);
     });
   </script>

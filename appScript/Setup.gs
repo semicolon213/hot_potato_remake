@@ -15,10 +15,9 @@ function installSystem(config) {
     if (isSetupDone_(properties)) {
       throw new Error('이미 설치가 완료되었습니다.');
     }
-    // 웹앱은 누구나 열 수 있으므로 배포 계정 본인만 설치를 실행한다 (다른 사람이 관리자로 등록하는 것 방지)
-    const caller = Session.getActiveUser().getEmail();
-    if (!caller || caller !== Session.getEffectiveUser().getEmail()) {
-      throw new Error('설치는 이 백엔드를 배포한 계정으로 로그인한 상태에서만 할 수 있습니다.');
+    const setupToken = properties.getProperty('SETUP_TOKEN');
+    if (!setupToken || String(config.setupToken || '') !== setupToken) {
+      throw new Error('설치 토큰이 없거나 올바르지 않습니다. 배포자가 편집기에서 토큰을 생성했는지 확인하세요.');
     }
 
     const adminEmail = String(config.adminEmail || '').trim();
@@ -40,10 +39,29 @@ function installSystem(config) {
     if (!result.success) throw new Error(result.message || '초기화에 실패했습니다.');
     registerInitialAdmin_(adminEmail);
     properties.setProperty('SETUP_DONE', 'true');
+    properties.deleteProperty('SETUP_TOKEN');
     return result;
   } finally {
     lock.releaseLock();
   }
+}
+
+function createSetupToken() {
+  const properties = PropertiesService.getScriptProperties();
+  if (isSetupDone_(properties) || properties.getProperty('SPREADSHEET_ID')) {
+    throw new Error('이미 초기화가 시작되었거나 완료된 프로젝트입니다.');
+  }
+  if (properties.getProperty('SETUP_TOKEN')) {
+    throw new Error('설치 토큰이 이미 있습니다. 기존 토큰으로 설치를 진행하세요.');
+  }
+  const activeEmail = String(Session.getActiveUser().getEmail() || '').toLowerCase();
+  const effectiveEmail = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
+  if (!activeEmail || activeEmail !== effectiveEmail) {
+    throw new Error('토큰은 배포 계정으로 Apps Script 편집기에서 생성해야 합니다.');
+  }
+  const token = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  properties.setProperty('SETUP_TOKEN', token);
+  Logger.log('설치 화면에 입력할 SETUP_TOKEN: ' + token);
 }
 
 function registerInitialAdmin_(email) {
@@ -58,9 +76,9 @@ function registerInitialAdmin_(email) {
   }
 }
 
-// SETUP_DONE 이전부터 운영 중인 설치는 SPREADSHEET_ID가 있으면 설치된 것으로 본다
 function isSetupDone_(properties) {
-  return properties.getProperty('SETUP_DONE') === 'true' || Boolean(properties.getProperty('SPREADSHEET_ID'));
+  if (properties.getProperty('SETUP_DONE') === 'true') return true;
+  return Boolean(properties.getProperty('SPREADSHEET_ID')) && !properties.getProperty('SETUP_TOKEN');
 }
 
 function getSetupDefaults() {

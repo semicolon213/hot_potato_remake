@@ -24,6 +24,7 @@ let personalConfigSpreadsheetId: string | null = null;
  */
 export const clearPersonalConfigSpreadsheetId = (): void => {
     personalConfigSpreadsheetId = null;
+    initializingPersonalConfig = null;
 };
 
 /**

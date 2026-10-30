@@ -92,6 +92,20 @@ export class ApiClient {
   private cacheManager = getCacheManager();
   private dataSyncService: any = null; // DataSyncService 인스턴스 (나중에 주입)
   private inFlightRequests = new Map<string, Promise<ApiResponse<unknown>>>();
+  private cacheGenerations = new Map<string, number>();
+
+  invalidateInFlight(patterns: string[]): void {
+    for (const key of this.inFlightRequests.keys()) {
+      const invalidated = patterns.some(pattern => new RegExp('^' + pattern.replace(/\*/g, '.*') + '$').test(key));
+      if (!invalidated) continue;
+      this.cacheGenerations.set(key, (this.cacheGenerations.get(key) || 0) + 1);
+      this.inFlightRequests.delete(key);
+    }
+  }
+
+  clearInFlightRequests(): void {
+    this.invalidateInFlight(['*']);
+  }
 
   constructor() {
     // 개발(localhost): Vite 프록시 /api → Apps Script
@@ -129,11 +143,13 @@ export class ApiClient {
     const isCacheable = CACHEABLE_ACTIONS.includes(action);
     const isRetryableReadAction = isCacheable || RETRYABLE_READ_ACTIONS.has(action);
     let cacheKey: string | null = null;
+    let cacheGeneration = 0;
     
     if (isCacheable) {
       // 캐시 키 생성
       const category = getActionCategory(action);
       cacheKey = generateCacheKey(category, action, data);
+      cacheGeneration = this.cacheGenerations.get(cacheKey) || 0;
       
       // 캐시에서 데이터 조회
       const cachedData = await this.cacheManager.get<ApiResponse<T>>(cacheKey);
@@ -211,7 +227,7 @@ export class ApiClient {
 
           const result = await response.json();
 
-          if (isCacheable && result.success && cacheKey && !hasIncompleteSpreadsheetIds(action, result)) {
+          if (isCacheable && result.success && cacheKey && cacheGeneration === (this.cacheGenerations.get(cacheKey) || 0) && !hasIncompleteSpreadsheetIds(action, result)) {
             const ttl = getCacheTTL(action);
             await this.cacheManager.set(cacheKey, result as ApiResponse<T>, ttl);
           }
@@ -347,12 +363,17 @@ export class ApiClient {
     const cachePromises = actions.map((action) => {
       const actionParams = action === 'getAnnouncements' ? params : action === 'getLedgerList' ? ledgerListParams() : {};
       const cacheKey = generateCacheKey(getActionCategory(action), action, actionParams);
+      const cacheGeneration = this.cacheGenerations.get(cacheKey) || 0;
       const actionPromise = bootstrapPromise.then(async (response) => {
         const actionResponse = response.data?.[action];
         if (actionResponse?.success) {
-          await this.cacheManager.set(cacheKey, actionResponse, getCacheTTL(action));
+          if (cacheGeneration === (this.cacheGenerations.get(cacheKey) || 0)) {
+            await this.cacheManager.set(cacheKey, actionResponse, getCacheTTL(action));
+          }
+          return actionResponse;
         }
-        return actionResponse || { success: false, message: `${action} 응답이 없습니다.` };
+        if (this.inFlightRequests.get(cacheKey) === actionPromise) this.inFlightRequests.delete(cacheKey);
+        return this.request(action, actionParams);
       });
 
       this.inFlightRequests.set(cacheKey, actionPromise as Promise<ApiResponse<unknown>>);
@@ -437,7 +458,7 @@ export class ApiClient {
   }
 
   // 증빙 파일 업로드 (Apps Script가 장부 증빙 폴더에 저장)
-  async uploadEvidenceFile(params: { evidenceFolderId: string; fileName: string; mimeType: string; fileData: string }) {
+  async uploadEvidenceFile(params: { spreadsheetId: string; evidenceFolderId: string; userEmail: string; userType: string; fileName: string; mimeType: string; fileData: string }) {
     return this.request<{ fileId: string; fileName: string }>('uploadEvidenceFile', params);
   }
 
@@ -451,7 +472,7 @@ export class ApiClient {
   }
 
   // 공지 첨부파일 업로드 (Apps Script가 첨부 폴더에 저장하고 링크 공개)
-  async uploadNoticeAttachment(params: { fileName: string; mimeType: string; fileData: string }) {
+  async uploadNoticeAttachment(params: { fileName: string; mimeType: string; fileData: string; userEmail: string }) {
     return this.request<{ id: string; name: string; url: string }>('uploadNoticeAttachment', params);
   }
 
@@ -1004,8 +1025,9 @@ export class ApiClient {
   private getCacheKeysToInvalidate(action: string, data: any): string[] {
     const cacheKeyMap: Record<string, (data: any) => string[]> = {
       // 문서 관리
-      'createDocument': () => ['documents:getDocuments:*', 'documents:getAllDocuments:{}'],
-      'deleteDocuments': () => ['documents:getDocuments:*', 'documents:getAllDocuments:{}'],
+      'createDocument': () => ['documents:getDocuments:*', 'documents:getAllDocuments:*'],
+      'deleteDocuments': () => ['documents:getDocuments:*', 'documents:getAllDocuments:*'],
+      'uploadSharedDocument': () => ['documents:getDocuments:*', 'documents:getAllDocuments:*'],
       'uploadSharedTemplate': () => ['templates:getTemplates:*', 'templates:getSharedTemplates:*'],
       'updateSharedTemplateMeta': () => ['templates:getSharedTemplates:*'],
       'deleteSharedTemplate': () => ['templates:getSharedTemplates:*'],
@@ -1061,6 +1083,7 @@ export class ApiClient {
       'updateAccountSubManagers': () => ['accounting:getLedgerList:*'],
       
       // 사용자 관리
+      'registerUser': () => ['users:getPendingUsers:*'],
       'approveUserWithGroup': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
       'rejectUser': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
       'addUsersToSpreadsheet': () => ['users:getAllUsers:*'],

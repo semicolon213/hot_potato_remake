@@ -444,6 +444,7 @@ export class DataSyncService {
     }
 
     // 카테고리별 캐시 무효화
+    apiClient.invalidateInFlight([`${category}:*`]);
     await this.cacheManager.invalidate(`${category}:*`);
 
     // 백그라운드에서 실제 데이터 가져오기
@@ -632,6 +633,7 @@ export class DataSyncService {
    */
   async invalidateAndRefresh(cacheKeys: string[]): Promise<void> {
     const keys = [...cacheKeys];
+    apiClient.invalidateInFlight(keys);
     if (this.invalidateDebounceTimer !== null) {
       clearTimeout(this.invalidateDebounceTimer);
       this.invalidateDebounceTimer = null;

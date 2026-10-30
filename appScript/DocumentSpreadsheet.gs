@@ -430,41 +430,73 @@ function handleGetDocuments(req) {
  */
 function handleDeleteDocuments(req) {
   try {
-    
     const { documentIds, role } = req;
-    
-    if (!documentIds || documentIds.length === 0) {
+    if (!Array.isArray(documentIds) || documentIds.length === 0) {
       return {
         success: false,
         message: '삭제할 문서 ID가 필요합니다.'
       };
     }
+
+    const folderResult = findOrCreateFolder(getSharedDocumentFolderPath());
+    const sharedFolderId = folderResult && folderResult.success && folderResult.data && folderResult.data.id;
+    if (!sharedFolderId) {
+      return { success: false, message: '공유 문서 폴더를 찾을 수 없습니다.', failures: documentIds };
+    }
+
+    const eligibleIds = [];
+    const failures = [];
+    Array.from(new Set(documentIds.map(String))).forEach(function(docId) {
+      try {
+        const file = DriveApp.getFileById(docId);
+        const parents = file.getParents();
+        let isDirectChild = false;
+        while (parents.hasNext()) {
+          if (parents.next().getId() === sharedFolderId) isDirectChild = true;
+        }
+        if (!isDirectChild) {
+          failures.push({ id: docId, message: '공유 문서 폴더 바로 아래 파일만 삭제할 수 있습니다.' });
+          return;
+        }
+        eligibleIds.push(docId);
+      } catch (error) {
+        failures.push({ id: docId, message: error.message || '파일을 확인할 수 없습니다.' });
+      }
+    });
+
+    const trashedIds = [];
+    eligibleIds.forEach(function(docId) {
+      try {
+        Drive.Files.update({ trashed: true }, docId);
+        trashedIds.push(docId);
+      } catch (error) {
+        failures.push({ id: docId, message: error.message || '파일을 휴지통으로 이동하지 못했습니다.' });
+      }
+    });
     
     // 역할에 따른 스프레드시트 선택
     const spreadsheetName = getSpreadsheetNameByRole(role);
     const spreadsheetId = getSheetIdByName(spreadsheetName);
 
     // 공유 문서 목록은 이제 폴더에서 읽으므로 문서 목록 스프레드시트가 없으면 행 정리만 건너뛴다.
-    if (spreadsheetId) {
-      const deleteResult = deleteRowsByDocIds(spreadsheetId, 'documents', documentIds);
-      if (!deleteResult.success) {
-        return deleteResult;
-      }
-    }
-    
-    // Google Drive에서 문서 삭제 (선택사항)
-    for (const docId of documentIds) {
+    if (spreadsheetId && trashedIds.length > 0) {
       try {
-        Drive.Files.remove(docId);
-      } catch (driveError) {
-        logWarn_('DocumentSpreadsheet', 'Google Drive 삭제 실패:', docId, driveError.message);
-        // Drive 삭제 실패해도 스프레드시트 삭제는 성공으로 처리
+        deleteRowsByDocIds(spreadsheetId, 'documents', trashedIds);
+      } catch (error) {
+        return {
+          success: false,
+          message: '파일은 휴지통으로 이동했지만 문서 목록을 정리하지 못했습니다.',
+          deletedDocumentIds: trashedIds,
+          failures: failures.concat([{ id: 'documents-sheet', message: error.message || '문서 목록 정리에 실패했습니다.' }])
+        };
       }
     }
-    
+
     return {
-      success: true,
-      message: `${documentIds.length}개의 문서가 삭제되었습니다.`
+      success: failures.length === 0,
+      message: `${trashedIds.length}개의 문서를 휴지통으로 이동했습니다.` + (failures.length ? ` ${failures.length}개 항목을 처리하지 못했습니다.` : ''),
+      deletedDocumentIds: trashedIds,
+      failures: failures
     };
     
   } catch (error) {

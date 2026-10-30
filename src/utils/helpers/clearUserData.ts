@@ -13,6 +13,7 @@ import { resetGoogleAPIInitialization } from '../google/googleSheetUtils';
 import { resetGoogleApiInitializer } from '../google/googleApiInitializer';
 import { tokenManager } from '../auth/tokenManager';
 import { getCacheManager } from '../cache/cacheManager';
+import { apiClient } from '../api/apiClient';
 const log = logger.scope('utils/helpers/clearUserData');
 
 
@@ -55,6 +56,7 @@ export const clearLocalStorageUserData = (): void => {
     });
 
     // API 메모리 캐시와 cache_* localStorage 항목 정리
+    apiClient.clearInFlightRequests();
     void getCacheManager().clear();
     
     // Zustand persist 스토리지 정리

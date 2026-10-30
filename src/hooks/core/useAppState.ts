@@ -26,6 +26,7 @@ import { useDataSyncState } from './useDataSyncState';
 import { apiClient } from '../../utils/api/apiClient';
 import { useNotification } from '../ui/useNotification';
 import { useAppDataStore } from '../../stores/appDataStore';
+import { clearAllUserData } from '../../utils/helpers/clearUserData';
 const log = logger.scope('hooks/core/useAppState');
 
 
@@ -166,6 +167,8 @@ export const useAppState = () => {
                         setIsGoogleAuthenticatedForAnnouncements(true);
                     }
                 }
+            } else if (savedUser) {
+                clearAllUserData();
             }
 
             setIsLoading(false);

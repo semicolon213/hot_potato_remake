@@ -80,6 +80,26 @@ function isUnderRootFolder_(file, rootId, folderMemo) {
   return false;
 }
 
+function isOwnedByEffectiveUser_(file) {
+  try {
+    var effectiveEmail = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
+    var owner = file.getOwner();
+    return Boolean(effectiveEmail && owner && String(owner.getEmail() || '').toLowerCase() === effectiveEmail);
+  } catch (error) {
+    logWarn_('SpreadsheetUtils', '시스템 스프레드시트 소유자 확인 실패:', error.message);
+    return false;
+  }
+}
+
+function isSpreadsheetOwnedByEffectiveUser_(spreadsheetId) {
+  try {
+    return isOwnedByEffectiveUser_(DriveApp.getFileById(spreadsheetId));
+  } catch (error) {
+    logWarn_('SpreadsheetUtils', '캐시된 스프레드시트 소유자 확인 실패:', error.message);
+    return false;
+  }
+}
+
 function isFolderUnderRoot_(folder, rootId, folderMemo, depth) {
   var id = folder.getId();
   if (id === rootId) return true;
@@ -112,7 +132,13 @@ function findSpreadsheetIdsByNames_(names) {
   var pending = [];
   names.forEach(function(name) {
     if (Object.prototype.hasOwnProperty.call(sheetIdMemo_, name)) {
-      result[name] = sheetIdMemo_[name];
+      var memoId = sheetIdMemo_[name];
+      if (!memoId || isSpreadsheetOwnedByEffectiveUser_(memoId)) {
+        result[name] = memoId;
+      } else {
+        delete sheetIdMemo_[name];
+        pending.push(name);
+      }
     } else {
       pending.push(name);
     }
@@ -124,10 +150,11 @@ function findSpreadsheetIdsByNames_(names) {
   var missing = [];
   pending.forEach(function(name, index) {
     var cachedId = cachedValues[cacheKeys[index]];
-    if (cachedId) {
+    if (cachedId && isSpreadsheetOwnedByEffectiveUser_(cachedId)) {
       result[name] = cachedId;
       sheetIdMemo_[name] = cachedId;
     } else {
+      if (cachedId) cache.remove(cacheKeys[index]);
       missing.push(name);
     }
   });
@@ -146,7 +173,7 @@ function findSpreadsheetIdsByNames_(names) {
       var file = files.next();
       var name = file.getName();
       if (found[name] || missing.indexOf(name) === -1) continue;
-      if (isUnderRootFolder_(file, rootId, folderMemo)) {
+      if (isOwnedByEffectiveUser_(file) && isUnderRootFolder_(file, rootId, folderMemo)) {
         found[name] = file.getId();
       }
     }
@@ -160,7 +187,8 @@ function findSpreadsheetIdsByNames_(names) {
       var rootFolder = DriveApp.getFolderById(rootId);
       unresolved.forEach(function(name) {
         var matchingFiles = findSpreadsheetInFolderTreeByName_(rootFolder, name);
-        if (matchingFiles.length > 0) found[name] = matchingFiles[0].getId();
+        var ownedMatch = matchingFiles.find(function(file) { return isOwnedByEffectiveUser_(file); });
+        if (ownedMatch) found[name] = ownedMatch.getId();
       });
     } catch (error) {
       logWarn_('SpreadsheetUtils', '폴더 탐색 대체 경로 실패:', error.message);

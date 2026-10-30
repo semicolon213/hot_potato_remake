@@ -21,6 +21,10 @@ export interface FileWithDescription {
   description?: string;
 }
 
+const getDocumentCacheParams = () => ({
+  userEmail: JSON.parse(localStorage.getItem('user') || '{}').email || ''
+});
+
 /**
  * 이메일을 사용자 이름으로 변환
  * @param email - 이메일 주소
@@ -248,14 +252,14 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
 /** 문서를 만들거나 지운 뒤 목록 캐시를 비워 다음 조회에서 바로 보이게 한다 */
 export const invalidateDocumentsCache = async (): Promise<void> => {
   const action = 'getAllDocuments';
-  await getCacheManager().invalidate(generateCacheKey(getActionCategory(action), action, {}));
+  await getCacheManager().invalidate(generateCacheKey(getActionCategory(action), action, getDocumentCacheParams()));
 };
 
 export const loadAllDocuments = async (forceRefresh: boolean = false): Promise<DocumentInfo[]> => {
   const cacheManager = getCacheManager();
   const action = 'getAllDocuments';
   const category = getActionCategory(action);
-  const cacheKey = generateCacheKey(category, action, {});
+  const cacheKey = generateCacheKey(category, action, getDocumentCacheParams());
   
   // 강제 새로고침이 아닐 때만 캐시에서 확인
   if (!forceRefresh) {

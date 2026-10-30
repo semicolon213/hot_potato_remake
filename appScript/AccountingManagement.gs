@@ -952,16 +952,33 @@ function applyLedgerSharing() {
  * 회계 폴더 아래 폴더만 허용한다.
  * @param {Object} req - { evidenceFolderId, fileName, mimeType, fileData(base64) }
  */
+var EVIDENCE_FILE_MAX_BYTES_ = 4 * 1024 * 1024;
+
 function uploadEvidenceFile(req) {
   try {
-    if (!req.evidenceFolderId || !req.fileName || !req.fileData) {
-      return { success: false, message: '증빙 폴더, 파일 이름, 내용이 필요합니다.' };
+    if (!req || !req.spreadsheetId || !req.evidenceFolderId || !req.userEmail || !req.fileName || !req.fileData) {
+      return { success: false, message: '장부, 증빙 폴더, 업로더, 파일 내용이 필요합니다.' };
+    }
+    const userEmail = String(req.userEmail).trim().toLowerCase();
+    const groupEmail = String(getGroupEmailByRole(req.userType) || '').toLowerCase();
+    const ledger = getLedgerList().find(function(item) { return item.spreadsheetId === req.spreadsheetId; });
+    if (!ledger || ledger.evidenceFolderId !== req.evidenceFolderId ||
+        !isLedgerAccessibleBy_(req.spreadsheetId, userEmail, groupEmail)) {
+      return { success: false, message: '이 장부의 증빙 폴더에 업로드할 권한이 없습니다.' };
     }
     const folder = DriveApp.getFolderById(req.evidenceFolderId);
     if (!isFolderUnderRoot_(folder, initializeAccountingFolder(), {}, 0)) {
       return { success: false, message: '증빙 폴더가 아닙니다.' };
     }
-    const blob = Utilities.newBlob(Utilities.base64Decode(req.fileData), req.mimeType || 'application/octet-stream', req.fileName);
+    const maxBase64Length = Math.ceil(EVIDENCE_FILE_MAX_BYTES_ / 3) * 4;
+    if (typeof req.fileData !== 'string' || req.fileData.length > maxBase64Length) {
+      return { success: false, message: '증빙 파일은 4MB 이하만 올릴 수 있습니다.' };
+    }
+    const fileBytes = Utilities.base64Decode(req.fileData);
+    if (fileBytes.length > EVIDENCE_FILE_MAX_BYTES_) {
+      return { success: false, message: '증빙 파일은 4MB 이하만 올릴 수 있습니다.' };
+    }
+    const blob = Utilities.newBlob(fileBytes, req.mimeType || 'application/octet-stream', req.fileName);
     const file = folder.createFile(blob);
     return { success: true, data: { fileId: file.getId(), fileName: file.getName() } };
   } catch (error) {
