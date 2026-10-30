@@ -558,7 +558,7 @@ export const incrementViewCount = async (announcementId: string): Promise<void> 
     }
 };
 
-export const updateAnnouncement = async (announcementId: string, userId: string, postData: { 
+export const updateAnnouncement = async (announcementId: string, userId: string, writerEmail: string, postData: { 
     title: string; 
     content: string; 
     attachments: File[]; 
@@ -591,7 +591,7 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
         let newFileInfos: { name: string, url: string }[] = [];
         if (postData.attachments && postData.attachments.length > 0) {
             for (const file of postData.attachments) {
-                const fileInfo = await uploadFileToDrive(file);
+                const fileInfo = await uploadFileToDrive(file, writerEmail);
                 newFileInfos.push(fileInfo);
             }
         }

@@ -563,7 +563,7 @@ const AppContent: React.FC = () => {
     handlePageChange('announcements');
 
     try {
-      await updateAnnouncement(announcementId, user.studentId, postData);
+      await updateAnnouncement(announcementId, user.studentId, user.email, postData);
       // Re-fetch to get the final content with attachment links
       if (user.userType) {
         const refreshedAnnouncements = await fetchAnnouncements(user.studentId, user.userType, {
@@ -603,7 +603,7 @@ const AppContent: React.FC = () => {
     try {
       const target = announcements.find((a) => String(a.id) === idNorm);
       // 고정 해제: isPinned를 false로 설정
-      await updateAnnouncement(announcementId, user.studentId, {
+      await updateAnnouncement(announcementId, user.studentId, user.email, {
         title: target?.title || '',
         content: target?.content || '',
         attachments: [],
