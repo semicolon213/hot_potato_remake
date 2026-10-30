@@ -58,6 +58,7 @@ import LoadingProgress from './components/ui/LoadingProgress';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { useAuthStore } from './hooks/features/auth/useAuthStore';
 import { subscribeGlobalNotification } from './utils/ui/globalNotification';
+import SetupDiagnostics from './pages/SetupDiagnostics';
 const log = logger.scope('App');
 
 
@@ -1234,10 +1235,10 @@ const AppContent: React.FC = () => {
   );
 };
 
-const App: React.FC = () => (
-  <GlobalConfirmProvider>
-    <AppContent />
-  </GlobalConfirmProvider>
-);
+const App: React.FC = () => window.location.pathname === '/setup' ? <SetupDiagnostics /> : (
+    <GlobalConfirmProvider>
+      <AppContent />
+    </GlobalConfirmProvider>
+  );
 
 export default App;
