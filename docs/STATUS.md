@@ -7,12 +7,12 @@
 
 | 항목 | 값 |
 |---|---|
-| 기준일 | 2026-10-30 |
-| 커밋 | `main` @ `c2b8a6c` (develop 운영 반영: drive.file 전환, 서버 측 인가, 쉬운 설치 도구, QA 수정) |
+| 기준일 | 2026-10-31 |
+| 커밋 | `main` @ `05448e1` (develop `ceb66a2` 운영 반영: 설치 마법사 `/install/`, 운영자 클라이언트 공유 설치, `/setup` 진단 화면 개편) |
 | 운영 주소 | https://yuhancse.netlify.app |
-| Apps Script 운영 배포 | @59 (같은 배포 ID를 @34에서 올림). 되돌리기는 [DEPLOYMENT.md §7](./DEPLOYMENT.md#7-변경-배포) |
-| OAuth 클라이언트 | 운영 계정 소유 프로젝트의 `651515712118-…` ([OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md)). 앱은 아직 테스트 상태라 사용자에게 확인되지 않은 앱 경고가 보임 |
-| 마지막 검증 | [TEST_PLAN.md §9.4](./TEST_PLAN.md#94-develop-qa와-서버-측-인가-검증-2026-10-30) (develop QA, 서버 측 인가, 운영 배포 후 확인). 이전 검증은 [§8](./TEST_PLAN.md#8-로딩-성능-개선-검증-2026-10-29-featureloading-performance), [§9.1](./TEST_PLAN.md#91-결과) |
+| Apps Script 운영 배포 | @60 (같은 배포 ID를 @59에서 올림. URL 그대로). 되돌리기는 [DEPLOYMENT.md §7](./DEPLOYMENT.md#7-변경-배포) |
+| OAuth 클라이언트 | 운영 계정 소유 프로젝트의 웹 클라이언트 `651515712118-v387…`와 설치 마법사용 클라이언트 `651515712118-h5n9…` ([OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md)). 앱은 아직 테스트 상태라 사용자에게 확인되지 않은 앱 경고가 보임 |
+| 마지막 검증 | [TEST_PLAN.md §10](./TEST_PLAN.md#10-설치-마법사-e2e-검증-2026-10-3031) (설치 마법사 E2E, 개인 Gmail·운영자 클라이언트 공유 방식). 이전 검증은 [§9.4](./TEST_PLAN.md#94-develop-qa와-서버-측-인가-검증-2026-10-30), [§8](./TEST_PLAN.md#8-로딩-성능-개선-검증-2026-10-29-featureloading-performance), [§9.1](./TEST_PLAN.md#91-결과) |
 
 ## 2. 기능별 상태
 
@@ -49,7 +49,7 @@
 | 공통 | 개인정보처리방침·이용약관 페이지 | ✅ | |
 | 공통 | 만들기·수정·삭제 후 즉시 갱신, 서버 대기 중 표시, 공통 확인 모달 | ✅ | |
 | 배포 | 웹 (Netlify) | ⚠️ | JSON 환경변수 4개가 `{`만 저장되어 있어 코드 기본값으로 동작 중 (2026-10-29 확인, §4 백로그) |
-| 배포 | 쉬운 설치 (설치 페이지, 설치 토큰, `/setup` 진단) | ⚠️ | 운영 사이트의 `/setup` 화면에 스타일이 적용되지 않음 |
+| 배포 | 쉬운 설치 (설치 마법사 `/install/` 0~14단계, 설치 토큰, `/setup` 진단) | ⚠️ | 개인 Gmail·운영자 클라이언트 공유 방식은 끝까지 확인. 직접 만들기(새 GCP 프로젝트)·Workspace 계정 설치는 미검증 ([TEST_PLAN.md §10](./TEST_PLAN.md#10-설치-마법사-e2e-검증-2026-10-3031)) |
 | 배포 | 데스크톱 (Electron) | ⚠️ | 패키징 앱의 로그인·API 경로 미검증 |
 | 미사용 | 채팅(`Chat.tsx`), 회의록(`proceedings`) | ⏳ | 메뉴에 연결 안 됨 |
 
@@ -70,7 +70,7 @@ timeline
         2025-11 : 리메이크 저장소 생성
         2026-02 : React 보안 업데이트 : CI 정리 : 환경변수 V2 전환
         2026-03 : 이메일 암호화 보완 : 취업·학년 관리 : 관리자 키 인증 수정 : 초기 세팅 자동화 : 개인정보처리방침·약관
-        2026-10 : Netlify 프록시 ESM 전환 : 문서 재정리 : 로딩 병목·API 재시도 정리 : drive.file 전환 : 서버 측 인가 : 쉬운 설치 도구 : 운영 반영 (10-30)
+        2026-10 : Netlify 프록시 ESM 전환 : 문서 재정리 : 로딩 병목·API 재시도 정리 : drive.file 전환 : 서버 측 인가 : 쉬운 설치 도구 : 운영 반영 (10-30) : 설치 마법사 운영 반영 (10-31)
 ```
 
 | 구분 | 기간 | 커밋 | 참여 |
@@ -93,6 +93,7 @@ timeline
 | drive.file 전환 (브랜치 `feature/drive-file-scope`, 2026-10-30 운영 반영) | OAuth 범위를 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`로 축소하고 `gmail.compose`, `documents` 제거 ([OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md)). 배포자 소유 공유 파일을 다루는 일(공지 첨부·본문 이미지, 회계 증빙 업로드, 장부 목록, 공유 양식으로 나만 보기 문서 만들기, 장부 내보내기)을 Apps Script 경유로 전환. 개인 데이터는 내 드라이브 `hot_potato_personal/`로 분리. `papyrus-db`를 자체 모듈 `sheetsClient.ts`로 교체. 루트 폴더를 `hp_member` 부모 폴더로 감지. `initializeSystem`이 역할 폴더를 그룹스에 공유. 그룹 이메일 기본값을 `student_hp`, `std_council_hp`, `professor_hp`, `adj_professor_hp`, `assistant_hp`(@googlegroups.com)로 정리. 장부 목록을 접근 대상에게만 표시. 캘린더 역할 키 통일(BUG-03). 공지 등록·결재 상태 변경·학년 갱신에 `LockService` 적용. Drive 권한 호출을 v3 형식으로 정리. 로그 수준 정리 |
 | 로딩 성능 (브랜치 `feature/loading-performance`, 2026-10-30 운영 반영) | 스프레드시트 ID를 Drive 검색 1회 + 서버 캐시 6시간으로 조회 ([ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)). `apiClient` 재시도 재설계(시도마다 타임아웃 30초, 최대 2회 재시도, 쓰기 요청 재시도 안 함). 프록시 상류 타임아웃 약 9초 → 504. 측정 결과는 [TEST_PLAN.md §8](./TEST_PLAN.md#8-로딩-성능-개선-검증-2026-10-29-featureloading-performance) |
 | 쉬운 설치 (브랜치 `feature/easy-setup`, 2026-10-30 운영 반영) | 브라우저 설치 페이지(`install/`), Apps Script 설치 화면(`SetupPage.html`), 설치 진단 화면(`/setup`). 설치는 편집기에서 만든 1회용 설치 토큰으로 보호하고, Google OAuth 클라이언트 ID를 스크립트 속성 `GOOGLE_CLIENT_ID`에 저장 ([EASY_SETUP_DESIGN.md](./EASY_SETUP_DESIGN.md)) |
+| 설치 마법사 (2026-10-31 운영 반영, `main` @ `05448e1`, Apps Script @60) | `public/install/`의 15단계(0~14) 마법사. 사이트 이름 → 로그인 방식(운영자 클라이언트 사용 / 직접 만들기) → Netlify 한 번 배포 → 설치 토큰 → 백엔드 설치 → `/setup` 점검 → 운영 시작. 계정 유형(`hd`)에 따라 고급 서비스를 줄이고, 설치용 매니페스트는 최소 범위만 요청. 다시 실행하면 같은 배포를 갱신해 URL 유지. 설치 화면은 우리 학과 그룹 주소를 거부. `/setup`을 로그인 카드 디자인으로 개편 ([EASY_SETUP_DESIGN.md §0](./EASY_SETUP_DESIGN.md#0-구현-결과), [ADR-016](./ADR.md#adr-016-새-기관은-운영자-oauth-클라이언트를-공유하거나-직접-만든다)) |
 | 서버 측 인가 (2026-10-30 운영 반영) | 모든 요청에 액세스 토큰을 담고 Apps Script가 Google tokeninfo로 확인. 역할·관리자 여부는 `hp_member`에서 읽음 ([ADR-015](./ADR.md#adr-015-apps-script가-액세스-토큰으로-요청자를-확인한다)) |
 | develop QA 수정 (브랜치 `fix/develop-qa`, 2026-10-30 운영 반영) | 공유 문서 삭제·양식 내보내기 범위 제한, 시스템 스프레드시트 소유자 확인, 공지 첨부·증빙 업로드 검증, 공지 첨부 공개 범위 공유, 장부 행 삭제·과거 항목 잔액·위원회 시트 수정, BUG-01·02·04 수정 ([TEST_PLAN.md §9.4](./TEST_PLAN.md#94-develop-qa와-서버-측-인가-검증-2026-10-30)) |
 
@@ -103,10 +104,13 @@ timeline
 | 우선순위 | 항목 | 관련 |
 |---|---|---|
 | P1 | Netlify의 JSON 환경변수 4개(`VITE_FOLER_NAME`, `VITE_SPREADSHEET_NAME`, `VITE_SHEET_NAME`, `VITE_GROUP_EMAIL`)를 한 줄 JSON으로 고치거나 삭제. 지금은 값이 `{`뿐이라 파싱이 조용히 실패하고 코드 기본값이 쓰임 | [DEPLOYMENT.md §4](./DEPLOYMENT.md#4-netlify) |
-| P1 | OAuth 앱 인증 제출 (Search Console, 브랜딩, 데이터 액세스, 시연 영상, 인증 센터). 운영 계정 소유 프로젝트에서 진행 | [OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md) |
+| P1 | OAuth 앱 인증 제출 (Search Console, 브랜딩, 데이터 액세스, 시연 영상, 인증 센터). 운영 계정 소유 프로젝트에서 진행. 데이터 액세스에 설치용 `script.projects`, `script.deployments`가 추가되어 영상에 `/install/` 2단계 장면이 필요 | [OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md) |
 | P2 | 장부 목록 첫 로딩 약 15초 단축 (서버 측 인가가 요청마다 tokeninfo 확인과 회원 조회를 더함) | [ADR-015](./ADR.md#adr-015-apps-script가-액세스-토큰으로-요청자를-확인한다) |
 | P2 | 첫 동기화 전 대시보드에 "위젯이 없습니다"가 보이지 않게 로딩 상태 구분 | [TEST_PLAN.md §9.2](./TEST_PLAN.md#92-발견한-문제) ⑨ |
-| P2 | 운영 사이트 `/setup` 화면 스타일 적용 | [EASY_SETUP_DESIGN.md](./EASY_SETUP_DESIGN.md) |
+| P2 | 설치 마법사 미검증 경로 확인: 직접 만들기(새 GCP 프로젝트), Workspace 계정 설치, Electron 패키징 | [TEST_PLAN.md §10](./TEST_PLAN.md#10-설치-마법사-e2e-검증-2026-10-3031) |
+| P2 | 운영 매니페스트(`appScript/appsscript.json`) 범위를 설치용 최소 범위만큼 줄이기. 운영 배포 계정 재승인이 필요 | [SECURITY.md §2.3](./SECURITY.md#23-권한을-지키는-곳) |
+| P3 | 빌드 때 나오는 CSS 압축 경고(`Expected "}"`) 정리. 이전부터 있던 경고 | |
+| P3 | E2E 테스트로 만든 자원 정리: `semicolon0213` 계정의 Apps Script 프로젝트 `1GELgHRw…`, `1d_q3STk…`(배포 여러 개)와 Drive 폴더 `hot_potato_qa` | [TEST_PLAN.md §10](./TEST_PLAN.md#10-설치-마법사-e2e-검증-2026-10-3031) |
 | P2 | 결재 상태 타입을 서버 값과 일치 | BUG-05 |
 | P2 | 카테고리 조회 시트 수정 | BUG-07 |
 | P2 | 페이지 단위 권한 검사 | [ADR-010](./ADR.md#adr-010-라우터-없이-상태-기반으로-화면을-전환한다) |
@@ -126,4 +130,4 @@ timeline
 | P3 | Electron 패키징 앱의 OAuth·API 경로 지원 | [ADR-011](./ADR.md#adr-011-electron은-같은-번들을-감싸는-선택-배포로-둔다) |
 | P3 | `package-lock.json`과 `bun.lock` 중 하나로 정리 | |
 
-완료해 백로그에서 뺀 항목 (2026-10-30 운영 반영): `feature/loading-performance`·`feature/drive-file-scope` 병합과 재배포, 서버 측 인가, BUG-01·02·03·04·06·13, `APP_SCRIPT_URL` 확인(프록시가 없으면 `VITE_APP_SCRIPT_URL`을 씀), 로그아웃 시 캐시·사용자 데이터 삭제.
+완료해 백로그에서 뺀 항목: (2026-10-31 운영 반영) 운영 사이트 `/setup` 화면 스타일(로그인 카드 디자인으로 개편). (2026-10-30 운영 반영) `feature/loading-performance`·`feature/drive-file-scope` 병합과 재배포, 서버 측 인가, BUG-01·02·03·04·06·13, `APP_SCRIPT_URL` 확인(프록시가 없으면 `VITE_APP_SCRIPT_URL`을 씀), 로그아웃 시 캐시·사용자 데이터 삭제.
