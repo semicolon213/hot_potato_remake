@@ -35,7 +35,7 @@ export const handler = async (event) => {
   }
 
   // 서버 전용 환경변수 사용
-  const APP_SCRIPT_URL = process.env.APP_SCRIPT_URL;
+  const APP_SCRIPT_URL = process.env.APP_SCRIPT_URL || process.env.VITE_APP_SCRIPT_URL;
 
   if (!APP_SCRIPT_URL) {
     console.error('APP_SCRIPT_URL 환경변수 누락');
