@@ -4,7 +4,13 @@ import { ENV_CONFIG } from '../config/environment';
 import { getApiBaseUrl } from '../config/api';
 import './SetupDiagnostics.css';
 
-type BackendStatus = { installed: boolean; spreadsheetReady: boolean; version: string };
+type BackendStatus = {
+  installed: boolean;
+  spreadsheetReady: boolean;
+  serverClientIdConfigured: boolean;
+  clientIdMatches: boolean;
+  version: string;
+};
 
 export default function SetupDiagnostics() {
   const [backend, setBackend] = useState<BackendStatus | null>(null);
@@ -17,7 +23,7 @@ export default function SetupDiagnostics() {
     fetch(getApiBaseUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getSetupStatus' })
+      body: JSON.stringify({ action: 'getSetupStatus', clientId: ENV_CONFIG.GOOGLE_CLIENT_ID })
     }).then(response => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
@@ -36,6 +42,7 @@ export default function SetupDiagnostics() {
         {item(Boolean(backend), '백엔드 연결', backend ? `연결됨 (v${backend.version})` : backendError || '확인 중…')}
         {item(Boolean(backend?.installed), '백엔드 설치', backend?.installed ? '완료' : '백엔드 주소의 ?page=setup 화면에서 설치하세요.')}
         {item(Boolean(backend?.spreadsheetReady), '회원 시트', backend?.spreadsheetReady ? '찾음' : '백엔드 설치와 SPREADSHEET_ID를 확인하세요.')}
+        {item(Boolean(backend?.clientIdMatches), '서버·사이트 클라이언트 ID 일치', backend?.clientIdMatches ? '일치' : !backend ? '백엔드 연결 후 확인합니다.' : !backend.serverClientIdConfigured ? '백엔드 설치 화면에서 Google OAuth 클라이언트 ID를 설정하세요.' : 'Apps Script의 GOOGLE_CLIENT_ID와 Netlify의 VITE_GOOGLE_CLIENT_ID를 같은 값으로 설정하세요.')}
         {item(oauth === 'ok', 'OAuth 자바스크립트 원본', oauth === 'ok' ? '로그인 성공' : oauth === 'error' ? 'Google Cloud Console의 승인된 자바스크립트 원본을 확인하세요.' : '아래 버튼으로 확인하세요.')}
       </ul>
       <button type="button" disabled={!ENV_CONFIG.GOOGLE_CLIENT_ID} onClick={() => testLogin()}>Google 로그인 테스트</button>

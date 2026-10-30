@@ -93,12 +93,16 @@ function getSetupDefaults() {
   };
 }
 
-function getSetupStatus() {
+function getSetupStatus(req) {
   const properties = PropertiesService.getScriptProperties();
+  const serverClientId = String(properties.getProperty('GOOGLE_CLIENT_ID') || '').trim();
+  const siteClientId = String((req || {}).clientId || '').trim();
   return {
     success: true,
     installed: isSetupDone_(properties),
     spreadsheetReady: Boolean(properties.getProperty('SPREADSHEET_ID')),
+    serverClientIdConfigured: Boolean(serverClientId),
+    clientIdMatches: Boolean(serverClientId) && siteClientId === serverClientId,
     version: getDeploymentInfo().version
   };
 }
