@@ -9,10 +9,10 @@
   SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
 
 [template.environment]
-  VITE_INSTALL_CLIENT_ID = "Installer OAuth client ID (optional)"
-  VITE_APP_SCRIPT_URL = "Apps Script 웹 앱 /exec 주소"
-  VITE_GOOGLE_CLIENT_ID = "웹용 Google OAuth 클라이언트 ID"
-  VITE_GROUP_EMAIL = '{"STUDENT":"student_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","ADJ_PROFESSOR":"adj_professor_hp@googlegroups.com","ASSISTANT":"assistant_hp@googlegroups.com"}'
+  VITE_INSTALL_CLIENT_ID = "설치 마법사용 OAuth 클라이언트 ID(선택)"
+  VITE_APP_SCRIPT_URL = "마법사 2단계에서 복사한 Apps Script /exec 주소"
+  VITE_GOOGLE_CLIENT_ID = "마법사 4-7에서 복사한 웹 클라이언트 ID"
+  VITE_GROUP_EMAIL = "마법사 5단계에서 복사한 한 줄 JSON"
 
 # Netlify Functions 설정 (배포 시 Apps Script 프록시)
 [functions]

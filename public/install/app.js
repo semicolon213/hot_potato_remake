@@ -4,12 +4,18 @@ const STEP_META = [
   ['준비', '준비물 확인'],
   ['계정 설정', 'Apps Script API 켜기'],
   ['백엔드', '로그인하고 백엔드 만들기'],
-  ['사이트', 'Netlify 사이트 만들기'],
+  ['사이트', '사이트 이름 정하기'],
   ['Google 로그인', '웹 클라이언트 설정'],
+  ['그룹', 'Google 그룹 만들기'],
+  ['사이트 배포', 'Netlify에 한 번에 배포'],
   ['설치 토큰', '설치 토큰 만들기'],
   ['백엔드 설치', '기관 정보 입력하기'],
-  ['사이트 재배포', '클라이언트 ID 반영'],
-  ['완료', '최종 점검']
+  ['설치 점검', '자동 점검'],
+  ['운영 시작', '첫 관리자 로그인'],
+  ['운영 시작', '그룹 구성원 초대'],
+  ['운영 시작', '사용자 미리 등록'],
+  ['운영 시작', '테스트 운영 안내'],
+  ['완료', '최종 체크리스트']
 ];
 const INSTALL_SCOPES = [
   'https://www.googleapis.com/auth/script.projects',
@@ -17,7 +23,8 @@ const INSTALL_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email'
 ].join(' ');
 
-const emptyState = { currentStep: 0, completed: {}, backendUrl: '', scriptId: '', siteUrl: '', appClientId: '', apiError: '' };
+const GROUP_KEYS = ['STUDENT', 'COUNCIL', 'ASSISTANT', 'PROFESSOR', 'ADJ_PROFESSOR'];
+const emptyState = { currentStep: 0, completed: {}, backendUrl: '', scriptId: '', siteName: '', siteUrl: '', appClientId: '', groups: {}, finalChecks: {}, apiError: '' };
 let state = loadState();
 let finalCheckPassed = false;
 
@@ -25,13 +32,14 @@ const nav = document.querySelector('#step-nav');
 const sections = [...document.querySelectorAll('.wizard-step')];
 const message = document.querySelector('#message');
 const siteInput = document.querySelector('#site-url');
+const siteNameInput = document.querySelector('#site-name');
 const clientInput = document.querySelector('#app-client-id');
 const loginButton = document.querySelector('#login');
 
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    return { ...emptyState, ...saved, completed: saved.completed || {} };
+    return { ...emptyState, ...saved, completed: saved.completed || {}, groups: saved.groups || {}, finalChecks: saved.finalChecks || {} };
   } catch {
     return { ...emptyState };
   }
@@ -42,8 +50,9 @@ function saveState() {
 }
 
 function stepFromHash() {
-  const match = location.hash.match(/^#step-(\d)$/);
-  return match ? Number(match[1]) : null;
+  const match = location.hash.match(/^#step-(\d{1,2})$/);
+  const step = match ? Number(match[1]) : -1;
+  return step >= 0 && step < STEP_META.length ? step : null;
 }
 
 function buildNav() {
@@ -71,7 +80,7 @@ function render() {
   document.querySelector('#eyebrow').textContent = `${step}단계 · ${STEP_META[step][0]}`;
   document.querySelector('#step-title').textContent = STEP_META[step][1];
   document.querySelector('#progress').textContent = `${step + 1} / ${STEP_META.length}`;
-  sections.forEach((section, index) => section.classList.toggle('active', index === step));
+  sections.forEach(section => section.classList.toggle('active', Number(section.dataset.step) === step));
   [...nav.children].forEach((button, index) => {
     button.classList.toggle('active', index === step);
     button.classList.toggle('done', Boolean(state.completed[index]));
@@ -109,30 +118,55 @@ function validBackendUrl(value) {
   return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(String(value || '').trim());
 }
 
+function validSiteName(value) {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(value || '').trim());
+}
+
+function validEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function groupJson() {
+  return GROUP_KEYS.every(key => validEmail(state.groups[key]))
+    ? JSON.stringify(Object.fromEntries(GROUP_KEYS.map(key => [key, state.groups[key]])))
+    : '';
+}
+
 function validateStep(step) {
   if (step === 2 && (!validBackendUrl(state.backendUrl) || !state.scriptId)) {
     showMessage('먼저 Google 로그인 버튼을 눌러 백엔드를 끝까지 만드세요.', 'error');
     return false;
   }
-  if (step === 3 && !normalizeSiteUrl(siteInput.value)) {
-    document.querySelector('#site-url-error').textContent = 'https://로 시작하는 사이트 주소만 입력하세요. 경로와 끝 슬래시는 빼 주세요.';
+  if (step === 3 && !validSiteName(siteNameInput.value)) {
+    document.querySelector('#site-name-error').textContent = '영문 소문자, 숫자, 하이픈만 입력하세요.';
     return false;
   }
-  if ((step === 4 || step === 7) && !validClientId(clientInput.value || state.appClientId)) {
+  if (step === 4 && !validClientId(clientInput.value || state.appClientId)) {
     document.querySelector('#client-id-error').textContent = '.apps.googleusercontent.com으로 끝나는 클라이언트 ID를 입력하세요.';
-    if (step === 7) goToStep(4);
     return false;
   }
-  if (step === 5 && !state.scriptId) {
+  if (step === 5 && !groupJson()) {
+    showMessage('Google 그룹 이메일 5개를 모두 확인하세요.', 'error');
+    return false;
+  }
+  if (step === 6 && (!normalizeSiteUrl(siteInput.value) || !state.backendUrl || !state.appClientId || !groupJson())) {
+    showMessage('백엔드 주소, 클라이언트 ID, 그룹 이메일과 실제 사이트 주소가 모두 필요합니다.', 'error');
+    return false;
+  }
+  if (step === 7 && !state.scriptId) {
     showMessage('2단계에서 백엔드를 먼저 만드세요.', 'error');
     return false;
   }
-  if (step === 6 && (!state.backendUrl || !state.appClientId)) {
-    showMessage('백엔드 주소와 웹 클라이언트 ID가 필요합니다.', 'error');
+  if (step === 8 && (!state.backendUrl || !state.appClientId || !groupJson())) {
+    showMessage('백엔드 주소, 웹 클라이언트 ID와 그룹 이메일이 필요합니다.', 'error');
     return false;
   }
-  if (step === 8 && !finalCheckPassed) {
+  if (step === 9 && !finalCheckPassed && !state.completed[9]) {
     showMessage('먼저 자동 점검을 실행해 모든 항목을 확인하세요.', 'error');
+    return false;
+  }
+  if (step === 14 && Object.values(state.finalChecks).filter(Boolean).length !== 6) {
+    showMessage('마지막 체크 6개를 모두 확인하세요.', 'error');
     return false;
   }
   showMessage('');
@@ -148,23 +182,33 @@ function markComplete(step, moveNext = false) {
 }
 
 function updateDerivedValues() {
+  const plannedUrl = validSiteName(state.siteName) ? `https://${state.siteName}.netlify.app` : '';
+  const activeSiteUrl = state.siteUrl || plannedUrl;
+  const groups = groupJson();
+  document.querySelector('#site-url-warning').textContent = state.siteUrl && plannedUrl && state.siteUrl !== plannedUrl ? '예정 주소와 다릅니다. 4단계의 JavaScript 원본과 리디렉션 URI를 이 실제 주소로 고치세요.' : '';
   document.querySelector('#backend-result').hidden = !state.backendUrl;
   document.querySelector('#backend-url').textContent = state.backendUrl;
   document.querySelector('#script-id').textContent = state.scriptId;
+  document.querySelector('#planned-site-url').textContent = plannedUrl || '사이트 이름을 입력하세요.';
   document.querySelector('#netlify-backend-url').textContent = state.backendUrl || '2단계에서 먼저 백엔드를 만드세요.';
-  document.querySelector('#oauth-origin').textContent = state.siteUrl || '3단계에서 사이트 주소를 입력하세요.';
+  document.querySelector('#oauth-origin').textContent = activeSiteUrl || '3단계에서 사이트 이름을 입력하세요.';
   document.querySelector('#netlify-client-id').textContent = state.appClientId || '4-7에서 클라이언트 ID를 입력하세요.';
+  document.querySelector('#netlify-group-json').textContent = groups || '5단계에서 그룹 이메일을 입력하세요.';
+  document.querySelector('#group-json').textContent = groups || '그룹 이메일 5개를 모두 입력하세요.';
   document.querySelector('#editor-link').href = state.scriptId ? `https://script.google.com/d/${encodeURIComponent(state.scriptId)}/edit` : '#';
+  document.querySelector('#trigger-editor-link').href = state.scriptId ? `https://script.google.com/d/${encodeURIComponent(state.scriptId)}/edit` : '#';
   document.querySelector('#backend-setup-link').href = state.backendUrl
     ? `${state.backendUrl}?page=setup${state.appClientId ? `&clientId=${encodeURIComponent(state.appClientId)}` : ''}`
     : '#';
   document.querySelector('#setup-link').href = state.siteUrl ? `${state.siteUrl}/setup` : '#';
+  document.querySelector('#site-login-link').href = state.siteUrl || '#';
+  document.querySelector('#member-guide').value = `HP ERP 주소: ${activeSiteUrl || '(운영자가 알려 드릴 예정입니다)'}\n\n1. 운영자가 등록한 Google 계정으로 로그인해 주세요.\n2. 미인증 경고에서 선택할 수 있다면 ‘고급 → HP ERP로 이동’을 누르세요.\n3. ‘액세스 차단됨’이 나오면 운영자에게 테스트 사용자 등록을 요청하세요.\n4. 처음 로그인하면 가입 정보를 입력하고 승인될 때까지 기다려 주세요.\n\n※ 테스트 운영 중에는 Google 동의가 7일마다 만료되어 다시 로그인해야 할 수 있습니다.`;
 }
 
 async function copyText(button) {
   const target = document.querySelector(button.dataset.copy);
-  const text = target?.textContent?.trim() || '';
-  if (!text || text.includes('단계에서')) return showMessage('먼저 앞 단계의 값을 입력하세요.', 'error');
+  const text = (target?.value || target?.textContent || '').trim();
+  if (!text || text.includes('단계에서') || text.includes('입력하세요')) return showMessage('먼저 앞 단계의 값을 입력하세요.', 'error');
   try {
     await navigator.clipboard.writeText(text);
     const original = button.textContent;
@@ -300,7 +344,7 @@ async function runFinalCheck() {
   list.replaceChildren();
   const siteUrl = normalizeSiteUrl(state.siteUrl);
   const clientOk = validClientId(state.appClientId);
-  list.append(makeStatusRow('사이트 주소', Boolean(siteUrl), siteUrl || '3단계 주소가 올바르지 않습니다.', 3));
+  list.append(makeStatusRow('사이트 주소', Boolean(siteUrl), siteUrl || '6단계 주소가 올바르지 않습니다.', 6));
   list.append(makeStatusRow('클라이언트 ID', clientOk, clientOk ? '형식이 올바릅니다.' : '4-7 값을 확인하세요.', 4));
   if (!siteUrl || !clientOk) return false;
 
@@ -318,16 +362,16 @@ async function runFinalCheck() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const backend = await response.json();
     const checks = [
-      ['백엔드 연결', backend.success === true, backend.success ? `연결됨 (v${backend.version})` : backend.message || '응답 실패', 3],
-      ['백엔드 설치', backend.installed === true, backend.installed ? '완료' : '6단계 설치가 필요합니다.', 6],
-      ['회원 시트', backend.spreadsheetReady === true, backend.spreadsheetReady ? '준비됨' : '6단계 설치를 확인하세요.', 6],
-      ['서버 클라이언트 ID', backend.serverClientIdConfigured === true, backend.serverClientIdConfigured ? '설정됨' : '6단계에서 다시 설치하세요.', 6],
-      ['서버·사이트 ID 일치', backend.clientIdMatches === true, backend.clientIdMatches ? '일치' : '7단계 값을 다시 배포하세요.', 7]
+      ['백엔드 연결', backend.success === true, backend.success ? `연결됨 (v${backend.version})` : backend.message || '응답 실패', 6],
+      ['백엔드 설치', backend.installed === true, backend.installed ? '완료' : '8단계 설치가 필요합니다.', 8],
+      ['회원 시트', backend.spreadsheetReady === true, backend.spreadsheetReady ? '준비됨' : '8단계 설치를 확인하세요.', 8],
+      ['서버 클라이언트 ID', backend.serverClientIdConfigured === true, backend.serverClientIdConfigured ? '설정됨' : '8단계에서 다시 설치하세요.', 8],
+      ['서버·사이트 ID 일치', backend.clientIdMatches === true, backend.clientIdMatches ? '일치' : '6단계 배포값을 확인하세요.', 6]
     ];
     checks.forEach(check => list.append(makeStatusRow(...check)));
     finalCheckPassed = checks.every(check => check[1]);
     if (finalCheckPassed) {
-      state.completed[8] = true;
+      state.completed[9] = true;
       saveState();
       showMessage('모든 자동 점검을 통과했습니다. /setup 상세 점검도 확인하세요.', 'success');
       render();
@@ -337,7 +381,7 @@ async function runFinalCheck() {
     return finalCheckPassed;
   } catch (error) {
     const detail = error.name === 'AbortError' ? '15초 안에 응답이 오지 않았습니다.' : error.message;
-    list.append(makeStatusRow('백엔드 연결', false, detail, 3));
+    list.append(makeStatusRow('백엔드 연결', false, detail, 6));
     showMessage('사이트 프록시에 연결하지 못했습니다.', 'error');
     return false;
   }
@@ -346,26 +390,54 @@ async function runFinalCheck() {
 buildNav();
 const initialStep = stepFromHash();
 if (initialStep !== null) state.currentStep = initialStep;
+siteNameInput.value = state.siteName;
 siteInput.value = state.siteUrl;
 clientInput.value = state.appClientId;
+GROUP_KEYS.forEach(key => {
+  const input = document.querySelector(`#group-${key.toLowerCase().replace('_', '-')}`);
+  input.value = state.groups[key] || '';
+  input.addEventListener('input', () => {
+    const value = input.value.trim();
+    document.querySelector(`[data-group-error="${key}"]`).textContent = value && !validEmail(value) ? '이메일 주소를 확인하세요.' : '';
+    state.groups[key] = value;
+    state.completed[5] = Boolean(groupJson());
+    saveState();
+    updateDerivedValues();
+  });
+});
+document.querySelectorAll('[data-final-check]').forEach(input => {
+  input.checked = Boolean(state.finalChecks[input.dataset.finalCheck]);
+  input.addEventListener('change', () => {
+    state.finalChecks[input.dataset.finalCheck] = input.checked;
+    saveState();
+  });
+});
 document.querySelector('#deploy-netlify').href = `https://app.netlify.com/start/deploy?repository=${encodeURIComponent(window.INSTALL_CONFIG?.repositoryUrl || '')}`;
 document.querySelector('#operator-warning').hidden = validClientId(window.INSTALL_CONFIG?.googleClientId || '');
 
+siteNameInput.addEventListener('input', () => {
+  const value = siteNameInput.value.trim();
+  document.querySelector('#site-name-error').textContent = value && !validSiteName(value) ? '영문 소문자, 숫자, 하이픈만 입력하세요.' : '';
+  state.siteName = value;
+  state.completed[3] = validSiteName(value);
+  saveState();
+  updateDerivedValues();
+});
 siteInput.addEventListener('input', () => {
   const normalized = normalizeSiteUrl(siteInput.value);
   document.querySelector('#site-url-error').textContent = siteInput.value && !normalized ? 'https://로 시작하는 사이트 주소만 입력하세요. 경로와 끝 슬래시는 빼 주세요.' : '';
-  if (!normalized) return;
   state.siteUrl = normalized;
-  state.completed[3] = true;
+  const plannedUrl = validSiteName(state.siteName) ? `https://${state.siteName}.netlify.app` : '';
+  document.querySelector('#site-url-warning').textContent = normalized && plannedUrl && normalized !== plannedUrl ? '예정 주소와 다릅니다. 4단계의 JavaScript 원본과 리디렉션 URI를 이 실제 주소로 고치세요.' : '';
+  state.completed[6] = Boolean(normalized && state.backendUrl && state.appClientId && groupJson());
   saveState();
-  render();
+  updateDerivedValues();
 });
 clientInput.addEventListener('input', () => {
   const value = clientInput.value.trim();
   document.querySelector('#client-id-error').textContent = value && !validClientId(value) ? '.apps.googleusercontent.com으로 끝나는 클라이언트 ID를 입력하세요.' : '';
-  if (!validClientId(value)) return;
-  state.appClientId = value;
-  state.completed[4] = true;
+  state.appClientId = validClientId(value) ? value : '';
+  state.completed[4] = validClientId(value);
   saveState();
   render();
 });
