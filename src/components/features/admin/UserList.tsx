@@ -151,7 +151,7 @@ const UserList: React.FC<UserListProps> = ({
                         className="approve-btn"
                       >
                         <FaCheck className="btn-icon" />
-                        <span>승인</span>
+                        <span>{isLoading ? '처리 중...' : '승인'}</span>
                       </button>
                       <button
                         onClick={() => onRejectUser(user.id)}
@@ -159,7 +159,7 @@ const UserList: React.FC<UserListProps> = ({
                         className="reject-btn"
                       >
                         <FaTimes className="btn-icon" />
-                        <span>거부</span>
+                        <span>{isLoading ? '처리 중...' : '거부'}</span>
                       </button>
                     </div>
                   </div>

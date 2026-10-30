@@ -233,6 +233,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   };
 
   const handleSaveAdd = async () => {
+    if (isLoading) return;
     if (!selectedAccountId) {
       setError('통장 정보를 찾을 수 없습니다.');
       return;
@@ -347,6 +348,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   };
 
   const handleSaveEdit = async () => {
+    if (isLoading) return;
     if (!editingEntry || !editingEntryId || !selectedAccountId) {
       return;
     }
@@ -1233,7 +1235,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
                                 className="btn-save action-btn"
                                 disabled={isLoading}
                               >
-                                저장
+                                {isLoading ? '저장 중...' : '저장'}
                               </button>
                               <button
                                 onClick={handleCancelAdd}
@@ -1451,7 +1453,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
                                     className="btn-save action-btn"
                                     disabled={isLoading}
                                   >
-                                    저장
+                                    {isLoading ? '저장 중...' : '저장'}
                                   </button>
                                   <button
                                     onClick={handleCancelEdit}

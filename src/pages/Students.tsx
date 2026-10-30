@@ -333,6 +333,7 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
 
   // 학년 갱신 실행 (확인 모달에서 완료 클릭 시)
   const handleRunGradeUpdate = async () => {
+    if (gradeUpdateRunning) return;
     if (!studentSpreadsheetId) return;
     setGradeUpdateRunning(true);
     try {

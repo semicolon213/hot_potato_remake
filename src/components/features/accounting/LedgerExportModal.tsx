@@ -1529,6 +1529,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
   };
 
   const handleExport = async () => {
+    if (isProcessing) return;
     if (!templateSpreadsheetId || !selectedSheet) {
       setError('템플릿과 시트를 선택해주세요.');
       return;

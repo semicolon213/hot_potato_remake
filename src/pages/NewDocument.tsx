@@ -516,6 +516,7 @@ function NewDocument({
     
     // 실제 문서 생성 함수
     const createDocument = async () => {
+        if (isCreating) return;
         if (!selectedTemplate || !documentTitle.trim()) return;
 
         setIsCreating(true);

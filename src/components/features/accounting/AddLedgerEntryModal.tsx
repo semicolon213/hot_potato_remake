@@ -117,6 +117,7 @@ export const AddLedgerEntryModal: React.FC<AddLedgerEntryModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setError(null);
 
     // 장부마다 통장이 하나이므로 첫 번째 통장 자동 사용

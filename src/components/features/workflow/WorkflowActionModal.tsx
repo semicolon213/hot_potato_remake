@@ -55,6 +55,7 @@ const WorkflowActionModal: React.FC<WorkflowActionModalProps> = ({
   };
 
   const handleSubmit = async () => {
+    if (isLoading) return;
     if (!selectedAction) {
       setNotification({ message: '처리 방식을 선택해주세요.', type: 'error' });
       return;

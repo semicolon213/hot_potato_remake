@@ -86,6 +86,7 @@ export const CreateLedgerModal: React.FC<CreateLedgerModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setError(null);
 
     if (!ledgerName.trim()) {
