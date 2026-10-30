@@ -17,6 +17,14 @@ flowchart LR
 
 처음 세팅할 때만 1~6을 모두 합니다. 이후 변경 배포는 [§7](#7-변경-배포)만 보면 됩니다.
 
+### 개발 지식이 없는 담당자의 새 설치
+
+운영 중인 설치 안내 사이트의 `/install/`을 열어 0~14단계를 순서대로 진행합니다. 4단계에서 운영자 OAuth 클라이언트를 공유받는 쉬운 방식 또는 기관이 직접 Google Cloud 클라이언트를 만드는 독립 방식을 고릅니다. 공유 방식은 요청문을 운영자에게 보내 원본·테스트 사용자 등록을 기다리고, 직접 방식은 4-1~4-7을 진행합니다. 어느 방식이든 `VITE_APP_SCRIPT_URL`, `VITE_GOOGLE_CLIENT_ID`, `VITE_GROUP_EMAIL`을 Netlify 첫 배포에 한 번에 넣습니다. 실제 Netlify 주소가 예정 주소와 다르면 OAuth 원본과 리디렉션 URI를 실제 주소로 바꿔야 합니다.
+
+설치 안내 사이트 자체를 배포하는 운영자는 별도 설치용 OAuth 웹 클라이언트 ID를 `VITE_INSTALL_CLIENT_ID`에 넣습니다. 환경변수를 쓰지 않는 정적 호스팅은 `public/install/config.js`의 `googleClientId`에 넣을 수 있습니다. 이 값이 없으면 `/install/`은 경고를 표시하고 자동 백엔드 생성을 안전하게 막습니다. 운영 앱용 `VITE_GOOGLE_CLIENT_ID`와 혼동하지 마세요.
+
+공유 로그인을 제공하려면 설치 안내 사이트 빌드에 운영자 앱의 `VITE_GOOGLE_CLIENT_ID`와 요청 수신용 `VITE_OPERATOR_CONTACT_EMAIL`도 넣습니다. 둘 중 하나가 없으면 공유 선택지가 비활성화됩니다. 공유 요청을 받은 운영자는 자기 웹 클라이언트의 승인된 JavaScript 원본·리디렉션 URI에 기관 주소를 끝 슬래시 없이 추가하고, Audience가 Testing이면 요청받은 이메일을 테스트 사용자에 추가합니다. 이 방식은 운영자의 Testing 사용자 100명 한도와 동의 화면 정보를 여러 기관이 공유합니다.
+
 ## 1. Google Cloud Console
 
 1. [Google Cloud Console](https://console.cloud.google.com/)에서 프로젝트를 만듭니다.
@@ -91,7 +99,7 @@ clasp list-deployments   # 새 배포 ID 확인
 3. 설치가 끝나면 `GOOGLE_CLIENT_ID`, `GROUP_EMAIL_JSON`, `ROOT_FOLDER_NAME`이 저장되고, 아래 2~6과 같은 초기화와 첫 관리자 등록이 실행됩니다. `SETUP_DONE`이 `true`가 되고 `SETUP_TOKEN`은 지워집니다.
 4. 아래 8(관리자 키 트리거)은 직접 합니다.
 
-`install/index.html`(브라우저 설치 페이지)로 Apps Script 프로젝트를 만든 경우에도 결과 화면이 같은 순서를 안내합니다. 이미 `SPREADSHEET_ID`가 있고 `SETUP_TOKEN`이 없는 기존 설치는 설치된 것으로 보고, 설치 화면과 `createSetupToken`이 거부합니다.
+`/install/` 마법사로 Apps Script 프로젝트를 만든 경우에도 7~8단계가 같은 순서를 안내합니다. 이미 `SPREADSHEET_ID`가 있고 `SETUP_TOKEN`이 없는 기존 설치는 설치된 것으로 보고, 설치 화면과 `createSetupToken`이 거부합니다.
 
 편집기에서 직접 세팅할 때:
 

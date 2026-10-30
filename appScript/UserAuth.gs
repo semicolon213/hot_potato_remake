@@ -408,7 +408,7 @@ Hot Potato 시스템
     `;
     
     try {
-      GmailApp.sendEmail(userEmail, subject, body);
+      MailApp.sendEmail(userEmail, subject, body);
       
       return {
         success: true,

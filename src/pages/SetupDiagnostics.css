@@ -109,6 +109,14 @@
   color: #b42318;
 }
 
+.setup-check-text .setup-guide-link {
+  width: fit-content;
+  margin-top: 4px;
+  color: var(--text-dark);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+}
+
 .setup-test-btn {
   margin-top: auto;
 }
