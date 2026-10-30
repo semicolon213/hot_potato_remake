@@ -584,12 +584,91 @@ function uploadNoticeAttachment(req) {
     }
     const blob = Utilities.newBlob(fileBytes, req.mimeType, req.fileName);
     const file = getNoticeAttachFolder_().createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return { success: true, data: { id: file.getId(), name: req.fileName, url: file.getUrl() } };
   } catch (error) {
     logError_('AnnouncementManagement', '공지 첨부파일 업로드 오류:', error);
     return { success: false, message: '첨부파일 업로드 중 오류가 발생했습니다: ' + error.message };
   }
+}
+
+function getNoticeFileIds_(fileNotice, content) {
+  const ids = [];
+  const addId = function(value) {
+    const text = String(value || '');
+    const match = text.match(/(?:[?&]id=|\/d\/)([-\w]{10,})/) || (text.match(/^[-\w]{10,}$/) ? [null, text] : null);
+    if (match && ids.indexOf(match[1]) === -1) ids.push(match[1]);
+  };
+  try {
+    const files = typeof fileNotice === 'string' ? JSON.parse(fileNotice || '[]') : fileNotice;
+    (Array.isArray(files) ? files : []).forEach(function(file) {
+      addId(file && (file.id || file.url));
+    });
+  } catch (error) {
+    logWarn_('AnnouncementManagement', '공지 첨부 정보 파싱 실패:', error);
+  }
+  const urlRegex = /https:\/\/drive\.google\.com\/[^"'\s<]+/g;
+  (String(content || '').match(urlRegex) || []).forEach(addId);
+  return ids;
+}
+
+function getNoticeSharingTargets_(accessRights, writerEmail) {
+  let rights = accessRights || {};
+  if (typeof rights === 'string') {
+    try {
+      rights = rights.trim() ? JSON.parse(rights) : {};
+    } catch (error) {
+      logWarn_('AnnouncementManagement', '공지 공개 범위 파싱 실패:', error);
+      rights = { groups: ['__invalid__'] };
+    }
+  }
+  const targets = [];
+  const add = function(type, email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (normalized && !targets.some(function(target) { return target.email === normalized; })) {
+      targets.push({ type: type, email: normalized });
+    }
+  };
+  const groups = Array.isArray(rights.groups) ? rights.groups : [];
+  const individuals = Array.isArray(rights.individual) ? rights.individual : [];
+  const isPublicNotice = groups.length === 0 && individuals.length === 0;
+  (isPublicNotice ? ['student', 'std_council', 'supp', 'professor', 'ad_professor'] : groups)
+    .forEach(function(role) { add('group', getGroupEmailByRole(role)); });
+  individuals.forEach(function(memberId) {
+    const member = getUserByMemberId(memberId);
+    add('user', member && member.email);
+  });
+  add('user', writerEmail);
+  return targets;
+}
+
+function reconcileNoticeFileSharing_(fileId, targets) {
+  const permissions = listPermissions_(fileId);
+  permissions.forEach(function(permission) {
+    if (permission.role === 'owner') return;
+    const email = String(permission.emailAddress || '').toLowerCase();
+    const keep = targets.some(function(target) {
+      return target.type === permission.type && target.email === email && permission.role === 'reader';
+    });
+    if (permission.type === 'anyone' || ((permission.type === 'group' || permission.type === 'user') && !keep)) {
+      revokePermission_(fileId, permission.id);
+    }
+  });
+  targets.forEach(function(target) {
+    const exists = permissions.some(function(permission) {
+      return permission.type === target.type && permission.role === 'reader' && String(permission.emailAddress || '').toLowerCase() === target.email;
+    });
+    if (!exists) grantPermission_(fileId, target.type, target.email, 'reader');
+  });
+}
+
+function applyNoticeFilesSharing_(fileNotice, content, accessRights, writerEmail, previousFileNotice, previousContent) {
+  const currentIds = getNoticeFileIds_(fileNotice, content);
+  const previousIds = getNoticeFileIds_(previousFileNotice, previousContent);
+  const targets = getNoticeSharingTargets_(accessRights, writerEmail);
+  currentIds.forEach(function(fileId) { reconcileNoticeFileSharing_(fileId, targets); });
+  previousIds.forEach(function(fileId) {
+    if (currentIds.indexOf(fileId) === -1) reconcileNoticeFileSharing_(fileId, []);
+  });
 }
 
 function processAndUploadImages_(content) {
@@ -619,9 +698,6 @@ function processAndUploadImages_(content) {
       const blob = Utilities.newBlob(decodedData, mimeType, `announcement-image-${Date.now()}.${extension}`);
       
       const file = targetFolder.createFile(blob);
-      
-      // 파일을 공개적으로 접근 가능하도록 설정
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       
       // 안정적인 이미지 URL 생성
       const fileId = file.getId();
@@ -741,6 +817,7 @@ function createAnnouncementUnlocked_(req) {
       fixNotice                  // J: fix_notice
     ];
     
+    applyNoticeFilesSharing_(fileNotice || '', processedContent, accessRights || {}, writerEmail, '', '');
     sheet.appendRow(newRow);
     
     return {
@@ -842,11 +919,18 @@ function updateAnnouncement(req) {
     // 현재 fix_notice 값 확인 (targetRowIndex를 사용하여 데이터에서 가져오기)
     const currentRow = data[targetRowIndex - 1]; // targetRowIndex는 1-based이므로 -1
     const currentFixNotice = currentRow[headerMap['fix_notice']] || '';
+    const previousFileNotice = currentRow[headerMap['file_notice']] || '';
+    const previousContent = currentRow[headerMap['content_notice']] || '';
+    const nextFileNotice = fileNotice !== undefined ? fileNotice : previousFileNotice;
+    const nextContent = content !== undefined ? processAndUploadImages_(content) : previousContent;
+    const nextAccessRights = accessRights !== undefined ? (accessRights || {}) : (currentRow[headerMap['access_rights']] || '');
+    let writerEmail = '';
+    try { writerEmail = decryptEmailMain(currentRow[headerMap['writer_email']] || ''); } catch (error) { writerEmail = ''; }
     
     // 수정할 데이터 준비
     const updateData = {};
     if (title !== undefined) updateData[headerMap['title_notice']] = title;
-    if (content !== undefined) updateData[headerMap['content_notice']] = processAndUploadImages_(content);
+    if (content !== undefined) updateData[headerMap['content_notice']] = nextContent;
     if (fileNotice !== undefined) updateData[headerMap['file_notice']] = fileNotice;
     if (accessRights !== undefined) {
       updateData[headerMap['access_rights']] = accessRights ? JSON.stringify(accessRights) : '';
@@ -872,6 +956,7 @@ function updateAnnouncement(req) {
     Object.keys(updateData).forEach(colIndex => {
       sheet.getRange(targetRowIndex, parseInt(colIndex) + 1).setValue(updateData[colIndex]);
     });
+    applyNoticeFilesSharing_(nextFileNotice, nextContent, nextAccessRights, writerEmail, previousFileNotice, previousContent);
     
     return {
       success: true,
@@ -884,6 +969,28 @@ function updateAnnouncement(req) {
       message: '공지사항 수정 중 오류가 발생했습니다: ' + error.message
     };
   }
+}
+
+function applyNoticeAttachmentSharing() {
+  const spreadsheet = getAnnouncementSpreadsheet('notice');
+  const sheet = resolveNoticeSheet_(spreadsheet, {});
+  if (!sheet) throw new Error('공지 데이터 시트를 찾을 수 없습니다.');
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return { success: true, processed: 0 };
+  const headerMap = {};
+  data[0].forEach(function(header, index) { headerMap[header] = index; });
+  let processed = 0;
+  for (let i = 1; i < data.length; i++) {
+    if (!data[i][headerMap['no_notice']]) continue;
+    let writerEmail = '';
+    try { writerEmail = decryptEmailMain(data[i][headerMap['writer_email']] || ''); } catch (error) { writerEmail = ''; }
+    const fileNotice = data[i][headerMap['file_notice']] || '';
+    const content = data[i][headerMap['content_notice']] || '';
+    const ids = getNoticeFileIds_(fileNotice, content);
+    applyNoticeFilesSharing_(fileNotice, content, data[i][headerMap['access_rights']] || '', writerEmail, '', '');
+    processed += ids.length;
+  }
+  return { success: true, processed: processed };
 }
 
 /**

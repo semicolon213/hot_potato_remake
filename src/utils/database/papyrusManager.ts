@@ -378,7 +378,7 @@ const getNoticeAttachmentMimeType = (file: File): string => {
 };
 
 // 첨부파일은 Apps Script가 공유 루트의 notice/attached_file에 저장한다 (사용자 드라이브 권한과 무관)
-const uploadFileToDrive = async (file: File, userEmail: string): Promise<{ name: string, url: string }> => {
+const uploadFileToDrive = async (file: File, userEmail: string): Promise<{ id: string, name: string, url: string }> => {
     if (file.size > MAX_ATTACHMENT_BYTES) {
         throw new Error(`첨부파일은 4MB 이하만 올릴 수 있습니다: ${file.name}`);
     }
@@ -391,7 +391,7 @@ const uploadFileToDrive = async (file: File, userEmail: string): Promise<{ name:
     if (!response.success || !response.data) {
         throw new Error(response.message || `첨부파일 업로드 실패: ${file.name}`);
     }
-    return { name: response.data.name, url: response.data.url };
+    return { id: response.data.id, name: response.data.name, url: response.data.url };
 };
 
 // 공지사항 작성 (앱스크립트 API 사용)
@@ -431,7 +431,7 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
         const processedContent = postData.content;
 
         // 첨부파일 업로드 (프론트엔드에서 처리)
-        let fileInfos: { name: string, url: string }[] = [];
+        const fileInfos: { id: string, name: string, url: string }[] = [];
         if (postData.attachments && postData.attachments.length > 0) {
             for (const file of postData.attachments) {
                 const fileInfo = await uploadFileToDrive(file, postData.writerEmail);
@@ -564,7 +564,7 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
     title: string; 
     content: string; 
     attachments: File[]; 
-    existingAttachments: { name: string, url: string }[]; 
+    existingAttachments: { id?: string; name: string; url: string }[];
     accessRights?: { individual?: string[]; groups?: string[] };
     isPinned?: boolean; 
 }): Promise<void> => {
@@ -590,7 +590,7 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
         }
 
         // 1. Upload new files
-        let newFileInfos: { name: string, url: string }[] = [];
+        const newFileInfos: { id: string, name: string, url: string }[] = [];
         if (postData.attachments && postData.attachments.length > 0) {
             for (const file of postData.attachments) {
                 const fileInfo = await uploadFileToDrive(file, writerEmail);

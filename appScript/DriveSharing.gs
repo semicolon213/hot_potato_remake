@@ -18,6 +18,10 @@ function grantPermission_(fileId, type, emailAddress, role) {
   );
 }
 
+function revokePermission_(fileId, permissionId) {
+  return Drive.Permissions.remove(fileId, permissionId);
+}
+
 /**
  * 빈 Google 문서 생성 (Drive 고급 서비스 사용 — DocumentApp은 문서 권한이 추가로 필요해서 쓰지 않음)
  * @returns {DriveApp.File}

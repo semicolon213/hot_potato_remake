@@ -536,7 +536,7 @@ const AppContent: React.FC = () => {
     title: string;
     content: string;
     attachments: File[];
-    existingAttachments: { name: string, url: string }[];
+    existingAttachments: { id?: string; name: string; url: string }[];
     accessRights?: { individual?: string[]; groups?: string[] };
     isPinned?: boolean;
   }) => {

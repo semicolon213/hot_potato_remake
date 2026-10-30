@@ -27,7 +27,7 @@ interface AnnouncementViewProps {
   post: Post;
   user: User | null;
   onBack: () => void;
-  onUpdate: (announcementId: string, postData: { title: string; content: string; attachments: File[]; existingAttachments: { name: string, url: string }[] }) => Promise<void>;
+  onUpdate: (announcementId: string, postData: { title: string; content: string; attachments: File[]; existingAttachments: { id?: string; name: string; url: string }[] }) => Promise<void>;
   onDelete: (announcementId: string) => Promise<void>;
   onRefresh?: () => void; // 목록 새로고침용
 }
@@ -36,7 +36,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(post.title);
   const [editedContent, setEditedContent] = useState('');
-  const [existingAttachments, setExistingAttachments] = useState<{name: string, url: string}[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<{id?: string; name: string; url: string}[]>([]);
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const [isPinned, setIsPinned] = useState(post.fix_notice === 'O' || post.fix_notice === '-');
   const [users, setUsers] = useState<AnnouncementUser[]>([]);
