@@ -3,7 +3,7 @@
 HP ERP 웹 OAuth 클라이언트를 Google Auth Platform에서 "Testing"에서 "In production"으로 옮기고 인증(브랜드 인증, 범위 인증)을 받기 위한 요건과 현재 상태를 정리한 문서입니다. 2026-10-29 기준 Google 공식 문서와 코드를 대조했습니다.
 
 - 운영 사이트: https://yuhancse.netlify.app
-- OAuth 클라이언트 ID: `517955867919-q632muclobphnt4vcgn2lo7uqhlltitf.apps.googleusercontent.com`
+- OAuth 클라이언트 ID: `651515712118-v387na0c5qgv7mn174u41u8p151msqal.apps.googleusercontent.com` (2026-10-30 운영 계정 소유 프로젝트로 교체. 이전 `517955867919-…`는 다른 계정 소유 프로젝트)
 - 인증 방식: 브라우저 리디렉션(implicit, `response_type=token`). 리프레시 토큰을 쓰지 않습니다.
 - Apps Script 백엔드는 `executeAs: USER_DEPLOYING`으로 배포자 계정 권한으로 실행합니다. 백엔드 범위는 배포자 한 명만 동의하므로 이 문서의 대상이 아닙니다. 단, 브랜치 `feature/drive-file-scope`부터 양식 내보내기가 `UrlFetchApp`을 쓰므로 배포자가 `script.external_request`("외부 서비스에 연결")를 한 번 더 승인해야 합니다([DEPLOYMENT.md §2.2](./DEPLOYMENT.md#22-웹앱-배포)).
 
