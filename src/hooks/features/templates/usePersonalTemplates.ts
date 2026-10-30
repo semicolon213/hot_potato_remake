@@ -1,3 +1,4 @@
+import { findPersonalTemplateFolder as findSharedPersonalTemplateFolder } from '../../../utils/database/personalConfigManager';
 import { logger } from '../../../utils/logger';
 /**
  * @file usePersonalTemplates.ts
@@ -41,99 +42,7 @@ export function usePersonalTemplates() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    /**
-     * @brief Google Drive API로 개인 템플릿 폴더 찾기 또는 생성
-     * @details "hot_potato_remake/document/personal_forms" 폴더 경로를 단계별로 탐색하고, 없으면 자동으로 생성합니다.
-     */
-    const findPersonalTemplateFolder = useCallback(async (): Promise<string | null> => {
-        try {
-
-            const { ENV_CONFIG } = await import('../../../config/environment');
-            const rootFolderName = ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME;
-            const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(DOCUMENT) 기반
-            const personalTemplateFolderName = ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_TEMP) 기반
-
-            // 1단계: 루트에서 루트 폴더 찾기 또는 생성
-            let hotPotatoResponse = await gapi.client.drive.files.list({
-                q: `'root' in parents and name='${rootFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-                fields: 'files(id,name)',
-                spaces: 'drive',
-                orderBy: 'name'
-            });
-
-            let hotPotatoFolder;
-            if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-                log.debug(`${rootFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-                const createResponse = await gapi.client.drive.files.create({
-                    resource: {
-                        name: rootFolderName,
-                        mimeType: 'application/vnd.google-apps.folder',
-                        parents: ['root']
-                    },
-                    fields: 'id,name'
-                });
-                hotPotatoFolder = { id: createResponse.result.id, name: createResponse.result.name };
-            } else {
-                hotPotatoFolder = hotPotatoResponse.result.files[0];
-                log.debug(`${rootFolderName} 폴더 찾음:`, hotPotatoFolder.id);
-            }
-
-            // 2단계: 루트 폴더에서 문서 폴더 찾기 또는 생성
-            let documentResponse = await gapi.client.drive.files.list({
-                q: `'${hotPotatoFolder.id}' in parents and name='${documentFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-                fields: 'files(id,name)',
-                spaces: 'drive',
-                orderBy: 'name'
-            });
-
-            let documentFolder;
-            if (!documentResponse.result.files || documentResponse.result.files.length === 0) {
-                log.debug(`${documentFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-                const createResponse = await gapi.client.drive.files.create({
-                    resource: {
-                        name: documentFolderName,
-                        mimeType: 'application/vnd.google-apps.folder',
-                        parents: [hotPotatoFolder.id]
-                    },
-                    fields: 'id,name'
-                });
-                documentFolder = { id: createResponse.result.id, name: createResponse.result.name };
-            } else {
-                documentFolder = documentResponse.result.files[0];
-                log.debug(`${documentFolderName} 폴더 찾음:`, documentFolder.id);
-            }
-
-            // 3단계: 문서 폴더에서 개인 양식 폴더 찾기 또는 생성
-            let personalTemplateResponse = await gapi.client.drive.files.list({
-                q: `'${documentFolder.id}' in parents and name='${personalTemplateFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-                fields: 'files(id,name)',
-                spaces: 'drive',
-                orderBy: 'name'
-            });
-
-            let personalTemplateFolder;
-            if (!personalTemplateResponse.result.files || personalTemplateResponse.result.files.length === 0) {
-                log.debug(`${personalTemplateFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-                const createResponse = await gapi.client.drive.files.create({
-                    resource: {
-                        name: personalTemplateFolderName,
-                        mimeType: 'application/vnd.google-apps.folder',
-                        parents: [documentFolder.id]
-                    },
-                    fields: 'id,name'
-                });
-                personalTemplateFolder = { id: createResponse.result.id, name: createResponse.result.name };
-            } else {
-                personalTemplateFolder = personalTemplateResponse.result.files[0];
-                log.debug(`${personalTemplateFolderName} 폴더 찾음:`, personalTemplateFolder.id);
-            }
-
-            return personalTemplateFolder.id;
-        } catch (error) {
-            log.error('개인 템플릿 폴더 찾기/생성 오류:', error);
-            return null;
-        }
-    }, []);
+    const findPersonalTemplateFolder = useCallback(() => findSharedPersonalTemplateFolder(), []);
 
     /**
      * @brief 개인 템플릿 목록 가져오기

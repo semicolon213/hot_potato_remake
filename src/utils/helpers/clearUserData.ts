@@ -8,7 +8,7 @@ import { logger } from '../logger';
  */
 
 import { clearSpreadsheetIds } from '../database/papyrusManager';
-import { clearPersonalConfigSpreadsheetId } from '../database/personalConfigManager';
+import { clearPersonalConfigSpreadsheetId, clearPersonalFolderIds } from '../database/personalConfigManager';
 import { resetGoogleAPIInitialization } from '../google/googleSheetUtils';
 import { resetGoogleApiInitializer } from '../google/googleApiInitializer';
 import { tokenManager } from '../auth/tokenManager';
@@ -104,6 +104,7 @@ export const clearAllUserData = (options: {
     if (clearGlobalVariables) {
         clearSpreadsheetIds();
         clearPersonalConfigSpreadsheetId();
+        clearPersonalFolderIds();
         resetGoogleAPIInitialization();
         resetGoogleApiInitializer();
     }

@@ -662,82 +662,14 @@ export const updateLastModifiedInSheetByDocId = async (
  * @details 환경변수에 설정된 경로로 개인 문서 폴더를 찾습니다
  */
 export const findPersonalDocumentFolder = async (): Promise<string | null> => {
-  const gapi = window.gapi;
-  if (!gapi?.client?.drive) {
+  if (!window.gapi?.client?.drive) {
     log.error('Google Drive API가 초기화되지 않았습니다.');
     return null;
   }
-
   try {
     const { ENV_CONFIG } = await import('../../config/environment');
-    const rootFolderName = ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME;
-    const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(DOCUMENT) 기반
-    const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_DOC) 기반
-
-    // 1단계: 루트에서 루트 폴더 찾기
-    const hotPotatoResponse = await gapi.client.drive.files.list({
-      q: `'root' in parents and name='${rootFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      log.debug(`${rootFolderName} 폴더를 찾을 수 없습니다`);
-      return null;
-    }
-
-    const hotPotatoFolder = hotPotatoResponse.result.files[0];
-
-    // 2단계: 문서 폴더 찾기
-    const documentResponse = await gapi.client.drive.files.list({
-      q: `'${hotPotatoFolder.id}' in parents and name='${documentFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!documentResponse.result.files || documentResponse.result.files.length === 0) {
-      log.debug(`${documentFolderName} 폴더를 찾을 수 없습니다`);
-      return null;
-    }
-
-    const documentFolder = documentResponse.result.files[0];
-
-    // 3단계: 개인 문서 폴더 찾기
-    const personalDocResponse = await gapi.client.drive.files.list({
-      q: `'${documentFolder.id}' in parents and name='${personalDocFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!personalDocResponse.result.files || personalDocResponse.result.files.length === 0) {
-      const { ENV_CONFIG } = await import('../../config/environment');
-      const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_DOC) 기반
-      log.debug(`${personalDocFolderName} 폴더를 찾을 수 없습니다. 폴더를 생성합니다.`);
-      
-      // 개인 문서 폴더 생성
-      const DriveAPI = gapi.client.drive.files as unknown as {
-        create: (params: {
-          resource: { name: string; mimeType: string; parents: string[] };
-          fields: string;
-        }) => Promise<{ result: { id: string } }>;
-      };
-      
-      const createResponse = await DriveAPI.create({
-        resource: {
-          name: personalDocFolderName,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [documentFolder.id]
-        },
-        fields: 'id'
-      });
-      
-      return createResponse.result.id;
-    }
-
-    return personalDocResponse.result.files[0].id as string;
+    const { getOrCreatePersonalFolderPath } = await import('../database/personalConfigManager');
+    return await getOrCreatePersonalFolderPath([ENV_CONFIG.DOCUMENT_FOLDER_NAME, ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME]);
   } catch (error) {
     log.error('개인 문서 폴더 찾기 오류:', error);
     return null;

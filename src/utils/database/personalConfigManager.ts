@@ -55,114 +55,57 @@ export const findPersonalConfigFile = async (): Promise<string | null> => {
   }
 };
 
-/**
- * @brief 내 드라이브 최상위의 개인 폴더 ID (없으면 생성)
- */
-export const getOrCreatePersonalRootFolderId = async (): Promise<string> => {
-  const name = ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME;
+
+// 같은 경로를 여러 곳이 동시에 찾으면 각자 "없으면 생성"을 해 폴더가 중복되므로 경로별로 진행 중인 작업과 결과를 공유한다.
+const personalFolderIds = new Map<string, Promise<string>>();
+
+const findOrCreateChildFolder = async (parentId: string, name: string): Promise<string> => {
   const response = await window.gapi.client.drive.files.list({
-    q: `'root' in parents and name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    q: `'${parentId}' in parents and name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
     fields: 'files(id,name)',
-    spaces: 'drive'
+    spaces: 'drive',
+    orderBy: 'createdTime'
   });
   const existing = response.result.files?.[0];
   if (existing) return existing.id;
 
   const created = await window.gapi.client.drive.files.create({
-    resource: { name, mimeType: 'application/vnd.google-apps.folder', parents: ['root'] },
+    resource: { name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] },
     fields: 'id'
   });
   return created.result.id;
 };
 
 /**
- * @brief 개인 템플릿 폴더 ID 찾기
- * @details hot potato/문서/개인 양식 폴더의 ID를 반환합니다.
- * @returns {Promise<string | null>} 개인 템플릿 폴더 ID 또는 null
+ * @brief 내 드라이브의 개인 폴더 아래 경로 폴더 ID (없는 단계는 생성)
+ * @param names 개인 폴더 아래 하위 폴더 이름들. 비우면 개인 폴더 자체
+ */
+export const getOrCreatePersonalFolderPath = (names: string[] = []): Promise<string> => {
+  const path = [ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME, ...names];
+  const key = path.join('/');
+  let pending = personalFolderIds.get(key);
+  if (!pending) {
+    const parent = names.length > 0 ? getOrCreatePersonalFolderPath(names.slice(0, -1)) : Promise.resolve('root');
+    pending = parent.then(parentId => findOrCreateChildFolder(parentId, path[path.length - 1]));
+    pending.catch(() => personalFolderIds.delete(key));
+    personalFolderIds.set(key, pending);
+  }
+  return pending;
+};
+
+export const getOrCreatePersonalRootFolderId = (): Promise<string> => getOrCreatePersonalFolderPath();
+
+/** 로그아웃·계정 전환 시 폴더 ID 기억을 지운다 */
+export const clearPersonalFolderIds = (): void => {
+  personalFolderIds.clear();
+};
+
+/**
+ * @brief 개인 템플릿 폴더 ID 찾기 (개인 폴더/document/personal_forms, 없으면 생성)
  */
 export const findPersonalTemplateFolder = async (): Promise<string | null> => {
   try {
-    
-    const rootFolderName = ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME;
-    const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME;
-    const personalTemplateFolderName = ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME;
-
-    // 1단계: 루트에서 루트 폴더 찾기 또는 생성
-    let hotPotatoResponse = await window.gapi.client.drive.files.list({
-      q: `'root' in parents and name='${rootFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    let hotPotatoFolder;
-    if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      log.debug(`${rootFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-      const createResponse = await window.gapi.client.drive.files.create({
-        resource: {
-          name: rootFolderName,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: ['root']
-        },
-        fields: 'id,name'
-      });
-      hotPotatoFolder = { id: createResponse.result.id, name: createResponse.result.name };
-    } else {
-      hotPotatoFolder = hotPotatoResponse.result.files[0];
-      log.debug(`${rootFolderName} 폴더 찾음:`, hotPotatoFolder.id);
-    }
-
-    // 2단계: 루트 폴더에서 문서 폴더 찾기 또는 생성
-    let documentResponse = await window.gapi.client.drive.files.list({
-      q: `'${hotPotatoFolder.id}' in parents and name='${documentFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    let documentFolder;
-    if (!documentResponse.result.files || documentResponse.result.files.length === 0) {
-      log.debug(`${documentFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-      const createResponse = await window.gapi.client.drive.files.create({
-        resource: {
-          name: documentFolderName,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [hotPotatoFolder.id]
-        },
-        fields: 'id,name'
-      });
-      documentFolder = { id: createResponse.result.id, name: createResponse.result.name };
-    } else {
-      documentFolder = documentResponse.result.files[0];
-      log.debug(`${documentFolderName} 폴더 찾음:`, documentFolder.id);
-    }
-
-    // 3단계: 문서 폴더에서 개인 양식 폴더 찾기 또는 생성
-    let personalTemplateResponse = await window.gapi.client.drive.files.list({
-      q: `'${documentFolder.id}' in parents and name='${personalTemplateFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    let personalTemplateFolder;
-    if (!personalTemplateResponse.result.files || personalTemplateResponse.result.files.length === 0) {
-      log.debug(`${personalTemplateFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-      const createResponse = await window.gapi.client.drive.files.create({
-        resource: {
-          name: personalTemplateFolderName,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [documentFolder.id]
-        },
-        fields: 'id,name'
-      });
-      personalTemplateFolder = { id: createResponse.result.id, name: createResponse.result.name };
-    } else {
-      personalTemplateFolder = personalTemplateResponse.result.files[0];
-      log.debug(`${personalTemplateFolderName} 폴더 찾음:`, personalTemplateFolder.id);
-    }
-
-    return personalTemplateFolder.id;
+    return await getOrCreatePersonalFolderPath([ENV_CONFIG.DOCUMENT_FOLDER_NAME, ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME]);
   } catch (error) {
     log.error('개인 템플릿 폴더 찾기/생성 오류:', error);
     return null;
