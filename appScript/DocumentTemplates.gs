@@ -911,7 +911,7 @@ function getTemplateSheetPreview(req) {
       }
       return { effectiveValue: effectiveValue, formattedValue: displayValues[rowIndex][columnIndex] };
     }) }));
-    const merges = sheet.getMergedRanges().map(merged => ({
+    const merges = range.getMergedRanges().map(merged => ({
       sheetId: sheet.getSheetId(),
       startRowIndex: merged.getRow() - 1,
       endRowIndex: merged.getLastRow(),
