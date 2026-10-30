@@ -815,14 +815,20 @@ function getDocumentTemplatesInfo() {
   };
 }
 
+// 내보내기 형식: Google 문서 → docx, Google 스프레드시트 → xlsx
+const TEMPLATE_EXPORT_TYPES_ = {
+  'application/vnd.google-apps.document': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.google-apps.spreadsheet': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+};
+
 /**
- * 공유 양식을 docx(base64)로 내보낸다.
+ * 공유 양식(문서·스프레드시트)을 Office 형식(base64)으로 내보낸다.
  * 사용자 드라이브 권한(drive.file)으로는 배포자 소유 양식을 복사할 수 없어서,
- * 프론트가 이 내용을 받아 사용자 개인 폴더에 Google 문서로 변환해 올린다.
+ * 프론트가 이 내용을 받아 사용자 개인 폴더에 Google 파일로 변환해 올린다.
  * 프로젝트 루트 아래 파일만 허용한다.
  * @param {Object} req - { templateId }
  */
-function exportTemplateDocx(req) {
+function exportTemplateFile(req) {
   try {
     const templateId = req && req.templateId;
     if (!templateId) return { success: false, message: '양식 ID가 필요합니다.' };
@@ -832,13 +838,14 @@ function exportTemplateDocx(req) {
     if (!rootId || !isUnderRootFolder_(file, rootId, {})) {
       return { success: false, message: '내보낼 수 없는 파일입니다.' };
     }
-    if (file.getMimeType() !== MimeType.GOOGLE_DOCS) {
-      return { success: false, message: 'Google 문서 양식만 내보낼 수 있습니다.' };
+    const exportType = TEMPLATE_EXPORT_TYPES_[file.getMimeType()];
+    if (!exportType) {
+      return { success: false, message: 'Google 문서나 스프레드시트 양식만 내보낼 수 있습니다.' };
     }
 
     const response = UrlFetchApp.fetch(
       'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(templateId) +
-        '/export?mimeType=' + encodeURIComponent('application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+        '/export?mimeType=' + encodeURIComponent(exportType),
       { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true }
     );
     if (response.getResponseCode() !== 200) {
@@ -846,7 +853,12 @@ function exportTemplateDocx(req) {
     }
     return {
       success: true,
-      data: { name: file.getName(), fileData: Utilities.base64Encode(response.getBlob().getBytes()) }
+      data: {
+        name: file.getName(),
+        sourceMimeType: file.getMimeType(),
+        exportMimeType: exportType,
+        fileData: Utilities.base64Encode(response.getBlob().getBytes())
+      }
     };
   } catch (error) {
     logError_('DocumentTemplates', '양식 내보내기 오류:', error);

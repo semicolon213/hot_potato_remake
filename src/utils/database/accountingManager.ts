@@ -20,7 +20,6 @@ import type {
   UpdateLedgerEntryRequest
 } from '../../types/features/accounting';
 import type { SheetInfo } from '../../types/google';
-import { ENV_CONFIG } from '../../config/environment';
 const log = logger.scope('utils/database/accountingManager');
 
 
@@ -64,43 +63,9 @@ const getSheetId = async (spreadsheetId: string, sheetName: string): Promise<num
  * 증빙 폴더 ID 가져오기 (spreadsheetId로부터)
  */
 export const getEvidenceFolderIdFromSpreadsheet = async (spreadsheetId: string): Promise<string | null> => {
-  try {
-    if (!window.gapi || !window.gapi.client) {
-      log.warn('Google API가 초기화되지 않았습니다.');
-      return null;
-    }
-
-    const gapi = window.gapi.client;
-
-    // 스프레드시트 파일의 부모 폴더 찾기
-    const fileResponse = await gapi.drive.files.get({
-      fileId: spreadsheetId,
-      fields: 'parents'
-    });
-
-    const parents = fileResponse.result.parents;
-    if (!parents || parents.length === 0) {
-      return null;
-    }
-
-    const parentFolderId = parents[0];
-
-    // 부모 폴더 내의 증빙 폴더 찾기
-    const foldersResponse = await gapi.drive.files.list({
-      q: `'${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and name='${ENV_CONFIG.EVIDENCE_FOLDER_NAME}' and trashed=false`, // ENV v2: VITE_FOLER_NAME(ACCOUNT_EVIDENCE) 기반
-      fields: 'files(id)',
-      pageSize: 1
-    });
-
-    if (foldersResponse.result.files && foldersResponse.result.files.length > 0) {
-      return foldersResponse.result.files[0].id;
-    }
-
-    return null;
-  } catch (error) {
-    log.error('증빙 폴더 ID 조회 오류:', error);
-    return null;
-  }
+  const { findLedger } = await import('../google/accountingFolderManager');
+  const ledger = await findLedger(l => l.spreadsheetId === spreadsheetId);
+  return ledger?.evidenceFolderId || null;
 };
 
 /**
@@ -111,91 +76,30 @@ export const uploadEvidenceFile = async (
   file: File,
   entryId: string
 ): Promise<{ fileId: string; fileName: string }> => {
-  try {
-    if (!window.gapi || !window.gapi.client) {
-      throw new Error('Google API가 초기화되지 않았습니다.');
-    }
-
-    const gapi = window.gapi;
-    const token = gapi.client.getToken();
-    
-    if (!token || !token.access_token) {
-      throw new Error('Google 인증 토큰이 없습니다.');
-    }
-
-    // 파일명: 증빙_[날짜]_[항목ID].[확장자]
-    const fileExtension = file.name.split('.').pop() || '';
-    const fileName = `증빙_${new Date().toISOString().split('T')[0].replace(/-/g, '')}_${entryId}.${fileExtension}`;
-
-    // 메타데이터
-    const metadata = {
-      name: fileName,
-      parents: [evidenceFolderId]
-    };
-
-    // multipart 업로드를 위한 경계 문자열
-    const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2, 15);
-    
-    // multipart body 생성
-    const metadataPart = `--${boundary}\r\n` +
-      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-      `${JSON.stringify(metadata)}\r\n`;
-    
-    const filePart = `--${boundary}\r\n` +
-      `Content-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`;
-    
-    const closingBoundary = `\r\n--${boundary}--`;
-
-    // 파일을 ArrayBuffer로 읽기
-    const fileBuffer = await file.arrayBuffer();
-    
-    // 전체 body 구성: metadata + file + closing
-    const metadataBuffer = new TextEncoder().encode(metadataPart);
-    const filePartBuffer = new TextEncoder().encode(filePart);
-    const fileContentBuffer = new Uint8Array(fileBuffer);
-    const closingBuffer = new TextEncoder().encode(closingBoundary);
-    
-    // 모든 버퍼 합치기
-    const totalLength = metadataBuffer.length + filePartBuffer.length + fileContentBuffer.length + closingBuffer.length;
-    const combinedBuffer = new Uint8Array(totalLength);
-    let offset = 0;
-    combinedBuffer.set(metadataBuffer, offset);
-    offset += metadataBuffer.length;
-    combinedBuffer.set(filePartBuffer, offset);
-    offset += filePartBuffer.length;
-    combinedBuffer.set(fileContentBuffer, offset);
-    offset += fileContentBuffer.length;
-    combinedBuffer.set(closingBuffer, offset);
-
-    // Google Drive API v3 multipart 업로드
-    const response = await fetch(
-      `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token.access_token}`,
-          'Content-Type': `multipart/related; boundary=${boundary}`
-        },
-        body: combinedBuffer
-      }
-    );
-
-    if (!response.ok) {
-      await response.text();
-      log.error('파일 업로드 응답 오류');
-      throw new Error(`파일 업로드 실패: ${response.status} ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    
-    return {
-      fileId: result.id,
-      fileName: result.name
-    };
-  } catch (error: unknown) {
-    log.error('증빙 문서 업로드 오류:', error);
-    throw error;
+  // 증빙 폴더는 배포자 소유라 사용자 드라이브 권한(drive.file)으로 올릴 수 없어서 서버가 올린다
+  if (file.size > 4 * 1024 * 1024) {
+    throw new Error(`증빙 파일은 4MB 이하만 올릴 수 있습니다: ${file.name}`);
   }
+  // 파일명: 증빙_[날짜]_[항목ID].[확장자]
+  const fileExtension = file.name.split('.').pop() || '';
+  const fileName = `증빙_${new Date().toISOString().split('T')[0].replace(/-/g, '')}_${entryId}.${fileExtension}`;
+  const fileData = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+  const response = await apiClient.uploadEvidenceFile({
+    evidenceFolderId,
+    fileName,
+    mimeType: file.type || 'application/octet-stream',
+    fileData
+  });
+  if (!response.success || !response.data) {
+    throw new Error(response.message || '증빙 파일 업로드에 실패했습니다.');
+  }
+  return response.data;
 };
 
 /**

@@ -345,9 +345,15 @@ function doPost(e) {
     }
     
     // 문서 삭제 액션 처리
-    if (req.action === 'exportTemplateDocx') {
+    if (req.action === 'uploadEvidenceFile') {
       return ContentService
-        .createTextOutput(JSON.stringify(exportTemplateDocx(req)))
+        .createTextOutput(JSON.stringify(uploadEvidenceFile(req)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (req.action === 'exportTemplateFile') {
+      return ContentService
+        .createTextOutput(JSON.stringify(exportTemplateFile(req)))
         .setMimeType(ContentService.MimeType.JSON);
     }
 

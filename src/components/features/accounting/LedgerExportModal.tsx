@@ -1591,11 +1591,21 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         }
       );
 
-      if (!copyResponse.ok) {
+      let copiedSpreadsheet: { id: string };
+      if (copyResponse.ok) {
+        copiedSpreadsheet = await copyResponse.json();
+      } else if (copyResponse.status === 403 || copyResponse.status === 404) {
+        // drive.file 범위에서는 공유 템플릿을 직접 복사할 수 없어 서버가 xlsx로 내보낸 것을 변환해 올린다
+        const { importTemplateCopy } = await import('../../../utils/google/googleSheetUtils');
+        copiedSpreadsheet = await importTemplateCopy(
+          templateSpreadsheetId,
+          `장부_내보내기_${new Date().toISOString().split('T')[0]}`,
+          personalDocumentFolderId,
+          token.access_token
+        );
+      } else {
         throw new Error(`템플릿 복사 실패: ${copyResponse.status} ${copyResponse.statusText}`);
       }
-
-      const copiedSpreadsheet = await copyResponse.json();
       const newSpreadsheetId = copiedSpreadsheet.id;
 
       // 템플릿 복사 시 컬럼 너비가 자동으로 복사되므로

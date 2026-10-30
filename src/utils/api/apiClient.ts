@@ -429,9 +429,14 @@ export class ApiClient {
     return this.request('deleteDocuments', { documentIds, role });
   }
 
-  // 공유 양식을 docx(base64)로 받기 (개인 폴더에 Google 문서로 변환해 올릴 때 사용)
-  async exportTemplateDocx(templateId: string) {
-    return this.request<{ name: string; fileData: string }>('exportTemplateDocx', { templateId });
+  // 증빙 파일 업로드 (Apps Script가 장부 증빙 폴더에 저장)
+  async uploadEvidenceFile(params: { evidenceFolderId: string; fileName: string; mimeType: string; fileData: string }) {
+    return this.request<{ fileId: string; fileName: string }>('uploadEvidenceFile', params);
+  }
+
+  // 공유 양식(문서·스프레드시트)을 Office 형식(base64)으로 받기 (개인 폴더에 Google 파일로 변환해 올릴 때 사용)
+  async exportTemplateFile(templateId: string) {
+    return this.request<{ name: string; sourceMimeType: string; exportMimeType: string; fileData: string }>('exportTemplateFile', { templateId });
   }
 
   // 공지 첨부파일 업로드 (Apps Script가 첨부 폴더에 저장하고 링크 공개)

@@ -907,3 +907,27 @@ function applyLedgerSharing() {
   console.log('장부 권한 재적용 결과:\n' + lines.join('\n'));
   return lines;
 }
+
+/**
+ * 증빙 파일 업로드 (프론트가 base64로 보낸 파일을 장부 증빙 폴더에 저장)
+ * 사용자 드라이브 권한(drive.file)으로는 공유 증빙 폴더에 직접 올릴 수 없어서 서버가 대신 올린다.
+ * 회계 폴더 아래 폴더만 허용한다.
+ * @param {Object} req - { evidenceFolderId, fileName, mimeType, fileData(base64) }
+ */
+function uploadEvidenceFile(req) {
+  try {
+    if (!req.evidenceFolderId || !req.fileName || !req.fileData) {
+      return { success: false, message: '증빙 폴더, 파일 이름, 내용이 필요합니다.' };
+    }
+    const folder = DriveApp.getFolderById(req.evidenceFolderId);
+    if (!isFolderUnderRoot_(folder, initializeAccountingFolder(), {}, 0)) {
+      return { success: false, message: '증빙 폴더가 아닙니다.' };
+    }
+    const blob = Utilities.newBlob(Utilities.base64Decode(req.fileData), req.mimeType || 'application/octet-stream', req.fileName);
+    const file = folder.createFile(blob);
+    return { success: true, data: { fileId: file.getId(), fileName: file.getName() } };
+  } catch (error) {
+    logError_('AccountingManagement', '증빙 파일 업로드 오류:', error);
+    return { success: false, message: '증빙 파일 업로드 중 오류가 발생했습니다: ' + error.message };
+  }
+}

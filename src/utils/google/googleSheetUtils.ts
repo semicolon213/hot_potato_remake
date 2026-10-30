@@ -698,25 +698,26 @@ export const createBlankGoogleDocument = async (title: string): Promise<{ id: st
   return response.result as { id: string, webViewLink: string };
 };
 
-const uploadTemplateAsGoogleDoc = async (
+/**
+ * @brief 공유 양식을 서버에서 Office 형식으로 받아 지정 폴더에 같은 종류의 Google 파일로 변환해 올린다
+ * @details drive.file 범위에서는 배포자 소유 양식을 직접 복사할 수 없어서 쓰는 경로. 결과 파일은 앱이 만든 파일이다.
+ */
+export const importTemplateCopy = async (
   templateId: string,
   title: string,
   folderId: string,
   token: string
 ): Promise<{ id: string; webViewLink: string }> => {
   const { apiClient } = await import('../api/apiClient');
-  const exported = await apiClient.exportTemplateDocx(templateId);
+  const exported = await apiClient.exportTemplateFile(templateId);
   if (!exported.success || !exported.data) {
     throw new Error(exported.message || '양식을 가져오지 못했습니다.');
   }
-  const bytes = Uint8Array.from(atob(exported.data.fileData), ch => ch.charCodeAt(0));
+  const { fileData, sourceMimeType, exportMimeType } = exported.data;
+  const bytes = Uint8Array.from(atob(fileData), ch => ch.charCodeAt(0));
   const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify({
-    name: title,
-    mimeType: 'application/vnd.google-apps.document',
-    parents: [folderId]
-  })], { type: 'application/json' }));
-  form.append('file', new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
+  form.append('metadata', new Blob([JSON.stringify({ name: title, mimeType: sourceMimeType, parents: [folderId] })], { type: 'application/json' }));
+  form.append('file', new Blob([bytes], { type: exportMimeType }));
 
   const upload = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
     method: 'POST',
@@ -724,7 +725,7 @@ const uploadTemplateAsGoogleDoc = async (
     body: form
   });
   if (!upload.ok) {
-    throw new Error(`양식으로 문서를 만들지 못했습니다 (${upload.status})`);
+    throw new Error(`양식으로 파일을 만들지 못했습니다 (${upload.status})`);
   }
   return upload.json();
 };
@@ -812,7 +813,7 @@ export const copyGoogleDocument = async (fileId: string, newTitle: string): Prom
       // drive.file 범위에서는 배포자 소유 공유 양식을 직접 복사할 수 없다 (403/404).
       // 서버가 docx로 내보낸 내용을 개인 폴더에 Google 문서로 변환해 올린다.
       if (copyError?.status !== 403 && copyError?.status !== 404) throw copyError;
-      response = { result: await uploadTemplateAsGoogleDoc(fileId, newTitle, personalDocFolderId, token) };
+      response = { result: await importTemplateCopy(fileId, newTitle, personalDocFolderId, token) };
     }
 
     const { invalidateDocumentsCache } = await import('../helpers/loadDocumentsFromDrive');

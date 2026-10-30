@@ -184,57 +184,19 @@ export const getLedgerFolders = async (): Promise<LedgerInfo[]> => {
  * @returns {Promise<LedgerInfo | null>} 장부 정보
  */
 export const getLedgerInfo = async (folderId: string): Promise<LedgerInfo | null> => {
+  // 회계 폴더는 배포자 소유라 사용자 드라이브 권한(drive.file)으로는 조회되지 않으므로 서버의 장부 목록을 쓴다
+  return findLedger(ledger => ledger.folderId === folderId);
+};
+
+/**
+ * @brief 서버 장부 목록에서 조건에 맞는 장부 찾기
+ */
+export const findLedger = async (predicate: (ledger: LedgerInfo) => boolean): Promise<LedgerInfo | null> => {
   try {
-    if (!window.gapi || !window.gapi.client) {
-      log.warn('Google API가 초기화되지 않았습니다.');
-      return null;
-    }
-
-    const gapi = window.gapi.client;
-
-    // 폴더 정보 조회
-    const folderResponse = await gapi.drive.files.get({
-      fileId: folderId,
-      fields: 'id, name, createdTime'
-    });
-
-    const folderName = folderResponse.result.name;
-    const createdDate = folderResponse.result.createdTime;
-
-    // 폴더 내 파일 목록 조회
-    const filesResponse = await gapi.drive.files.list({
-      q: `'${folderId}' in parents and trashed=false`,
-      fields: 'files(id, name, mimeType)'
-    });
-
-    let spreadsheetId: string | null = null;
-    let evidenceFolderId: string | null = null;
-
-    // 스프레드시트 파일 찾기
-    const spreadsheetFile = filesResponse.result.files?.find((file: DriveFile) => 
-      file.mimeType === 'application/vnd.google-apps.spreadsheet'
-    );
-    if (spreadsheetFile) {
-      spreadsheetId = spreadsheetFile.id;
-    }
-
-    // 증빙 폴더 찾기
-    const evidenceFolder = filesResponse.result.files?.find((file: DriveFile) => 
-      file.mimeType === 'application/vnd.google-apps.folder' && 
-      file.name === ENV_CONFIG.EVIDENCE_FOLDER_NAME // ENV v2: VITE_FOLER_NAME(ACCOUNT_EVIDENCE) 기반
-    );
-    if (evidenceFolder) {
-      evidenceFolderId = evidenceFolder.id;
-    }
-
-    return {
-      folderId: folderId,
-      folderName: folderName,
-      spreadsheetId: spreadsheetId || '',
-      evidenceFolderId: evidenceFolderId || '',
-      createdDate: createdDate
-    };
-
+    const { apiClient } = await import('../api/apiClient');
+    const response = await apiClient.getLedgerList();
+    const ledgers = (response.success && Array.isArray(response.data) ? response.data : []) as LedgerInfo[];
+    return ledgers.find(predicate) || null;
   } catch (error) {
     log.error('장부 정보 조회 오류:', error);
     return null;

@@ -9,7 +9,6 @@ import { generateWidgetContent } from "../../../utils/helpers/widgetContentGener
 import { fetchAnnouncements, fetchCalendarEvents, fetchStudents, fetchStaffFromPapyrus } from "../../../utils/database/papyrusManager";
 import type { User } from '../../../types/app';
 import { getAccountingData } from "../../../utils/google/googleSheetUtils";
-import { getFolderIdByName, getSheetsInFolder } from "../../../utils/google/driveUtils";
 import { ENV_CONFIG } from '../../../config/environment';
 import { apiClient } from "../../../utils/api/apiClient";
 import { tokenManager } from '../../../utils/auth/tokenManager';
@@ -1725,53 +1724,13 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
     try {
       setSelectedWidgetId(widgetId);
       
-      // 회계 폴더 ID 가져오기
+      // 장부 목록은 서버가 준다 (회계 폴더는 배포자 소유라 사용자 드라이브 권한으로는 조회되지 않음)
       const { apiClient } = await import("../../../utils/api/apiClient");
-      const response = await apiClient.request('getAccountingFolderId', {});
-      
-      if (!response.success || !response.data?.accountingFolderId) {
-        notifyGlobal("회계 폴더를 찾을 수 없습니다.", 'error');
-        return;
-      }
-
-      const accountingFolderId = response.data.accountingFolderId;
-
-      // 회계 폴더 내 모든 장부 폴더 가져오기
-      const gapi = window.gapi;
-      if (!gapi || !gapi.client || !gapi.client.drive) {
-        notifyGlobal("Google Drive API가 초기화되지 않았습니다.", 'error');
-        return;
-      }
-
-      const driveResponse = await gapi.client.drive.files.list({
-        q: `'${accountingFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name)',
-        orderBy: 'name'
-      });
-
-      if (!driveResponse.result.files || driveResponse.result.files.length === 0) {
-        notifyGlobal("장부 폴더를 찾을 수 없습니다.", 'error');
-        return;
-      }
-
-      // 각 장부 폴더 내 시트 목록 가져오기
-      const allSheets: { id: string; name: string; ledgerName: string }[] = [];
-      
-      for (const folder of driveResponse.result.files) {
-        const sheets = await getSheetsInFolder(folder.id!);
-      if (sheets && sheets.length > 0) {
-          sheets.forEach(sheet => {
-            allSheets.push({
-              id: sheet.id, // 스프레드시트 파일 ID (폴더 ID가 아님)
-              name: sheet.name,
-              ledgerName: folder.name!
-            });
-          });
-        } else {
-          // 시트를 찾을 수 없는 경우, 폴더 ID를 직접 사용하지 않고 경고만 표시
-          log.warn(`장부 폴더 "${folder.name}" 내에 스프레드시트 파일을 찾을 수 없습니다.`);
-        }
-      }
+      const response = await apiClient.getLedgerList();
+      const ledgers = (response.success && Array.isArray(response.data) ? response.data : []) as Array<{ folderName: string; spreadsheetId?: string }>;
+      const allSheets = ledgers
+        .filter(ledger => ledger.spreadsheetId)
+        .map(ledger => ({ id: ledger.spreadsheetId as string, name: ledger.folderName, ledgerName: ledger.folderName }));
 
       if (allSheets.length > 0) {
         setAccountingSheets(allSheets);
