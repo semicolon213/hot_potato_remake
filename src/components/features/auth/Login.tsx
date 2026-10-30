@@ -59,6 +59,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     lastUsers
   } = useAuth(onLogin);
 
+  /** 구 OAuth 링크(?legal=, ?legal-privacy 등) → 정적 페이지로 이동 */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const legal = params.get('legal');
+    if (legal === 'privacy' || params.has('legal-privacy')) {
+      window.location.replace(`${window.location.origin}/privacy.html`);
+      return;
+    }
+    if (legal === 'terms' || params.has('legal-terms')) {
+      window.location.replace(`${window.location.origin}/terms.html`);
+      return;
+    }
+  }, []);
+
   const handleLogoClick = () => {
     const next = logoClickCount + 1;
     if (next >= 10 && logoSrc !== "/logo-eat.png") {
@@ -223,6 +237,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               title=""
             />
             <h1 className="hp-erp-title">HP ERP</h1>
+            <p className="hp-erp-subtitle" aria-label="앱 표시 이름">뜨거운 감자</p>
           </div>
         </div>
         <div className="login-card-right">
@@ -470,6 +485,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 '가입하기'
               )}
             </button>
+            <div className="login-legal-links login-legal-links--signup" role="navigation" aria-label="약관">
+              <a className="login-legal-link" href="/privacy.html">
+                개인정보처리방침
+              </a>
+              <span className="login-legal-sep" aria-hidden>
+                ·
+              </span>
+              <a className="login-legal-link" href="/terms.html">
+                이용약관
+              </a>
+            </div>
           </div>
         ) : null}
         </div>
