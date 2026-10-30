@@ -344,8 +344,23 @@ function checkExistingUser(email, studentId) {
       return user;
     });
     
-    // 이메일 중복 확인
-    const emailExists = users.find(u => u.email === email);
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedStudentId = String(studentId || '').trim();
+    const matchingUser = users.find(u => String(u.no_member || '').trim() === normalizedStudentId);
+    let matchingEmail = '';
+    if (matchingUser && matchingUser.google_member) {
+      try { matchingEmail = decryptEmailMain(matchingUser.google_member).trim().toLowerCase(); } catch (error) { matchingEmail = ''; }
+    }
+    if (matchingUser && matchingEmail === normalizedEmail && getUserApprovalStatus(matchingUser) !== 'O' && getUserApprovalStatus(matchingUser) !== 'X') {
+      return { exists: false, message: '거부된 가입 요청을 다시 제출할 수 있습니다.' };
+    }
+
+    // 이메일 중복 확인 (암호화 저장된 google_member 포함)
+    const emailExists = users.find(u => {
+      if (String(u.email || '').trim().toLowerCase() === normalizedEmail) return true;
+      if (!u.google_member) return false;
+      try { return decryptEmailMain(u.google_member).trim().toLowerCase() === normalizedEmail; } catch (error) { return false; }
+    });
     if (emailExists) {
       return {
         exists: true,
@@ -354,7 +369,7 @@ function checkExistingUser(email, studentId) {
     }
     
     // 학번 중복 확인
-    const studentIdExists = users.find(u => u.student_id === studentId);
+    const studentIdExists = users.find(u => String(u.no_member || '').trim() === normalizedStudentId);
     if (studentIdExists) {
       return {
         exists: true,
