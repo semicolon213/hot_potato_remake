@@ -157,7 +157,7 @@ function doPost(e) {
             };
           } else {
             // 권한 설정 전 현재 상태 확인 (Drive API 사용)
-            const beforePermissions = Drive.Permissions.list(documentId);
+            const beforePermissions = { items: listPermissions_(documentId) };
             const beforePermissionsList = beforePermissions.items || [];
             
             let successCount = 0;
@@ -175,12 +175,7 @@ function doPost(e) {
                 }
                 
                 // 권한 부여 (메일 알림 없이)
-                Drive.Permissions.insert({
-                  role: 'writer',
-                  type: 'user',
-                  value: userEmail,
-                  sendNotificationEmails: false
-                }, documentId);
+                grantPermission_(documentId, 'user', userEmail, 'writer');
                 successCount++;
                 
                 // 잠시 대기 (API 제한 방지)
@@ -193,7 +188,7 @@ function doPost(e) {
             }
             
             // 권한 설정 후 결과 확인
-            const afterPermissions = Drive.Permissions.list(documentId);
+            const afterPermissions = { items: listPermissions_(documentId) };
             const afterPermissionsList = afterPermissions.items || [];
             
             permissionResult = {
@@ -1759,7 +1754,7 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
     }
     
     // 권한 설정 전 현재 상태 확인 (Drive API 사용)
-    const beforePermissions = Drive.Permissions.list(documentId);
+    const beforePermissions = { items: listPermissions_(documentId) };
     const beforePermissionsList = beforePermissions.items || [];
     
     let successCount = 0;
@@ -1777,12 +1772,7 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
         }
         
         // 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'user',
-          value: userEmail,
-          sendNotificationEmails: false
-        }, documentId);
+        grantPermission_(documentId, 'user', userEmail, 'writer');
         successCount++;
         
         // 잠시 대기 (API 제한 방지)
@@ -1795,7 +1785,7 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
     }
     
     // 권한 설정 후 결과 확인
-    const afterPermissions = Drive.Permissions.list(documentId);
+    const afterPermissions = { items: listPermissions_(documentId) };
     const afterPermissionsList = afterPermissions.items || [];
     
     const result = {

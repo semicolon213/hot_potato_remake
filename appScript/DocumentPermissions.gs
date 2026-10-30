@@ -38,7 +38,7 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
     }
     
     // 권한 설정 전 현재 상태 확인
-    const permissions = Drive.Permissions.list(documentId);
+    const permissions = { items: listPermissions_(documentId) };
     const beforePermissions = permissions.items || [];
     logDebug_('DocumentPermissions', '권한 설정 전 편집자');
     
@@ -57,12 +57,7 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
         }
         
         // 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'user',
-          value: userEmail,
-          sendNotificationEmails: false
-        }, documentId);
+        grantPermission_(documentId, 'user', userEmail, 'writer');
         successCount++;
         
         // 잠시 대기 (API 제한 방지)
@@ -75,7 +70,7 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
     }
     
     // 권한 설정 후 결과 확인
-    const afterPermissions = Drive.Permissions.list(documentId);
+    const afterPermissions = { items: listPermissions_(documentId) };
     logDebug_('DocumentPermissions', '권한 설정 후 편집자');
     
     const result = {
@@ -105,7 +100,7 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
 function getDocumentPermissions(documentId) {
   try {
     
-    const permissions = Drive.Permissions.list(documentId);
+    const permissions = { items: listPermissions_(documentId) };
     
     return {
       success: true,
@@ -131,7 +126,7 @@ function getDocumentPermissions(documentId) {
 function removeDocumentPermission(documentId, email) {
   try {
     
-    const permissions = Drive.Permissions.list(documentId);
+    const permissions = { items: listPermissions_(documentId) };
     const permission = permissions.items.find(p => p.emailAddress === email);
     
     if (permission) {
@@ -184,7 +179,7 @@ function grantWorkflowPermissions(documentId, userEmails, permissionType) {
     }
     
     const role = permissionType === 'writer' ? 'writer' : 'reader';
-    const permissions = Drive.Permissions.list(documentId);
+    const permissions = { items: listPermissions_(documentId) };
     const beforePermissions = permissions.items || [];
     
     let successCount = 0;
@@ -212,12 +207,7 @@ function grantWorkflowPermissions(documentId, userEmails, permissionType) {
         }
         
         // 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: role,
-          type: 'user',
-          value: email,
-          sendNotificationEmails: false
-        }, documentId);
+        grantPermission_(documentId, 'user', email, role);
         successCount++;
         grantedUsers.push(email);
         details.push({

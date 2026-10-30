@@ -216,7 +216,7 @@ function setLedgerFolderPermissions(params) {
     const failedUsers = [];
     
     // 현재 권한 확인 (Drive API 사용)
-    const permissions = Drive.Permissions.list(folderId);
+    const permissions = { items: listPermissions_(folderId) };
     const beforePermissions = permissions.items || [];
     
     // 개인 사용자 권한 부여 (Drive API - 메일 알림 없음)
@@ -231,12 +231,7 @@ function setLedgerFolderPermissions(params) {
         }
         
         // 편집 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'user',
-          value: userEmail,
-          sendNotificationEmails: false
-        }, folderId);
+        grantPermission_(folderId, 'user', userEmail, 'writer');
         successCount++;
         grantedUsers.push(userEmail);
         
@@ -253,12 +248,7 @@ function setLedgerFolderPermissions(params) {
     for (const groupEmail of groups) {
       try {
         // 그룹에 편집 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'group',
-          value: groupEmail,
-          sendNotificationEmails: false
-        }, folderId);
+        grantPermission_(folderId, 'group', groupEmail, 'writer');
         successCount++;
         grantedUsers.push(groupEmail);
         
@@ -312,7 +302,7 @@ function setLedgerFilePermissions(params) {
     const failedUsers = [];
     
     // 현재 권한 확인 (Drive API 사용)
-    const permissions = Drive.Permissions.list(fileId);
+    const permissions = { items: listPermissions_(fileId) };
     const beforePermissions = permissions.items || [];
     
     // 개인 사용자 권한 부여 (Drive API - 메일 알림 없음)
@@ -326,12 +316,7 @@ function setLedgerFilePermissions(params) {
         }
         
         // 편집 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'user',
-          value: userEmail,
-          sendNotificationEmails: false
-        }, fileId);
+        grantPermission_(fileId, 'user', userEmail, 'writer');
         successCount++;
         grantedUsers.push(userEmail);
         
@@ -348,12 +333,7 @@ function setLedgerFilePermissions(params) {
     for (const groupEmail of groups) {
       try {
         // 그룹에 편집 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'group',
-          value: groupEmail,
-          sendNotificationEmails: false
-        }, fileId);
+        grantPermission_(fileId, 'group', groupEmail, 'writer');
         successCount++;
         grantedUsers.push(groupEmail);
         
