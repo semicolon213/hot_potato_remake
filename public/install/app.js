@@ -301,10 +301,25 @@ async function appsScriptApi(path, token, options = {}) {
   return body;
 }
 
-async function deployBackend(token, email) {
+// Workspace 전용 고급 서비스. 개인 Gmail 계정에서는 "Service not found: admin v1"로 업로드가 실패한다.
+const WORKSPACE_ONLY_SERVICES = ['admin', 'groupssettings'];
+
+// 개인 계정이면 Workspace 전용 서비스를 빼고 올린다. GroupManagement.gs는 서비스가 없으면 관리자 알림으로 넘어간다.
+function bundleForAccount(bundle, isWorkspace) {
+  if (isWorkspace) return bundle;
+  return { files: bundle.files.map(file => {
+    if (file.name !== 'appsscript') return file;
+    const manifest = JSON.parse(file.source);
+    const services = manifest.dependencies?.enabledAdvancedServices;
+    if (Array.isArray(services)) manifest.dependencies.enabledAdvancedServices = services.filter(service => !WORKSPACE_ONLY_SERVICES.includes(service.serviceId));
+    return { ...file, source: JSON.stringify(manifest, null, 2) };
+  }) };
+}
+
+async function deployBackend(token, email, isWorkspace) {
   const bundleResponse = await fetch('/backend-bundle.json', { cache: 'no-store' });
   if (!bundleResponse.ok) throw new Error('백엔드 코드 묶음을 읽지 못했습니다. 운영자에게 알려 주세요.');
-  const bundle = await bundleResponse.json();
+  const bundle = bundleForAccount(await bundleResponse.json(), isWorkspace);
   const storageKey = `hp-erp-script-id:${email.toLowerCase()}`;
   let scriptId = state.scriptId || localStorage.getItem(storageKey) || '';
   let cached = Boolean(scriptId);
@@ -369,7 +384,7 @@ function startGoogleInstall() {
         if (!profileResponse.ok) throw new Error('Google 계정 이메일을 확인하지 못했습니다.');
         const profile = await profileResponse.json();
         state.apiError = '';
-        await deployBackend(response.access_token, profile.email);
+        await deployBackend(response.access_token, profile.email, Boolean(profile.hd));
       } catch (error) {
         handleDeployError(error);
       } finally {
