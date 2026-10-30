@@ -40,7 +40,8 @@ async function deploy(token) {
   const deployment = await api(`projects/${scriptId}/deployments`, token, { method: 'POST', body: JSON.stringify({ versionNumber: version.versionNumber, manifestFileName: 'appsscript', description: 'HP ERP 웹 앱' }) });
   const url = `https://script.google.com/macros/s/${deployment.deploymentId}/exec`;
   mark(3, '웹 앱 배포 완료');
-  result.innerHTML = `백엔드 주소: <code>${url}</code><br><a href="${url}?page=setup" target="_blank" rel="noreferrer">백엔드 초기 설정 열기</a>`;
+  const repositoryUrl = window.INSTALL_CONFIG.repositoryUrl;
+  result.innerHTML = `백엔드 주소: <code>${url}</code><br><a href="${url}?page=setup" target="_blank" rel="noreferrer">백엔드 초기 설정 열기</a>${repositoryUrl ? `<br><a href="${repositoryUrl}/actions/workflows/electron-release.yml" target="_blank" rel="noreferrer">설치 파일 만들기</a> · <a href="${repositoryUrl}/releases" target="_blank" rel="noreferrer">설치 파일 다운로드</a>` : ''}`;
 }
 
 button.addEventListener('click', () => {

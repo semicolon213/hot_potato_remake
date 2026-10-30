@@ -14,6 +14,10 @@ function savedSiteUrl() {
   const buildUrl = process.env.HP_ERP_SITE_URL;
   if (validSiteUrl(buildUrl)) return buildUrl;
   try {
+    const value = JSON.parse(fs.readFileSync(path.join(__dirname, 'site-url.json'), 'utf8')).siteUrl;
+    if (validSiteUrl(value)) return value;
+  } catch {}
+  try {
     const value = JSON.parse(fs.readFileSync(configPath(), 'utf8')).siteUrl;
     return validSiteUrl(value) ? value : '';
   } catch { return ''; }
