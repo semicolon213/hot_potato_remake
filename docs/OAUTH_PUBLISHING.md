@@ -1,9 +1,10 @@
 # Google OAuth 앱 게시 체크리스트
 
-HP ERP 웹 OAuth 클라이언트를 Google Auth Platform에서 "Testing"에서 "In production"으로 옮기고 인증(브랜드 인증, 범위 인증)을 받기 위한 요건과 현재 상태를 정리한 문서입니다. 2026-10-29 기준 Google 공식 문서와 코드를 대조했고, 상태는 2026-10-30 운영 반영(`main` @ `c2b8a6c`, Apps Script @59) 기준입니다. 앱은 아직 Testing 상태라 사용자에게 "확인되지 않은 앱" 경고가 보입니다.
+HP ERP 웹 OAuth 클라이언트를 Google Auth Platform에서 "Testing"에서 "In production"으로 옮기고 인증(브랜드 인증, 범위 인증)을 받기 위한 요건과 현재 상태를 정리한 문서입니다. 2026-10-29 기준 Google 공식 문서와 코드를 대조했고, 상태는 2026-10-31 운영 반영(`main` @ `05448e1`, Apps Script @60) 기준입니다. 앱은 아직 Testing 상태라 사용자에게 "확인되지 않은 앱" 경고가 보입니다.
 
 - 운영 사이트: https://yuhancse.netlify.app
 - OAuth 클라이언트 ID: `651515712118-v387na0c5qgv7mn174u41u8p151msqal.apps.googleusercontent.com` (2026-10-30 운영 계정 소유 프로젝트로 교체. 이전 `517955867919-…`는 다른 계정 소유 프로젝트). Netlify `VITE_GOOGLE_CLIENT_ID`와 Apps Script 스크립트 속성 `GOOGLE_CLIENT_ID`에 같은 값이 들어 있어야 합니다. 클라이언트를 바꾸면서 이전 클라이언트로 만든 개인 파일은 `drive.file`로 보이지 않게 되어 개인 설정이 새로 만들어졌습니다.
+- 설치 마법사용 클라이언트 ID: 같은 프로젝트의 `651515712118-h5n9…`. `/install/`에서만 쓰며 `script.projects`, `script.deployments`, `userinfo.email`을 요청합니다. 승인된 JavaScript 원본은 `https://yuhancse.netlify.app`, `http://localhost:5173`입니다. 두 script 범위는 민감한 범위라 Data Access에 추가했고 같은 인증 신청에 포함합니다.
 - 인증 방식: 브라우저 리디렉션(implicit, `response_type=token`). 리프레시 토큰을 쓰지 않습니다. 브라우저는 액세스 토큰을 요청마다 Apps Script로 보내고, Apps Script는 Google tokeninfo로 신원만 확인합니다. 토큰은 저장하거나 로그에 남기지 않습니다([ADR-015](./ADR.md#adr-015-apps-script가-액세스-토큰으로-요청자를-확인한다)).
 - Apps Script 백엔드는 `executeAs: USER_DEPLOYING`으로 배포자 계정 권한으로 실행합니다. 백엔드 범위는 배포자 한 명만 동의하므로 이 문서의 대상이 아닙니다. 단, 양식 내보내기와 요청자 토큰 확인이 `UrlFetchApp`을 쓰므로 배포자가 `script.external_request`("외부 서비스에 연결")를 한 번 더 승인해야 합니다([DEPLOYMENT.md §2.2](./DEPLOYMENT.md#22-웹앱-배포)).
 
@@ -15,7 +16,7 @@ HP ERP 웹 OAuth 클라이언트를 Google Auth Platform에서 "Testing"에서 "
 
 1. 지금 당장은 **Testing을 유지**합니다. 테스트 사용자로 등록한 100명까지 쓸 수 있고, 로그인할 때 "Google에서 확인하지 않은 앱" 경고를 한 번 넘기면 됩니다. 다만 민감한 범위를 요청하므로 동의가 7일마다 만료되어 사용자가 주 1회 다시 동의해야 합니다.
 2. Codex가 쓰지 않는 범위(`gmail.compose`, `documents`)를 지우고 `drive`를 `drive.file`로 바꿉니다. **2026-10-30 운영에 반영했습니다.** 웹 클라이언트가 요청하는 범위는 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`입니다.
-3. 이제 운영 계정 소유 프로젝트에서 **브랜드 인증과 민감한 범위 인증**(`spreadsheets`, `calendar.events`, `calendar.readonly`)을 신청합니다. 보안 평가(CASA)는 필요 없습니다.
+3. 이제 운영 계정 소유 프로젝트에서 **브랜드 인증과 민감한 범위 인증**(`spreadsheets`, `calendar.events`, `calendar.readonly`, 설치 마법사의 `script.projects`, `script.deployments`)을 신청합니다. 보안 평가(CASA)는 필요 없습니다.
 
 `drive`를 그대로 두면 restricted 범위 인증과 **매년 유료 보안 평가(CASA)**가 필요합니다. 학과 내부 서비스에는 비용과 운영 부담이 커서 권하지 않습니다. 인증 없이 "In production"으로만 바꾸면 "확인되지 않은 앱" 경고가 뜨고 신규 사용자 수가 프로젝트 평생 100명으로 묶이므로 Testing보다 나을 것이 거의 없습니다.
 
@@ -29,6 +30,7 @@ HP ERP 웹 OAuth 클라이언트를 Google Auth Platform에서 "Testing"에서 "
 | `drive.file` | 비민감 | 이 앱이 만든 파일만: 개인 폴더 `hot_potato_personal/`과 `user_setting`, 나만 보기 문서, 업로드한 문서 | 채택(운영 반영) |
 | `calendar.events` | 민감 | 일정 조회, 추가, 수정, 삭제 | 유지 |
 | `calendar.readonly` | 민감 | 기본 캘린더 색상 조회(`calendars.get`) | 유지 또는 `calendar.calendars.readonly`로 교체 |
+| `script.projects`, `script.deployments` | 민감 | 설치 마법사(`/install/`)의 설치용 클라이언트만: 기관 Apps Script 프로젝트 생성·코드 업로드·웹앱 배포 | 유지(본 앱은 요청하지 않음) |
 | `documents` | 민감 | **사용처 없음** | 제거(운영 반영) |
 | `gmail.compose` | **제한(restricted)** | **사용처 없음**(`src/utils/api/gmailApi.ts`는 import되지 않는 죽은 코드) | 제거(파일도 삭제, 운영 반영) |
 
@@ -75,7 +77,7 @@ restricted 범위를 남길 때 생기는 일:
 | 17 | 개발자 연락처: Google 알림 수신, 최신 유지 | 미확인 | 실제로 메일을 읽는 운영자 주소 2개 이상 등록 | 사용자 |
 | 18 | Google 로그인 버튼 브랜딩 가이드 준수 | 자체 버튼(G 로고, "Google로 로그인") | 가이드 문구("Google 계정으로 로그인")와 스타일 맞춤 확인 | 완료(브랜치 `chore/oauth-verification`): 문구를 "Google 계정으로 로그인"으로 통일, 검은 배경은 가이드의 dark 테마 |
 | 19 | 최소 범위 요청 | `gmail.compose`, `documents` 미사용, `drive` 과다 | 2절 권장안 적용 | 완료(2026-10-30 운영 반영) |
-| 20 | 민감 범위 인증 자료: 범위별 사용 이유, 영어 동의 화면이 보이는 시연 영상 | 없음 | 범위 축소 배포 후 시연 영상 촬영(로그인부터 각 기능까지, 동의 화면 언어 English), 범위별 설명 작성 | 자료 준비 완료([oauth/VERIFICATION_PACKAGE.md](./oauth/VERIFICATION_PACKAGE.md)). 영상 촬영과 제출은 사용자 |
+| 20 | 민감 범위 인증 자료: 범위별 사용 이유, 영어 동의 화면이 보이는 시연 영상 | 없음 | 범위 축소 배포 후 시연 영상 촬영(로그인부터 각 기능까지, `/install/` 2단계 백엔드 만들기 포함, 동의 화면 언어 English), 범위별 설명 작성 | 자료 준비 완료([oauth/VERIFICATION_PACKAGE.md](./oauth/VERIFICATION_PACKAGE.md)). 영상 촬영과 제출은 사용자 |
 | 21 | 파비콘 경로 | `index.html`이 `public/logo.svg`를 가리켜 배포 사이트에서 깨짐 | `/logo.svg`로 수정 | 완료 |
 
 근거 문서:
@@ -107,7 +109,7 @@ restricted 범위를 남길 때 생기는 일:
    7. Authorized domains: `yuhancse.netlify.app`
    8. Developer contact: 운영자 이메일
    9. 저장 후 "Verify branding"을 누릅니다. 결과는 7일간 유효하므로 그 안에 게시합니다.
-3. **Data Access**: 범위를 코드와 똑같이 맞춥니다. `email`, `profile`, `spreadsheets`, `calendar.events`, `calendar.readonly`(또는 `calendar.calendars.readonly`), `drive.file`. `drive`, `documents`, `gmail.compose`는 목록에서 지웁니다.
+3. **Data Access**: 범위를 코드와 똑같이 맞춥니다. `email`, `profile`, `spreadsheets`, `calendar.events`, `calendar.readonly`(또는 `calendar.calendars.readonly`), `drive.file`, 설치 마법사의 `script.projects`, `script.deployments`(2026-10-31 추가). `drive`, `documents`, `gmail.compose`는 목록에서 지웁니다.
 4. **Audience**: "Publish app"으로 In production으로 바꿉니다.
 5. **Verification Center**: 민감 범위 인증을 제출합니다. 범위별 사용 이유(이 문서 2절 참고), 시연 영상 YouTube 링크(비공개 목록), 동의 화면 언어 English를 준비합니다. 심사 중 Google이 개발자 연락처로 메일을 보내므로 확인합니다.
 6. In production으로 바꾼 뒤 인증이 끝날 때까지는 경고 화면이 뜨고 신규 사용자 100명 제한이 적용됩니다. 사용자가 많다면 인증 승인 직전까지 Testing을 유지하고, 승인 메일을 받은 뒤 게시하는 순서도 가능합니다.

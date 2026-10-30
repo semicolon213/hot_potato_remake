@@ -46,7 +46,16 @@
 2. Google Auth Platform의 **Audience**가 Testing이면 요청문의 이메일을 테스트 사용자에 추가합니다. Testing 전체 한도는 클라이언트 전체 100명이며 동의는 7일마다 만료될 수 있습니다.
 3. 기관 담당자에게 등록 완료를 회신하고 `/setup`의 Google 로그인 테스트를 다시 누르게 합니다. Netlify 실제 주소가 요청 주소와 달라졌다면 실제 주소로 1번을 다시 처리합니다.
 
-공유 기관의 Netlify `VITE_GOOGLE_CLIENT_ID`와 Apps Script `GOOGLE_CLIENT_ID`에는 운영자 클라이언트 ID가 들어갑니다. 동의 화면에는 운영자 앱 이름과 운영자 개인정보처리방침이 표시되므로 요청 기관에 미리 알립니다. 설치 안내 사이트가 요청문과 ID를 자동 채우려면 빌드 환경변수 `VITE_GOOGLE_CLIENT_ID`, `VITE_OPERATOR_CONTACT_EMAIL`을 설정합니다.
+회신할 때는 다음을 함께 적습니다.
+
+| 항목 | 내용 |
+|---|---|
+| 등록한 주소 | 원본·리디렉션 URI에 넣은 주소 그대로 |
+| 등록한 테스트 사용자 | 이메일 목록. 더 필요하면 다시 요청하도록 안내 |
+| 다음 할 일 | `/setup`에서 Google 로그인 테스트, 첫 관리자 로그인 |
+| 알릴 점 | 앱 인증 전이라 "확인되지 않은 앱" 경고가 뜨면 **고급 → 이동**으로 넘김. Testing 동의는 7일마다 다시 받을 수 있음 |
+
+공유 기관의 Netlify `VITE_GOOGLE_CLIENT_ID`와 Apps Script `GOOGLE_CLIENT_ID`에는 운영자 클라이언트 ID가 들어갑니다. 동의 화면에는 운영자 앱 이름과 운영자 개인정보처리방침이 표시되므로 요청 기관에 미리 알립니다. 설치 안내 사이트가 요청문과 ID를 자동 채우려면 빌드 환경변수 `VITE_GOOGLE_CLIENT_ID`, `VITE_OPERATOR_CONTACT_EMAIL`을 설정합니다. 운영 사이트는 요청을 `khk213624@gmail.com`으로 받습니다. 이 방식을 고른 이유와 대가는 [ADR-016](./ADR.md#adr-016-새-기관은-운영자-oauth-클라이언트를-공유하거나-직접-만든다)에 있습니다.
 
 ## 3. 회원 관리
 

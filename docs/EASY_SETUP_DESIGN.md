@@ -1,7 +1,7 @@
 # 쉬운 설치 도구 설계 (브라우저 설치 마법사)
 
 > 개발 단계: **③ 설계** · 산출물: 설치 흐름, 화면, 필요한 코드 변경, 남는 수동 단계
-> 상태: 구현 완료, 2026-10-30 운영 반영(브랜치 `feature/easy-setup`). 설계와 달라진 점은 [§0](#0-구현-결과)에 있습니다. 구현 상태는 [STATUS.md](./STATUS.md)에서 관리합니다.
+> 상태: 구현 완료, 2026-10-30 운영 반영(브랜치 `feature/easy-setup`). 설치 마법사와 운영자 클라이언트 공유는 2026-10-31 운영 반영(main `05448e1`). 설계와 달라진 점은 [§0](#0-구현-결과)에 있습니다. 구현 상태는 [STATUS.md](./STATUS.md)에서 관리합니다.
 
 ## 0. 구현 결과
 
@@ -17,11 +17,15 @@
 | 공유 방식 설정 | 설치 안내 사이트 빌드의 `VITE_GOOGLE_CLIENT_ID`가 공유할 운영자 클라이언트이며 `VITE_OPERATOR_CONTACT_EMAIL`이 요청 수신 주소입니다. 연락처나 클라이언트가 없으면 공유 선택지를 비활성화합니다. 운영자 Testing 사용자 100명 한도와 동의 화면의 운영자 앱·개인정보처리방침 공유를 안내합니다 |
 | 한 번 배포 | 사이트 이름을 먼저 정해 Google OAuth 원본을 만들고, 백엔드 주소·운영 클라이언트 ID·그룹 JSON을 Netlify에 한 번에 넣습니다. 실제 Netlify 주소가 예정 주소와 다르면 OAuth 원본을 실제 주소로 고치도록 안내합니다 |
 | 운영 시작 | 자동 점검 뒤 첫 관리자 로그인, 그룹 구성원 초대, 사용자 일괄 등록·승인, Testing 제한 안내문, 최종 체크리스트를 이어서 제공합니다 |
+| 계정 유형 | 설치용 로그인 뒤 userinfo의 `hd`로 계정 유형을 봅니다. 개인 Gmail이면 매니페스트 고급 서비스를 Drive만 남기고 뺍니다. Workspace 전용 서비스(`admin`, `groupssettings`)를 개인 계정에 올리면 `Service not found: admin v1`로 실패하기 때문입니다. Workspace 계정은 Drive와 `admin`을 남깁니다(`public/install/bundle-config.js`) |
+| 설치용 매니페스트 범위 | 설치 마법사가 올리는 매니페스트의 `oauthScopes`를 `drive`, `spreadsheets`, `documents`, `script.send_mail`, `script.external_request`, `userinfo.email`로 줄입니다. Workspace는 `admin.directory.group.member`를 더합니다. Gmail 전체 접근은 요청하지 않습니다. 저장소의 운영 매니페스트 `appScript/appsscript.json`은 그대로이며, 줄이려면 운영 배포 계정 재승인이 필요합니다([STATUS.md](./STATUS.md) 백로그) |
+| 다시 실행 | "로그인하고 백엔드 만들기"를 다시 누르면 계정별로 저장한 프로젝트·배포 ID로 **같은 배포**를 새 버전으로 갱신합니다. 백엔드 URL은 바뀌지 않습니다(`public/install/deployment.js`). 예전 탭은 옛 `app.js`를 쓸 수 있으므로 강력 새로고침합니다 |
+| 그룹 주소 보호 | 백엔드 설치 화면은 그룹 주소를 미리 채우지 않습니다. `installSystem`은 우리 학과 그룹 주소(`student_hp@googlegroups.com` 등)를 "다른 기관의 그룹 이메일입니다"로 거부합니다. 그대로 설치하면 새 기관 폴더가 우리 구성원에게 공유되기 때문입니다. 마법사는 그룹 JSON과 클라이언트 ID를 `?page=setup&clientId=…&groups=…`로 넘겨 채우고, 설치 토큰은 주소에 넣지 않습니다 |
 | 설치 화면 파일 | `appScript/SetupPage.html`. `Setup.gs`와 이름이 겹쳐 `Setup.html`에서 바꿨습니다 |
 | 입력 항목 | Google OAuth 클라이언트 ID, 루트 폴더 이름, 그룹 이메일 5개, 첫 관리자 이메일, 설치 토큰. 클라이언트 ID는 스크립트 속성 `GOOGLE_CLIENT_ID`에 저장되고 서버 측 인가에 쓰입니다([ADR-015](./ADR.md#adr-015-apps-script가-액세스-토큰으로-요청자를-확인한다)). 운영 주체 명칭·문의 이메일 입력은 구현하지 않았습니다 |
 | 설치 내용 | `installSystem`이 속성 저장 → `initializeSystem` → 첫 관리자 등록(승인·관리자 `O`)을 실행합니다. 관리자 키 트리거는 자동으로 만들지 않으므로 직접 등록합니다([DEPLOYMENT.md §3](./DEPLOYMENT.md#3-초기-세팅-drive-폴더시트-생성)) |
 | 기존 설치 | `SPREADSHEET_ID`가 있고 `SETUP_TOKEN`이 없으면 설치된 것으로 봅니다. 설치 화면과 `createSetupToken`이 거부합니다 |
-| `/setup` 점검 | OAuth 클라이언트 ID, 백엔드 연결(버전), 백엔드 설치, 회원 시트, **서버·사이트 클라이언트 ID 일치**, OAuth 자바스크립트 원본. 실패 항목의 ‘설치 안내 열기’가 `/install/#step-N`의 고칠 단계로 이동합니다 |
+| `/setup` 점검 | 로그인 카드와 같은 디자인이며 항목마다 확인 중 / 정상 / 조치 필요로 표시합니다. 항목은 OAuth 클라이언트 ID, 백엔드 연결(버전), 백엔드 설치, 회원 시트, **서버·사이트 클라이언트 ID 일치**, OAuth 자바스크립트 원본. 실패 항목의 ‘설치 안내 열기’가 `/install/#step-N`의 고칠 단계로 이동합니다 |
 
 ## 1. 목표
 
@@ -126,7 +130,7 @@ flowchart TD
 
 ## 5. 설치 페이지 자체의 OAuth
 
-- `script.projects`, `script.deployments`는 Google이 민감한 범위로 분류할 가능성이 큽니다(구현 전 확인).
+- `script.projects`, `script.deployments`는 민감한 범위입니다. 운영 계정 소유 프로젝트의 설치용 클라이언트(`651515712118-h5n9…`)가 요청하며, 운영 앱과 같은 프로젝트의 Data Access에 올려 함께 인증을 신청합니다([oauth/VERIFICATION_PACKAGE.md](./oauth/VERIFICATION_PACKAGE.md)).
 - 설치 페이지는 기관당 한 번만 쓰입니다. 인증을 받지 않으면 미인증 경고가 뜨고, 신규 사용자 수에 평생 상한(100명)이 걸립니다.
 - 설치할 기관이 많아지면 설치 페이지도 인증을 받아야 합니다. 그 전에는 경고 화면 넘기는 방법을 안내합니다.
 
