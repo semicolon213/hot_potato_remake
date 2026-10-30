@@ -231,22 +231,31 @@ export function useTemplateUI(
 
     // 공유 템플릿 업로드 (관리자 전용 사용 예정)
     const uploadSharedTemplate = useCallback(async (file: File, meta: { title: string; description: string; tag: string; creatorEmail?: string; }) => {
-      const toBase64 = (f: File) => new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
-        reader.onerror = reject;
-        reader.readAsDataURL(f);
-      });
-      const base64 = await toBase64(file);
-      const res = await apiClient.uploadSharedTemplate({
-        fileName: file.name,
-        fileMimeType: file.type || 'application/vnd.google-apps.document',
-        fileContentBase64: base64,
-        meta
-      });
-      if (res.success) await loadDynamicTemplates();
-      return res;
-    }, [loadDynamicTemplates]);
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
+          reader.onerror = () => reject(reader.error || new Error('파일을 읽지 못했습니다.'));
+          reader.readAsDataURL(file);
+        });
+        const res = await apiClient.uploadSharedTemplate({
+          fileName: file.name,
+          fileMimeType: file.type || 'application/vnd.google-apps.document',
+          fileContentBase64: base64,
+          meta
+        });
+        if (res.success) {
+          const { getCacheManager } = await import('../../../utils/cache/cacheManager');
+          await getCacheManager().invalidate('templates:getSharedTemplates:*');
+          await loadDynamicTemplates();
+        }
+        return res;
+      } catch (error) {
+        log.error('공유 양식 업로드 실패:', error);
+        showNotification(error instanceof Error ? error.message : '공유 양식을 업로드하지 못했습니다.', 'error');
+        return { success: false, message: error instanceof Error ? error.message : '공유 양식을 업로드하지 못했습니다.' };
+      }
+    }, [loadDynamicTemplates, showNotification]);
 
     // 컴포넌트 마운트 시 동적 템플릿 로드
     useEffect(() => {

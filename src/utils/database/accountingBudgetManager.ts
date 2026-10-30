@@ -28,6 +28,10 @@ const ACCOUNTING_SHEETS = {
  * @param {string} sheetName - 시트 이름
  * @returns {Promise<number | null>} 시트 ID 또는 null
  */
+const invalidateBudgetPlanCache = async (): Promise<void> => {
+  await getCacheManager().invalidate('accounting:getPendingBudgetPlans:*');
+};
+
 const getSheetId = async (spreadsheetId: string, sheetName: string): Promise<number | null> => {
   try {
     if (!window.gapi || !window.gapi.client) {
@@ -280,6 +284,7 @@ export const createBudgetPlan = async (
     
     // 배열 형식으로 append (papyrus-db는 2차원 배열을 기대함)
     await append(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, [budgetPlanRow]);
+    await invalidateBudgetPlanCache();
     return newBudgetPlan;
 
   } catch (error) {
@@ -369,6 +374,7 @@ export const reviewBudgetPlan = async (
       await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `I${actualRowNumber}`, [[subManagerReviews[subManagerReviews.length - 1].date]]);
     }
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `P${actualRowNumber}`, [[JSON.stringify(subManagerReviews)]]);
+    await invalidateBudgetPlanCache();
   } catch (error) {
     log.error('예산 계획 검토 오류:', error);
     throw error;
@@ -434,6 +440,7 @@ export const approveBudgetPlan = async (
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `G${actualRowNumber}`, [['approved']]);
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `J${actualRowNumber}`, [['TRUE']]);
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `K${actualRowNumber}`, [[approvalDate]]);
+    await invalidateBudgetPlanCache();
   } catch (error) {
     log.error('예산 계획 승인 오류:', error);
     throw error;
@@ -495,6 +502,7 @@ export const rejectBudgetPlan = async (
     // papyrus-db update는 두 번째 인자로 시트명을 받으므로, range에는 셀 주소만
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `G${actualRowNumber}`, [['rejected']]);
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `N${actualRowNumber}`, [[rejectionReason]]);
+    await invalidateBudgetPlanCache();
   } catch (error) {
     log.error('예산 계획 반려 오류:', error);
     throw error;
@@ -563,6 +571,7 @@ export const executeBudgetPlan = async (
     // papyrus-db update는 두 번째 인자로 시트명을 받으므로, range에는 셀 주소만
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `G${actualRowNumber}`, [['executed']]);
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `L${actualRowNumber}`, [[executedDate]]);
+    await invalidateBudgetPlanCache();
   } catch (error) {
     log.error('예산 계획 집행 오류:', error);
     throw error;
@@ -873,6 +882,7 @@ export const updateBudgetPlanDetails = async (
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `N${actualRowNumber}`, [['']]);
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `O${actualRowNumber}`, [[JSON.stringify(newDetails)]]);
     await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `P${actualRowNumber}`, [['[]']]);
+    await invalidateBudgetPlanCache();
   } catch (error) {
     log.error('예산 계획 상세 업데이트 오류:', error);
     throw error;

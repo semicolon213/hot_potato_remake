@@ -1008,6 +1008,7 @@ const updateCategoryUsageCount = async (
 
     // 사용 횟수 업데이트 (G열, 7번째 컬럼)
     await update(spreadsheetId, ACCOUNTING_SHEETS.CATEGORY, `G${actualRowNumber}`, [[newUsageCount]]);
+    await getCacheManager().invalidate('accounting:getAccountingCategories:*');
     
     log.debug(`카테고리 사용 횟수 업데이트: ${categoryName} (${currentUsageCount} → ${newUsageCount})`);
   } catch (error) {
