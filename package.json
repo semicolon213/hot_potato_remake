@@ -101,8 +101,7 @@
       "target": "dmg"
     },
     "win": {
-      "target": "nsis",
-      "icon": "public/logo.ico"
+      "target": "nsis"
     },
     "linux": {
       "target": "AppImage"
