@@ -78,6 +78,12 @@ interface ApiRequestOptions {
 }
 
 // API 클라이언트 클래스
+// 장부 목록은 요청자가 접근 대상으로 지정된 장부만 받는다 (캐시도 사용자별로 나뉜다)
+const ledgerListParams = (): { userEmail: string; userType: string } => {
+  const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
+  return { userEmail: user.email || '', userType: user.userType || '' };
+};
+
 export class ApiClient {
   private baseUrl: string;
   private defaultTimeout: number;
@@ -335,10 +341,10 @@ export class ApiClient {
   async getBootstrapData(params: Record<string, unknown>) {
     type BootstrapPayload = Record<string, ApiResponse<unknown>>;
     const actions = ['getStaticTags', 'getWorkflowTemplates', 'getLedgerList', 'getTemplates', 'getAnnouncements'];
-    const bootstrapPromise = this.request<BootstrapPayload>('getBootstrapData', params);
+    const bootstrapPromise = this.request<BootstrapPayload>('getBootstrapData', { ...params, userEmail: ledgerListParams().userEmail });
 
     const cachePromises = actions.map((action) => {
-      const actionParams = action === 'getAnnouncements' ? params : {};
+      const actionParams = action === 'getAnnouncements' ? params : action === 'getLedgerList' ? ledgerListParams() : {};
       const cacheKey = generateCacheKey(getActionCategory(action), action, actionParams);
       const actionPromise = bootstrapPromise.then(async (response) => {
         const actionResponse = response.data?.[action];
@@ -482,7 +488,7 @@ export class ApiClient {
         log.warn('장부 목록 캐시 무효화 실패 (계속 진행):', e);
       }
     }
-    return this.request<{ success: boolean; data: LedgerResponse[] }>('getLedgerList', {});
+    return this.request<{ success: boolean; data: LedgerResponse[] }>('getLedgerList', ledgerListParams());
   }
 
   async updateAccountSubManagers(data: {

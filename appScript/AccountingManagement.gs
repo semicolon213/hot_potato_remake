@@ -592,7 +592,11 @@ function createLedgerStructure(params) {
  * 장부 목록 조회
  * @returns {Array<Object>} 장부 목록
  */
-function getLedgerList() {
+/**
+ * 장부 목록. req.userEmail이 있으면 그 사용자가 접근 대상으로 지정된 장부만 돌려준다.
+ * (요청자 정보가 없으면 전체 — 편집기 실행·관리 함수용)
+ */
+function getLedgerList(req) {
   try {
     const accountingFolderId = initializeAccountingFolder();
     const folderResponse = Drive.Files.list({
@@ -627,7 +631,7 @@ function getLedgerList() {
       });
     }
 
-    return visibleLedgerFolders.map(function(folder) {
+    const ledgers = visibleLedgerFolders.map(function(folder) {
       const folderName = folder.name;
       const children = childrenByParent[folder.id] || [];
       const spreadsheet = children.find(function(file) {
@@ -647,7 +651,14 @@ function getLedgerList() {
         createdDate: folder.createdTime || ''
       };
     });
-    
+
+    const userEmail = req && req.userEmail ? String(req.userEmail).toLowerCase() : '';
+    if (!userEmail) return ledgers;
+    const groupEmail = String(getGroupEmailByRole(req.userType) || '').toLowerCase();
+    return ledgers.filter(function(ledger) {
+      return isLedgerAccessibleBy_(ledger.spreadsheetId, userEmail, groupEmail);
+    });
+
   } catch (error) {
     logError_('AccountingManagement', '장부 목록 조회 오류:', error);
     return [];
@@ -838,6 +849,33 @@ function getAccountingCategories(spreadsheetId) {
   }
 }
 
+
+/**
+ * 통장 시트에 저장된 접근 대상(생성자, 주·별도 관리인, 지정 사용자, 지정 그룹스)에 사용자가 포함되는지
+ */
+function isLedgerAccessibleBy_(spreadsheetId, userEmail, groupEmail) {
+  if (!spreadsheetId) return false;
+  try {
+    const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName('통장');
+    if (!sheet) return false;
+    const values = sheet.getDataRange().getValues();
+    const header = values[0];
+    const col = function(name) { return header.indexOf(name); };
+    const parse = function(row, name) {
+      try { return JSON.parse(row[col(name)] || '[]'); } catch (e) { return []; }
+    };
+    return values.slice(1).some(function(row) {
+      const users = [row[col('main_manager_id')], row[col('created_by')]]
+        .concat(parse(row, 'sub_manager_ids'), parse(row, 'access_user_emails'))
+        .map(function(v) { return String(v || '').toLowerCase(); });
+      const groups = parse(row, 'access_group_emails').map(function(v) { return String(v || '').toLowerCase(); });
+      return users.indexOf(userEmail) !== -1 || (!!groupEmail && groups.indexOf(groupEmail) !== -1);
+    });
+  } catch (error) {
+    logWarn_('AccountingManagement', '장부 접근 대상 확인 실패:', spreadsheetId, error.message);
+    return false;
+  }
+}
 
 // ===== 기존 장부 권한 재적용 (편집기에서 실행) =====
 

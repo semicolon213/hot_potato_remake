@@ -24,7 +24,7 @@ function getBootstrapData(req) {
         return getWorkflowTemplates(req);
       }),
       getLedgerList: run('장부 목록', function() {
-        return { success: true, data: getLedgerList() };
+        return { success: true, data: getLedgerList(req) };
       }),
       getTemplates: run('템플릿 목록', function() { return getTemplatesFromFolder(); }),
       getAnnouncements: run('공지사항', function() { return getAnnouncements(req); })
@@ -532,7 +532,7 @@ function doPost(e) {
     
     if (req.action === 'getLedgerList') {
       try {
-        const result = getLedgerList();
+        const result = getLedgerList(req);
         return ContentService
           .createTextOutput(JSON.stringify({
             success: true,
