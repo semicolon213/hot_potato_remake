@@ -17,7 +17,6 @@
  */
 function addDocumentToSpreadsheet(documentId, title, creatorEmail, documentUrl, role) {
   try {
-    console.log('📄 스프레드시트에 문서 정보 추가 시작:', { documentId, title, creatorEmail, role });
     
     // 역할에 따른 스프레드시트 이름 결정
     const spreadsheetName = getSpreadsheetNameByRole(role);
@@ -51,12 +50,10 @@ function addDocumentToSpreadsheet(documentId, title, creatorEmail, documentUrl, 
       timestamp,
       '생성됨'
     ]);
-    
-    console.log('📄 스프레드시트에 문서 정보 추가 완료');
     return { success: true };
     
   } catch (error) {
-    console.error('📄 스프레드시트 추가 오류:', error);
+    logError_('DocumentSpreadsheet', '스프레드시트 추가 오류:', error);
     return {
       success: false,
       message: '스프레드시트 추가 실패: ' + error.message
@@ -98,7 +95,7 @@ function getSharedDocumentsFromFolder() {
     try {
       folderResult = findOrCreateFolder(folderPath);
     } catch (findErr) {
-      console.error('📁 폴더 탐색 오류:', findErr);
+      logError_('DocumentSpreadsheet', '폴더 탐색 오류:', findErr);
       folderResult = { success: false };
     }
     
@@ -112,26 +109,34 @@ function getSharedDocumentsFromFolder() {
     const targetFolderId = folderResult.data.id;
     
     // 1단계: 파일 목록 먼저 조회 (기본 템플릿처럼)
-    var files;
+    var fileArray = [];
     var maxRetries = 3;
     var retryCount = 0;
     
     while (retryCount < maxRetries) {
       try {
-        files = Drive.Files.list({
-          q: '\'' + targetFolderId + '\' in parents and trashed=false',
-          maxResults: 1000
-        });
+        fileArray = [];
+        var pageToken = null;
+        do {
+          var files = Drive.Files.list({
+            q: '\'' + targetFolderId + '\' in parents and trashed=false',
+            pageSize: 1000,
+            pageToken: pageToken || undefined,
+            fields: 'nextPageToken,files(id,name,mimeType,modifiedTime,createdTime,owners(displayName,emailAddress),webViewLink,description,properties)'
+          });
+          fileArray = fileArray.concat(files.files || []);
+          pageToken = files.nextPageToken;
+        } while (pageToken);
         break; // 성공하면 루프 종료
       } catch (listError) {
         retryCount++;
-        console.warn('📄 공유 문서 목록 조회 재시도 ' + retryCount + '/' + maxRetries + ':', listError.message);
+        logWarn_('DocumentSpreadsheet', '공유 문서 목록 조회 재시도 ' + retryCount + '/' + maxRetries + ':', listError.message);
         
         // 사용량 제한 오류인지 확인
         if (listError.message && (listError.message.indexOf('429') !== -1 || 
             listError.message.indexOf('quota') !== -1 || 
             listError.message.indexOf('rate limit') !== -1)) {
-          console.warn('⚠️ API 사용량 제한 감지. 잠시 대기 후 재시도합니다.');
+          logWarn_('DocumentSpreadsheet', 'API 사용량 제한 감지. 잠시 대기 후 재시도합니다.');
           Utilities.sleep(Math.pow(2, retryCount) * 2000); // 지수적 백오프
           continue;
         }
@@ -144,40 +149,6 @@ function getSharedDocumentsFromFolder() {
       }
     }
     
-    // 2단계: 각 파일의 메타데이터(properties) 따로 조회 (기본 템플릿처럼)
-    var fileArray = files.items || files.files || [];
-    
-    for (var i = 0; i < fileArray.length; i++) {
-      try {
-        // properties만 가져오기 위해 fields 지정
-        var fileDetail = Drive.Files.get(fileArray[i].id, { fields: 'properties' });
-        
-        if (fileDetail && fileDetail.properties) {
-          // properties 객체를 직접 할당
-          fileArray[i].properties = fileDetail.properties;
-        } else {
-          // properties가 없으면 빈 객체로 초기화
-          fileArray[i].properties = {};
-        }
-        
-        // API 제한 방지를 위해 잠시 대기
-        if (i % 10 === 0 && i > 0) {
-          Utilities.sleep(100);
-        }
-      } catch (getError) {
-        // 에러 발생 시에도 빈 객체로 초기화하여 계속 진행
-        fileArray[i].properties = {};
-        console.warn('파일 상세 정보 가져오기 실패:', fileArray[i].id, getError.message);
-      }
-    }
-    
-    // properties를 가져온 후 files 객체에 다시 할당
-    if (files.items) {
-      files.items = fileArray;
-    } else if (files.files) {
-      files.files = fileArray;
-    }
-    
     // 기존 형식 유지하여 반환
     return {
       success: true,
@@ -185,12 +156,29 @@ function getSharedDocumentsFromFolder() {
     };
     
   } catch (error) {
-    console.error('❌ 공유 문서 목록 가져오기 오류:', error);
+    logError_('DocumentSpreadsheet', '공유 문서 목록 가져오기 오류:', error);
     return {
       success: false,
       message: '공유 문서 목록을 가져오는 중 오류가 발생했습니다: ' + error.message
     };
   }
+}
+
+function extractDocumentCreatorEmail_(file) {
+  var properties = file && file.properties || {};
+  var creatorEmail = '';
+  if (Array.isArray(properties)) {
+    for (var i = 0; i < properties.length; i++) {
+      if (properties[i] && properties[i].key === 'creatorEmail') creatorEmail = properties[i].value || '';
+      if (!creatorEmail && properties[i] && properties[i].key === 'creator') creatorEmail = properties[i].value || '';
+    }
+  } else {
+    creatorEmail = properties.creatorEmail || properties.creator || '';
+  }
+  if (creatorEmail && creatorEmail.indexOf('@') !== -1) return String(creatorEmail).trim();
+
+  var match = String(file && file.description || '').match(/생성자:\s*([^\s|]+@[^\s|]+)/);
+  return match ? match[1].trim() : '';
 }
 
 /**
@@ -200,7 +188,6 @@ function getSharedDocumentsFromFolder() {
  */
 function handleGetDocuments(req) {
   try {
-    console.log('📄 문서 목록 조회 시작:', req);
     
     const { role, searchTerm, author, sortBy } = req;
     // 기본 페이지네이션 값 보정
@@ -209,7 +196,7 @@ function handleGetDocuments(req) {
 
     // 1) Drive 폴더 기반 조회 (공유 전용) - 기본 템플릿처럼 폴더에서 가져오기
     if (role === 'shared') {
-      console.log('📁 Drive 폴더 기반 조회 모드:', role);
+      logDebug_('DocumentSpreadsheet', 'Drive 폴더 기반 조회 모드:', role);
       
       // 기본 템플릿처럼 폴더에서 파일 목록 가져오기
       var folderResult = getSharedDocumentsFromFolder();
@@ -228,7 +215,7 @@ function handleGetDocuments(req) {
         // properties에서 메타데이터 추출 (기본 템플릿처럼)
         var p = file.properties || {};
         var creatorRaw = '';
-        var creatorEmail = '';
+        var creatorEmail = extractDocumentCreatorEmail_(file);
         var tag = '공용';
         
         // properties가 배열인 경우 (v2)
@@ -241,7 +228,7 @@ function handleGetDocuments(req) {
                   creatorRaw = prop.value || '';
                   break;
                 case 'creatorEmail':
-                  creatorEmail = prop.value || '';
+                  creatorEmail = creatorEmail || prop.value || '';
                   break;
                 case 'tag':
                   tag = prop.value || '공용';
@@ -252,7 +239,7 @@ function handleGetDocuments(req) {
         } else if (p && typeof p === 'object') {
           // 객체 형태인 경우 (v3)
           creatorRaw = p.creator || p['creator'] || '';
-          creatorEmail = p.creatorEmail || p['creatorEmail'] || '';
+          creatorEmail = creatorEmail || p.creatorEmail || p['creatorEmail'] || '';
           tag = p.tag || p['tag'] || '공용';
         }
         
@@ -380,7 +367,7 @@ function handleGetDocuments(req) {
         }
       } catch (nameErr) {
         // 변환 실패 시 원본 유지
-        console.warn('이메일을 이름으로 변환 실패:', doc.author, nameErr);
+        logWarn_('DocumentSpreadsheet', '이메일을 이름으로 변환 실패');
       }
       
       return {
@@ -445,7 +432,7 @@ function handleGetDocuments(req) {
     };
     
   } catch (error) {
-    console.error('📄 문서 목록 조회 오류:', error);
+    logError_('DocumentSpreadsheet', '문서 목록 조회 오류:', error);
     return {
       success: false,
       message: '문서 목록 조회 실패: ' + error.message
@@ -460,53 +447,87 @@ function handleGetDocuments(req) {
  */
 function handleDeleteDocuments(req) {
   try {
-    console.log('🗑️ 문서 삭제 시작:', req);
-    
-    const { documentIds, role } = req;
-    
-    if (!documentIds || documentIds.length === 0) {
+    const { documentIds, role, verifiedEmail } = req;
+    if (!Array.isArray(documentIds) || documentIds.length === 0) {
       return {
         success: false,
         message: '삭제할 문서 ID가 필요합니다.'
       };
     }
+    const normalizedUserEmail = String(verifiedEmail || '').trim().toLowerCase();
+    if (!normalizedUserEmail) {
+      return { success: false, message: '문서를 삭제하려면 사용자 이메일이 필요합니다.', failures: documentIds };
+    }
+
+    const folderResult = findOrCreateFolder(getSharedDocumentFolderPath());
+    const sharedFolderId = folderResult && folderResult.success && folderResult.data && folderResult.data.id;
+    if (!sharedFolderId) {
+      return { success: false, message: '공유 문서 폴더를 찾을 수 없습니다.', failures: documentIds };
+    }
+
+    const eligibleIds = [];
+    const failures = [];
+    Array.from(new Set(documentIds.map(String))).forEach(function(docId) {
+      try {
+        const file = DriveApp.getFileById(docId);
+        const parents = file.getParents();
+        let isDirectChild = false;
+        while (parents.hasNext()) {
+          if (parents.next().getId() === sharedFolderId) isDirectChild = true;
+        }
+        if (!isDirectChild) {
+          failures.push({ id: docId, message: '공유 문서 폴더 바로 아래 파일만 삭제할 수 있습니다.' });
+          return;
+        }
+        const fileMetadata = Drive.Files.get(docId, { fields: 'properties,description' });
+        const creatorEmail = extractDocumentCreatorEmail_(fileMetadata).toLowerCase();
+        if (!creatorEmail || creatorEmail !== normalizedUserEmail) {
+          failures.push({ id: docId, message: '본인이 생성한 문서만 삭제할 수 있습니다.' });
+          return;
+        }
+        eligibleIds.push(docId);
+      } catch (error) {
+        failures.push({ id: docId, message: error.message || '파일을 확인할 수 없습니다.' });
+      }
+    });
+
+    const trashedIds = [];
+    eligibleIds.forEach(function(docId) {
+      try {
+        Drive.Files.update({ trashed: true }, docId);
+        trashedIds.push(docId);
+      } catch (error) {
+        failures.push({ id: docId, message: error.message || '파일을 휴지통으로 이동하지 못했습니다.' });
+      }
+    });
     
     // 역할에 따른 스프레드시트 선택
     const spreadsheetName = getSpreadsheetNameByRole(role);
     const spreadsheetId = getSheetIdByName(spreadsheetName);
-    
-    if (!spreadsheetId) {
-      return {
-        success: false,
-        message: '스프레드시트를 찾을 수 없습니다.'
-      };
-    }
-    
-    // 스프레드시트에서 문서 정보 삭제
-    const deleteResult = deleteRowsByDocIds(spreadsheetId, 'documents', documentIds);
-    
-    if (!deleteResult.success) {
-      return deleteResult;
-    }
-    
-    // Google Drive에서 문서 삭제 (선택사항)
-    for (const docId of documentIds) {
+
+    // 공유 문서 목록은 이제 폴더에서 읽으므로 문서 목록 스프레드시트가 없으면 행 정리만 건너뛴다.
+    if (spreadsheetId && trashedIds.length > 0) {
       try {
-        Drive.Files.remove(docId);
-        console.log('🗑️ Google Drive에서 문서 삭제 완료:', docId);
-      } catch (driveError) {
-        console.warn('🗑️ Google Drive 삭제 실패:', docId, driveError.message);
-        // Drive 삭제 실패해도 스프레드시트 삭제는 성공으로 처리
+        deleteRowsByDocIds(spreadsheetId, 'documents', trashedIds);
+      } catch (error) {
+        return {
+          success: false,
+          message: '파일은 휴지통으로 이동했지만 문서 목록을 정리하지 못했습니다.',
+          deletedDocumentIds: trashedIds,
+          failures: failures.concat([{ id: 'documents-sheet', message: error.message || '문서 목록 정리에 실패했습니다.' }])
+        };
       }
     }
-    
+
     return {
-      success: true,
-      message: `${documentIds.length}개의 문서가 삭제되었습니다.`
+      success: failures.length === 0,
+      message: `${trashedIds.length}개의 문서를 휴지통으로 이동했습니다.` + (failures.length ? ` ${failures.length}개 항목을 처리하지 못했습니다.` : ''),
+      deletedDocumentIds: trashedIds,
+      failures: failures
     };
     
   } catch (error) {
-    console.error('🗑️ 문서 삭제 오류:', error);
+    logError_('DocumentSpreadsheet', '문서 삭제 오류:', error);
     return {
       success: false,
       message: '문서 삭제 실패: ' + error.message

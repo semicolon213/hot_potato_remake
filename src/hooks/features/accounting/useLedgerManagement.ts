@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file useLedgerManagement.ts
  * @brief 장부 관리 훅
@@ -13,8 +14,14 @@ import { ENV_CONFIG } from '../../../config/environment';
 import { getCacheManager } from '../../../utils/cache/cacheManager';
 import { generateCacheKey } from '../../../utils/cache/cacheUtils';
 import type { LedgerInfo, CreateLedgerRequest, LedgerResponse } from '../../../types/features/accounting';
+const log = logger.scope('hooks/features/accounting/useLedgerManagement');
 
-const LEDGER_LIST_CACHE_KEY = generateCacheKey('accounting', 'getLedgerList', {});
+
+// apiClient.getLedgerList와 같은 사용자별 캐시 키
+const ledgerListCacheKey = (): string => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  return generateCacheKey('accounting', 'getLedgerList', { userEmail: user.email || '', userType: user.userType || '' });
+};
 
 function toLedgerInfoList(data: LedgerResponse[] | undefined): LedgerInfo[] {
   if (!data || !Array.isArray(data)) return [];
@@ -96,7 +103,7 @@ export const useLedgerManagement = () => {
       return response.data;
       
     } catch (err: unknown) {
-      console.error('❌ 장부 생성 오류:', err);
+      log.error('장부 생성 오류:', err);
       const error = err as { message?: string };
       setError(error.message || '장부 생성에 실패했습니다.');
       throw err;
@@ -112,7 +119,7 @@ export const useLedgerManagement = () => {
     try {
       return await getLedgerInfo(folderId);
     } catch (err) {
-      console.error('❌ 장부 정보 조회 오류:', err);
+      log.error('장부 정보 조회 오류:', err);
       return null;
     }
   }, []);
@@ -122,7 +129,7 @@ export const useLedgerManagement = () => {
     let cancelled = false;
     const cacheManager = getCacheManager();
     (async () => {
-      const cached = await cacheManager.get<{ success: boolean; data?: LedgerResponse[] }>(LEDGER_LIST_CACHE_KEY);
+      const cached = await cacheManager.get<{ success: boolean; data?: LedgerResponse[] }>(ledgerListCacheKey());
       if (cancelled) return;
       if (cached?.success && cached.data) {
         setLedgers(toLedgerInfoList(cached.data));

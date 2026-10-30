@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * WorkflowRequestModal.tsx
  * 결재 요청 모달
@@ -15,6 +16,8 @@ import WorkflowTemplateModal from './WorkflowTemplateModal';
 import type { WorkflowRequestData, ReviewLine, PaymentLine, WorkflowLineStep } from '../../../types/documents';
 import type { WorkflowRequestResponse, UsersListResponse } from '../../../types/api/apiResponses';
 import './WorkflowRequestModal.css';
+const log = logger.scope('components/features/workflow/WorkflowRequestModal');
+
 
 interface WorkflowRequestModalProps {
   isOpen: boolean;
@@ -61,7 +64,6 @@ const WorkflowRequestModal: React.FC<WorkflowRequestModalProps> = ({
     const loadUsers = async () => {
       try {
         const response = await apiClient.getAllUsers();
-        console.log('📋 사용자 목록 응답:', response);
         
         // Apps Script는 response.users에 직접 배열을 반환함
         if (response.success && response.users && Array.isArray(response.users)) {
@@ -77,18 +79,17 @@ const WorkflowRequestModal: React.FC<WorkflowRequestModalProps> = ({
             userType: user.userType || user.user_type || 'student',
             isApproved: user.isApproved || user.Approval === 'O'
           }));
-          
-          console.log('📋 필터링된 사용자 목록:', userList);
           setUsers(userList);
         } else {
-          console.warn('⚠️ 사용자 목록을 가져올 수 없습니다:', response);
+          log.warn('사용자 목록을 가져올 수 없습니다');
           // 디버깅을 위해 응답 전체를 로그
           if (response.data) {
-            console.log('📋 response.data:', response.data);
+      // Intentionally ignored.
+
           }
         }
       } catch (error) {
-        console.error('❌ 사용자 목록 로드 오류:', error);
+        log.error('사용자 목록 로드 오류:', error);
       }
     };
     
@@ -105,7 +106,7 @@ const WorkflowRequestModal: React.FC<WorkflowRequestModalProps> = ({
         const docs = await loadAllDocuments();
         setAvailableDocuments(docs);
       } catch (error) {
-        console.error('❌ 문서 목록 로드 오류:', error);
+        log.error('문서 목록 로드 오류:', error);
       } finally {
         setIsLoadingDocuments(false);
       }
@@ -326,21 +327,19 @@ const WorkflowRequestModal: React.FC<WorkflowRequestModalProps> = ({
       
       // 디버그 정보 확인
       if (response.debug) {
-        console.log('📋 워크플로우 응답 디버그:', response.debug);
+      // Intentionally ignored.
+
       }
       
       if (response.success && response.data) {
         // 개인 문서인 경우 프론트엔드에서 권한 부여
         if (response.data.requiresFrontendPermissionGrant && response.data.personalDocuments) {
           try {
-            console.log('🔐 개인 문서 권한 부여 시작:', response.data.personalDocuments);
             
             const permissionResults = await grantPermissionsToMultiplePersonalDocuments(
               response.data.personalDocuments,
               'reader'
             );
-            
-            console.log('✅ 개인 문서 권한 부여 완료:', permissionResults);
             
             if (permissionResults.successCount > 0) {
               setNotification({ 
@@ -356,7 +355,7 @@ const WorkflowRequestModal: React.FC<WorkflowRequestModalProps> = ({
               setNotification({ message: '결재 요청이 성공적으로 등록되었습니다.', type: 'success' });
             }
           } catch (permError) {
-            console.error('❌ 개인 문서 권한 부여 오류:', permError);
+            log.error('개인 문서 권한 부여 오류:', permError);
             setNotification({ 
               message: '결재 요청은 등록되었지만 권한 부여 중 오류가 발생했습니다.', 
               type: 'error' 
@@ -376,7 +375,7 @@ const WorkflowRequestModal: React.FC<WorkflowRequestModalProps> = ({
         // 디버그 정보가 있으면 함께 표시
         let errorMessage = response.message || '결재 요청에 실패했습니다.';
         if (response.debug) {
-          console.error('❌ 결재 요청 실패 디버그:', response.debug);
+          log.error('결재 요청 실패 디버그');
           if (response.debug.actionReceived !== 'requestWorkflow') {
             errorMessage += ` (받은 액션: ${response.debug.actionReceived || '없음'})`;
           }
@@ -384,7 +383,7 @@ const WorkflowRequestModal: React.FC<WorkflowRequestModalProps> = ({
         setNotification({ message: errorMessage, type: 'error' });
       }
     } catch (error) {
-      console.error('❌ 결재 요청 오류:', error);
+      log.error('결재 요청 오류:', error);
       setNotification({ message: '결재 요청 중 오류가 발생했습니다.', type: 'error' });
     } finally {
       setIsLoading(false);

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HP ERP (뜨거운 감자) 서비스 소개</title>
+    <meta name="description" content="HP ERP(뜨거운 감자)는 학과 공지, 일정, 문서, 회계, 구성원 관리를 한곳에서 처리하는 학과 행정 웹 서비스입니다." />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <style>
+      :root {
+        --text: #334155;
+        --heading: #0f172a;
+        --link: #1e3a5f;
+        --line: #e2e8f0;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-size: 15px;
+        line-height: 1.65;
+        color: var(--text);
+        background: linear-gradient(160deg, #f0f4f8 0%, #e8eef5 100%);
+        min-height: 100vh;
+      }
+      .wrap {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+      .panel {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(15, 23, 42, 0.12);
+        padding: 28px 24px 32px;
+      }
+      a {
+        color: var(--link);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .brand img {
+        width: 48px;
+        height: 48px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.45rem;
+        color: var(--heading);
+      }
+      h2 {
+        margin: 1.5em 0 0.5em;
+        font-size: 1.05rem;
+        color: var(--heading);
+      }
+      ul {
+        margin: 0.5em 0 0;
+        padding-left: 1.25em;
+      }
+      li {
+        margin-bottom: 0.35em;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 10px 18px;
+        border-radius: 8px;
+        background: var(--link);
+        color: #fff;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .footer-links {
+        margin-top: 28px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <main class="panel">
+        <div class="brand">
+          <img src="/logo.svg" alt="HP ERP 로고" width="48" height="48" />
+          <h1>HP ERP (뜨거운 감자)</h1>
+        </div>
+        <p>
+          HP ERP(뜨거운 감자)는 학과 구성원(학생, 교수, 조교, 학생회)이 학과 행정 업무를 한곳에서 처리하도록 만든 웹
+          서비스입니다. Google 계정으로 로그인하고, 학과 관리자의 승인을 받은 구성원만 사용할 수 있습니다.
+        </p>
+
+        <h2>주요 기능</h2>
+        <ul>
+          <li>공지사항: 학과 공지를 작성하고 사용자 유형별로 열람합니다.</li>
+          <li>캘린더: 학과 일정과 본인의 Google 캘린더 일정을 함께 보고, 일정을 추가하거나 고칩니다.</li>
+          <li>문서 관리: 학과 서식으로 Google 문서와 스프레드시트를 만들고, 결재 요청과 공유를 처리합니다.</li>
+          <li>회계: 학과·학생회 장부를 기록하고 예산 계획과 증빙을 관리하며, 장부를 Excel 파일로 내보냅니다.</li>
+          <li>구성원 관리: 학생·교직원 명단, 취업 현황, 회원가입 승인을 관리합니다.</li>
+        </ul>
+
+        <h2>Google 데이터 사용</h2>
+        <p>
+          서비스는 위 기능을 제공하려고 Google 드라이브, 스프레드시트, 캘린더에 접근합니다. 어떤 데이터에 왜 접근하는지,
+          어떻게 저장하고 공유하는지는 <a href="/privacy.html">개인정보처리방침</a>에 자세히 적었습니다. 서비스는 Google 사용자
+          데이터를 광고나 판매에 사용하지 않으며, Google API 서비스 사용자 데이터 정책의 제한적 사용(Limited Use) 요구사항을
+          따릅니다.
+        </p>
+
+        <a class="cta" href="/">로그인하러 가기</a>
+
+        <nav class="footer-links" aria-label="관련 링크">
+          <a href="/">홈</a> · <a href="/privacy.html">개인정보처리방침</a> · <a href="/terms.html">이용약관</a>
+        </nav>
+      </main>
+    </div>
+  </body>
+</html>

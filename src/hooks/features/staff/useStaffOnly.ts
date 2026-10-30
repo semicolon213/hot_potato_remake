@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file useStaffOnly.ts
  * @brief 교직원 전용 관리 훅
@@ -16,6 +17,8 @@ import {
 import { apiClient } from '../../../utils/api/apiClient';
 import type { StaffMember } from '../../../types/features/staff';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+const log = logger.scope('hooks/features/staff/useStaffOnly');
+
 
 interface StaffFilters {
   grade: string; // 교직원의 'pos'에 해당
@@ -48,8 +51,8 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
         try {
           const result = await apiClient.request<string>('encryptEmail', { data: dataItem.tel });
           if (result.success && result.data) encryptedStaff.tel = result.data;
-        } catch (error) {
-          console.warn('전화번호 암호화 실패:', error);
+        } catch {
+          log.warn('전화번호 암호화 실패');
         }
       }
       
@@ -58,8 +61,8 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
         try {
           const result = await apiClient.request<string>('encryptEmail', { data: dataItem.phone });
           if (result.success && result.data) encryptedStaff.phone = result.data;
-        } catch (error) {
-          console.warn('연락처 암호화 실패:', error);
+        } catch {
+          log.warn('연락처 암호화 실패');
         }
       }
 
@@ -68,14 +71,14 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
         try {
           const result = await apiClient.request<string>('encryptEmail', { data: dataItem.email });
           if (result.success && result.data) encryptedStaff.email = result.data;
-        } catch (error) {
-          console.warn('이메일 암호화 실패:', error);
+        } catch {
+          log.warn('이메일 암호화 실패');
         }
       }
       
       return encryptedStaff;
-    } catch (error) {
-      console.warn('데이터 암호화 실패, 원본 데이터를 사용합니다:', error);
+    } catch {
+      log.warn('데이터 암호화 실패, 원본 데이터를 사용합니다');
       return dataItem;
     }
   }, []);
@@ -87,10 +90,6 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
     setError(null);
     try {
       const staffData = await fetchStaffFromPapyrus(staffSpreadsheetId!);
-      console.log('Papyrus DB에서 받은 교직원 데이터:', staffData);
-      
-      // fetchStaffFromPapyrus에서 이미 복호화된 데이터를 반환하므로 복호화 불필요
-      console.log('교직원 데이터 (이미 복호화됨):', staffData);
       setStaff(staffData);
     } catch (err) {
       setError(err instanceof Error ? err.message : '교직원 목록 조회 실패');
@@ -201,7 +200,7 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
       XLSX.utils.book_append_sheet(wb, ws, '교직원 목록');
       XLSX.writeFile(wb, `교직원일괄입력_양식_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (error) {
-      console.error('양식 다운로드 실패:', error);
+      log.error('양식 다운로드 실패:', error);
       notifyGlobal('양식 다운로드에 실패했습니다.', 'error');
     }
   };
@@ -312,7 +311,7 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
               await fetchStaff();
               notifyGlobal(`${newStaffList.length}명의 교직원이 추가되었습니다.`, 'success');
             } catch (err) {
-              console.error('교직원 추가 실패:', err);
+              log.error('교직원 추가 실패:', err);
               reject(err);
               return;
             } finally {
@@ -324,7 +323,7 @@ export const useStaffOnly = (staffSpreadsheetId?: string | null) => {
 
           resolve();
         } catch (error) {
-          console.error('파일 업로드 오류:', error);
+          log.error('파일 업로드 오류:', error);
           reject(error);
         }
       };

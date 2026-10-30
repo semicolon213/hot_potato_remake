@@ -15,7 +15,6 @@
  */
 function setDocumentPermissions(documentId, creatorEmail, editors) {
   try {
-    console.log('🔐 문서 권한 설정 시작 (Drive API):', { documentId, creatorEmail, editors });
     
     // 입력 데이터 검증
     if (!documentId) {
@@ -26,12 +25,10 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
     const allUsers = [creatorEmail, ...(editors || [])].filter((email, index, arr) => 
       email && email.trim() !== '' && arr.indexOf(email) === index // 중복 제거
     );
-    
-    console.log('🔐 권한 부여할 사용자 목록:', allUsers);
-    console.log('🔐 사용자 수:', allUsers.length);
+    logDebug_('DocumentPermissions', '사용자 수:', allUsers.length);
     
     if (allUsers.length === 0) {
-      console.warn('⚠️ 권한 부여할 사용자가 없습니다');
+      logWarn_('DocumentPermissions', '권한 부여할 사용자가 없습니다');
       return {
         success: true,
         message: '권한 부여할 사용자가 없습니다',
@@ -41,9 +38,9 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
     }
     
     // 권한 설정 전 현재 상태 확인
-    const permissions = Drive.Permissions.list(documentId);
+    const permissions = { items: listPermissions_(documentId) };
     const beforePermissions = permissions.items || [];
-    console.log('🔐 권한 설정 전 편집자:', beforePermissions.map(p => p.emailAddress));
+    logDebug_('DocumentPermissions', '권한 설정 전 편집자');
     
     let successCount = 0;
     let failCount = 0;
@@ -51,38 +48,30 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
     // 각 사용자에게 편집 권한 부여
     for (const userEmail of allUsers) {
       try {
-        console.log('🔐 권한 부여 시도:', userEmail);
         
         // 이미 권한이 있는지 확인
         const hasPermission = beforePermissions.some(p => p.emailAddress === userEmail && p.role === 'writer');
         if (hasPermission) {
-          console.log('✅ 이미 권한이 있는 사용자:', userEmail);
           successCount++;
           continue;
         }
         
         // 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'user',
-          value: userEmail,
-          sendNotificationEmails: false
-        }, documentId);
-        console.log('✅ 편집 권한 부여 완료 (메일 알림 없음):', userEmail);
+        grantPermission_(documentId, 'user', userEmail, 'writer');
         successCount++;
         
         // 잠시 대기 (API 제한 방지)
         Utilities.sleep(100);
         
       } catch (permError) {
-        console.error('❌ 권한 설정 실패:', userEmail, permError.message);
+        logError_('DocumentPermissions', '권한 설정 실패:', permError.message);
         failCount++;
       }
     }
     
     // 권한 설정 후 결과 확인
-    const afterPermissions = Drive.Permissions.list(documentId);
-    console.log('🔐 권한 설정 후 편집자:', afterPermissions.items.map(p => p.emailAddress));
+    const afterPermissions = { items: listPermissions_(documentId) };
+    logDebug_('DocumentPermissions', '권한 설정 후 편집자');
     
     const result = {
       success: successCount > 0,
@@ -92,12 +81,10 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
       successCount: successCount,
       failCount: failCount
     };
-    
-    console.log('🔐 최종 권한 설정 결과:', result);
     return result;
     
   } catch (error) {
-    console.error('❌ 문서 권한 설정 오류:', error);
+    logError_('DocumentPermissions', '문서 권한 설정 오류:', error);
     return {
       success: false,
       message: '문서 권한 설정 중 오류가 발생했습니다: ' + error.message
@@ -112,9 +99,8 @@ function setDocumentPermissions(documentId, creatorEmail, editors) {
  */
 function getDocumentPermissions(documentId) {
   try {
-    console.log('🔐 문서 권한 확인 시작:', documentId);
     
-    const permissions = Drive.Permissions.list(documentId);
+    const permissions = { items: listPermissions_(documentId) };
     
     return {
       success: true,
@@ -123,7 +109,7 @@ function getDocumentPermissions(documentId) {
     };
     
   } catch (error) {
-    console.error('🔐 문서 권한 확인 오류:', error);
+    logError_('DocumentPermissions', '문서 권한 확인 오류:', error);
     return {
       success: false,
       message: '문서 권한 확인 실패: ' + error.message
@@ -139,14 +125,12 @@ function getDocumentPermissions(documentId) {
  */
 function removeDocumentPermission(documentId, email) {
   try {
-    console.log('🔐 문서 권한 제거 시작:', { documentId, email });
     
-    const permissions = Drive.Permissions.list(documentId);
+    const permissions = { items: listPermissions_(documentId) };
     const permission = permissions.items.find(p => p.emailAddress === email);
     
     if (permission) {
       Drive.Permissions.remove(documentId, permission.id);
-      console.log('🔐 권한 제거 완료:', email);
       
       return {
         success: true,
@@ -160,7 +144,7 @@ function removeDocumentPermission(documentId, email) {
     }
     
   } catch (error) {
-    console.error('🔐 문서 권한 제거 오류:', error);
+    logError_('DocumentPermissions', '문서 권한 제거 오류:', error);
     return {
       success: false,
       message: '문서 권한 제거 실패: ' + error.message
@@ -179,7 +163,6 @@ function removeDocumentPermission(documentId, email) {
  */
 function grantWorkflowPermissions(documentId, userEmails, permissionType) {
   try {
-    console.log('🔐 워크플로우 문서 권한 부여 시작:', { documentId, userEmails, permissionType });
     
     if (!documentId) {
       throw new Error('문서 ID가 필요합니다');
@@ -196,7 +179,7 @@ function grantWorkflowPermissions(documentId, userEmails, permissionType) {
     }
     
     const role = permissionType === 'writer' ? 'writer' : 'reader';
-    const permissions = Drive.Permissions.list(documentId);
+    const permissions = { items: listPermissions_(documentId) };
     const beforePermissions = permissions.items || [];
     
     let successCount = 0;
@@ -213,7 +196,6 @@ function grantWorkflowPermissions(documentId, userEmails, permissionType) {
         // 이미 권한이 있는지 확인
         const existingPermission = beforePermissions.find(p => p.emailAddress === email && p.role === role);
         if (existingPermission) {
-          console.log('✅ 이미 권한이 있는 사용자:', email);
           successCount++;
           grantedUsers.push(email);
           details.push({
@@ -225,14 +207,7 @@ function grantWorkflowPermissions(documentId, userEmails, permissionType) {
         }
         
         // 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: role,
-          type: 'user',
-          value: email,
-          sendNotificationEmails: false
-        }, documentId);
-        
-        console.log('✅ 권한 부여 완료:', email, role);
+        grantPermission_(documentId, 'user', email, role);
         successCount++;
         grantedUsers.push(email);
         details.push({
@@ -244,7 +219,7 @@ function grantWorkflowPermissions(documentId, userEmails, permissionType) {
         Utilities.sleep(100);
         
       } catch (error) {
-        console.error('❌ 권한 부여 실패:', email, error.message);
+        logError_('DocumentPermissions', '권한 부여 실패:', error.message);
         failCount++;
         failedUsers.push(email);
         details.push({
@@ -264,7 +239,7 @@ function grantWorkflowPermissions(documentId, userEmails, permissionType) {
     };
     
   } catch (error) {
-    console.error('❌ 워크플로우 문서 권한 부여 오류:', error);
+    logError_('DocumentPermissions', '워크플로우 문서 권한 부여 오류:', error);
     return {
       successCount: 0,
       failCount: userEmails ? userEmails.length : 0,
@@ -284,7 +259,6 @@ function grantWorkflowPermissions(documentId, userEmails, permissionType) {
  */
 function grantPermissionsToMultipleDocuments(documentIds, userEmails, permissionType) {
   try {
-    console.log('🔐 여러 문서에 권한 부여 시작:', { documentIds, userEmails, permissionType });
     
     const results = {
       totalDocuments: documentIds.length,
@@ -311,7 +285,7 @@ function grantPermissionsToMultipleDocuments(documentIds, userEmails, permission
     return results;
     
   } catch (error) {
-    console.error('❌ 여러 문서 권한 부여 오류:', error);
+    logError_('DocumentPermissions', '여러 문서 권한 부여 오류:', error);
     return {
       totalDocuments: documentIds.length,
       totalUsers: userEmails.length,

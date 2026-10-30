@@ -1,3 +1,5 @@
+import { toCalendarRole } from './utils/helpers/calendarRole';
+import { logger } from './utils/logger';
 /**
  * @file App.tsx
  * @brief Hot Potato 메인 애플리케이션 컴포넌트
@@ -49,19 +51,23 @@ import { lastUserManager } from './utils/auth/lastUserManager';
 import { useSession } from './hooks/features/auth/useSession';
 import { useNotification } from './hooks/ui/useNotification';
 import { useOnlineStatus } from './hooks/ui/useOnlineStatus';
-import { NotificationModal, ConfirmModal } from './components/ui/NotificationModal';
+import { NotificationModal } from './components/ui/NotificationModal';
+import { GlobalConfirmProvider } from './hooks/ui/GlobalConfirmProvider';
 import { OfflineBanner } from './components/ui/OfflineBanner';
 import LoadingProgress from './components/ui/LoadingProgress';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { useAuthStore } from './hooks/features/auth/useAuthStore';
 import { subscribeGlobalNotification } from './utils/ui/globalNotification';
+import SetupDiagnostics from './pages/SetupDiagnostics';
+const log = logger.scope('App');
+
 
 /**
  * @brief 메인 애플리케이션 컴포넌트
  * @details 사용자 인증 상태에 따라 로그인, 승인 대기, 메인 애플리케이션 화면을 렌더링합니다.
  * @returns {JSX.Element} 렌더링된 컴포넌트
  */
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const isOnline = useOnlineStatus();
   const {
     // User state
@@ -120,17 +126,6 @@ const App: React.FC = () => {
     students,
     staff,
 
-    // Widget state and handlers
-    isModalOpen,
-    setIsModalOpen,
-    widgets,
-    handleAddWidget,
-    handleRemoveWidget,
-    handleDragStart,
-    handleDragEnter,
-    handleDrop,
-    widgetOptions,
-
     // DataSyncService 관련 상태
     isInitializingData,
     dataSyncProgress,
@@ -150,11 +145,9 @@ const App: React.FC = () => {
   // 알림 훅
   const {
     notification,
-    confirm,
     showNotification,
     hideNotification,
-    hideConfirm,
-    handleConfirm
+    confirmAsync
   } = useNotification();
 
   // 로그인 처리 (토큰은 useAuth에서 tokenManager에 이미 저장됨, accessToken은 useEffect에서 동기화)
@@ -166,34 +159,29 @@ const App: React.FC = () => {
 
   // 일반 로그아웃 처리 (기본 동작)
   const handleLogout = useCallback(() => {
-    tokenManager.clear();
+    clearAllUserData();
     setAccessToken(null);
     setUser(null);
     setCurrentPage("dashboard");
     setSearchTerm("");
-    localStorage.removeItem('user');
-    localStorage.removeItem('searchTerm');
     if (window.google && window.google.accounts) {
       window.google.accounts.id.disableAutoSelect();
     }
     try {
       useAuthStore.getState().logout();
     } catch (error) {
-      console.warn('Auth store 로그아웃 실패:', error);
+      log.warn('Auth store 로그아웃 실패:', error);
     }
-    console.log('🚪 로그아웃 완료');
   }, [setUser, setCurrentPage, setSearchTerm]);
 
   // 완전 로그아웃 처리 (현재 로그인한 계정만 제거)
   const handleFullLogout = () => {
     const currentUserEmail = user?.email;
-    tokenManager.clear();
+    clearAllUserData();
     setAccessToken(null);
     setUser(null);
     setCurrentPage("dashboard");
     setSearchTerm("");
-    localStorage.removeItem('user');
-    localStorage.removeItem('searchTerm');
     if (currentUserEmail) {
       lastUserManager.remove(currentUserEmail);
     }
@@ -202,7 +190,6 @@ const App: React.FC = () => {
       window.google.accounts.id.disableAutoSelect();
       // Google 계정 자동 선택 취소
       window.google.accounts.id.revoke((response: { hint?: string }) => {
-        console.log('Google 계정 정보 삭제 완료');
       });
     }
   };
@@ -244,7 +231,7 @@ const App: React.FC = () => {
       if (tokenManager.isExpiringSoon()) {
         const refreshed = await tokenManager.autoRefresh();
         if (refreshed) {
-          console.log('✅ 토큰이 자동으로 갱신되었습니다.');
+          log.debug('토큰이 자동으로 갱신되었습니다.');
           const newToken = tokenManager.get();
           if (newToken && window.gapi?.client) {
             window.gapi.client.setToken({ access_token: newToken });
@@ -252,13 +239,13 @@ const App: React.FC = () => {
           setAccessToken(newToken);
           return;
         } else {
-          console.warn('⚠️ 토큰 자동 갱신 실패 (Refresh Token이 없을 수 있습니다)');
+          log.warn('토큰 자동 갱신 실패 (Refresh Token이 없을 수 있습니다)');
         }
       }
 
       // 토큰이 완전히 만료된 경우
       if (!tokenManager.isValid()) {
-        console.log('🔒 토큰이 만료되어 자동 로그아웃합니다.');
+        log.debug('토큰이 만료되어 자동 로그아웃합니다.');
         clearInterval(checkInterval);
         handleLogout();
         showNotification('토큰이 만료되었습니다. 다시 로그인해주세요.', 'warning');
@@ -276,7 +263,7 @@ const App: React.FC = () => {
     // Electron 환경에서만 실행
     if (window.electronAPI) {
       const handleAppBeforeQuit = () => {
-        // console.log('앱 종료 감지 - 자동 로그아웃 실행');
+        // log.debug('앱 종료 감지 - 자동 로그아웃 실행');
         handleLogout();
       };
 
@@ -305,7 +292,7 @@ const App: React.FC = () => {
           setSelectedAnnouncement(announcement);
           localStorage.setItem('selectedAnnouncement', JSON.stringify(announcement)); // 최신 정보로 업데이트
         } else {
-          console.warn('URL/localStorage의 announcementId와 일치하는 공지사항을 찾을 수 없습니다:', announcementId);
+          log.warn('URL/localStorage의 announcementId와 일치하는 공지사항을 찾을 수 없습니다:', announcementId);
           setSelectedAnnouncement(null);
           localStorage.removeItem('selectedAnnouncement');
         }
@@ -513,7 +500,7 @@ const App: React.FC = () => {
       setAnnouncements(updatedAnnouncements);
 
     } catch (error) {
-      console.error('Error adding announcement:', error);
+      log.error('Error adding announcement:', error);
       showNotification('공지사항 작성에 실패했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류'), 'error');
       // 6. 오류 발생 시 UI를 이전 상태로 롤백
       setAnnouncements(originalAnnouncements);
@@ -540,7 +527,7 @@ const App: React.FC = () => {
     // 3. Backend API Call (Fire-and-forget)
     // await를 제거하여 백엔드 응답을 기다리지 않고 페이지 전환 후 백그라운드에서 처리합니다.
     incrementViewCount(post.id).catch(error => {
-      console.error('조회수 증가 API 호출 실패:', error);
+      log.error('조회수 증가 API 호출 실패:', error);
       // 에러가 발생해도 이미 페이지는 전환되었으므로, UI를 되돌리는 대신 로그만 남깁니다.
     });
   };
@@ -549,7 +536,7 @@ const App: React.FC = () => {
     title: string;
     content: string;
     attachments: File[];
-    existingAttachments: { name: string, url: string }[];
+    existingAttachments: { id?: string; name: string; url: string }[];
     accessRights?: { individual?: string[]; groups?: string[] };
     isPinned?: boolean;
   }) => {
@@ -576,7 +563,7 @@ const App: React.FC = () => {
     handlePageChange('announcements');
 
     try {
-      await updateAnnouncement(announcementId, user.studentId, postData);
+      await updateAnnouncement(announcementId, user.studentId, user.email, postData);
       // Re-fetch to get the final content with attachment links
       if (user.userType) {
         const refreshedAnnouncements = await fetchAnnouncements(user.studentId, user.userType, {
@@ -585,7 +572,7 @@ const App: React.FC = () => {
         setAnnouncements(refreshedAnnouncements);
       }
     } catch (error) {
-      console.error('Error updating announcement:', error);
+      log.error('Error updating announcement:', error);
       setAnnouncements(originalAnnouncements);
       showNotification('공지사항 수정에 실패했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류'), 'error');
     }
@@ -616,7 +603,7 @@ const App: React.FC = () => {
     try {
       const target = announcements.find((a) => String(a.id) === idNorm);
       // 고정 해제: isPinned를 false로 설정
-      await updateAnnouncement(announcementId, user.studentId, {
+      await updateAnnouncement(announcementId, user.studentId, user.email, {
         title: target?.title || '',
         content: target?.content || '',
         attachments: [],
@@ -632,7 +619,7 @@ const App: React.FC = () => {
         setAnnouncements(refreshedAnnouncements);
       }
     } catch (error) {
-      console.error('Error unpinning announcement:', error);
+      log.error('Error unpinning announcement:', error);
       setAnnouncements(originalAnnouncements);
       showNotification('고정 해제에 실패했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류'), 'error');
     }
@@ -663,7 +650,7 @@ const App: React.FC = () => {
         setAnnouncements(refreshedAnnouncements);
       }
     } catch (error) {
-      console.error('Error deleting announcement:', error);
+      log.error('Error deleting announcement:', error);
       // Revert the change if the delete fails
       setAnnouncements(originalAnnouncements);
       showNotification('공지사항 삭제에 실패했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류'), 'error');
@@ -696,18 +683,15 @@ const App: React.FC = () => {
   // 캘린더 이벤트 추가 핸들러
   const handleAddCalendarEvent = async (eventData: Omit<Event, 'id'>) => {
     try {
-      let eventOwnerType = user.userType;
-      let targetSpreadsheetId: string | null = null; // null로 초기화하여 참석자 권한 계산이 제대로 실행되도록 함
-
-      console.log('📅 일정 추가 시작 - 참석자:', eventData.attendees);
-      console.log('📅 현재 사용자 타입:', user.userType);
+      const userCalendarRole = toCalendarRole(user.userType);
+      let eventOwnerType = userCalendarRole;
+      let targetSpreadsheetId: string | null = null;
+      log.debug('현재 사용자 타입');
 
       if (eventData.attendees) {
         const attendeeItems = eventData.attendees.split(',');
         const groupTypes: string[] = [];
         const individualUserTypes: string[] = [];
-        
-        console.log('📅 참석자 항목 파싱 시작:', attendeeItems);
         
         // 새로운 형식 파싱: "group:권한" 또는 "권한:참석자ID" 또는 "참석자ID" (기존 형식)
         attendeeItems.forEach(item => {
@@ -717,23 +701,23 @@ const App: React.FC = () => {
             const groupType = trimmed.replace('group:', '');
             if (groupType && !groupTypes.includes(groupType)) {
               groupTypes.push(groupType);
-              console.log('📅 그룹 타입 추가:', groupType);
+              log.debug('그룹 타입 추가:', groupType);
             }
           } else if (trimmed.includes(':')) {
             // 개별 참석자: student:123 -> student
-            const [userType] = trimmed.split(':');
+            const userType = toCalendarRole(trimmed.split(':')[0]);
             if (userType && !individualUserTypes.includes(userType)) {
               individualUserTypes.push(userType);
-              console.log('📅 개별 참석자 타입 추가:', userType, 'from', trimmed);
+              log.debug('개별 참석자 타입 추가:', userType, 'from', trimmed);
             }
           } else {
             // 기존 형식 (호환성): 참석자ID만 있는 경우
             const userType = getAttendeeUserType(trimmed);
             if (userType && !individualUserTypes.includes(userType)) {
               individualUserTypes.push(userType);
-              console.log('📅 참석자ID로부터 타입 추출:', userType, 'from', trimmed);
+              log.debug('참석자ID로부터 타입 추출:', userType, 'from', trimmed);
             } else {
-              console.warn('📅 참석자ID로부터 타입을 찾을 수 없음:', trimmed);
+              log.warn('참석자ID로부터 타입을 찾을 수 없음:', trimmed);
             }
           }
         });
@@ -748,46 +732,44 @@ const App: React.FC = () => {
             const lowestIndex = permissionHierarchy.indexOf(lowest);
             const currentIndex = permissionHierarchy.indexOf(current);
             if (lowestIndex === -1 || currentIndex === -1) {
-              console.warn('📅 권한 계층에서 찾을 수 없는 타입:', { lowest, current });
+              log.warn('권한 계층에서 찾을 수 없는 타입:', { lowest, current });
               return lowestIndex === -1 ? current : lowest;
             }
             return currentIndex < lowestIndex ? current : lowest;
           }, individualUserTypes[0]);
-          console.log('📅 개별 참석자 권한 목록:', individualUserTypes);
-          console.log('📅 개별 참석자 중 가장 낮은 권한:', lowestPermissionType);
+          log.debug('개별 참석자 중 가장 낮은 권한:', lowestPermissionType);
         } else if (groupTypes.length > 0) {
           // 그룹 선택 중 가장 낮은 권한 찾기
           lowestPermissionType = groupTypes.reduce((lowest, current) => {
             const lowestIndex = permissionHierarchy.indexOf(lowest);
             const currentIndex = permissionHierarchy.indexOf(current);
             if (lowestIndex === -1 || currentIndex === -1) {
-              console.warn('📅 권한 계층에서 찾을 수 없는 타입:', { lowest, current });
+              log.warn('권한 계층에서 찾을 수 없는 타입:', { lowest, current });
               return lowestIndex === -1 ? current : lowest;
             }
             return currentIndex < lowestIndex ? current : lowest;
           }, groupTypes[0]);
-          console.log('📅 그룹 권한 목록:', groupTypes);
-          console.log('📅 그룹 중 가장 낮은 권한:', lowestPermissionType);
+          log.debug('그룹 중 가장 낮은 권한:', lowestPermissionType);
         }
 
         // 본인 권한도 고려 (개별 참석자나 그룹에 본인이 없을 경우)
-        if (user?.userType) {
-          const isInIndividual = individualUserTypes.includes(user.userType);
-          const isInGroup = groupTypes.includes(user.userType);
+        if (userCalendarRole) {
+          const isInIndividual = individualUserTypes.includes(userCalendarRole);
+          const isInGroup = groupTypes.includes(userCalendarRole);
           
           if (!isInIndividual && !isInGroup) {
             // 본인이 참석자 목록에 없으면 본인 권한도 비교
-            if (!lowestPermissionType || permissionHierarchy.indexOf(user.userType) < permissionHierarchy.indexOf(lowestPermissionType)) {
-              lowestPermissionType = user.userType;
-              console.log('📅 본인 권한이 가장 낮음:', lowestPermissionType);
+            if (!lowestPermissionType || permissionHierarchy.indexOf(userCalendarRole) < permissionHierarchy.indexOf(lowestPermissionType)) {
+              lowestPermissionType = userCalendarRole;
+              log.debug('본인 권한이 가장 낮음:', lowestPermissionType);
             }
           }
         }
 
         // 참석자가 있는데도 lowestPermissionType이 null인 경우 경고
         if (!lowestPermissionType && (individualUserTypes.length > 0 || groupTypes.length > 0)) {
-          console.warn('⚠️ 참석자가 있지만 권한 타입을 결정할 수 없습니다. 사용자 타입을 사용합니다:', user.userType);
-          lowestPermissionType = user.userType || 'student';
+          log.warn('참석자가 있지만 권한 타입을 결정할 수 없습니다. 사용자 타입을 사용합니다');
+          lowestPermissionType = userCalendarRole || 'student';
         }
 
         if (lowestPermissionType) {
@@ -811,20 +793,16 @@ const App: React.FC = () => {
               targetSpreadsheetId = calendarProfessorSpreadsheetId;
               break;
             default:
-              console.warn('⚠️ 알 수 없는 권한 타입:', lowestPermissionType, '- 기본 캘린더 사용');
+              log.warn('알 수 없는 권한 타입:', lowestPermissionType, '- 기본 캘린더 사용');
               targetSpreadsheetId = activeCalendarSpreadsheetId;
           }
-          console.log('✅ 권한별 스프레드시트 선택:', { 
-            권한: lowestPermissionType, 
-            스프레드시트ID: targetSpreadsheetId?.substring(0, 20) + '...' 
-          });
         }
       }
 
       // 참석자가 없거나 targetSpreadsheetId가 null인 경우, 사용자 타입에 따라 기본 스프레드시트 ID 선택
-      if (!targetSpreadsheetId && user.userType) {
-        console.log('📅 참석자가 없거나 권한 계산 실패 - 사용자 타입으로 기본 캘린더 선택:', user.userType);
-        switch (user.userType) {
+      if (!targetSpreadsheetId && userCalendarRole) {
+        log.warn('참석자가 없거나 권한 계산 실패 - 사용자 타입으로 기본 캘린더 선택');
+        switch (userCalendarRole) {
           case 'professor':
             targetSpreadsheetId = calendarProfessorSpreadsheetId;
             break;
@@ -843,7 +821,7 @@ const App: React.FC = () => {
             break;
           default:
             // 기본값으로 student 캘린더 사용
-            console.warn('⚠️ 알 수 없는 사용자 타입:', user.userType, '- student 캘린더 사용');
+            log.warn('알 수 없는 사용자 타입:', '- student 캘린더 사용');
             targetSpreadsheetId = calendarStudentSpreadsheetId;
             break;
         }
@@ -856,18 +834,12 @@ const App: React.FC = () => {
         throw new Error("Event owner type not found");
       }
       
-      console.log('📅 최종 저장 정보:', {
-        스프레드시트ID: targetSpreadsheetId.substring(0, 20) + '...',
-        이벤트소유자타입: eventOwnerType,
-        참석자: eventData.attendees
-      });
-      
       await addCalendarEvent(targetSpreadsheetId, eventData, eventOwnerType);
       // 캘린더 이벤트 목록 새로고침
       const updatedEvents = await fetchCalendarEvents();
       setCalendarEvents(updatedEvents);
     } catch (error) {
-      console.error('Error adding calendar event:', error);
+      log.error('Error adding calendar event:', error);
     }
   };
 
@@ -893,14 +865,14 @@ const App: React.FC = () => {
       const updatedEvents = await fetchCalendarEvents();
       setCalendarEvents(updatedEvents);
     } catch (error) {
-      console.error('Error updating calendar event:', error);
+      log.error('Error updating calendar event:', error);
     }
   };
 
   // 캘린더 이벤트 삭제 핸들러
   const handleDeleteCalendarEvent = async (eventId: string) => {
-    // console.log("Deleting event", eventId);
-    // console.log("일정 삭제 기능은 아직 구현되지 않았습니다.");
+    // log.debug("Deleting event", eventId);
+    // log.debug("일정 삭제 기능은 아직 구현되지 않았습니다.");
     try {
       const allCalendarIds = [
         calendarProfessorSpreadsheetId,
@@ -921,7 +893,7 @@ const App: React.FC = () => {
       const updatedEvents = await fetchCalendarEvents();
       setCalendarEvents(updatedEvents);
     } catch (error) {
-      console.error('Error deleting calendar event:', error);
+      log.error('Error deleting calendar event:', error);
     }
   };
 
@@ -935,7 +907,7 @@ const App: React.FC = () => {
   }) => {
     if (!activeCalendarSpreadsheetId) {
       showNotification('캘린더가 설정되지 않아 저장할 수 없습니다.', 'error');
-      console.error('Error saving academic schedule: No active calendar spreadsheet ID is set.');
+      log.error('Error saving academic schedule: No active calendar spreadsheet ID is set.');
       return;
     }
     try {
@@ -945,14 +917,14 @@ const App: React.FC = () => {
       const updatedEvents = await fetchCalendarEvents();
       setCalendarEvents(updatedEvents);
     } catch (error) {
-      console.error('Error saving academic schedule:', error);
+      log.error('Error saving academic schedule:', error);
       showNotification('학사일정 저장 중 오류가 발생했습니다.', 'error');
     }
   };
 
   // 템플릿 관련 핸들러들
   const handleDeleteTemplate = async (rowIndex: number) => {
-    if (!window.confirm("정말로 이 템플릿을 삭제하시겠습니까?")) {
+    if (!(await confirmAsync('정말로 이 템플릿을 삭제하시겠습니까?', { type: 'danger' }))) {
       return;
     }
 
@@ -961,10 +933,10 @@ const App: React.FC = () => {
       // 템플릿 목록 새로고침
       const updatedTemplates = await fetchTemplates();
       setCustomTemplates(updatedTemplates);
-      // console.log('템플릿이 성공적으로 삭제되었습니다.');
+      // log.debug('템플릿이 성공적으로 삭제되었습니다.');
     } catch (error) {
-      console.error('Error deleting template:', error);
-      console.log('템플릿 삭제 중 오류가 발생했습니다.');
+      log.error('Error deleting template:', error);
+      log.error('템플릿 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -976,13 +948,13 @@ const App: React.FC = () => {
           // 태그 목록을 다시 로드
           const updatedTags = await fetchPersonalTags();
           setTags(updatedTags);
-          // console.log('새로운 태그가 추가되었습니다.');
+          // log.debug('새로운 태그가 추가되었습니다.');
         } else {
-          console.log('태그 추가에 실패했습니다.');
+          log.error('태그 추가에 실패했습니다.');
         }
       } catch (error) {
-        console.error('Error saving tag:', error);
-        console.log('태그 저장 중 오류가 발생했습니다.');
+        log.error('Error saving tag:', error);
+        log.error('태그 저장 중 오류가 발생했습니다.');
       }
     }
   };
@@ -1001,19 +973,19 @@ const App: React.FC = () => {
         const affectedFilesList = impact.affectedFiles.map(file => `• ${file}`).join('\n');
         const confirmMessage = `'${tagToDelete}' 태그를 삭제하면 다음 개인 양식들도 함께 삭제됩니다:\n\n${affectedFilesList}\n\n정말로 삭제하시겠습니까?`;
 
-        if (!window.confirm(confirmMessage)) {
+        if (!(await confirmAsync(confirmMessage, { type: 'danger' }))) {
           return;
         }
       } else {
         // 영향받는 파일이 없는 경우 간단한 확인
-        if (!window.confirm(`'${tagToDelete}' 태그를 삭제하시겠습니까?`)) {
+        if (!(await confirmAsync(`'${tagToDelete}' 태그를 삭제하시겠습니까?`, { type: 'danger' }))) {
           return;
         }
       }
 
       setTags(tags.filter(tag => tag !== tagToDelete));
       setCustomTemplates(customTemplates.filter(t => t.tag !== tagToDelete));
-      // console.log(`'${tagToDelete}' 태그 및 관련 템플릿이 삭제되었습니다.`);
+      // log.debug(`'${tagToDelete}' 태그 및 관련 템플릿이 삭제되었습니다.`);
 
       // Background database update
       const success = await deletePersonalTag(tagToDelete);
@@ -1022,13 +994,13 @@ const App: React.FC = () => {
         const updatedTags = await fetchPersonalTags();
         setTags(updatedTags);
       } else {
-        console.log('태그 삭제에 실패했습니다.');
+        log.error('태그 삭제에 실패했습니다.');
         setCustomTemplates(oldTemplates);
         setTags(oldTags);
       }
     } catch (error) {
-      console.error('Error deleting tag from personal config:', error);
-      console.log('백그라운드 저장 실패: 태그 삭제가 데이터베이스에 반영되지 않았을 수 있습니다. 페이지를 새로고침 해주세요.');
+      log.error('Error deleting tag from personal config:', error);
+      log.error('백그라운드 저장 실패: 태그 삭제가 데이터베이스에 반영되지 않았을 수 있습니다.');
       setCustomTemplates(oldTemplates);
       setTags(oldTags);
     }
@@ -1045,12 +1017,12 @@ const App: React.FC = () => {
         const affectedFilesList = impact.affectedFiles.map(file => `• ${file}`).join('\n');
         const confirmMessage = `'${oldTag}' 태그를 '${newTag}'로 수정하면 다음 개인 양식들의 파일명도 함께 변경됩니다:\n\n${affectedFilesList}\n\n정말로 수정하시겠습니까?`;
 
-        if (!window.confirm(confirmMessage)) {
+        if (!(await confirmAsync(confirmMessage, { type: 'warning' }))) {
           return;
         }
       } else {
         // 영향받는 파일이 없는 경우 간단한 확인
-        if (!window.confirm(`'${oldTag}' 태그를 '${newTag}'로 수정하시겠습니까?`)) {
+        if (!(await confirmAsync(`'${oldTag}' 태그를 '${newTag}'로 수정하시겠습니까?`, { type: 'warning' }))) {
           return;
         }
       }
@@ -1061,7 +1033,7 @@ const App: React.FC = () => {
 
       setTags(tags.map(t => t === oldTag ? newTag : t));
       setCustomTemplates(customTemplates.map(t => t.tag === oldTag ? { ...t, tag: newTag } : t));
-      // console.log(`'${oldTag}' 태그가 '${newTag}'(으)로 수정되었습니다.`);
+      // log.debug(`'${oldTag}' 태그가 '${newTag}'(으)로 수정되었습니다.`);
 
       // Background database update
       const [tagUpdateSuccess, fileUpdateSuccess] = await Promise.all([
@@ -1073,15 +1045,15 @@ const App: React.FC = () => {
         // 태그 목록을 다시 로드
         const updatedTags = await fetchPersonalTags();
         setTags(updatedTags);
-        // console.log('✅ 태그 수정 및 파일명 업데이트 완료');
+        // log.debug('태그 수정 및 파일명 업데이트 완료');
       } else {
-        console.log('태그 수정 또는 파일명 업데이트에 실패했습니다.');
+        log.error('태그 수정 또는 파일명 업데이트에 실패했습니다.');
         setCustomTemplates(oldTemplates);
         setTags(oldTags);
       }
     } catch (error) {
-      console.error('Error updating tag in personal config:', error);
-      console.log('백그라운드 저장 실패: 태그 수정이 데이터베이스에 반영되지 않았을 수 있습니다. 페이지를 새로고침 해주세요.');
+      log.error('Error updating tag in personal config:', error);
+      log.error('백그라운드 저장 실패: 태그 수정이 데이터베이스에 반영되지 않았을 수 있습니다.');
     }
   };
 
@@ -1091,10 +1063,10 @@ const App: React.FC = () => {
       // 템플릿 목록 새로고침
       const updatedTemplates = await fetchTemplates();
       setCustomTemplates(updatedTemplates);
-      // console.log('문서가 성공적으로 저장되었습니다.');
+      // log.debug('문서가 성공적으로 저장되었습니다.');
     } catch (error) {
-      console.error('Error creating document or saving to database:', error);
-      console.log('문서 생성 또는 저장 중 오류가 발생했습니다.');
+      log.error('Error creating document or saving to database:', error);
+      log.error('문서 생성 또는 저장 중 오류가 발생했습니다.');
     }
   };
 
@@ -1120,22 +1092,22 @@ const App: React.FC = () => {
       const updatedTemplates = await fetchTemplates();
       setCustomTemplates(updatedTemplates);
 
-      // console.log('문서가 성공적으로 수정되었습니다.');
+      // log.debug('문서가 성공적으로 수정되었습니다.');
     } catch (error) {
-      console.error('Error updating document in database:', error);
-      console.log('문서 수정 중 오류가 발생했습니다.');
+      log.error('Error updating document in database:', error);
+      log.error('문서 수정 중 오류가 발생했습니다.');
     }
   };
 
   const handleUpdateTemplateFavorite = async (rowIndex: number, favoriteStatus: string | undefined) => {
     try {
       await updateTemplateFavorite(rowIndex, favoriteStatus);
-      // console.log(`Template favorite status updated in database for row ${rowIndex}.`);
+      // log.debug(`Template favorite status updated in database for row ${rowIndex}.`);
       // 템플릿 목록 새로고침
       const updatedTemplates = await fetchTemplates();
       setCustomTemplates(updatedTemplates);
     } catch (error) {
-      console.error('Error updating template favorite status in database:', error);
+      log.error('Error updating template favorite status in database:', error);
     }
   };
 
@@ -1247,16 +1219,6 @@ const App: React.FC = () => {
               onAddTemplate={handleAddTemplate}
               onUpdateTemplate={handleUpdateTemplate}
               onUpdateTemplateFavorite={handleUpdateTemplateFavorite}
-              // Widget props
-              isModalOpen={isModalOpen}
-              setIsModalOpen={setIsModalOpen}
-              widgets={widgets}
-              handleAddWidget={handleAddWidget}
-              handleRemoveWidget={handleRemoveWidget}
-              handleDragStart={handleDragStart}
-              handleDragEnter={handleDragEnter}
-              handleDrop={handleDrop}
-              widgetOptions={widgetOptions}
               // DataSyncService 관련 props
               lastSyncTime={lastSyncTime}
               onRefresh={handleRefreshAllData}
@@ -1275,19 +1237,6 @@ const App: React.FC = () => {
         duration={notification.duration}
       />
       
-      {/* 확인 모달 */}
-      <ConfirmModal
-        isOpen={confirm.isOpen}
-        message={confirm.message}
-        title={confirm.title}
-        confirmText={confirm.confirmText}
-        cancelText={confirm.cancelText}
-        type={confirm.type}
-        onConfirm={handleConfirm}
-        onCancel={hideConfirm}
-        onCancelAction={confirm.onCancelAction}
-      />
-      
       {/* 초기 로딩 진행률 */}
       <LoadingProgress
         isVisible={isInitializingData && dataSyncProgress.total > 0}
@@ -1297,5 +1246,11 @@ const App: React.FC = () => {
     </GoogleOAuthProvider>
   );
 };
+
+const App: React.FC = () => window.location.pathname === '/setup' ? <SetupDiagnostics /> : (
+    <GlobalConfirmProvider>
+      <AppContent />
+    </GlobalConfirmProvider>
+  );
 
 export default App;

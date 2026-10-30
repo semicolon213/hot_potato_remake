@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { BiEdit, BiTrash } from 'react-icons/bi';
-import { NotificationModal, ConfirmModal } from '../../ui/NotificationModal';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+import { useNotification } from '../../../hooks/ui/useNotification';
 
 interface Props {
     activeTab: string;
@@ -38,6 +38,7 @@ export function CategoryTabs({
     onShowNotification,
     onShowConfirm
 }: Props) {
+    const { showConfirm: showGlobalConfirm } = useNotification();
     const [isAdding, setIsAdding] = useState(false);
     const [newTag, setNewTag] = useState("");
     const [isAddingStatic, setIsAddingStatic] = useState(false); // 기본 태그 추가 모드
@@ -415,21 +416,14 @@ export function CategoryTabs({
                                         type="button"
                                         className="tag-context-menu-item tag-context-menu-item-danger"
                                         onClick={() => {
-                                            if (onShowConfirm) {
-                                                onShowConfirm(
-                                                    `기본 태그 "${tag}"를 삭제하시겠습니까?`,
-                                                    () => {
-                                                        deleteStaticTag(tag);
-                                                        setContextMenu(null);
-                                                    },
-                                                    { type: 'warning' }
-                                                );
-                                            } else if (window.confirm(`기본 태그 "${tag}"를 삭제하시겠습니까?`)) {
-                                                deleteStaticTag(tag);
-                                                setContextMenu(null);
-                                            } else {
-                                                setContextMenu(null);
-                                            }
+                                            (onShowConfirm || showGlobalConfirm)(
+                                                `기본 태그 "${tag}"를 삭제하시겠습니까?`,
+                                                () => {
+                                                    deleteStaticTag?.(tag);
+                                                    setContextMenu(null);
+                                                },
+                                                { type: 'danger' }
+                                            );
                                         }}
                                     >
                                         <BiTrash />
@@ -459,21 +453,14 @@ export function CategoryTabs({
                                         type="button"
                                         className="tag-context-menu-item tag-context-menu-item-danger"
                                         onClick={() => {
-                                            if (onShowConfirm) {
-                                                onShowConfirm(
-                                                    `개인 태그 "${tag}"를 삭제하시겠습니까?`,
-                                                    () => {
-                                                        deleteTag(tag);
-                                                        setContextMenu(null);
-                                                    },
-                                                    { type: 'warning' }
-                                                );
-                                            } else if (window.confirm(`개인 태그 "${tag}"를 삭제하시겠습니까?`)) {
-                                                deleteTag(tag);
-                                                setContextMenu(null);
-                                            } else {
-                                                setContextMenu(null);
-                                            }
+                                            (onShowConfirm || showGlobalConfirm)(
+                                                `개인 태그 "${tag}"를 삭제하시겠습니까?`,
+                                                () => {
+                                                    deleteTag(tag);
+                                                    setContextMenu(null);
+                                                },
+                                                { type: 'danger' }
+                                            );
                                         }}
                                     >
                                         <BiTrash />

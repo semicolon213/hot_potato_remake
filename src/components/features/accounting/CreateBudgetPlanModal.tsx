@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file CreateBudgetPlanModal.tsx
  * @brief 예산 계획 작성 모달
@@ -11,6 +12,8 @@ import { createBudgetPlan } from '../../../utils/database/accountingBudgetManage
 import { getAccounts } from '../../../utils/database/accountingManager';
 import type { CreateBudgetPlanRequest, Account } from '../../../types/features/accounting';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/CreateBudgetPlanModal');
+
 
 interface CreateBudgetPlanModalProps {
   isOpen: boolean;
@@ -59,7 +62,7 @@ export const CreateBudgetPlanModal: React.FC<CreateBudgetPlanModalProps> = ({
         setError('통장 정보를 찾을 수 없습니다. 장부를 다시 확인해주세요.');
       }
     } catch (err) {
-      console.error('❌ 데이터 로드 오류:', err);
+      log.error('데이터 로드 오류:', err);
       setError('데이터를 불러오는데 실패했습니다.');
     }
   };
@@ -106,7 +109,7 @@ export const CreateBudgetPlanModal: React.FC<CreateBudgetPlanModalProps> = ({
       resetForm();
 
     } catch (err: unknown) {
-      console.error('❌ 예산 계획 작성 오류:', err);
+      log.error('예산 계획 작성 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '예산 계획 작성에 실패했습니다.';
       setError(errorMessage);
     } finally {

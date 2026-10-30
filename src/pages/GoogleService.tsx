@@ -1,5 +1,8 @@
+import { logger } from '../utils/logger';
 import React, { useMemo, useEffect, useRef, useState } from "react";
 import "../styles/pages/GoogleService.css";
+const log = logger.scope('pages/GoogleService');
+
 
 interface GoogleServiceProps {
   service: "appscript" | "sheets" | "docs" | "gemini" | "groups";
@@ -64,7 +67,7 @@ const GoogleServicePage: React.FC<GoogleServiceProps> = ({ service }) => {
       };
 
       const handleError = (event: any) => {
-        console.error('Webview load error:', event);
+        log.error('Webview load error:', event);
         setError('페이지를 로드할 수 없습니다.');
         setIsLoading(false);
       };

@@ -13,24 +13,11 @@
  */
 function submitRegistrationRequest(req) {
   try {
-    console.log('📝 사용자 등록 요청 처리 시작:', req);
     
     const { name, email, studentId, phone, department, role, userType, isAdmin, adminKey } = req;
-    console.log('📝 추출된 데이터:', {
-      name,
-      email,
-      studentId,
-      phone,
-      department,
-      role,
-      userType,
-      isAdmin,
-      hasAdminKey: !!String(adminKey || '').trim()
-    });
     
     // 필수 필드 검증
     if (!name || !email || !studentId) {
-      console.log('❌ 필수 필드 누락:', { name: !!name, email: !!email, studentId: !!studentId });
       return {
         success: false,
         message: '이름, 이메일, 학번은 필수 입력 항목입니다.'
@@ -39,17 +26,13 @@ function submitRegistrationRequest(req) {
     
     // 이메일 형식 검증
     if (!isValidEmail(email)) {
-      console.log('❌ 이메일 형식 오류:', email);
       return {
         success: false,
         message: '유효하지 않은 이메일 형식입니다.'
       };
     }
-    
-    // 학번 형식 검증
-    console.log('🔍 학번 검증 시작:', studentId);
     if (!isValidStudentId(studentId)) {
-      console.log('❌ 학번 형식 오류:', studentId);
+      logWarn_('UserRegistration', '학번 형식 오류');
       return {
         success: false,
         message: '유효하지 않은 학번 형식입니다.'
@@ -59,7 +42,6 @@ function submitRegistrationRequest(req) {
     // 학번과 이름 매칭 검증
     const nameMatchResult = validateStudentIdNameMatch(studentId, name);
     if (!nameMatchResult.isValid) {
-      console.log('❌ 학번과 이름이 일치하지 않음:', nameMatchResult.message);
       return {
         success: false,
         message: nameMatchResult.message,
@@ -70,7 +52,7 @@ function submitRegistrationRequest(req) {
     // 중복 등록 확인
     const existingUser = checkExistingUser(email, studentId);
     if (existingUser.exists) {
-      console.log('❌ 중복 사용자:', existingUser.message);
+      logDebug_('UserRegistration', '중복 사용자:', existingUser.message);
       return {
         success: false,
         message: existingUser.message
@@ -117,8 +99,6 @@ function submitRegistrationRequest(req) {
       };
     }
     
-    console.log('📝 사용자 등록 요청 처리 완료:', email);
-    
     return {
       success: true,
       message: '등록 요청이 제출되었습니다. 관리자의 승인을 기다려주세요.',
@@ -131,7 +111,7 @@ function submitRegistrationRequest(req) {
     };
     
   } catch (error) {
-    console.error('📝 사용자 등록 요청 처리 오류:', error);
+    logError_('UserRegistration', '사용자 등록 요청 처리 오류:', error);
     return {
       success: false,
       message: '등록 요청 처리 중 오류가 발생했습니다: ' + error.message
@@ -153,7 +133,7 @@ function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   } catch (error) {
-    console.error('이메일 형식 검증 오류:', error);
+    logError_('UserRegistration', '이메일 형식 검증 오류');
     return false;
   }
 }
@@ -177,7 +157,6 @@ function validateStudentIdNameMatch(studentId, name) {
   };
   
   try {
-    console.log('🔍 학번과 이름 매칭 검증 시작:', studentId, name);
     
     // 연결된 스프레드시트 사용
     const spreadsheet = getHpMemberSpreadsheet();
@@ -236,7 +215,7 @@ function validateStudentIdNameMatch(studentId, name) {
         userData: u
       });
       
-      console.log('🔍 비교:', userStudentId, 'vs', inputStudentId, userName, 'vs', inputName, '일치:', isMatch);
+      logDebug_('UserRegistration', '비교:', userStudentId, 'vs', inputStudentId, userName, 'vs', inputName, '일치:', isMatch);
       return isMatch;
     });
     
@@ -266,7 +245,7 @@ function validateStudentIdNameMatch(studentId, name) {
   } catch (error) {
     debugInfo.step = '오류 발생';
     debugInfo.error = error.message;
-    console.error('🔍 학번과 이름 매칭 검증 오류:', error);
+    logError_('UserRegistration', '학번과 이름 매칭 검증 오류:', error);
     return {
       isValid: false,
       message: '학번과 이름 검증 중 오류가 발생했습니다.',
@@ -292,13 +271,10 @@ function testStudentIdValidation() {
     undefined,
     28034562
   ];
-  
-  console.log('🧪 학번 검증 테스트 시작');
   testCases.forEach((testCase, index) => {
-    console.log(`테스트 ${index + 1}:`, testCase, '타입:', typeof testCase);
+    logDebug_('UserRegistration', `테스트 ${index + 1}:`, testCase, '타입:', typeof testCase);
     const result = isValidStudentId(testCase);
-    console.log(`결과: ${result}`);
-    console.log('---');
+    logDebug_('UserRegistration', '---');
   });
 }
 
@@ -309,25 +285,23 @@ function testStudentIdValidation() {
  */
 function isValidStudentId(studentId) {
   try {
-    console.log('🔍 학번 검증 시작:', studentId, '타입:', typeof studentId);
     
     if (!studentId) {
-      console.log('❌ 학번이 없음');
+      logDebug_('UserRegistration', '학번이 없음');
       return false;
     }
     
     // 학번을 문자열로 변환
     const studentIdStr = String(studentId);
-    console.log('🔍 변환된 학번:', studentIdStr);
+    logDebug_('UserRegistration', '변환된 학번:', studentIdStr);
     
     // 학번 형식: 숫자 8자리부터 15자리까지
     const studentIdRegex = /^\d{8,15}$/;
     const isValid = studentIdRegex.test(studentIdStr);
-    console.log('🔍 학번 검증 결과:', isValid, '학번:', studentIdStr);
     
     return isValid;
   } catch (error) {
-    console.error('학번 형식 검증 오류:', error);
+    logError_('UserRegistration', '학번 형식 검증 오류:', error);
     return false;
   }
 }
@@ -340,7 +314,6 @@ function isValidStudentId(studentId) {
  */
 function checkExistingUser(email, studentId) {
   try {
-    console.log('🔍 기존 사용자 확인 시작:', email, studentId);
     
     // 연결된 스프레드시트 사용
     const spreadsheet = getHpMemberSpreadsheet();
@@ -371,8 +344,23 @@ function checkExistingUser(email, studentId) {
       return user;
     });
     
-    // 이메일 중복 확인
-    const emailExists = users.find(u => u.email === email);
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedStudentId = String(studentId || '').trim();
+    const matchingUser = users.find(u => String(u.no_member || '').trim() === normalizedStudentId);
+    let matchingEmail = '';
+    if (matchingUser && matchingUser.google_member) {
+      try { matchingEmail = decryptEmailMain(matchingUser.google_member).trim().toLowerCase(); } catch (error) { matchingEmail = ''; }
+    }
+    if (matchingUser && matchingEmail === normalizedEmail && getUserApprovalStatus(matchingUser) !== 'O' && getUserApprovalStatus(matchingUser) !== 'X') {
+      return { exists: false, message: '거부된 가입 요청을 다시 제출할 수 있습니다.' };
+    }
+
+    // 이메일 중복 확인 (암호화 저장된 google_member 포함)
+    const emailExists = users.find(u => {
+      if (String(u.email || '').trim().toLowerCase() === normalizedEmail) return true;
+      if (!u.google_member) return false;
+      try { return decryptEmailMain(u.google_member).trim().toLowerCase() === normalizedEmail; } catch (error) { return false; }
+    });
     if (emailExists) {
       return {
         exists: true,
@@ -381,7 +369,7 @@ function checkExistingUser(email, studentId) {
     }
     
     // 학번 중복 확인
-    const studentIdExists = users.find(u => u.student_id === studentId);
+    const studentIdExists = users.find(u => String(u.no_member || '').trim() === normalizedStudentId);
     if (studentIdExists) {
       return {
         exists: true,
@@ -395,7 +383,7 @@ function checkExistingUser(email, studentId) {
     };
     
   } catch (error) {
-    console.error('🔍 기존 사용자 확인 오류:', error);
+    logError_('UserRegistration', '기존 사용자 확인 오류:', error);
     return {
       exists: false,
       message: '사용자 확인 중 오류가 발생했습니다.'
@@ -423,7 +411,6 @@ function addUserToSpreadsheet(userData) {
   };
   
   try {
-    console.log('📊 기존 사용자 행 업데이트 시작:', userData);
     
     // 연결된 스프레드시트 사용
     const spreadsheet = getHpMemberSpreadsheet();
@@ -462,7 +449,7 @@ function addUserToSpreadsheet(userData) {
     debugInfo.users = { count: users.length, sample: users[0] };
     
     // 실제 스프레드시트 헤더 사용
-    console.log('📊 실제 헤더:', header);
+    logDebug_('UserRegistration', '실제 헤더:', header);
     
     // 학번과 이름으로 기존 사용자 찾기
     const targetUserIndex = users.findIndex(u => {
@@ -471,7 +458,7 @@ function addUserToSpreadsheet(userData) {
       const inputStudentId = String(userData.student_id).trim();
       const inputName = String(userData.name).trim();
       
-      console.log('📊 비교:', userStudentId, 'vs', inputStudentId, userName, 'vs', inputName);
+      logDebug_('UserRegistration', '비교:', userStudentId, 'vs', inputStudentId, userName, 'vs', inputName);
       return userStudentId === inputStudentId && userName === inputName;
     });
     
@@ -508,12 +495,10 @@ function addUserToSpreadsheet(userData) {
       header: header 
     };
     
-    console.log('📊 컬럼 인덱스:', debugInfo.columnIndexes);
-    
     // 컬럼 인덱스 검증
     if (emailColumnIndex === -1 || approvalColumnIndex === -1 || adminColumnIndex === -1 || dateColumnIndex === -1) {
       debugInfo.step = '컬럼 찾기 실패';
-      console.error('📊 컬럼을 찾을 수 없음:', debugInfo.columnIndexes);
+      logError_('UserRegistration', '컬럼을 찾을 수 없음:', debugInfo.columnIndexes);
       return {
         success: false,
         message: '스프레드시트 컬럼을 찾을 수 없습니다.',
@@ -541,11 +526,9 @@ function addUserToSpreadsheet(userData) {
     
     debugInfo.updateRanges = ranges;
     
-    console.log('📊 업데이트할 범위:', ranges);
-    console.log('📊 업데이트할 데이터:', updateData);
+    logDebug_('UserRegistration', '업데이트할 범위:', ranges);
     
     for (let i = 0; i < ranges.length; i++) {
-      console.log(`📊 업데이트 ${i + 1}:`, ranges[i], '=', updateData[i][0]);
       
       try {
         // 직접 스프레드시트 API 사용
@@ -559,10 +542,8 @@ function addUserToSpreadsheet(userData) {
           result: true,
           method: 'direct_api'
         });
-        
-        console.log(`📊 업데이트 성공 ${i + 1}:`, ranges[i]);
       } catch (error) {
-        console.error(`📊 업데이트 실패 ${i + 1}:`, error);
+        logError_('UserRegistration', `업데이트 실패 ${i + 1}:`, error);
         debugInfo.updateResults.push({
           range: ranges[i],
           data: updateData[i][0],
@@ -574,7 +555,6 @@ function addUserToSpreadsheet(userData) {
     }
     
     debugInfo.step = '업데이트 완료';
-    console.log('📊 기존 사용자 행 업데이트 완료:', actualRowNumber);
     
     return {
       success: true,
@@ -585,7 +565,7 @@ function addUserToSpreadsheet(userData) {
   } catch (error) {
     debugInfo.step = '오류 발생';
     debugInfo.error = error.message;
-    console.error('📊 사용자 행 업데이트 오류:', error);
+    logError_('UserRegistration', '사용자 행 업데이트 오류:', error);
     return {
       success: false,
       message: '사용자 정보 업데이트 실패: ' + error.message,
@@ -602,7 +582,6 @@ function addUserToSpreadsheet(userData) {
  */
 function updateUserInfo(email, updateData) {
   try {
-    console.log('📝 사용자 정보 업데이트 시작:', email, updateData);
     
     // 연결된 스프레드시트 사용
     const spreadsheet = getHpMemberSpreadsheet();
@@ -655,8 +634,6 @@ function updateUserInfo(email, updateData) {
       }
     });
     
-    console.log('📝 사용자 정보 업데이트 완료:', email);
-    
     return {
       success: true,
       message: '사용자 정보가 업데이트되었습니다.',
@@ -667,7 +644,7 @@ function updateUserInfo(email, updateData) {
     };
     
   } catch (error) {
-    console.error('📝 사용자 정보 업데이트 오류:', error);
+    logError_('UserRegistration', '사용자 정보 업데이트 오류:', error);
     return {
       success: false,
       message: '사용자 정보 업데이트 중 오류가 발생했습니다: ' + error.message
@@ -682,7 +659,6 @@ function updateUserInfo(email, updateData) {
  */
 function deleteUserInfo(email) {
   try {
-    console.log('🗑️ 사용자 정보 삭제 시작:', email);
     
     // 연결된 스프레드시트 사용
     const spreadsheet = getHpMemberSpreadsheet();
@@ -729,15 +705,13 @@ function deleteUserInfo(email) {
     const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(sheetName);
     sheet.deleteRow(user.rowIndex);
     
-    console.log('🗑️ 사용자 정보 삭제 완료:', email);
-    
     return {
       success: true,
       message: '사용자 정보가 삭제되었습니다.'
     };
     
   } catch (error) {
-    console.error('🗑️ 사용자 정보 삭제 오류:', error);
+    logError_('UserRegistration', '사용자 정보 삭제 오류:', error);
     return {
       success: false,
       message: '사용자 정보 삭제 중 오류가 발생했습니다: ' + error.message
@@ -764,7 +738,6 @@ function addUsersToSpreadsheet(req) {
   };
   
   try {
-    console.log('📊 사용자 일괄 추가 시작:', req.users?.length || 0, '명');
     
     if (!req.users || !Array.isArray(req.users) || req.users.length === 0) {
       return {
@@ -876,11 +849,9 @@ function addUsersToSpreadsheet(req) {
       const lastRow = sheet.getLastRow();
       const range = sheet.getRange(lastRow + 1, 1, rowsToAdd.length, 7);
       range.setValues(rowsToAdd);
-      console.log('📊 시트에', rowsToAdd.length, '개 행 추가 완료');
     }
     
     debugInfo.step = '추가 완료';
-    console.log('📊 사용자 일괄 추가 완료:', addedCount, '명 추가,', skippedCount, '명 건너뜀');
     
     return {
       success: true,
@@ -896,7 +867,7 @@ function addUsersToSpreadsheet(req) {
   } catch (error) {
     debugInfo.step = '오류 발생';
     debugInfo.error = error.message;
-    console.error('📊 사용자 일괄 추가 오류:', error);
+    logError_('UserRegistration', '사용자 일괄 추가 오류:', error);
     return {
       success: false,
       message: '사용자 추가 중 오류가 발생했습니다: ' + error.message,

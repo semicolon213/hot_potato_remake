@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file useCommitteeOnly.ts
  * @brief 학과 위원회 전용 관리 훅
@@ -13,18 +14,22 @@ import {
   updateCommittee as updateCommitteeInPapyrus,
   deleteCommittee as deleteCommitteeFromPapyrus
 } from '../../../utils/database/papyrusManager';
-import { useAppState } from '../../core/useAppState';
 import { apiClient } from '../../../utils/api/apiClient';
 import type { Committee, CareerItem } from '../../../types/features/staff';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+const log = logger.scope('hooks/features/staff/useCommitteeOnly');
+
 
 interface CommitteeFilters {
   sortation: string; // 위원회의 'sortation'에 해당
   position: string; // 위원회의 'position'에 해당
 }
 
-export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
-  const { hotPotatoDBSpreadsheetId } = useAppState();
+export const useCommitteeOnly = (
+  staffSpreadsheetId: string | null,
+  hotPotatoDBSpreadsheetId: string | null
+) => {
+  const committeeSpreadsheetId = staffSpreadsheetId || hotPotatoDBSpreadsheetId;
   const [committee, setCommittee] = useState<Committee[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,8 +56,8 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
         try {
           const result = await apiClient.request<string>('encryptEmail', { data: dataItem.tel });
           if (result.success && result.data) encryptedCommittee.tel = result.data;
-        } catch (error) {
-          console.warn('전화번호 암호화 실패:', error);
+        } catch {
+          log.warn('전화번호 암호화 실패');
         }
       }
       
@@ -61,14 +66,14 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
         try {
           const result = await apiClient.request<string>('encryptEmail', { data: dataItem.email });
           if (result.success && result.data) encryptedCommittee.email = result.data;
-        } catch (error) {
-          console.warn('이메일 암호화 실패:', error);
+        } catch {
+          log.warn('이메일 암호화 실패');
         }
       }
       
       return encryptedCommittee;
-    } catch (error) {
-      console.warn('데이터 암호화 실패, 원본 데이터를 사용합니다:', error);
+    } catch {
+      log.warn('데이터 암호화 실패, 원본 데이터를 사용합니다');
       return dataItem;
     }
   }, []);
@@ -79,21 +84,20 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
     setIsLoading(true);
     setError(null);
     try {
-      const committeeData = await fetchCommitteeFromPapyrus(staffSpreadsheetId!);
-      console.log('Papyrus DB에서 받은 위원회 데이터 (이미 복호화됨):', committeeData);
+      const committeeData = await fetchCommitteeFromPapyrus(committeeSpreadsheetId!);
       setCommittee(committeeData);
     } catch (err) {
       setError(err instanceof Error ? err.message : '학과 위원회 목록 조회 실패');
     } finally {
       setIsLoading(false);
     }
-  }, [staffSpreadsheetId]);
+  }, [committeeSpreadsheetId]);
 
   useEffect(() => {
-    if (staffSpreadsheetId) {
+    if (committeeSpreadsheetId) {
       fetchCommittee();
     }
-  }, [staffSpreadsheetId, fetchCommittee]);
+  }, [committeeSpreadsheetId, fetchCommittee]);
 
   // 필터링된 위원회 목록
   const filteredCommittee = useMemo(() => {
@@ -191,7 +195,7 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
       XLSX.utils.book_append_sheet(wb, ws, '위원회 목록');
       XLSX.writeFile(wb, `위원회일괄입력_양식_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (error) {
-      console.error('양식 다운로드 실패:', error);
+      log.error('양식 다운로드 실패:', error);
       notifyGlobal('양식 다운로드에 실패했습니다.', 'error');
     }
   };
@@ -309,19 +313,19 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
             notifyGlobal(`중복된 위원회 구성원이 발견되었습니다: ${duplicates.join(', ')}`, 'warning', 5000);
           }
 
-          if (newCommitteeList.length > 0 && staffSpreadsheetId) {
+          if (newCommitteeList.length > 0 && committeeSpreadsheetId) {
             setIsLoading(true);
             try {
               // 각 위원회 구성원을 암호화하여 추가
               for (const newCommittee of newCommitteeList) {
                 const encryptedCommittee = await encryptData(newCommittee);
-                await addCommitteeToPapyrus(staffSpreadsheetId, encryptedCommittee);
+                await addCommitteeToPapyrus(committeeSpreadsheetId, encryptedCommittee);
               }
               
               await fetchCommittee();
               notifyGlobal(`${newCommitteeList.length}명의 위원회 구성원이 추가되었습니다.`, 'success');
             } catch (err) {
-              console.error('위원회 추가 실패:', err);
+              log.error('위원회 추가 실패:', err);
               reject(err);
               return;
             } finally {
@@ -333,7 +337,7 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
 
           resolve();
         } catch (error) {
-          console.error('파일 업로드 오류:', error);
+          log.error('파일 업로드 오류:', error);
           reject(error);
         }
       };
@@ -371,7 +375,7 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
       setIsLoading(true);
       try {
         const encryptedCommittee = await encryptData(newCommittee);
-        await addCommitteeToPapyrus(staffSpreadsheetId!, encryptedCommittee);
+        await addCommitteeToPapyrus(committeeSpreadsheetId!, encryptedCommittee);
         await fetchCommittee();
       } catch (err) {
         setError(err instanceof Error ? err.message : '위원회 추가 실패');
@@ -383,7 +387,7 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
       setIsLoading(true);
       try {
         const encryptedCommittee = await encryptData(updatedCommittee);
-        await updateCommitteeInPapyrus(staffSpreadsheetId!, committeeName, encryptedCommittee);
+        await updateCommitteeInPapyrus(committeeSpreadsheetId!, committeeName, encryptedCommittee);
         await fetchCommittee();
       } catch (err) {
         setError(err instanceof Error ? err.message : '위원회 업데이트 실패');
@@ -394,7 +398,7 @@ export const useCommitteeOnly = (staffSpreadsheetId: string | null) => {
     deleteCommittee: async (committeeName: string) => {
       setIsLoading(true);
       try {
-        await deleteCommitteeFromPapyrus(staffSpreadsheetId!, committeeName);
+        await deleteCommitteeFromPapyrus(committeeSpreadsheetId!, committeeName);
         await fetchCommittee();
       } catch (err) {
         setError(err instanceof Error ? err.message : '위원회 삭제 실패');

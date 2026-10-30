@@ -1,3 +1,6 @@
+import { logger } from '../logger';
+
+const log = logger.scope('utils/security/crypto');
 
 // IMPORTANT: This is a hardcoded key for demonstration purposes only.
 // In a production environment, this key should be managed securely (e.g., via environment variables or a key management service).
@@ -36,8 +39,8 @@ export async function encrypt(text: string): Promise<string> {
         combined.set(new Uint8Array(encryptedData), iv.length);
 
         return btoa(String.fromCharCode.apply(null, Array.from(combined)));
-    } catch (error) {
-        console.error("Encryption failed:", error);
+    } catch {
+        log.error("Encryption failed");
         return text; // Return original text on failure
     }
 }
@@ -61,8 +64,8 @@ export async function decrypt(encryptedText: string): Promise<string> {
         );
 
         return new TextDecoder().decode(decryptedData);
-    } catch (error) {
-        console.error("Decryption failed:", error);
+    } catch {
+        log.error("Decryption failed");
         return encryptedText; // Return original text on failure
     }
 }

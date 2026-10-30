@@ -1,6 +1,9 @@
+import { logger } from '../../../utils/logger';
 import React, { useState, useEffect, useRef } from 'react';
 import { apiClient } from '../../../utils/api/apiClient';
 import './EmailAutocomplete.css';
+const log = logger.scope('components/ui/common/EmailAutocomplete');
+
 
 interface User {
   email: string;
@@ -57,7 +60,7 @@ const EmailAutocomplete: React.FC<EmailAutocompleteProps> = ({
           setAllUsers(userList);
         }
       } catch (error) {
-        console.error('회원 목록 로드 오류:', error);
+        log.error('회원 목록 로드 오류:', error);
       } finally {
         setIsLoading(false);
       }

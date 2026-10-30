@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file useStudentManagement.ts
  * @brief 학생 관리 훅
@@ -10,11 +11,14 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   fetchStudents as fetchStudentsFromPapyrus,
   deleteStudent as deleteStudentFromPapyrus,
-  updateStudent as updateStudentFromPapyrus
+  updateStudent as updateStudentFromPapyrus,
+  invalidateStudentsFetchCache
 } from '../../../utils/database/papyrusManager';
 import { apiClient } from '../../../utils/api/apiClient';
 import type { Student, StudentWithCouncil, CouncilPosition } from '../../../types/features/students/student';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+const log = logger.scope('hooks/features/students/useStudentManagement');
+
 
 /**
  * @brief 학생 관리 커스텀 훅
@@ -98,10 +102,9 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
 
     try {
       const result = await apiClient.request<string>('decryptEmail', { data: encryptedPhone });
-      console.log('전화번호 복호화 성공:', result);
       return result.success && result.data ? result.data : encryptedPhone;
-    } catch (error) {
-      console.error('전화번호 복호화 실패:', error);
+    } catch {
+      log.error('전화번호 복호화 실패');
       return encryptedPhone;
     }
   };
@@ -112,10 +115,8 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
     setError(null);
     
     try {
-      console.log('학생 데이터 가져오기 시작...');
-      console.log('studentSpreadsheetId:', studentSpreadsheetId);
+      log.debug('studentSpreadsheetId:', studentSpreadsheetId);
       const studentsData = await fetchStudentsFromPapyrus(studentSpreadsheetId!);
-      console.log('Papyrus DB에서 받은 학생 데이터:', studentsData);
       
       if (studentsData && studentsData.length > 0) {
         // fetchStudentsFromPapyrus에서 이미 복호화된 데이터를 반환하므로 복호화 불필요
@@ -123,12 +124,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
           const parsed = parseCouncil(student.council);
           // 디버깅: 파싱 결과 확인
           if (student.council && parsed.length === 0) {
-            console.warn('⚠️ 학생회 파싱 실패:', {
-              학생: student.name,
-              학번: student.no_student,
-              원본데이터: student.council,
-              파싱결과: parsed
-            });
+            log.warn('학생회 파싱 실패');
           }
           return {
             ...student,
@@ -137,30 +133,12 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
         });
 
         setStudents(studentData);
-        console.log(`학생 ${studentData.length}명 데이터 로드 완료 (이미 복호화된 데이터)`);
         
-        // 디버깅: 전체 파싱 결과 요약
-        const totalCouncilItems = studentData.reduce((sum, s) => sum + s.parsedCouncil.length, 0);
-        const studentsWithCouncil = studentData.filter(s => s.parsedCouncil.length > 0).length;
-        console.log('📊 학생회 데이터 파싱 요약:', {
-          총학생수: studentData.length,
-          학생회있는학생수: studentsWithCouncil,
-          총학생회항목수: totalCouncilItems,
-          년도별분포: studentData.reduce((acc, student) => {
-            student.parsedCouncil.forEach(council => {
-              if (council.year) {
-                acc[council.year] = (acc[council.year] || 0) + 1;
-              }
-            });
-            return acc;
-          }, {} as Record<string, number>)
-        });
       } else {
-        console.log('학생 데이터가 없습니다.');
         setStudents([]);
       }
     } catch (err) {
-      console.error('학생 데이터 가져오기 실패:', err);
+      log.error('학생 데이터 가져오기 실패:', err);
       setError('학생 데이터를 가져오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
@@ -170,10 +148,9 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
   // 컴포넌트 마운트 시 학생 데이터 로드
   useEffect(() => {
     if (studentSpreadsheetId) {
-      console.log('useStudentManagement: studentSpreadsheetId가 있으므로 학생 데이터 로드 시작');
       fetchStudents();
     } else {
-      console.log('useStudentManagement: studentSpreadsheetId가 없음');
+      log.debug('useStudentManagement: studentSpreadsheetId가 없음');
     }
   }, [studentSpreadsheetId]);
 
@@ -339,7 +316,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
       XLSX.utils.book_append_sheet(wb, ws, '학생 목록');
       XLSX.writeFile(wb, `학생일괄입력_양식_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (error) {
-      console.error('양식 다운로드 실패:', error);
+      log.error('양식 다운로드 실패:', error);
       notifyGlobal('양식 다운로드에 실패했습니다.', 'error');
     }
   };
@@ -466,11 +443,8 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
               resource: { values }
             });
 
-            // 로컬 상태 업데이트
-            setStudents(prev => [...prev, ...newStudents]);
+            await invalidateStudentsFetchCache(studentSpreadsheetId);
             notifyGlobal(`${newStudents.length}명의 학생이 추가되었습니다.`, 'success');
-            
-            // 데이터 새로고침
             await fetchStudents();
           } else if (newStudents.length === 0) {
             notifyGlobal('추가할 학생이 없습니다.', 'warning');
@@ -478,7 +452,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
 
           resolve();
         } catch (error) {
-          console.error('파일 업로드 오류:', error);
+          log.error('파일 업로드 오류:', error);
           reject(error);
         }
       };
@@ -538,12 +512,12 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
         resource: { values }
       });
 
-      // 로컬 상태 업데이트 (화면에는 복호화된 번호 유지)
+      await invalidateStudentsFetchCache(studentSpreadsheetId);
       setStudents(prev => [...prev, newStudent]);
       notifyGlobal('학생이 성공적으로 추가되었습니다.', 'success');
 
     } catch (error) {
-      console.error('학생 추가 실패:', error);
+      log.error('학생 추가 실패:', error);
       notifyGlobal('학생 추가에 실패했습니다.', 'error');
     }
   };
@@ -556,7 +530,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
       setStudents(prev => prev.filter(s => s.no_student !== studentNo));
       notifyGlobal('학생이 성공적으로 삭제되었습니다.', 'success');
     } catch (error) {
-      console.error('학생 삭제 실패:', error);
+      log.error('학생 삭제 실패:', error);
       notifyGlobal('학생 삭제에 실패했습니다.', 'error');
     }
   };
@@ -581,7 +555,7 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
 
       return true;
     } catch (error) {
-      console.error('학생 정보 업데이트 실패:', error);
+      log.error('학생 정보 업데이트 실패:', error);
       return false;
     }
   };
@@ -598,12 +572,6 @@ export const useStudentManagement = (studentSpreadsheetId: string | null) => {
       )
     );
   };
-
-  useEffect(() => {
-    if (studentSpreadsheetId) {
-      fetchStudents();
-    }
-  }, [studentSpreadsheetId]);
 
   return {
     students,

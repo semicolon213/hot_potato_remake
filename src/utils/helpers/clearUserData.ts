@@ -1,3 +1,4 @@
+import { logger } from '../logger';
 /**
  * @file clearUserData.ts
  * @brief 사용자 데이터 정리 유틸리티
@@ -7,17 +8,20 @@
  */
 
 import { clearSpreadsheetIds } from '../database/papyrusManager';
-import { clearPersonalConfigSpreadsheetId } from '../database/personalConfigManager';
+import { clearPersonalConfigSpreadsheetId, clearPersonalFolderIds } from '../database/personalConfigManager';
 import { resetGoogleAPIInitialization } from '../google/googleSheetUtils';
 import { resetGoogleApiInitializer } from '../google/googleApiInitializer';
 import { tokenManager } from '../auth/tokenManager';
+import { getCacheManager } from '../cache/cacheManager';
+import { apiClient } from '../api/apiClient';
+const log = logger.scope('utils/helpers/clearUserData');
+
 
 /**
  * @brief localStorage에서 사용자 관련 항목 제거
  * @details 로그아웃 시 localStorage에 저장된 모든 사용자 관련 데이터를 제거합니다.
  */
 export const clearLocalStorageUserData = (): void => {
-    console.log('🧹 localStorage 사용자 데이터 정리 시작...');
     
     // 기본 사용자 데이터 (토큰은 tokenManager 단일 소스로 제거)
     localStorage.removeItem('user');
@@ -49,13 +53,14 @@ export const clearLocalStorageUserData = (): void => {
     
     keysToRemove.forEach(key => {
         localStorage.removeItem(key);
-        console.log(`  ✅ 제거됨: ${key}`);
     });
+
+    // API 메모리 캐시와 cache_* localStorage 항목 정리
+    apiClient.clearInFlightRequests();
+    void getCacheManager().clear();
     
     // Zustand persist 스토리지 정리
     localStorage.removeItem('auth-storage');
-    
-    console.log('🧹 localStorage 사용자 데이터 정리 완료');
 };
 
 /**
@@ -67,10 +72,9 @@ export const clearGoogleAPIToken = (): void => {
         if (typeof window !== 'undefined' && window.gapi && window.gapi.client) {
             // 토큰 제거
             window.gapi.client.setToken({ access_token: '' });
-            console.log('🧹 Google API 토큰 제거 완료');
         }
-    } catch (error) {
-        console.warn('Google API 토큰 제거 중 오류:', error);
+    } catch {
+        log.warn('Google API 토큰 제거 중 오류');
     }
 };
 
@@ -93,8 +97,6 @@ export const clearAllUserData = (options: {
         clearGoogleToken = true
     } = options;
     
-    console.log('🧹 사용자 데이터 정리 시작...');
-    
     // localStorage 정리
     if (clearLocalStorage) {
         clearLocalStorageUserData();
@@ -104,6 +106,7 @@ export const clearAllUserData = (options: {
     if (clearGlobalVariables) {
         clearSpreadsheetIds();
         clearPersonalConfigSpreadsheetId();
+        clearPersonalFolderIds();
         resetGoogleAPIInitialization();
         resetGoogleApiInitializer();
     }
@@ -112,7 +115,5 @@ export const clearAllUserData = (options: {
     if (clearGoogleToken) {
         clearGoogleAPIToken();
     }
-    
-    console.log('🧹 사용자 데이터 정리 완료');
 };
 

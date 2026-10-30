@@ -1,6 +1,9 @@
+import { logger } from '../../../utils/logger';
 import {initialTemplates, type Template} from "../../../hooks/features/templates/useTemplateUI";
 import { SortableTemplateCard } from "./SortableTemplateCard";
 import { BiLoaderAlt } from "react-icons/bi";
+const log = logger.scope('components/features/templates/TemplateList');
+
 
 interface Props {
     templates: Template[];
@@ -40,7 +43,7 @@ export function TemplateList({ templates, onUseTemplate, onDeleteTemplate, onEdi
                 // 즐겨찾기 상태 확인 (디버깅용)
                 const favoriteStatus = !!template.favoritesTag;
                 if (favoriteStatus) {
-                    console.log('⭐ TemplateList 즐겨찾기 템플릿:', template.title, 'favoritesTag:', template.favoritesTag);
+                    log.debug('TemplateList 즐겨찾기 템플릿:', template.title, 'favoritesTag:', template.favoritesTag);
                 }
 
                 return (

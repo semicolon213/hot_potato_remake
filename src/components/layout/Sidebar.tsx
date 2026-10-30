@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 /**
  * @file Sidebar.tsx
  * @brief 사이드바 컴포넌트
@@ -59,6 +60,8 @@ interface SidebarProps {
  * @returns {JSX.Element} 렌더링된 사이드바 컴포넌트
  */
 import { useAuthStore } from "../../hooks/features/auth/useAuthStore";
+const log = logger.scope('components/layout/Sidebar');
+
 
 const Sidebar: React.FC<SidebarProps> = ({ onPageChange, onLogout, onFullLogout, user, currentPage }) => {
   const [isCollapsed, setIsCollapsed] = useState<boolean>(true);
@@ -80,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPageChange, onLogout, onFullLogout,
         }
       } catch (e) {
         // 실패 시 구글 계정명 사용
-        console.warn('회원정보명 가져오기 실패:', e);
+        log.warn('회원정보명 가져오기 실패:', e);
       }
     };
     fetchMemberName();

@@ -1,9 +1,14 @@
+import { logger } from '../utils/logger';
 import React, { useState, useEffect } from 'react';
 import './Timetable.css';
 import AddTimetableEventModal, { type TimetableEvent } from '../components/features/timetable/AddTimetableEventModal';
 import { getScheduleEvents, addScheduleEvent, deleteScheduleEvent, updateScheduleEvent } from '../utils/database/personalConfigManager';
+import { useNotification } from '../hooks/ui/useNotification';
+const log = logger.scope('pages/Timetable');
+
 
 const Timetable: React.FC = () => {
+    const { confirmAsync } = useNotification();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [events, setEvents] = useState<TimetableEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -28,7 +33,7 @@ const Timetable: React.FC = () => {
                 })).filter(e => e.title); // 제목이 없는 빈 행은 필터링
                 setEvents(formattedEvents);
             } catch (error) {
-                console.error("Failed to fetch events:", error);
+                log.error("Failed to fetch events:", error);
             } finally {
                 setIsLoading(false);
             }
@@ -65,7 +70,7 @@ const Timetable: React.FC = () => {
             })).filter(e => e.title);
             setEvents(formattedEvents);
         } catch (error) {
-            console.error("Failed to save event, reverting optimistic update", error);
+            log.error("Failed to save event, reverting optimistic update", error);
             // Revert optimistic update on failure
             if (editingEvent) {
                 // Revert to the original event data
@@ -86,14 +91,14 @@ const Timetable: React.FC = () => {
     };
 
     const handleDelete = async (eventNo: number) => {
-        if (window.confirm('이 일정을 삭제하시겠습니까?')) {
+        if (await confirmAsync('이 일정을 삭제하시겠습니까?', { type: 'danger' })) {
             const originalEvents = events;
             // Optimistic update
             setEvents(prevEvents => prevEvents.filter(event => parseInt(event.no!, 10) !== eventNo));
             try {
                 await deleteScheduleEvent(eventNo);
             } catch (error) {
-                console.error("Failed to delete event, reverting...", error);
+                log.error("Failed to delete event, reverting...", error);
                 setEvents(originalEvents); // Revert on failure
             }
         }

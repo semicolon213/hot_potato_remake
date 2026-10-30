@@ -12,14 +12,10 @@
  */
 function generateExtendedMultiLayerKey() {
   try {
-    console.log('=== 관리자 키 생성 시작 ===');
     
     // CONFIG에서 암호화 방법들 가져오기
     const methods = getConfig('encryption_methods');
     const layerConfig = getConfig('layer_config');
-    
-    console.log('사용 가능한 암호화 방법들:', methods);
-    console.log('레이어 설정:', layerConfig);
     
     const layerCount = Math.floor(Math.random() * (layerConfig.MAX_LAYERS - layerConfig.MIN_LAYERS + 1)) + layerConfig.MIN_LAYERS;
     const selectedMethods = [];
@@ -29,9 +25,6 @@ function generateExtendedMultiLayerKey() {
       selectedMethods.push(methods[randomIndex]);
     }
     
-    console.log('선택된 레이어 수:', layerCount);
-    console.log('선택된 암호화 방법들:', selectedMethods);
-    
     // 안전한 랜덤 문자열 생성
     const randomPart1 = Math.random().toString(36).substring(2);
     const randomPart2 = Math.random().toString(36).substring(2);
@@ -39,26 +32,17 @@ function generateExtendedMultiLayerKey() {
     const dateStr = new Date().toISOString().split('T')[0];
     const baseKey = `ADMIN_${dateStr}_${randomPart.substring(0, 13)}`;
     
-    console.log('랜덤 부분 1:', randomPart1);
-    console.log('랜덤 부분 2:', randomPart2);
-    console.log('날짜 문자열:', dateStr);
-    console.log('기본 키:', baseKey);
-    
     let encryptedKey = baseKey;
     for (let i = 0; i < selectedMethods.length; i++) {
       const method = selectedMethods[i];
       const beforeEncrypt = encryptedKey;
       encryptedKey = applyEncryption(encryptedKey, method, '');
-      console.log(`암호화 ${i + 1}/${selectedMethods.length} (${method}):`, beforeEncrypt.substring(0, 20) + '...', '->', encryptedKey.substring(0, 20) + '...');
       
       if (!encryptedKey || encryptedKey === 'undefined' || encryptedKey.includes('undefined')) {
-        console.error(`암호화 실패: ${method}에서 undefined 반환`);
+        logError_('EncryptionKeyManagement', `암호화 실패: ${method}에서 undefined 반환`);
         throw new Error(`암호화 실패: ${method}에서 undefined 반환`);
       }
     }
-    
-    console.log('최종 암호화된 키:', encryptedKey.substring(0, 50) + '...');
-    console.log('=== 관리자 키 생성 완료 ===');
     
     return {
       key: encryptedKey,
@@ -66,7 +50,7 @@ function generateExtendedMultiLayerKey() {
       originalKey: baseKey
     };
   } catch (error) {
-    console.error('관리자 키 생성 오류:', error);
+    logError_('EncryptionKeyManagement', '관리자 키 생성 오류');
     throw error;
   }
 }
@@ -79,9 +63,6 @@ function generateExtendedMultiLayerKey() {
  */
 function validateEncryptedKey(encryptedKey, methods) {
   try {
-    console.log('=== 키 검증 시작 ===');
-    console.log('암호화된 키:', encryptedKey.substring(0, 50) + '...');
-    console.log('암호화 방법들:', methods);
     
     // 역순으로 복호화
     let decryptedKey = encryptedKey;
@@ -89,10 +70,7 @@ function validateEncryptedKey(encryptedKey, methods) {
       const method = methods[i];
       const beforeDecrypt = decryptedKey;
       decryptedKey = applyDecryption(decryptedKey, method, '');
-      console.log(`복호화 ${methods.length - i}/${methods.length} (${method}):`, beforeDecrypt.substring(0, 20) + '...', '->', decryptedKey.substring(0, 20) + '...');
     }
-    
-    console.log('최종 복호화된 키:', decryptedKey);
     
     // 키 형식 검증
     const isValidFormat = decryptedKey.startsWith('ADMIN_') && decryptedKey.includes('_');
@@ -105,7 +83,7 @@ function validateEncryptedKey(encryptedKey, methods) {
     };
     
   } catch (error) {
-    console.error('키 검증 오류:', error);
+    logError_('EncryptionKeyManagement', '키 검증 오류');
     return {
       success: false,
       error: error.message,
@@ -122,19 +100,16 @@ function validateEncryptedKey(encryptedKey, methods) {
  */
 function decryptKey(encryptedKey, methods) {
   try {
-    console.log('=== 키 복호화 시작 ===');
     
     let decryptedKey = encryptedKey;
     for (let i = methods.length - 1; i >= 0; i--) {
       const method = methods[i];
       decryptedKey = applyDecryption(decryptedKey, method, '');
     }
-    
-    console.log('키 복호화 완료:', decryptedKey);
     return decryptedKey;
     
   } catch (error) {
-    console.error('키 복호화 오류:', error);
+    logError_('EncryptionKeyManagement', '키 복호화 오류');
     throw error;
   }
 }
@@ -147,7 +122,6 @@ function decryptKey(encryptedKey, methods) {
  */
 function reencryptKey(originalKey, newMethods) {
   try {
-    console.log('=== 키 재암호화 시작 ===');
     
     let encryptedKey = originalKey;
     for (let i = 0; i < newMethods.length; i++) {
@@ -163,7 +137,7 @@ function reencryptKey(originalKey, newMethods) {
     };
     
   } catch (error) {
-    console.error('키 재암호화 오류:', error);
+    logError_('EncryptionKeyManagement', '키 재암호화 오류');
     return {
       success: false,
       error: error.message
@@ -179,7 +153,6 @@ function reencryptKey(originalKey, newMethods) {
  */
 function analyzeKeyStrength(encryptedKey, methods) {
   try {
-    console.log('=== 키 강도 분석 시작 ===');
     
     const analysis = {
       keyLength: encryptedKey.length,
@@ -216,7 +189,7 @@ function analyzeKeyStrength(encryptedKey, methods) {
     };
     
   } catch (error) {
-    console.error('키 강도 분석 오류:', error);
+    logError_('EncryptionKeyManagement', '키 강도 분석 오류');
     return {
       success: false,
       error: error.message
@@ -232,7 +205,6 @@ function analyzeKeyStrength(encryptedKey, methods) {
  */
 function createKeyBackup(encryptedKey, methods) {
   try {
-    console.log('=== 키 백업 생성 시작 ===');
     
     const backup = {
       encryptedKey: encryptedKey,
@@ -248,7 +220,7 @@ function createKeyBackup(encryptedKey, methods) {
     };
     
   } catch (error) {
-    console.error('키 백업 생성 오류:', error);
+    logError_('EncryptionKeyManagement', '키 백업 생성 오류');
     return {
       success: false,
       error: error.message
@@ -263,7 +235,6 @@ function createKeyBackup(encryptedKey, methods) {
  */
 function restoreKeyBackup(backup) {
   try {
-    console.log('=== 키 백업 복원 시작 ===');
     
     if (!backup.encryptedKey || !backup.methods) {
       return {
@@ -283,7 +254,7 @@ function restoreKeyBackup(backup) {
     };
     
   } catch (error) {
-    console.error('키 백업 복원 오류:', error);
+    logError_('EncryptionKeyManagement', '키 백업 복원 오류');
     return {
       success: false,
       error: error.message

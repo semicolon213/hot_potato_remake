@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file 대시보드 위젯의 추가, 제거, 재정렬 등 위젯 관리를 위한 커스텀 훅을 제공합니다.
  * 이 훅은 위젯 상태를 관리하고 Google Sheets에 저장하며, 드래그 앤 드롭 기능을 포함합니다.
@@ -8,11 +9,12 @@ import { generateWidgetContent } from "../../../utils/helpers/widgetContentGener
 import { fetchAnnouncements, fetchCalendarEvents, fetchStudents, fetchStaffFromPapyrus } from "../../../utils/database/papyrusManager";
 import type { User } from '../../../types/app';
 import { getAccountingData } from "../../../utils/google/googleSheetUtils";
-import { getFolderIdByName, getSheetsInFolder } from "../../../utils/google/driveUtils";
 import { ENV_CONFIG } from '../../../config/environment';
 import { apiClient } from "../../../utils/api/apiClient";
 import { tokenManager } from '../../../utils/auth/tokenManager';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+const log = logger.scope('hooks/features/dashboard/useWidgetManagement');
+
 
 /**
  * 위젯의 데이터 구조를 정의하는 인터페이스입니다.
@@ -196,24 +198,24 @@ const getWidgetOptions = (userType?: string, isAdmin?: boolean): typeof allWidge
   // 기본적으로 사용자 역할에 해당하는 위젯 필터링
   const userRoleWidgets = allWidgetOptions.filter(w => w.allowedRoles.includes(userType));
   
-  console.log(`🔍 getWidgetOptions: userType=${userType}, isAdmin=${isAdmin}`);
-  console.log(`📊 사용자 역할 위젯: ${userRoleWidgets.length}개`, userRoleWidgets.map(w => w.type));
+  log.debug(`getWidgetOptions: userType=${userType}, isAdmin=${isAdmin}`);
+  log.debug(`사용자 역할 위젯: ${userRoleWidgets.length}개`, userRoleWidgets.map(w => w.type));
   
   // 관리자인 경우 admin 역할 위젯도 추가
   if (isAdmin) {
     const adminWidgets = allWidgetOptions.filter(w => w.allowedRoles.includes('admin'));
-    console.log(`👑 관리자 위젯: ${adminWidgets.length}개`, adminWidgets.map(w => w.type));
+    log.debug(`관리자 위젯: ${adminWidgets.length}개`, adminWidgets.map(w => w.type));
     
     // 중복 제거 (같은 위젯이 여러 역할에 포함될 수 있음)
     const allWidgets = [...userRoleWidgets];
     adminWidgets.forEach(adminWidget => {
       if (!allWidgets.find(w => w.id === adminWidget.id)) {
         allWidgets.push(adminWidget);
-        console.log(`➕ 관리자 위젯 추가: ${adminWidget.type}`);
+        log.debug(`관리자 위젯 추가: ${adminWidget.type}`);
       }
     });
     
-    console.log(`✅ 최종 위젯: ${allWidgets.length}개`, allWidgets.map(w => w.type));
+    log.debug(`최종 위젯: ${allWidgets.length}개`, allWidgets.map(w => w.type));
     return allWidgets;
   }
   
@@ -253,22 +255,11 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
   
   // 디버깅: 사용자 정보 로그
   if (user) {
-    console.log('🔍 위젯 옵션 필터링:', {
-      userType,
-      isAdmin,
-      userIsAdmin: user.isAdmin,
-      userIs_admin: (user as any)?.is_admin,
-      email: user.email
-    });
+      // Intentionally ignored.
+
   }
   
   const baseWidgetOptions = getWidgetOptions(userType, isAdmin);
-  
-  // 디버깅: 필터링된 위젯 옵션 로그
-  console.log('📋 필터링된 위젯 옵션:', {
-    total: baseWidgetOptions.length,
-    widgetTypes: baseWidgetOptions.map(w => w.type)
-  });
   
   // 장부 접근 권한이 필요한 위젯 필터링
   const widgetOptions = baseWidgetOptions.filter(widget => {
@@ -291,11 +282,10 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
     }
     
     try {
-      console.log("Google Sheets와 위젯 데이터 동기화 시작");
       
       const gapi = window.gapi;
       if (!gapi || !gapi.client || !gapi.client.sheets) {
-        console.warn("Google API가 초기화되지 않았습니다.");
+        log.warn("Google API가 초기화되지 않았습니다.");
         setInitialLoadComplete(true);
         return;
       }
@@ -304,8 +294,8 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       if (validToken) {
         try {
           gapi.client.setToken({ access_token: validToken });
-        } catch (tokenError) {
-          console.warn("토큰 설정 실패:", tokenError);
+        } catch {
+          log.warn("토큰 설정 실패");
         }
       }
       
@@ -317,20 +307,20 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         });
         
         const allSheetNames = spreadsheet.result.sheets?.map((sheet: any) => sheet.properties.title) || [];
-        console.log(`📄 스프레드시트의 모든 시트:`, allSheetNames);
-        console.log(`🔍 찾는 시트 이름: "${SHEET_NAME}"`);
+        log.debug(`스프레드시트의 모든 시트:`, allSheetNames);
+        log.debug(`찾는 시트 이름: "${SHEET_NAME}"`);
         
         sheetExists = spreadsheet.result.sheets?.some(
           (sheet: any) => sheet.properties.title === SHEET_NAME
         ) || false;
         
-        console.log(`✅ 시트 존재 여부: ${sheetExists}`);
+        log.debug(`시트 존재 여부: ${sheetExists}`);
       } catch (checkError: any) {
         // 401 오류인 경우 특별 처리
         if (checkError?.status === 401 || checkError?.result?.error?.code === 401) {
-          console.warn("인증 오류가 발생했습니다. 토큰이 만료되었을 수 있습니다. 기존 위젯을 유지합니다.");
+          log.warn("인증 오류가 발생했습니다. 토큰이 만료되었을 수 있습니다. 기존 위젯을 유지합니다.");
         } else {
-          console.warn("시트 확인 중 오류:", checkError);
+          log.warn("시트 확인 중 오류:", checkError);
         }
         // 시트 확인 실패 시 기존 위젯 유지 (빈 배열로 초기화하지 않음)
         setInitialLoadComplete(true);
@@ -338,7 +328,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       }
       
       if (!sheetExists) {
-        console.log(`시트 "${SHEET_NAME}"가 존재하지 않습니다. 기존 위젯을 유지합니다.`);
+        log.debug(`시트 "${SHEET_NAME}"가 존재하지 않습니다. 기존 위젯을 유지합니다.`);
         setInitialLoadComplete(true);
         return;
       }
@@ -350,8 +340,6 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       });
 
       const rows = response.result.values || [];
-      console.log(`📊 대시보드 시트에서 읽은 데이터: ${rows.length}개 행`);
-      console.log('📊 읽은 데이터 샘플:', rows.slice(0, 3));
       
       if (rows.length > 0) {
         try {
@@ -359,7 +347,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
           
           for (const row of rows) {
             if (!row || row.length < 3) {
-              console.warn('⚠️ 행 데이터가 부족합니다:', row);
+              log.warn('행 데이터가 부족합니다:', row);
               continue;
             }
             
@@ -368,39 +356,38 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
             const widgetOrder = parseInt(row[2]?.toString() || '0', 10);
             const widgetConfigStr = row[3]?.toString() || '{}';
             
-            console.log(`🔍 위젯 처리 중: ID=${widgetId}, Type=${widgetType}, Order=${widgetOrder}`);
+            log.debug(`위젯 처리 중: ID=${widgetId}, Type=${widgetType}, Order=${widgetOrder}`);
             
             if (!widgetId) {
-              console.warn('⚠️ 위젯 ID가 없습니다:', row);
+              log.warn('위젯 ID가 없습니다:', row);
               continue;
             }
             
             // 위젯 ID에서 기본 ID 추출 (예: "17-1" -> "17", "25-1" -> "25")
             const baseWidgetId = widgetId.split('-')[0];
-            console.log(`🔍 기본 위젯 ID: ${baseWidgetId} (원본: ${widgetId})`);
             
             const option = allWidgetOptions.find(opt => opt.id === baseWidgetId);
             if (!option) {
-              console.warn(`❌ 위젯 ID ${widgetId} (기본 ID: ${baseWidgetId})를 찾을 수 없습니다.`);
-              console.log('📋 사용 가능한 위젯 옵션 ID:', allWidgetOptions.map(opt => opt.id));
+              log.warn(`위젯 ID ${widgetId} (기본 ID: ${baseWidgetId})를 찾을 수 없습니다.`);
+              log.debug('사용 가능한 위젯 옵션 ID:', allWidgetOptions.map(opt => opt.id));
               continue;
             }
             
-            console.log(`✅ 위젯 옵션 찾음: ${option.type}, 허용된 역할:`, option.allowedRoles);
+            log.debug(`위젯 옵션 찾음: ${option.type}, 허용된 역할:`, option.allowedRoles);
             
             // 권한 체크: 사용자가 해당 위젯을 볼 수 있는지 확인
             if (userType && !option.allowedRoles.includes(userType)) {
-              console.warn(`❌ 사용자 ${userType}는 위젯 ${widgetId}에 접근할 수 없습니다. (허용된 역할: ${option.allowedRoles.join(', ')})`);
+              log.warn(`사용자 ${userType}는 위젯 ${widgetId}에 접근할 수 없습니다. (허용된 역할: ${option.allowedRoles.join(', ')})`);
               continue;
             }
             
-            console.log(`✅ 권한 체크 통과: ${widgetId}`);
+            log.debug(`권한 체크 통과: ${widgetId}`);
 
             let widgetConfig = {};
             try {
               widgetConfig = widgetConfigStr ? JSON.parse(widgetConfigStr) : {};
             } catch (e) {
-              console.warn(`위젯 ${widgetId}의 config 파싱 실패:`, e);
+              log.warn(`위젯 ${widgetId}의 config 파싱 실패:`, e);
             }
 
             const { type } = option;
@@ -477,8 +464,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
             loadedWidgets.push(item.widget);
           });
           
-          console.log(`✅ 최종 로드된 위젯 개수: ${loadedWidgets.length}`);
-          console.log('📋 로드된 위젯 목록:', loadedWidgets.map(w => ({ id: w.id, type: w.type, order: w.order })));
+          log.debug(`최종 로드된 위젯 개수: ${loadedWidgets.length}`);
           
           // 초기 로드된 위젯 설정을 prevWidgetConfigRef에 저장 (초기 로드 시 저장 방지)
           const initialConfig = loadedWidgets.map((widget, index) => {
@@ -491,9 +477,8 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
           prevWidgetConfigRef.current = JSON.stringify(initialConfig);
           
           setWidgets(loadedWidgets);
-          console.log('✅ 위젯 상태 업데이트 완료');
         } catch (parseError) {
-          console.error("위젯 데이터 파싱 오류:", parseError);
+          log.error("위젯 데이터 파싱 오류:", parseError);
           setWidgets([]);
         }
       } else {
@@ -501,10 +486,10 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       }
       
     } catch (error: any) {
-      console.error("Google Sheets 동기화 실패:", error);
+      log.error("Google Sheets 동기화 실패:", error);
       const errorMessage = error?.message || error?.error?.message || "알 수 없는 오류";
       const errorCode = error?.error?.code || error?.status;
-      console.error("Error details:", {
+      log.error("Error details:", {
         message: errorMessage,
         code: errorCode,
         error: error
@@ -535,7 +520,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
           setHasAccountingAccess(false);
         }
       } catch (error) {
-        console.error('❌ 장부 접근 권한 확인 오류:', error);
+        log.error('장부 접근 권한 확인 오류:', error);
         setHasAccountingAccess(false);
       }
     };
@@ -548,25 +533,24 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
   }, [user, userType]);
 
   useEffect(() => {
-    console.log('🔄 useEffect 트리거: hotPotatoDBSpreadsheetId =', hotPotatoDBSpreadsheetId);
+    log.debug('useEffect 트리거: hotPotatoDBSpreadsheetId =', hotPotatoDBSpreadsheetId);
     if (hotPotatoDBSpreadsheetId) {
-      console.log('📞 syncWidgetsWithGoogleSheets 호출');
+      log.debug('syncWidgetsWithGoogleSheets 호출');
       syncWidgetsWithGoogleSheets();
     } else {
-      console.warn('⚠️ hotPotatoDBSpreadsheetId가 없어서 위젯 동기화를 건너뜁니다.');
+      log.debug('개인 설정 파일 ID를 기다리는 중이라 위젯 동기화를 미룹니다.');
     }
   }, [hotPotatoDBSpreadsheetId]);
 
   useEffect(() => {
     // 초기 로드가 완료되지 않았거나 위젯이 없으면 저장하지 않음
     if (!initialLoadComplete) {
-      console.log('⏳ 초기 로드 미완료, 저장 스킵');
       return;
     }
     
     // 위젯이 없고 prevWidgetConfigRef도 비어있으면 저장하지 않음 (초기 상태)
     if (widgets.length === 0 && prevWidgetConfigRef.current === '') {
-      console.log('⏳ 위젯이 없고 초기 상태, 저장 스킵');
+      log.debug('위젯이 없고 초기 상태, 저장 스킵');
       return;
     }
 
@@ -582,7 +566,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       try {
         const gapi = window.gapi;
         if (!gapi || !gapi.client || !gapi.client.sheets) {
-          console.warn("Google Sheets API가 초기화되지 않았습니다.");
+          log.warn("Google Sheets API가 초기화되지 않았습니다.");
           return;
         }
 
@@ -590,8 +574,8 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         if (validToken) {
           try {
             gapi.client.setToken({ access_token: validToken });
-          } catch (tokenError) {
-            console.warn("토큰 설정 실패:", tokenError);
+          } catch {
+            log.warn("토큰 설정 실패");
           }
         }
 
@@ -627,12 +611,9 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         
         // 설정이 변경되지 않았으면 저장하지 않음
         if (currentConfig === prevWidgetConfigRef.current) {
-          console.log('📝 위젯 설정 변경 없음, 저장 스킵');
+          log.debug('위젯 설정 변경 없음, 저장 스킵');
           return;
         }
-        
-        // 설정이 변경되었으면 저장
-        console.log('💾 위젯 설정 변경 감지, 저장 시작');
         
         // 저장 실행 (429 에러 방지를 위해 기존 데이터 확인 제거)
         if (rowsToSave.length > 0) {
@@ -642,7 +623,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
           const endRow = startRow + rowsToSave.length - 1; // 마지막 행 번호
           const saveRange = `${SHEET_NAME}!A${startRow}:D${endRow}`;
           
-          console.log(`💾 저장 범위: ${saveRange}, 저장할 행 수: ${rowsToSave.length}`);
+          log.debug(`저장 범위: ${saveRange}, 저장할 행 수: ${rowsToSave.length}`);
           
           try {
             await gapi.client.sheets.spreadsheets.values.update({
@@ -665,15 +646,13 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
             } catch (clearError: any) {
               // 429 에러면 무시 (정리 실패해도 저장은 성공)
               if (clearError?.status === 429 || clearError?.result?.error?.code === 429) {
-                console.warn("⚠️ 남은 행 정리 중 429 에러 (무시됨)");
+                log.warn("남은 행 정리 중 429 에러 (무시됨)");
               }
             }
-            
-            console.log('✅ 위젯 설정 저장 완료:', rowsToSave.length, '개');
           } catch (updateError: any) {
             // 429 에러면 저장 실패하지만 계속 진행
             if (updateError?.status === 429 || updateError?.result?.error?.code === 429) {
-              console.warn('⚠️ 위젯 설정 저장 중 429 에러 발생. 다음 저장 시도에서 재시도됩니다.');
+              log.warn('위젯 설정 저장 중 429 에러 발생. 다음 저장 시도에서 재시도됩니다.');
               throw updateError; // 429 에러는 다시 throw하여 prevWidgetConfigRef 업데이트 방지
             }
             throw updateError;
@@ -685,11 +664,10 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               spreadsheetId: hotPotatoDBSpreadsheetId,
               range: `${SHEET_NAME}!A2:D2`
             });
-            console.log('✅ 위젯 설정 삭제 완료 (빈 배열)');
           } catch (clearError: any) {
             // 429 에러면 무시
             if (clearError?.status === 429 || clearError?.result?.error?.code === 429) {
-              console.warn('⚠️ 위젯 설정 삭제 중 429 에러 발생 (무시됨)');
+              log.warn('위젯 설정 삭제 중 429 에러 발생 (무시됨)');
             } else {
               throw clearError;
             }
@@ -704,15 +682,15 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         
         // 429 에러는 조용히 처리 (prevWidgetConfigRef 업데이트 안 함으로써 다음에 재시도)
         if (errorCode === 429 || errorStatus === 429) {
-          console.warn('⚠️ 위젯 설정 저장 중 429 에러 발생. 저장을 건너뛰고 다음 변경 시 재시도합니다.');
+          log.warn('위젯 설정 저장 중 429 에러 발생. 저장을 건너뛰고 다음 변경 시 재시도합니다.');
           // prevWidgetConfigRef를 업데이트하지 않아서 다음 변경 시 다시 저장 시도
           return;
         }
         
-        console.error("Error saving widget data to Google Sheets:", error);
+        log.error("Error saving widget data to Google Sheets:", error);
         const errorMessage = error?.message || error?.error?.message || "알 수 없는 오류";
         
-        console.error("Error details:", {
+        log.error("Error details:", {
           message: errorMessage,
           code: errorCode,
           status: errorStatus,
@@ -721,7 +699,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         
         // 401 오류인 경우 사용자에게 알림 (하지만 앱은 계속 실행)
         if (errorCode === 401 || errorStatus === 401 || errorStatus === 'UNAUTHENTICATED') {
-          console.warn("⚠️ 인증 오류: 토큰이 만료되었거나 권한이 부족합니다. 위젯 저장이 실패했지만 앱은 계속 실행됩니다.");
+          log.warn("인증 오류: 토큰이 만료되었거나 권한이 부족합니다. 위젯 저장이 실패했지만 앱은 계속 실행됩니다.");
           // 사용자에게 알림을 표시하지 않고 조용히 실패 (위젯은 메모리에 유지됨)
         }
       }
@@ -873,7 +851,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
                 noticeItems = announcements.slice(0, 4).map(a => a.title);
                 delete errorWidgetsRef.current['notice'];
               } catch (error: any) {
-                console.error("Error loading notice data:", error);
+                log.error("Error loading notice data:", error);
                 if (error?.code === 429 || error?.status === 429) {
                   errorWidgetsRef.current['notice'] = Date.now();
                 }
@@ -895,7 +873,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
           calendarItems = events.slice(0, 4).map(e => ({ date: e.startDate, event: e.title }));
               delete errorWidgetsRef.current['calendar'];
             } catch (error: any) {
-          console.error("Error loading calendar data:", error);
+          log.error("Error loading calendar data:", error);
               if (error?.code === 429 || error?.status === 429) {
                 errorWidgetsRef.current['calendar'] = Date.now();
               }
@@ -922,7 +900,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               }
               delete errorWidgetsRef.current['workflow-status'];
             } catch (error: any) {
-              console.error("Error loading workflow data:", error);
+              log.error("Error loading workflow data:", error);
               if (error?.code === 429 || error?.status === 429) {
                 errorWidgetsRef.current['workflow-status'] = Date.now();
               }
@@ -1146,7 +1124,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               }
               delete errorWidgetsRef.current['student-summary'];
             } catch (error: any) {
-              console.error("Error loading student summary:", error);
+              log.error("Error loading student summary:", error);
               if (error?.code === 429 || error?.status === 429) {
                 errorWidgetsRef.current['student-summary'] = Date.now();
               }
@@ -1174,7 +1152,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               }
               delete errorWidgetsRef.current['staff-summary'];
             } catch (error: any) {
-              console.error("Error loading staff summary:", error);
+              log.error("Error loading staff summary:", error);
               if (error?.code === 429 || error?.status === 429) {
                 errorWidgetsRef.current['staff-summary'] = Date.now();
               }
@@ -1201,7 +1179,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               }
               delete errorWidgetsRef.current['user-approval'];
             } catch (error: any) {
-              console.error("Error loading user approval data:", error);
+              log.error("Error loading user approval data:", error);
               if (error?.code === 429 || error?.status === 429) {
                 errorWidgetsRef.current['user-approval'] = Date.now();
               }
@@ -1234,7 +1212,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               ];
               delete errorWidgetsRef.current['system-stats'];
             } catch (error: any) {
-              console.error("Error loading system stats:", error);
+              log.error("Error loading system stats:", error);
               if (error?.code === 429 || error?.status === 429) {
                 errorWidgetsRef.current['system-stats'] = Date.now();
               }
@@ -1261,7 +1239,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               }));
               delete errorWidgetsRef.current['document-management'];
             } catch (error: any) {
-              console.error("Error loading document management data:", error);
+              log.error("Error loading document management data:", error);
               if (error?.code === 429 || error?.status === 429) {
                 errorWidgetsRef.current['document-management'] = Date.now();
               }
@@ -1359,7 +1337,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               
               delete errorWidgetsRef.current['budget-execution'];
             } catch (error: any) {
-              console.error("Error loading budget execution data:", error);
+              log.error("Error loading budget execution data:", error);
               budgetExecutionItems = [
                 { label: '데이터를 불러오는 중 오류가 발생했습니다', reviewerCount: '-', reviewProgress: 0, approvalProgress: 0, executionProgress: 0 }
               ];
@@ -1385,7 +1363,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
             { label: '장부를 선택해주세요', income: '-', expense: '-', balance: '-' }
           ];
         } catch (error) {
-          console.error("Error loading accounting stats data:", error);
+          log.error("Error loading accounting stats data:", error);
         }
       }
 
@@ -1435,10 +1413,10 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               setLoadedData(prev => ({ ...prev, 'accounting-stats': true }));
               delete errorWidgetsRef.current['accounting-stats'];
             } catch (error: any) {
-              console.error("Error loading accounting stats data:", error);
+              log.error("Error loading accounting stats data:", error);
               if (error?.code === 429 || error?.status === 429 || (error?.message && error.message.includes('Quota exceeded'))) {
                 errorWidgetsRef.current['accounting-stats'] = Date.now();
-                console.warn('⚠️ 회계 통계 데이터 로드 실패 (할당량 초과). 5분 후 재시도됩니다.');
+                log.warn('회계 통계 데이터 로드 실패 (할당량 초과). 5분 후 재시도됩니다.');
               }
               setLoadedData(prev => ({ ...prev, 'accounting-stats': true }));
             } finally {
@@ -1475,7 +1453,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
                         balance
                       };
                     } catch (error) {
-                      console.error(`장부 ${ledger.folderName} 잔액 계산 오류:`, error);
+                      log.error(`장부 ${ledger.folderName} 잔액 계산 오류:`, error);
                       return {
                         name: ledger.folderName || ledger.name || '알 수 없음',
                         balance: 0
@@ -1493,7 +1471,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               }
               delete errorWidgetsRef.current['tuition'];
             } catch (error: any) {
-              console.error("Error loading tuition data:", error);
+              log.error("Error loading tuition data:", error);
               tuitionItems = ['데이터를 불러오는 중 오류가 발생했습니다.'];
               if (error?.code === 429 || error?.status === 429) {
                 errorWidgetsRef.current['tuition'] = Date.now();
@@ -1530,11 +1508,11 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
               // 에러 기록 제거
               delete errorWidgetsRef.current['budget-plan'];
             } catch (error: any) {
-              console.error("Error loading budget plan data:", error);
+              log.error("Error loading budget plan data:", error);
               // 429 에러 등 API 할당량 초과 시 재시도 방지
               if (error?.code === 429 || error?.status === 429 || (error?.message && error.message.includes('Quota exceeded'))) {
                 errorWidgetsRef.current['budget-plan'] = Date.now();
-                console.warn('⚠️ 예산 계획 데이터 로드 실패 (할당량 초과). 5분 후 재시도됩니다.');
+                log.warn('예산 계획 데이터 로드 실패 (할당량 초과). 5분 후 재시도됩니다.');
               }
               // 에러 발생 시에도 loadedData 플래그 설정하여 무한 재시도 방지
               const budgetPlanKey = budgetPlanWidget.props.spreadsheetId ? `budget-plan-${budgetPlanWidget.props.spreadsheetId}` : 'budget-plan';
@@ -1608,7 +1586,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
                   updatedProps.rawData = accountingStatsRawData;
                 } else if (!widget.props.rawData && widget.props.spreadsheetId) {
                   // rawData가 없고 spreadsheetId가 있으면 다시 로드 시도
-                  console.warn('⚠️ accounting-stats 위젯에 rawData가 없습니다. spreadsheetId:', widget.props.spreadsheetId);
+                  log.warn('accounting-stats 위젯에 rawData가 없습니다. spreadsheetId');
                 }
                 return { ...widget, props: updatedProps };
               } else if (!widget.props.spreadsheetId) {
@@ -1670,7 +1648,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
   const handleAddWidget = (type: string) => {
     const option = widgetOptions.find(opt => opt.type === type);
     if (!option) {
-      console.error(`Widget type "${type}" not found.`);
+      log.error(`Widget type "${type}" not found.`);
       return;
     }
 
@@ -1746,53 +1724,13 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
     try {
       setSelectedWidgetId(widgetId);
       
-      // 회계 폴더 ID 가져오기
+      // 장부 목록은 서버가 준다 (회계 폴더는 배포자 소유라 사용자 드라이브 권한으로는 조회되지 않음)
       const { apiClient } = await import("../../../utils/api/apiClient");
-      const response = await apiClient.request('getAccountingFolderId', {});
-      
-      if (!response.success || !response.data?.accountingFolderId) {
-        notifyGlobal("회계 폴더를 찾을 수 없습니다.", 'error');
-        return;
-      }
-
-      const accountingFolderId = response.data.accountingFolderId;
-
-      // 회계 폴더 내 모든 장부 폴더 가져오기
-      const gapi = window.gapi;
-      if (!gapi || !gapi.client || !gapi.client.drive) {
-        notifyGlobal("Google Drive API가 초기화되지 않았습니다.", 'error');
-        return;
-      }
-
-      const driveResponse = await gapi.client.drive.files.list({
-        q: `'${accountingFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name)',
-        orderBy: 'name'
-      });
-
-      if (!driveResponse.result.files || driveResponse.result.files.length === 0) {
-        notifyGlobal("장부 폴더를 찾을 수 없습니다.", 'error');
-        return;
-      }
-
-      // 각 장부 폴더 내 시트 목록 가져오기
-      const allSheets: { id: string; name: string; ledgerName: string }[] = [];
-      
-      for (const folder of driveResponse.result.files) {
-        const sheets = await getSheetsInFolder(folder.id!);
-      if (sheets && sheets.length > 0) {
-          sheets.forEach(sheet => {
-            allSheets.push({
-              id: sheet.id, // 스프레드시트 파일 ID (폴더 ID가 아님)
-              name: sheet.name,
-              ledgerName: folder.name!
-            });
-          });
-        } else {
-          // 시트를 찾을 수 없는 경우, 폴더 ID를 직접 사용하지 않고 경고만 표시
-          console.warn(`⚠️ 장부 폴더 "${folder.name}" 내에 스프레드시트 파일을 찾을 수 없습니다.`);
-        }
-      }
+      const response = await apiClient.getLedgerList();
+      const ledgers = (response.success && Array.isArray(response.data) ? response.data : []) as Array<{ folderName: string; spreadsheetId?: string }>;
+      const allSheets = ledgers
+        .filter(ledger => ledger.spreadsheetId)
+        .map(ledger => ({ id: ledger.spreadsheetId as string, name: ledger.folderName, ledgerName: ledger.folderName }));
 
       if (allSheets.length > 0) {
         setAccountingSheets(allSheets);
@@ -1801,20 +1739,19 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
         notifyGlobal("장부 폴더에 시트 파일이 없습니다.", 'warning');
       }
     } catch (error) {
-      console.error("Error opening sheet selection modal:", error);
+      log.error("Error opening sheet selection modal:", error);
       notifyGlobal("오류가 발생했습니다. 콘솔을 확인해주세요.", 'error');
     }
   };
 
   const handleSheetSelect = async (sheet: { id: string; name: string; ledgerName?: string }) => {
     if (!selectedWidgetId) {
-      console.error("No widget ID selected");
+      log.error("No widget ID selected");
       notifyGlobal("위젯 ID가 선택되지 않았습니다.", 'warning');
       return;
     }
 
     try {
-      console.log(`📊 장부 데이터 가져오기 시작: ${sheet.name} (ID: ${sheet.id})`);
       
       // 선택된 ID가 실제로 스프레드시트 ID인지 확인
       // 만약 폴더 ID라면 폴더 내에서 스프레드시트를 찾아야 함
@@ -1823,7 +1760,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       // Google API 초기화 확인
       const gapi = window.gapi;
       if (!gapi || !gapi.client) {
-        console.error("Google API가 초기화되지 않았습니다.");
+        log.error("Google API가 초기화되지 않았습니다.");
         notifyGlobal("Google API가 초기화되지 않았습니다. 페이지를 새로고침해주세요.", 'error');
         setIsSheetModalOpen(false);
         setSelectedWidgetId(null);
@@ -1834,15 +1771,15 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       try {
         const validToken = tokenManager.get();
         if (!validToken) {
-          console.error("Google Access Token이 없거나 만료되었습니다.");
+          log.error("Google Access Token이 없거나 만료되었습니다.");
           notifyGlobal("Google 인증이 필요합니다. 다시 로그인해주세요.", 'warning');
           setIsSheetModalOpen(false);
           setSelectedWidgetId(null);
           return;
         }
         gapi.client.setToken({ access_token: validToken });
-      } catch (tokenError) {
-        console.error("토큰 설정 실패:", tokenError);
+      } catch {
+        log.error("토큰 설정 실패");
         notifyGlobal("인증 토큰 설정에 실패했습니다. 다시 로그인해주세요.", 'error');
         setIsSheetModalOpen(false);
         setSelectedWidgetId(null);
@@ -1852,19 +1789,17 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       // 선택된 ID가 스프레드시트인지 확인 (폴더 ID가 아닌지)
       try {
         // 먼저 선택된 ID로 스프레드시트 메타데이터를 가져와서 확인
-        const testResponse = await gapi.client.sheets.spreadsheets.get({
+        await gapi.client.sheets.spreadsheets.get({
           spreadsheetId: spreadsheetId,
         });
-        console.log(`✅ 선택된 ID는 스프레드시트입니다: ${testResponse.result.properties?.title || '제목 없음'}`);
       } catch (testError: any) {
         // 스프레드시트가 아니면 폴더일 수 있음
         if (testError.status === 404 || testError.code === 404 || testError.result?.error?.code === 404) {
-          console.log(`⚠️ 선택된 ID가 스프레드시트가 아닙니다. 폴더 내에서 스프레드시트를 찾습니다...`);
+          log.debug(`선택된 ID가 스프레드시트가 아닙니다. 폴더 내에서 스프레드시트를 찾습니다...`);
           const { getSheetsInFolder } = await import("../../../utils/google/driveUtils");
           const sheets = await getSheetsInFolder(spreadsheetId);
           if (sheets && sheets.length > 0) {
             spreadsheetId = sheets[0].id;
-            console.log(`✅ 폴더 내 스프레드시트 찾음: ${sheets[0].name} (${spreadsheetId})`);
           } else {
             throw new Error("폴더 내에 스프레드시트 파일을 찾을 수 없습니다.");
           }
@@ -1875,7 +1810,6 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
       }
 
       const data = await getAccountingData(spreadsheetId);
-      console.log("Fetched accounting data (categories):", data);
 
       if (data === null) {
         notifyGlobal("장부 데이터를 가져올 수 없습니다. 시트에 접근 권한이 있는지 확인해주세요.", 'error');
@@ -1916,7 +1850,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
             accountingStatsRawData = [];
           }
         } catch (error) {
-          console.error("Error loading accounting stats data immediately:", error);
+          log.error("Error loading accounting stats data immediately:", error);
         }
       }
       
@@ -1932,7 +1866,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
             budgetPlanItems = [];
           }
         } catch (error) {
-          console.error("Error loading budget plan data immediately:", error);
+          log.error("Error loading budget plan data immediately:", error);
         }
       }
       
@@ -2014,7 +1948,7 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
             ];
           }
         } catch (error) {
-          console.error("Error loading budget execution data immediately:", error);
+          log.error("Error loading budget execution data immediately:", error);
           budgetExecutionItems = [
             { label: '데이터를 불러오는 중 오류가 발생했습니다', reviewerCount: '-', reviewProgress: 0, approvalProgress: 0, executionProgress: 0 }
           ];
@@ -2080,16 +2014,16 @@ export const useWidgetManagement = (hotPotatoDBSpreadsheetId: string | null, use
             }
             return widget;
           });
-          console.log("New widgets state after update:", newWidgets);
+          log.debug("New widgets state after update:", newWidgets);
           return newWidgets;
         });
       
       setIsSheetModalOpen(false);
       setSelectedWidgetId(null);
     } catch (error: any) {
-      console.error("Error selecting sheet:", error);
+      log.error("Error selecting sheet:", error);
       const errorMessage = error?.message || error?.error?.message || "알 수 없는 오류가 발생했습니다.";
-      console.error("Error details:", {
+      log.error("Error details:", {
         message: errorMessage,
         error: error,
         stack: error?.stack

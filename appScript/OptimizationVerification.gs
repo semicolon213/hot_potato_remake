@@ -11,7 +11,6 @@
  * @returns {Object} 최적화 확인 결과
  */
 function verifyOptimization() {
-  console.log('=== 최적화 확인 시작 ===');
   
   const results = {
     cachingSystem: verifyCachingSystem(),
@@ -19,9 +18,7 @@ function verifyOptimization() {
   };
   
   const allOptimized = Object.values(results).every(result => result.success);
-  
-  console.log('=== 최적화 확인 완료 ===');
-  console.log('전체 최적화:', allOptimized ? '✅' : '❌');
+  logDebug_('OptimizationVerification', '전체 최적화:', allOptimized ? '' : '');
   
   return {
     success: allOptimized,
@@ -36,7 +33,6 @@ function verifyOptimization() {
  */
 function verifyCachingSystem() {
   try {
-    console.log('캐싱 시스템 확인 중...');
     
     const testData = { test: 'caching verification' };
     const cacheKey = 'test_cache_key';
@@ -74,7 +70,6 @@ function verifyCachingSystem() {
  */
 function verifyConfigOptimization() {
   try {
-    console.log('설정 최적화 확인 중...');
     
     // 설정 값들이 제대로 로드되는지 확인
     const documentFolderPath = CONFIG.getDocumentFolderPath();
@@ -110,7 +105,6 @@ function verifyConfigOptimization() {
  */
 function verifyPerformanceOptimization() {
   try {
-    console.log('성능 최적화 확인 중...');
     
     const startTime = new Date().getTime();
     
@@ -163,7 +157,6 @@ function verifyPerformanceOptimization() {
  */
 function verifyMemoryOptimization() {
   try {
-    console.log('메모리 사용량 최적화 확인 중...');
     
     // 캐시 크기 확인
     const cacheSize = SpreadsheetCache.getCacheSize();
@@ -194,7 +187,6 @@ function verifyMemoryOptimization() {
  * @returns {Object} 전체 최적화 확인 결과
  */
 function verifyFullOptimization() {
-  console.log('=== 전체 최적화 확인 시작 ===');
   
   const results = {
     cachingSystem: verifyCachingSystem(),
@@ -204,9 +196,7 @@ function verifyFullOptimization() {
   };
   
   const allOptimized = Object.values(results).every(result => result.success);
-  
-  console.log('=== 전체 최적화 확인 완료 ===');
-  console.log('전체 최적화:', allOptimized ? '✅' : '❌');
+  logDebug_('OptimizationVerification', '전체 최적화:', allOptimized ? '' : '');
   
   return {
     success: allOptimized,

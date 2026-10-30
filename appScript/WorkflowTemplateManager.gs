@@ -13,7 +13,6 @@
  */
 function createWorkflowTemplate(req) {
   try {
-    console.log('📋 워크플로우 템플릿 생성 시작:', req);
     
     // 관리자 권한 확인
     if (!req.creatorEmail) {
@@ -74,8 +73,6 @@ function createWorkflowTemplate(req) {
     const lastRow = templatesSheet.getLastRow();
     templatesSheet.getRange(lastRow + 1, 1, 1, rowData.length).setValues([rowData]);
     
-    console.log('✅ 워크플로우 템플릿 생성 완료:', templateId);
-    
     return {
       success: true,
       message: '템플릿이 생성되었습니다.',
@@ -87,7 +84,7 @@ function createWorkflowTemplate(req) {
     };
     
   } catch (error) {
-    console.error('❌ 워크플로우 템플릿 생성 오류:', error);
+    logError_('WorkflowTemplateManager', '워크플로우 템플릿 생성 오류:', error);
     return {
       success: false,
       message: '템플릿 생성 중 오류가 발생했습니다: ' + error.message
@@ -102,7 +99,6 @@ function createWorkflowTemplate(req) {
  */
 function getWorkflowTemplates(req) {
   try {
-    console.log('📋 워크플로우 템플릿 목록 조회 시작');
     
     const spreadsheet = getWorkflowSpreadsheet();
     const templatesSheet = ensureWorkflowTemplatesSheet();
@@ -140,8 +136,6 @@ function getWorkflowTemplates(req) {
       templates.push(template);
     }
     
-    console.log('✅ 워크플로우 템플릿 목록 조회 완료:', templates.length, '개');
-    
     return {
       success: true,
       data: templates,
@@ -149,7 +143,7 @@ function getWorkflowTemplates(req) {
     };
     
   } catch (error) {
-    console.error('❌ 워크플로우 템플릿 목록 조회 오류:', error);
+    logError_('WorkflowTemplateManager', '워크플로우 템플릿 목록 조회 오류:', error);
     return {
       success: false,
       message: '템플릿 목록 조회 중 오류가 발생했습니다: ' + error.message,
@@ -165,7 +159,6 @@ function getWorkflowTemplates(req) {
  */
 function updateWorkflowTemplate(req) {
   try {
-    console.log('📋 워크플로우 템플릿 수정 시작:', req);
     
     // 관리자 권한 확인
     if (!req.userEmail) {
@@ -243,8 +236,6 @@ function updateWorkflowTemplate(req) {
     // updated_date 항상 업데이트
     templatesSheet.getRange(rowIndex, headerMap['updated_date'] + 1).setValue(timestamp);
     
-    console.log('✅ 워크플로우 템플릿 수정 완료:', req.templateId);
-    
     return {
       success: true,
       message: '템플릿이 수정되었습니다.',
@@ -255,7 +246,7 @@ function updateWorkflowTemplate(req) {
     };
     
   } catch (error) {
-    console.error('❌ 워크플로우 템플릿 수정 오류:', error);
+    logError_('WorkflowTemplateManager', '워크플로우 템플릿 수정 오류:', error);
     return {
       success: false,
       message: '템플릿 수정 중 오류가 발생했습니다: ' + error.message
@@ -270,7 +261,6 @@ function updateWorkflowTemplate(req) {
  */
 function deleteWorkflowTemplate(req) {
   try {
-    console.log('📋 워크플로우 템플릿 삭제 시작:', req);
     
     // 관리자 권한 확인
     if (!req.userEmail) {
@@ -325,15 +315,13 @@ function deleteWorkflowTemplate(req) {
     // 행 삭제
     templatesSheet.deleteRow(rowIndex);
     
-    console.log('✅ 워크플로우 템플릿 삭제 완료:', req.templateId);
-    
     return {
       success: true,
       message: '템플릿이 삭제되었습니다.'
     };
     
   } catch (error) {
-    console.error('❌ 워크플로우 템플릿 삭제 오류:', error);
+    logError_('WorkflowTemplateManager', '워크플로우 템플릿 삭제 오류:', error);
     return {
       success: false,
       message: '템플릿 삭제 중 오류가 발생했습니다: ' + error.message
@@ -348,24 +336,22 @@ function deleteWorkflowTemplate(req) {
  */
 function checkAdminStatus(email) {
   try {
-    console.log('🔐 관리자 권한 확인 시작:', email);
     
     if (!email) {
-      console.log('⚠️ 이메일이 없습니다.');
       return false;
     }
     
     const spreadsheetName = 'hp_member';
     const spreadsheetId = getSheetIdByName(spreadsheetName);
     if (!spreadsheetId) {
-      console.log('⚠️ 스프레드시트를 찾을 수 없습니다.');
+      logDebug_('WorkflowTemplateManager', '스프레드시트를 찾을 수 없습니다.');
       return false;
     }
     
     const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
     const userSheet = spreadsheet.getSheetByName('user');
     if (!userSheet) {
-      console.log('⚠️ user 시트를 찾을 수 없습니다.');
+      logDebug_('WorkflowTemplateManager', 'user 시트를 찾을 수 없습니다.');
       return false;
     }
     
@@ -375,7 +361,6 @@ function checkAdminStatus(email) {
     const adminIdx = headers.indexOf('is_admin');
     
     if (emailIdx === -1 || adminIdx === -1) {
-      console.log('⚠️ 필요한 컬럼을 찾을 수 없습니다. emailIdx:', emailIdx, 'adminIdx:', adminIdx);
       return false;
     }
     
@@ -384,15 +369,12 @@ function checkAdminStatus(email) {
     try {
       if (typeof getEncryptedEmailsForLookup === 'function') {
         encryptedVariants = getEncryptedEmailsForLookup(email);
-        console.log('🔐 암호화 변형 수:', encryptedVariants.length);
       } else if (typeof encryptEmailMain === 'function') {
         encryptedVariants = [encryptEmailMain(email), applyEncryption(email, 'Base64', '')];
       } else {
         encryptedVariants = [email];
-        console.log('⚠️ 암호화 함수를 찾을 수 없어 원본 이메일 사용:', email);
       }
     } catch (encryptError) {
-      console.log('⚠️ 이메일 암호화 실패, 원본 이메일 사용:', encryptError);
       encryptedVariants = [email];
     }
     
@@ -403,21 +385,17 @@ function checkAdminStatus(email) {
       
       // 암호화된 이메일로 비교
       if (encryptedVariants.includes(storedEmail)) {
-        console.log('✅ 이메일 일치 (암호화):', storedEmail, 'isAdmin:', isAdmin);
         return isAdmin;
       }
       
       // 원본 이메일로도 비교 (혹시 암호화가 안 되어 있을 경우)
       if (storedEmail === email) {
-        console.log('✅ 이메일 일치 (원본):', storedEmail, 'isAdmin:', isAdmin);
         return isAdmin;
       }
     }
-    
-    console.log('⚠️ 일치하는 이메일을 찾을 수 없습니다.');
     return false;
   } catch (error) {
-    console.error('❌ 관리자 권한 확인 오류:', error);
+    logError_('WorkflowTemplateManager', '관리자 권한 확인 오류:', error);
     return false;
   }
 }

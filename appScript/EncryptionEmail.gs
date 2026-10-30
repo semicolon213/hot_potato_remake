@@ -13,10 +13,9 @@
  */
 function encryptEmailMain(email) {
   try {
-    console.log('🔐 암호화 시작:', email);
     
     if (!email || typeof email !== 'string') {
-      console.warn('유효하지 않은 입력:', email);
+      logWarn_('EncryptionEmail', '유효하지 않은 입력');
       return email || '';
     }
     
@@ -29,11 +28,9 @@ function encryptEmailMain(email) {
     } else {
       result = applyEncryption(email, config.method, '');
     }
-    
-    console.log('🔐 암호화 완료:', email, '->', result);
     return result;
   } catch (error) {
-    console.error('암호화 오류:', error);
+    logError_('EncryptionEmail', '암호화 오류');
     return email || '';
   }
 }
@@ -45,16 +42,14 @@ function encryptEmailMain(email) {
  */
 function decryptEmailMain(encryptedEmail) {
   try {
-    console.log('🔓 복호화 시작:', encryptedEmail);
     
     if (!encryptedEmail || typeof encryptedEmail !== 'string') {
-      console.warn('유효하지 않은 입력:', encryptedEmail);
+      logWarn_('EncryptionEmail', '유효하지 않은 입력');
       return encryptedEmail || '';
     }
     
     // 이미 복호화된 전화번호인지 확인 (010-XXXX-XXXX 형식)
     if (/^010-\d{4}-\d{4}$/.test(encryptedEmail)) {
-      console.log('이미 복호화된 전화번호:', encryptedEmail);
       return encryptedEmail;
     }
     
@@ -80,11 +75,9 @@ function decryptEmailMain(encryptedEmail) {
         // Base64 실패 시 기존 result 유지
       }
     }
-    
-    console.log('🔓 복호화 완료:', encryptedEmail, '->', result);
     return result || encryptedEmail;
   } catch (error) {
-    console.error('복호화 오류:', error);
+    logError_('EncryptionEmail', '복호화 오류');
     return encryptedEmail || '';
   }
 }
@@ -113,7 +106,7 @@ function validateEmailFormat(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   } catch (error) {
-    console.error('이메일 형식 검증 오류:', error);
+    logError_('EncryptionEmail', '이메일 형식 검증 오류');
     return false;
   }
 }
@@ -133,7 +126,7 @@ function validatePhoneFormat(phone) {
     const phoneRegex = /^010-\d{4}-\d{4}$/;
     return phoneRegex.test(phone);
   } catch (error) {
-    console.error('전화번호 형식 검증 오류:', error);
+    logError_('EncryptionEmail', '전화번호 형식 검증 오류');
     return false;
   }
 }
@@ -160,7 +153,7 @@ function maskEmail(email) {
     
     return `${maskedLocal}@${domain}`;
   } catch (error) {
-    console.error('이메일 마스킹 오류:', error);
+    logError_('EncryptionEmail', '이메일 마스킹 오류');
     return email || '';
   }
 }
@@ -188,7 +181,7 @@ function maskPhone(phone) {
     
     return phone;
   } catch (error) {
-    console.error('전화번호 마스킹 오류:', error);
+    logError_('EncryptionEmail', '전화번호 마스킹 오류');
     return phone || '';
   }
 }
@@ -200,7 +193,6 @@ function maskPhone(phone) {
  */
 function encryptContactInfo(contact) {
   try {
-    console.log('🔐 연락처 정보 암호화 시작:', contact);
     
     const encryptedContact = {};
     
@@ -215,12 +207,10 @@ function encryptContactInfo(contact) {
     if (contact.name) {
       encryptedContact.name = encryptEmailMain(contact.name);
     }
-    
-    console.log('🔐 연락처 정보 암호화 완료:', encryptedContact);
     return encryptedContact;
     
   } catch (error) {
-    console.error('연락처 정보 암호화 오류:', error);
+    logError_('EncryptionEmail', '연락처 정보 암호화 오류');
     return contact || {};
   }
 }
@@ -232,7 +222,6 @@ function encryptContactInfo(contact) {
  */
 function decryptContactInfo(encryptedContact) {
   try {
-    console.log('🔓 연락처 정보 복호화 시작:', encryptedContact);
     
     const decryptedContact = {};
     
@@ -247,12 +236,10 @@ function decryptContactInfo(encryptedContact) {
     if (encryptedContact.name) {
       decryptedContact.name = decryptEmailMain(encryptedContact.name);
     }
-    
-    console.log('🔓 연락처 정보 복호화 완료:', decryptedContact);
     return decryptedContact;
     
   } catch (error) {
-    console.error('연락처 정보 복호화 오류:', error);
+    logError_('EncryptionEmail', '연락처 정보 복호화 오류');
     return encryptedContact || {};
   }
 }
@@ -282,7 +269,7 @@ function validateContactInfo(contact) {
     return validation;
     
   } catch (error) {
-    console.error('연락처 정보 검증 오류:', error);
+    logError_('EncryptionEmail', '연락처 정보 검증 오류');
     return {
       isValid: false,
       errors: ['검증 중 오류가 발생했습니다']
@@ -314,7 +301,7 @@ function maskContactInfo(contact) {
     return maskedContact;
     
   } catch (error) {
-    console.error('연락처 정보 마스킹 오류:', error);
+    logError_('EncryptionEmail', '연락처 정보 마스킹 오류');
     return contact || {};
   }
 }

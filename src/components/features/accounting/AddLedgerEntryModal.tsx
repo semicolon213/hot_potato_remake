@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file AddLedgerEntryModal.tsx
  * @brief 장부 항목 추가 모달
@@ -10,6 +11,8 @@ import React, { useState, useEffect } from 'react';
 import { createLedgerEntry, getAccounts, getCategories, getLedgerEntries } from '../../../utils/database/accountingManager';
 import type { CreateLedgerEntryRequest, Account, Category } from '../../../types/features/accounting';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/AddLedgerEntryModal');
+
 
 interface AddLedgerEntryModalProps {
   isOpen: boolean;
@@ -77,7 +80,7 @@ export const AddLedgerEntryModal: React.FC<AddLedgerEntryModalProps> = ({
         setError('통장 정보를 찾을 수 없습니다. 장부를 다시 확인해주세요.');
       }
     } catch (err) {
-      console.error('❌ 데이터 로드 오류:', err);
+      log.error('데이터 로드 오류:', err);
       setError('데이터를 불러오는데 실패했습니다.');
     }
   };
@@ -90,7 +93,7 @@ export const AddLedgerEntryModal: React.FC<AddLedgerEntryModalProps> = ({
         setDate(entries[0].date);
       }
     } catch (err) {
-      console.error('❌ 마지막 항목 날짜 로드 오류:', err);
+      log.error('마지막 항목 날짜 로드 오류:', err);
     }
   };
 
@@ -108,12 +111,13 @@ export const AddLedgerEntryModal: React.FC<AddLedgerEntryModalProps> = ({
       const change = transactionType === 'expense' ? -amountNum : amountNum;
       setEstimatedBalance(selectedAccount.currentBalance + change);
     } catch (err) {
-      console.error('❌ 잔액 계산 오류:', err);
+      log.error('잔액 계산 오류:', err);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setError(null);
 
     // 장부마다 통장이 하나이므로 첫 번째 통장 자동 사용
@@ -180,7 +184,7 @@ export const AddLedgerEntryModal: React.FC<AddLedgerEntryModalProps> = ({
       resetForm();
 
     } catch (err: unknown) {
-      console.error('❌ 장부 항목 추가 오류:', err);
+      log.error('장부 항목 추가 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '장부 항목 추가에 실패했습니다.';
       setError(errorMessage);
     } finally {

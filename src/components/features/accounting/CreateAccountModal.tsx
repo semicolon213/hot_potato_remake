@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file CreateAccountModal.tsx
  * @brief 통장 생성 모달
@@ -14,6 +15,8 @@ import { UserMultiSelect } from './UserMultiSelect';
 import type { CreateAccountRequest } from '../../../types/features/accounting';
 import type { UsersListResponse } from '../../../types/api/apiResponses';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/CreateAccountModal');
+
 
 interface CreateAccountModalProps {
   isOpen: boolean;
@@ -76,7 +79,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         setUsers(userList);
       }
     } catch (err) {
-      console.error('❌ 사용자 목록 로드 오류:', err);
+      log.error('사용자 목록 로드 오류:', err);
     }
   };
 
@@ -141,7 +144,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       resetForm();
 
     } catch (err: unknown) {
-      console.error('❌ 통장 생성 오류:', err);
+      log.error('통장 생성 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '통장 생성에 실패했습니다.';
       setError(errorMessage);
     } finally {

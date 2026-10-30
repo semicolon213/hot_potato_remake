@@ -1,3 +1,6 @@
+import { logger } from '../logger';
+
+const log = logger.scope('utils/helpers/timeUtils');
 export const formatRelativeTime = (timestamp: number): string => {
   const now = new Date();
   const past = new Date(timestamp);
@@ -46,7 +49,7 @@ export const formatDateTime = (isoString: string): string => {
     
     return `${year}.${month}.${day} ${hours}:${minutes}`;
   } catch (error) {
-    console.error('시간 포맷 오류:', error);
+    log.error('시간 포맷 오류:', error);
     return isoString;
   }
 };
@@ -73,7 +76,7 @@ export const formatDateToYYYYMMDD = (isoString: string): string => {
 
     return `${year}-${month}-${day}`;
   } catch (error) {
-    console.error('날짜 포맷 오류:', error);
+    log.error('날짜 포맷 오류:', error);
     // 오류 발생 시 원본 문자열의 날짜 부분만 반환하거나, 그대로 반환합니다.
     return isoString.split('T')[0];
   }

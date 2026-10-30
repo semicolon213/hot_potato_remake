@@ -346,7 +346,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
-                    {lastUserManager.getAll().length > 0 ? '다른 계정으로 로그인' : 'Google로 로그인'}
+                    Google 계정으로 로그인
                   </>
                 )}
               </button>
@@ -357,17 +357,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               >
                 취업관리 (로그인 없이 입력)
               </button>
-              <div className="login-legal-links" role="navigation" aria-label="약관">
-                <a className="login-legal-link" href="/privacy.html">
-                  개인정보처리방침
-                </a>
-                <span className="login-legal-sep" aria-hidden>
-                  ·
-                </span>
-                <a className="login-legal-link" href="/terms.html">
-                  이용약관
-                </a>
-              </div>
+              <p className="login-service-intro">
+                학과 공지, 학사 일정, 문서와 결재, 회계 장부, 구성원 정보를 한곳에서 관리하는 학과 업무 서비스입니다.
+                Google 계정으로 로그인하면 학과가 공유한 스프레드시트와 캘린더를 이 화면에서 바로 사용할 수 있습니다.
+              </p>
+              <nav className="login-policy-links">
+                <a href="/about.html">서비스 소개</a>
+                <a href="/privacy.html">개인정보처리방침</a>
+                <a href="/terms.html">이용약관</a>
+              </nav>
             </div>
           ) : loginState.showRegistrationForm ? (
           <div className="signup-section">

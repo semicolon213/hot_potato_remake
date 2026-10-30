@@ -11,7 +11,6 @@
  * @returns {Object} 검증 결과
  */
 function verifyMigration() {
-  console.log('=== 마이그레이션 검증 시작 ===');
   
   const results = {
     configValidation: verifyConfig(),
@@ -24,9 +23,6 @@ function verifyMigration() {
   };
   
   const allPassed = Object.values(results).every(result => result.success);
-  
-  console.log('=== 마이그레이션 검증 완료 ===');
-  console.log('전체 성공:', allPassed ? '✅' : '❌');
   
   return {
     success: allPassed,
@@ -41,7 +37,6 @@ function verifyMigration() {
  */
 function verifyConfig() {
   try {
-    console.log('설정 검증 중...');
     
     // CONFIG.gs 함수들 확인
     const configFunctions = ['getConfig', 'setSpreadsheetId', 'validateConfig', 'initializeConfig'];
@@ -78,7 +73,6 @@ function verifyConfig() {
  */
 function verifyFunctionAvailability() {
   try {
-    console.log('함수 가용성 검증 중...');
     
     const requiredFunctions = {
       'EncryptionCore.gs': ['applyEncryption', 'applyDecryption'],
@@ -129,7 +123,6 @@ function verifyFunctionAvailability() {
  */
 function verifyEncryptionSystem() {
   try {
-    console.log('암호화 시스템 검증 중...');
     
     // 기본 암호화/복호화 테스트
     const testString = 'Migration Test String';
@@ -176,7 +169,7 @@ function verifyEncryptionSystem() {
       
       keyGenerationTest = decryptedKey === originalKey;
     } catch (error) {
-      console.error('키 생성 테스트 실패:', error);
+      logError_('MigrationVerification', '키 생성 테스트 실패:', error);
     }
     
     return {
@@ -201,7 +194,6 @@ function verifyEncryptionSystem() {
  */
 function verifySpreadsheetConnection() {
   try {
-    console.log('스프레드시트 연결 검증 중...');
     
     const spreadsheetId = SpreadsheetCore.getHpMemberSpreadsheetId();
     
@@ -230,7 +222,7 @@ function verifySpreadsheetConnection() {
       }
       dataReadTest = true;
     } catch (error) {
-      console.error('데이터 읽기 테스트 실패:', error);
+      logError_('MigrationVerification', '데이터 읽기 테스트 실패:', error);
     }
     
     return {
@@ -257,7 +249,6 @@ function verifySpreadsheetConnection() {
  */
 function verifyUserManagement() {
   try {
-    console.log('사용자 관리 검증 중...');
     
     // 사용자 관리 함수들 테스트
     let userManagementTest = false;
@@ -266,7 +257,7 @@ function verifyUserManagement() {
       UserApproval.handleGetPendingUsers();
       userManagementTest = true;
     } catch (error) {
-      console.error('사용자 관리 함수 테스트 실패:', error);
+      logError_('MigrationVerification', '사용자 관리 함수 테스트 실패:', error);
     }
     
     return {
@@ -290,7 +281,6 @@ function verifyUserManagement() {
  */
 function verifyPerformance() {
   try {
-    console.log('성능 검증 중...');
     
     const startTime = new Date().getTime();
     
@@ -334,7 +324,6 @@ function verifyPerformance() {
  */
 function verifyErrorHandling() {
   try {
-    console.log('에러 처리 검증 중...');
     
     // 잘못된 액션으로 POST 요청 테스트
     const testData = {
@@ -348,7 +337,7 @@ function verifyErrorHandling() {
       const result = doPost({ postData: { contents: JSON.stringify(testData) } });
       errorHandlingTest = true;
     } catch (error) {
-      console.error('에러 처리 테스트 실패:', error);
+      logError_('MigrationVerification', '에러 처리 테스트 실패:', error);
     }
     
     // 재시도 로직 테스트
@@ -364,7 +353,7 @@ function verifyErrorHandling() {
       }, 3);
       retryTest = result.success;
     } catch (error) {
-      console.error('재시도 로직 테스트 실패:', error);
+      logError_('MigrationVerification', '재시도 로직 테스트 실패:', error);
     }
     
     return {

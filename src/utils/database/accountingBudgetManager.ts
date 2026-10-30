@@ -1,3 +1,5 @@
+import { deleteRow, getSheetData, appendRow, update } from '../google/sheetsClient';
+import { logger } from '../logger';
 /**
  * @file accountingBudgetManager.ts
  * @brief 예산 계획 관리 유틸리티
@@ -6,29 +8,64 @@
  * @date 2024
  */
 
-import { getSheetData, append, update } from 'papyrus-db';
 import { getCacheManager } from '../cache/cacheManager';
 import { generateCacheKey, getCacheTTL, getActionCategory } from '../cache/cacheUtils';
 import type { BudgetPlan, BudgetPlanDetail, CreateBudgetPlanRequest, UpdateBudgetPlanDetailsRequest, Account } from '../../types/features/accounting';
 import type { SheetInfo } from '../../types/google';
 import { getAccounts } from './accountingManager';
+const log = logger.scope('utils/database/accountingBudgetManager');
 
-// papyrus-db 설정
-const setupPapyrusAuth = (): void => {
-  if (window.gapi && window.gapi.client) {
-    window.papyrusAuth = {
-      client: window.gapi.client
-    };
-  }
-};
 
-const ensureAuth = () => {
-  setupPapyrusAuth();
-};
+
 
 const ACCOUNTING_SHEETS = {
   BUDGET_PLAN: '예산계획'
 } as const;
+
+const BUDGET_PLAN_COLUMNS = [
+  'budget_id', 'account_id', 'title', 'total_amount',
+  'requested_date', 'planned_execution_date', 'status',
+  'sub_manager_reviewed', 'sub_manager_review_date',
+  'main_manager_approved', 'main_manager_approval_date',
+  'executed_date', 'created_by', 'rejection_reason', 'details',
+  'sub_manager_reviews'
+] as const;
+
+type BudgetPlanColumn = typeof BUDGET_PLAN_COLUMNS[number];
+type BudgetHeaderMap = Record<BudgetPlanColumn, number>;
+
+const getBudgetHeaderMap = (values: string[][]): BudgetHeaderMap => {
+  const headers = values[0] || [];
+  return Object.fromEntries(BUDGET_PLAN_COLUMNS.map((name) => [name, headers.indexOf(name)])) as BudgetHeaderMap;
+};
+
+const budgetValue = (row: string[], headers: BudgetHeaderMap, column: BudgetPlanColumn): string =>
+  headers[column] < 0 ? '' : row[headers[column]] || '';
+
+const columnLetter = (index: number): string => {
+  let result = '';
+  for (let value = index + 1; value > 0; value = Math.floor((value - 1) / 26)) {
+    result = String.fromCharCode(65 + ((value - 1) % 26)) + result;
+  }
+  return result;
+};
+
+const budgetCell = (headers: BudgetHeaderMap, column: BudgetPlanColumn, rowNumber: number): string => {
+  const index = headers[column];
+  if (index < 0) throw new Error(`예산계획 시트에 ${column} 열이 없습니다.`);
+  return `${columnLetter(index)}${rowNumber}`;
+};
+
+const findBudgetRowIndex = (values: string[][], headers: BudgetHeaderMap, budgetId: string): number =>
+  values.findIndex((row) => budgetValue(row, headers, 'budget_id') === budgetId);
+
+const updateBudgetField = (
+  spreadsheetId: string,
+  headers: BudgetHeaderMap,
+  rowNumber: number,
+  column: BudgetPlanColumn,
+  value: unknown
+): Promise<void> => update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, budgetCell(headers, column, rowNumber), [[value]]);
 
 /**
  * 시트 ID 가져오기
@@ -36,10 +73,14 @@ const ACCOUNTING_SHEETS = {
  * @param {string} sheetName - 시트 이름
  * @returns {Promise<number | null>} 시트 ID 또는 null
  */
+const invalidateBudgetPlanCache = async (): Promise<void> => {
+  await getCacheManager().invalidate('accounting:getPendingBudgetPlans:*');
+};
+
 const getSheetId = async (spreadsheetId: string, sheetName: string): Promise<number | null> => {
   try {
     if (!window.gapi || !window.gapi.client) {
-      console.error('❌ Google API가 초기화되지 않았습니다.');
+      log.error('Google API가 초기화되지 않았습니다.');
       return null;
     }
 
@@ -51,7 +92,7 @@ const getSheetId = async (spreadsheetId: string, sheetName: string): Promise<num
     const sheet = response.result.sheets?.find((s: SheetInfo) => s.properties?.title === sheetName);
     return sheet?.properties?.sheetId || null;
   } catch (error) {
-    console.error('❌ 시트 ID 가져오기 오류:', error);
+    log.error('시트 ID 가져오기 오류:', error);
     return null;
   }
 };
@@ -71,26 +112,23 @@ export const getBudgetPlans = async (
   // 캐시에서 먼저 확인
   const cachedData = await cacheManager.get<BudgetPlan[]>(cacheKey);
   if (cachedData) {
-    console.log('💰 캐시에서 예산 계획 로드:', cachedData.length, '개');
+    log.debug('캐시에서 예산 계획 로드:', cachedData.length, '개');
     return cachedData;
   }
 
   try {
-    ensureAuth();
     
     // Google API 인증 확인
     if (!window.gapi || !window.gapi.client) {
-      console.error('❌ Google API가 초기화되지 않았습니다.');
+      log.error('Google API가 초기화되지 않았습니다.');
       throw new Error('Google API 인증이 필요합니다. 페이지를 새로고침해주세요.');
     }
-    
-    console.log('💰 예산 계획 로드 시작 (캐시 미스)...');
     const data = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN);
     
     if (!data || !data.values || data.values.length <= 1) {
-      console.log('📊 예산 계획 데이터 없음:', { spreadsheetId, dataLength: data?.values?.length || 0 });
       return [];
     }
+    const headers = getBudgetHeaderMap(data.values);
 
     // 통장 정보 미리 로드 (무결성 검사용)
     const accounts = await getAccounts(spreadsheetId);
@@ -102,74 +140,67 @@ export const getBudgetPlans = async (
       const actualRowNumber = i + 2; // 실제 스프레드시트 행 번호 (헤더 포함)
       
       // 빈 행이거나 budgetId가 없으면 건너뛰기
-      if (!row || !row[0] || row[0].trim() === '') {
+      if (!row || !budgetValue(row, headers, 'budget_id').trim()) {
         continue;
       }
       
-      const detailsJson = row[14] || '[]';
+      const detailsJson = budgetValue(row, headers, 'details') || '[]';
       let details: BudgetPlanDetail[] = [];
       try {
         details = JSON.parse(detailsJson);
       } catch (e) {
-        console.warn('예산 계획 상세 파싱 오류:', e);
+        log.warn('예산 계획 상세 파싱 오류:', e);
       }
 
       // 서브 관리자 검토 목록 파싱 (P열, 16번째 컬럼)
-      const subManagerReviewsJson = row[15] || '[]';
+      const subManagerReviewsJson = budgetValue(row, headers, 'sub_manager_reviews') || '[]';
       let subManagerReviews: Array<{ email: string; date: string }> = [];
       try {
         subManagerReviews = JSON.parse(subManagerReviewsJson);
       } catch (e) {
         // 하위 호환성: 기존 데이터가 있으면 변환
-        if (row[7] === 'TRUE' && row[8]) {
-          subManagerReviews = [{ email: 'unknown', date: row[8] }];
+        if (budgetValue(row, headers, 'sub_manager_reviewed') === 'TRUE' && budgetValue(row, headers, 'sub_manager_review_date')) {
+          subManagerReviews = [{ email: 'unknown', date: budgetValue(row, headers, 'sub_manager_review_date') }];
         }
       }
 
-      const currentStatus = (row[6] || 'pending') as BudgetPlan['status'];
-      const planAccountId = row[1] || '';
+      const currentStatus = (budgetValue(row, headers, 'status') || 'pending') as BudgetPlan['status'];
+      const planAccountId = budgetValue(row, headers, 'account_id');
       
       // 통장 정보 가져오기
       const account = accounts.find(acc => acc.accountId === planAccountId);
       
       // 무결성 검사: 모든 서브 관리자가 검토했는데 상태가 pending이면 reviewed로 수정
-      if (account && account.subManagerIds.length > 0 && currentStatus === 'pending') {
+      if (account && currentStatus === 'pending') {
         const allSubManagersReviewed = account.subManagerIds.every(subManagerId => 
           subManagerReviews.some(r => r.email === subManagerId)
         );
         
         if (allSubManagersReviewed) {
-          console.log('🔧 데이터 무결성 수정:', {
-            budgetId: row[0],
-            title: row[2],
-            currentStatus,
-            subManagerReviews: subManagerReviews.map(r => r.email),
-            subManagerIds: account.subManagerIds
-          });
           
           // 상태를 reviewed로 업데이트
-          await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `G${actualRowNumber}`, [['reviewed']]);
-          await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `H${actualRowNumber}`, [['TRUE']]);
+          await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'status', 'reviewed');
+          await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'sub_manager_reviewed', 'TRUE');
           if (subManagerReviews.length > 0) {
-            await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `I${actualRowNumber}`, [[subManagerReviews[subManagerReviews.length - 1].date]]);
+            await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'sub_manager_review_date', subManagerReviews[subManagerReviews.length - 1].date);
           }
           
           // 수정된 상태로 반환
           plans.push({
-            budgetId: row[0] || '',
+            budgetId: budgetValue(row, headers, 'budget_id'),
             accountId: planAccountId,
-            title: row[2] || '',
-            totalAmount: parseFloat(row[3] || '0'),
-            modificationDate: row[4] || '',
+            title: budgetValue(row, headers, 'title'),
+            totalAmount: parseFloat(budgetValue(row, headers, 'total_amount') || '0'),
+            modificationDate: budgetValue(row, headers, 'requested_date'),
             status: 'reviewed', // 수정된 상태
             subManagerReviewed: true,
-            subManagerReviewDate: row[7] || subManagerReviews[subManagerReviews.length - 1]?.date || undefined,
+            subManagerReviewDate: budgetValue(row, headers, 'sub_manager_review_date') || subManagerReviews[subManagerReviews.length - 1]?.date || undefined,
             subManagerReviews,
-            mainManagerApproved: row[8] === 'TRUE' || row[8] === true,
-            mainManagerApprovalDate: row[9] || undefined,
-            executedDate: row[10] || undefined,
-            createdBy: row[11] || '',
-            rejectionReason: row[12] || undefined,
+            mainManagerApproved: budgetValue(row, headers, 'main_manager_approved') === 'TRUE',
+            mainManagerApprovalDate: budgetValue(row, headers, 'main_manager_approval_date') || undefined,
+            executedDate: budgetValue(row, headers, 'executed_date') || budgetValue(row, headers, 'planned_execution_date') || undefined,
+            createdBy: budgetValue(row, headers, 'created_by'),
+            rejectionReason: budgetValue(row, headers, 'rejection_reason') || undefined,
             details
           });
           continue;
@@ -178,20 +209,20 @@ export const getBudgetPlans = async (
 
       // 무결성 문제가 없으면 그대로 반환
       plans.push({
-        budgetId: row[0] || '',
+        budgetId: budgetValue(row, headers, 'budget_id'),
         accountId: planAccountId,
-        title: row[2] || '',
-        totalAmount: parseFloat(row[3] || '0'),
-        modificationDate: row[4] || '',
+        title: budgetValue(row, headers, 'title'),
+        totalAmount: parseFloat(budgetValue(row, headers, 'total_amount') || '0'),
+        modificationDate: budgetValue(row, headers, 'requested_date'),
         status: currentStatus,
-        subManagerReviewed: row[6] === 'TRUE' || row[6] === true || subManagerReviews.length > 0,
-        subManagerReviewDate: row[7] || undefined,
+        subManagerReviewed: budgetValue(row, headers, 'sub_manager_reviewed') === 'TRUE' || subManagerReviews.length > 0,
+        subManagerReviewDate: budgetValue(row, headers, 'sub_manager_review_date') || undefined,
         subManagerReviews,
-        mainManagerApproved: row[8] === 'TRUE' || row[8] === true,
-        mainManagerApprovalDate: row[9] || undefined,
-        executedDate: row[10] || undefined,
-        createdBy: row[11] || '',
-        rejectionReason: row[12] || undefined,
+        mainManagerApproved: budgetValue(row, headers, 'main_manager_approved') === 'TRUE',
+        mainManagerApprovalDate: budgetValue(row, headers, 'main_manager_approval_date') || undefined,
+        executedDate: budgetValue(row, headers, 'executed_date') || budgetValue(row, headers, 'planned_execution_date') || undefined,
+        createdBy: budgetValue(row, headers, 'created_by'),
+        rejectionReason: budgetValue(row, headers, 'rejection_reason') || undefined,
         details
       });
     }
@@ -203,28 +234,25 @@ export const getBudgetPlans = async (
       }
       return plan.budgetId;
     });
-
-    console.log(`💰 예산 계획 로드 완료: ${filteredPlans.length}개`);
     
     // 캐시에 저장
     const ttl = getCacheTTL(action);
     await cacheManager.set(cacheKey, filteredPlans, ttl);
-    console.log('💰 예산 계획 캐시 저장 완료 (TTL:', ttl / 1000 / 60, '분)');
     
     return filteredPlans;
     
   } catch (error: unknown) {
-    console.error('❌ 예산 계획 목록 조회 오류:', error);
+    log.error('예산 계획 목록 조회 오류:', error);
     
     const err = error as { status?: number; code?: number; message?: string };
     // 401 인증 오류인 경우
     if (err.status === 401 || err.code === 401 || err.message?.includes('401') || err.message?.includes('Unauthorized')) {
-      console.error('❌ 인증 오류: Google API 인증이 필요합니다.');
+      log.error('인증 오류: Google API 인증이 필요합니다.');
       throw new Error('인증이 만료되었습니다. 페이지를 새로고침해주세요.');
     }
     
     // 다른 에러는 빈 배열 반환 (기존 동작 유지)
-    console.warn('⚠️ 예산 계획 조회 실패, 빈 배열 반환:', error);
+    log.warn('예산 계획 조회 실패, 빈 배열 반환:', error);
     return [];
   }
 };
@@ -262,8 +290,9 @@ export const createBudgetPlan = async (
       title: request.title,
       totalAmount,
       modificationDate,
-      status: 'pending',
-      subManagerReviewed: false,
+      status: account.subManagerIds.length === 0 ? 'reviewed' : 'pending',
+      subManagerReviewed: account.subManagerIds.length === 0,
+      subManagerReviews: [],
       mainManagerApproved: false,
       executedDate: request.executedDate,
       createdBy,
@@ -277,38 +306,30 @@ export const createBudgetPlan = async (
       }))
     };
 
-    ensureAuth();
     
-    // 시트 헤더 순서: budget_id, account_id, title, total_amount, modification_date,
-    // status, sub_manager_reviewed, sub_manager_review_date,
-    // main_manager_approved, main_manager_approval_date, executed_date, created_by,
-    // rejection_reason, details, sub_manager_reviews
-    const budgetPlanRow = [
-      newBudgetPlan.budgetId,                        // budget_id
-      newBudgetPlan.accountId,                      // account_id
-      newBudgetPlan.title,                          // title
-      newBudgetPlan.totalAmount,                    // total_amount
-      newBudgetPlan.modificationDate,              // modification_date
-      newBudgetPlan.status,                         // status
-      'FALSE',                                      // sub_manager_reviewed (하위 호환성)
-      '',                                           // sub_manager_review_date (하위 호환성)
-      'FALSE',                                      // main_manager_approved
-      '',                                           // main_manager_approval_date
-      newBudgetPlan.executedDate || '',            // executed_date
-      newBudgetPlan.createdBy,                      // created_by
-      '',                                           // rejection_reason
-      JSON.stringify(newBudgetPlan.details),       // details
-      JSON.stringify([])                            // sub_manager_reviews (새 필드)
-    ];
-    
-    // 배열 형식으로 append (papyrus-db는 2차원 배열을 기대함)
-    await append(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, [budgetPlanRow]);
-
-    console.log('✅ 예산 계획 생성 완료:', budgetId);
+    await appendRow(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, {
+      budget_id: newBudgetPlan.budgetId,
+      account_id: newBudgetPlan.accountId,
+      title: newBudgetPlan.title,
+      total_amount: newBudgetPlan.totalAmount,
+      requested_date: newBudgetPlan.modificationDate,
+      planned_execution_date: newBudgetPlan.executedDate || '',
+      status: newBudgetPlan.status,
+      sub_manager_reviewed: newBudgetPlan.subManagerReviewed ? 'TRUE' : 'FALSE',
+      sub_manager_review_date: '',
+      main_manager_approved: 'FALSE',
+      main_manager_approval_date: '',
+      executed_date: '',
+      created_by: newBudgetPlan.createdBy,
+      rejection_reason: '',
+      details: JSON.stringify(newBudgetPlan.details),
+      sub_manager_reviews: '[]'
+    });
+    await invalidateBudgetPlanCache();
     return newBudgetPlan;
 
   } catch (error) {
-    console.error('❌ 예산 계획 생성 오류:', error);
+    log.error('예산 계획 생성 오류:', error);
     throw error;
   }
 };
@@ -322,7 +343,6 @@ export const reviewBudgetPlan = async (
   reviewerId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
     const reviewDate = new Date().toISOString();
     
     // 스프레드시트에서 해당 행 찾아서 업데이트 (배열 형식으로)
@@ -330,9 +350,9 @@ export const reviewBudgetPlan = async (
     if (!budgetData || !budgetData.values || budgetData.values.length <= 1) {
       throw new Error('예산 계획 데이터를 찾을 수 없습니다.');
     }
+    const headers = getBudgetHeaderMap(budgetData.values);
     
-    // budget_id가 일치하는 행 찾기 (첫 번째 컬럼)
-    const rowIndex = budgetData.values.findIndex((row: string[]) => row[0] === budgetId);
+    const rowIndex = findBudgetRowIndex(budgetData.values, headers, budgetId);
     if (rowIndex === -1) {
       throw new Error('예산 계획을 시트에서 찾을 수 없습니다.');
     }
@@ -340,8 +360,7 @@ export const reviewBudgetPlan = async (
     const row = budgetData.values[rowIndex];
     const actualRowNumber = rowIndex + 1;
     
-    // 기존 서브 관리자 검토 목록 가져오기 (P열, 16번째 컬럼)
-    const subManagerReviewsJson = row[15] || '[]';
+    const subManagerReviewsJson = budgetValue(row, headers, 'sub_manager_reviews') || '[]';
     let subManagerReviews: Array<{ email: string; date: string }> = [];
     try {
       subManagerReviews = JSON.parse(subManagerReviewsJson);
@@ -379,43 +398,24 @@ export const reviewBudgetPlan = async (
     // 검토 목록에 추가 (이메일 형식으로 저장)
     subManagerReviews.push({ email: reviewerId, date: reviewDate });
     
-    console.log('🔍 검토 처리:', {
-      reviewerId,
-      subManagerIds: account.subManagerIds,
-      subManagerReviews: subManagerReviews,
-      currentReviewsCount: subManagerReviews.length,
-      totalSubManagers: account.subManagerIds.length
-    });
-    
     // 모든 서브 관리자가 검토했는지 확인
     const allSubManagersReviewed = account.subManagerIds.every(subManagerId => 
       subManagerReviews.some(r => r.email === subManagerId)
     );
     
-    console.log('🔍 검토 완료 확인:', {
-      allSubManagersReviewed,
-      subManagerIds: account.subManagerIds,
-      reviewedEmails: subManagerReviews.map(r => r.email),
-      missingReviews: account.subManagerIds.filter(subManagerId => 
-        !subManagerReviews.some(r => r.email === subManagerId)
-      )
-    });
-    
     // 상태 업데이트: 모든 서브 관리자가 검토 완료하면 'reviewed', 아니면 'pending' 유지
     const newStatus = allSubManagersReviewed ? 'reviewed' : 'pending';
     
     // 배열 형식으로 각 열 업데이트 (papyrus-db update 사용)
-    // status (G열), sub_manager_reviewed (H열), sub_manager_review_date (I열), sub_manager_reviews (P열)
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `G${actualRowNumber}`, [[newStatus]]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `H${actualRowNumber}`, [[allSubManagersReviewed ? 'TRUE' : 'FALSE']]);
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'status', newStatus);
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'sub_manager_reviewed', allSubManagersReviewed ? 'TRUE' : 'FALSE');
     if (allSubManagersReviewed && subManagerReviews.length > 0) {
-      await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `I${actualRowNumber}`, [[subManagerReviews[subManagerReviews.length - 1].date]]);
+      await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'sub_manager_review_date', subManagerReviews[subManagerReviews.length - 1].date);
     }
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `P${actualRowNumber}`, [[JSON.stringify(subManagerReviews)]]);
-
-    console.log('✅ 예산 계획 검토 완료:', budgetId, '검토자:', reviewerId);
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'sub_manager_reviews', JSON.stringify(subManagerReviews));
+    await invalidateBudgetPlanCache();
   } catch (error) {
-    console.error('❌ 예산 계획 검토 오류:', error);
+    log.error('예산 계획 검토 오류:', error);
     throw error;
   }
 };
@@ -429,7 +429,6 @@ export const approveBudgetPlan = async (
   approverId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
     
     // 예산 계획 정보 가져오기
     const plans = await getBudgetPlans(spreadsheetId);
@@ -456,13 +455,6 @@ export const approveBudgetPlan = async (
     // 주 관리자인지 확인 (이메일 또는 학번으로 비교)
     const isMainManager = account.mainManagerId === approverId;
     
-    console.log('🔍 승인 권한 확인:', {
-      approverId,
-      mainManagerId: account.mainManagerId,
-      isMainManager,
-      accountId: account.accountId
-    });
-    
     if (!isMainManager) {
       throw new Error(`주 관리자만 승인할 수 있습니다. (현재: ${approverId}, 주 관리자: ${account.mainManagerId})`);
     }
@@ -474,23 +466,21 @@ export const approveBudgetPlan = async (
     if (!budgetData || !budgetData.values || budgetData.values.length <= 1) {
       throw new Error('예산 계획 데이터를 찾을 수 없습니다.');
     }
+    const headers = getBudgetHeaderMap(budgetData.values);
     
-    const rowIndex = budgetData.values.findIndex((row: string[]) => row[0] === budgetId);
+    const rowIndex = findBudgetRowIndex(budgetData.values, headers, budgetId);
     if (rowIndex === -1) {
       throw new Error('예산 계획을 시트에서 찾을 수 없습니다.');
     }
     
     const actualRowNumber = rowIndex + 1;
     
-    // main_manager_approved (J열), main_manager_approval_date (K열), status (G열)
-    // papyrus-db update는 두 번째 인자로 시트명을 받으므로, range에는 셀 주소만
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `G${actualRowNumber}`, [['approved']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `J${actualRowNumber}`, [['TRUE']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `K${actualRowNumber}`, [[approvalDate]]);
-
-    console.log('✅ 예산 계획 승인 완료:', budgetId);
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'status', 'approved');
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'main_manager_approved', 'TRUE');
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'main_manager_approval_date', approvalDate);
+    await invalidateBudgetPlanCache();
   } catch (error) {
-    console.error('❌ 예산 계획 승인 오류:', error);
+    log.error('예산 계획 승인 오류:', error);
     throw error;
   }
 };
@@ -505,7 +495,6 @@ export const rejectBudgetPlan = async (
   rejecterId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
     
     // 예산 계획 정보 가져오기
     const plans = await getBudgetPlans(spreadsheetId);
@@ -539,22 +528,20 @@ export const rejectBudgetPlan = async (
     if (!budgetData || !budgetData.values || budgetData.values.length <= 1) {
       throw new Error('예산 계획 데이터를 찾을 수 없습니다.');
     }
+    const headers = getBudgetHeaderMap(budgetData.values);
     
-    const rowIndex = budgetData.values.findIndex((row: string[]) => row[0] === budgetId);
+    const rowIndex = findBudgetRowIndex(budgetData.values, headers, budgetId);
     if (rowIndex === -1) {
       throw new Error('예산 계획을 시트에서 찾을 수 없습니다.');
     }
     
     const actualRowNumber = rowIndex + 1;
     
-    // status (G열), rejection_reason (N열)
-    // papyrus-db update는 두 번째 인자로 시트명을 받으므로, range에는 셀 주소만
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `G${actualRowNumber}`, [['rejected']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `N${actualRowNumber}`, [[rejectionReason]]);
-
-    console.log('✅ 예산 계획 반려 완료:', budgetId);
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'status', 'rejected');
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'rejection_reason', rejectionReason);
+    await invalidateBudgetPlanCache();
   } catch (error) {
-    console.error('❌ 예산 계획 반려 오류:', error);
+    log.error('예산 계획 반려 오류:', error);
     throw error;
   }
 };
@@ -568,7 +555,6 @@ export const executeBudgetPlan = async (
   executorId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
     
     // 예산 계획 정보 가져오기
     const plans = await getBudgetPlans(spreadsheetId);
@@ -610,22 +596,20 @@ export const executeBudgetPlan = async (
     if (!budgetData || !budgetData.values || budgetData.values.length <= 1) {
       throw new Error('예산 계획 데이터를 찾을 수 없습니다.');
     }
+    const headers = getBudgetHeaderMap(budgetData.values);
     
-    const rowIndex = budgetData.values.findIndex((row: string[]) => row[0] === budgetId);
+    const rowIndex = findBudgetRowIndex(budgetData.values, headers, budgetId);
     if (rowIndex === -1) {
       throw new Error('예산 계획을 시트에서 찾을 수 없습니다.');
     }
     
     const actualRowNumber = rowIndex + 1;
     
-    // status (G열), executed_date (L열)
-    // papyrus-db update는 두 번째 인자로 시트명을 받으므로, range에는 셀 주소만
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `G${actualRowNumber}`, [['executed']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `L${actualRowNumber}`, [[executedDate]]);
-
-    console.log('✅ 예산 계획 집행 완료:', budgetId);
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'status', 'executed');
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'executed_date', executedDate);
+    await invalidateBudgetPlanCache();
   } catch (error) {
-    console.error('❌ 예산 계획 집행 오류:', error);
+    log.error('예산 계획 집행 오류:', error);
     throw error;
   }
 };
@@ -639,26 +623,21 @@ export const updateBudgetPlanDetails = async (
   request: UpdateBudgetPlanDetailsRequest
 ): Promise<void> => {
   try {
-    ensureAuth();
     
     // Google API 인증 확인
     if (!window.gapi || !window.gapi.client) {
-      console.error('❌ Google API가 초기화되지 않았습니다.');
+      log.error('Google API가 초기화되지 않았습니다.');
       throw new Error('Google API 인증이 필요합니다. 페이지를 새로고침해주세요.');
     }
     
-    console.log('🔍 예산 계획 상세 업데이트 시도:', { spreadsheetId, budgetId });
-    
     // 예산 계획 정보 가져오기
     const plans = await getBudgetPlans(spreadsheetId);
-    console.log('📊 조회된 예산 계획 목록:', plans.length, '개');
-    console.log('🔍 찾는 budgetId:', budgetId);
-    console.log('📋 예산 계획 ID 목록:', plans.map(p => p.budgetId));
+    log.debug('찾는 budgetId:', budgetId);
     
     const plan = plans.find(p => p.budgetId === budgetId);
     
     if (!plan) {
-      console.error('❌ 예산 계획을 찾을 수 없음:', {
+      log.error('예산 계획을 찾을 수 없음:', {
         budgetId,
         totalPlans: plans.length,
         planIds: plans.map(p => p.budgetId)
@@ -685,8 +664,9 @@ export const updateBudgetPlanDetails = async (
     if (!budgetData || !budgetData.values || budgetData.values.length <= 1) {
       throw new Error('예산 계획 데이터를 찾을 수 없습니다.');
     }
+    const headers = getBudgetHeaderMap(budgetData.values);
     
-    const rowIndex = budgetData.values.findIndex((row: string[]) => row[0] === budgetId);
+    const rowIndex = findBudgetRowIndex(budgetData.values, headers, budgetId);
     if (rowIndex === -1) {
       throw new Error('예산 계획을 시트에서 찾을 수 없습니다.');
     }
@@ -708,7 +688,6 @@ export const updateBudgetPlanDetails = async (
 
     // 이미 집행된 장부 항목이 있는지 확인하고 삭제 (상태와 관계없이 해당 예산안으로 생성된 항목은 모두 삭제)
     const { getLedgerEntries } = await import('./accountingManager');
-    const { deleteRow } = await import('papyrus-db');
     const ACCOUNTING_SHEETS_IMPORT = {
       LEDGER: '장부',
       ACCOUNT: '통장'
@@ -718,7 +697,6 @@ export const updateBudgetPlanDetails = async (
     const ledgerData = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS_IMPORT.LEDGER);
     
     if (!ledgerData || !ledgerData.values || ledgerData.values.length <= 1) {
-      console.log('📋 장부 데이터가 없습니다.');
       return;
     }
     
@@ -761,23 +739,7 @@ export const updateBudgetPlanDetails = async (
       }
     }
     
-    console.log(`🔍 예산안 장부 항목 검색 (시트 직접 확인):`, {
-      budgetId: budgetId,
-      accountId: plan.accountId,
-      totalRows: ledgerData.values.length - 1,
-      foundEntries: budgetEntriesToDelete.length,
-      entriesToDelete: budgetEntriesToDelete.map(e => ({
-        entryId: e.entryId,
-        description: e.description,
-        arrayIndex: e.arrayIndex,
-        sheetRowNumber: e.sheetRowNumber,
-        accountId: e.accountId,
-        budgetPlanId: e.budgetPlanId
-      }))
-    });
-    
     if (budgetEntriesToDelete.length > 0) {
-      console.log(`🔍 예산안으로 생성된 장부 항목 발견: ${budgetEntriesToDelete.length}개, 삭제 시작...`);
       
       // 시트 이름을 시트 ID로 변환
       const ledgerSheetId = await getSheetId(spreadsheetId, ACCOUNTING_SHEETS_IMPORT.LEDGER);
@@ -791,7 +753,7 @@ export const updateBudgetPlanDetails = async (
           // 이렇게 하면 이전 삭제로 인한 행 번호 변경에도 안전함
           const currentLedgerData = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS_IMPORT.LEDGER);
           if (!currentLedgerData || !currentLedgerData.values || currentLedgerData.values.length <= 1) {
-            console.warn('⚠️ 시트 데이터를 읽을 수 없음:', { entryId: entryToDelete.entryId });
+            log.warn('시트 데이터를 읽을 수 없음:', { entryId: entryToDelete.entryId });
             continue;
           }
           
@@ -801,8 +763,8 @@ export const updateBudgetPlanDetails = async (
           );
           
           if (currentRowIndex === -1) {
-            console.warn('⚠️ 삭제할 항목을 시트에서 찾을 수 없음 (이미 삭제되었을 수 있음):', { 
-              entryId: entryToDelete.entryId 
+            log.warn('삭제할 항목을 시트에서 찾을 수 없음 (이미 삭제되었을 수 있음):', {
+              entryId: entryToDelete.entryId
             });
             continue;
           }
@@ -810,9 +772,9 @@ export const updateBudgetPlanDetails = async (
           // 해당 행의 데이터 확인
           const row = currentLedgerData.values[currentRowIndex];
           if (!row || row.length === 0) {
-            console.warn('⚠️ 행 데이터가 없음:', { 
-              arrayIndex: currentRowIndex, 
-              entryId: entryToDelete.entryId 
+            log.warn('행 데이터가 없음:', {
+              arrayIndex: currentRowIndex,
+              entryId: entryToDelete.entryId
             });
             continue;
           }
@@ -837,33 +799,6 @@ export const updateBudgetPlanDetails = async (
             // currentLedgerData.values[currentRowIndex] = 찾은 행 (시트 currentRowIndex + 1행)
             const actualSheetRowNumber = currentRowIndex + 1;
             
-            // 삭제 전 시트 상태 로깅 (디버깅용)
-            console.log('🔍 삭제 전 시트 상태 확인:', {
-              totalRows: currentLedgerData.values.length,
-              targetRowNumber: actualSheetRowNumber,
-              targetRowData: row,
-              allRows: currentLedgerData.values.map((r, idx) => ({
-                rowNumber: idx + 1,
-                entryId: r[0] || '',
-                description: r[4] || '',
-                budgetPlanId: r[14] || ''
-              }))
-            });
-            
-            console.log('✅ 삭제 확인 완료, 삭제 실행:', {
-              entryId: rowEntryId,
-              budgetPlanId: rowBudgetPlanId,
-              accountId: rowAccountId,
-              description: rowDescription,
-              arrayIndex: currentRowIndex,
-              sheetRowNumber: actualSheetRowNumber,
-              expected: {
-                entryId: entryToDelete.entryId,
-                accountId: expectedAccountId,
-                budgetPlanId: expectedBudgetPlanId
-              }
-            });
-            
             // deleteRow 사용
             // papyrus-db의 deleteRow는 0-based 인덱스를 기대합니다
             // 시트 행 1 (헤더) = API 인덱스 0
@@ -873,15 +808,6 @@ export const updateBudgetPlanDetails = async (
               // 0-based 인덱스로 변환 (시트 행 번호 - 1)
               const apiRowIndex = actualSheetRowNumber - 1;
               
-              console.log('🔧 deleteRow 호출 파라미터:', {
-                spreadsheetId,
-                ledgerSheetId,
-                actualSheetRowNumber,  // 1-based 시트 행 번호
-                apiRowIndex,  // 0-based API 인덱스
-                entryId: rowEntryId
-              });
-              
-              const { deleteRow } = await import('papyrus-db');
               await deleteRow(spreadsheetId, ledgerSheetId, apiRowIndex);
               
               // 삭제 후 시트 상태 확인 (디버깅용)
@@ -890,28 +816,15 @@ export const updateBudgetPlanDetails = async (
                 (r[0] || '').toString().trim() === rowEntryId
               );
               
-              console.log('🗑️ 집행된 장부 항목 삭제 완료:', {
-                entryId: rowEntryId,
-                sheetRowNumber: actualSheetRowNumber,
-                deletedRowStillExists: deletedRowStillExists,
-                afterDeleteTotalRows: afterDeleteData?.values?.length || 0,
-                afterDeleteRows: afterDeleteData?.values?.map((r, idx) => ({
-                  rowNumber: idx + 1,
-                  entryId: r[0] || '',
-                  description: r[4] || '',
-                  budgetPlanId: r[14] || ''
-                }))
-              });
-              
               if (deletedRowStillExists) {
-                console.error('❌ 삭제 실패: 항목이 여전히 시트에 존재합니다!', {
+                log.error('삭제 실패: 항목이 여전히 시트에 존재합니다!', {
                   entryId: rowEntryId,
                   sheetRowNumber: actualSheetRowNumber
                 });
               }
             } catch (deleteError: unknown) {
               const err = deleteError as { message?: string; code?: number; status?: number };
-              console.error('❌ deleteRow 실행 오류:', {
+              log.error('deleteRow 실행 오류:', {
                 entryId: rowEntryId,
                 sheetRowNumber: actualSheetRowNumber,
                 error: err.message || deleteError,
@@ -921,7 +834,7 @@ export const updateBudgetPlanDetails = async (
               throw deleteError;
             }
           } else {
-            console.error('❌ 삭제 직전 검증 실패 - 삭제하지 않음:', {
+            log.error('삭제 직전 검증 실패 - 삭제하지 않음:', {
               entryId: rowEntryId,
               expectedEntryId: entryToDelete.entryId,
               description: rowDescription,
@@ -952,7 +865,7 @@ export const updateBudgetPlanDetails = async (
           }
         }
       } else {
-        console.error('❌ 장부 시트 ID를 찾을 수 없습니다.');
+        log.error('장부 시트 ID를 찾을 수 없습니다.');
       }
       
       // 통장 잔액 재계산 (남은 항목들로)
@@ -984,7 +897,6 @@ export const updateBudgetPlanDetails = async (
         const accountRowIndex = accountData.values.findIndex((row: string[]) => row[0] === updatedAccount.accountId);
         if (accountRowIndex !== -1) {
           await update(spreadsheetId, ACCOUNTING_SHEETS_IMPORT.ACCOUNT, `D${accountRowIndex + 1}`, [[currentBalance]]);
-          console.log('✅ 통장 잔액 재계산 완료:', currentBalance);
         }
       }
     }
@@ -995,22 +907,21 @@ export const updateBudgetPlanDetails = async (
     // main_manager_approval_date (K열), executed_date (L열), rejection_reason (N열), 
     // sub_manager_reviews (P열) 업데이트
     
-    // 수정일 업데이트 (E열)
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `E${actualRowNumber}`, [[modificationDate]]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `D${actualRowNumber}`, [[totalAmount]]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `G${actualRowNumber}`, [['pending']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `H${actualRowNumber}`, [['FALSE']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `I${actualRowNumber}`, [['']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `J${actualRowNumber}`, [['FALSE']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `K${actualRowNumber}`, [['']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `L${actualRowNumber}`, [['']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `N${actualRowNumber}`, [['']]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `O${actualRowNumber}`, [[JSON.stringify(newDetails)]]);
-    await update(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN, `P${actualRowNumber}`, [['[]']]);
-
-    console.log('✅ 예산 계획 상세 업데이트 완료 (상태 초기화):', budgetId);
+    const resetStatus = account.subManagerIds.length === 0 ? 'reviewed' : 'pending';
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'requested_date', modificationDate);
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'total_amount', totalAmount);
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'status', resetStatus);
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'sub_manager_reviewed', account.subManagerIds.length === 0 ? 'TRUE' : 'FALSE');
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'sub_manager_review_date', '');
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'main_manager_approved', 'FALSE');
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'main_manager_approval_date', '');
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'executed_date', '');
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'rejection_reason', '');
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'details', JSON.stringify(newDetails));
+    await updateBudgetField(spreadsheetId, headers, actualRowNumber, 'sub_manager_reviews', '[]');
+    await invalidateBudgetPlanCache();
   } catch (error) {
-    console.error('❌ 예산 계획 상세 업데이트 오류:', error);
+    log.error('예산 계획 상세 업데이트 오류:', error);
     throw error;
   }
 };
@@ -1024,7 +935,6 @@ export const deleteBudgetPlan = async (
   deleterId: string
 ): Promise<void> => {
   try {
-    ensureAuth();
     
     // 예산 계획 정보 가져오기
     const plans = await getBudgetPlans(spreadsheetId);
@@ -1054,7 +964,6 @@ export const deleteBudgetPlan = async (
     // 이미 집행된 장부 항목이 있는지 확인
     if (plan.status === 'executed') {
       const { getLedgerEntries, getAccounts: getAccountsForDelete } = await import('./accountingManager');
-      const { getSheetData, deleteRow } = await import('papyrus-db');
       const ACCOUNTING_SHEETS_IMPORT = {
         LEDGER: '장부',
         ACCOUNT: '통장'
@@ -1070,16 +979,18 @@ export const deleteBudgetPlan = async (
           // 시트 이름을 시트 ID로 변환
           const ledgerSheetId = await getSheetId(spreadsheetId, ACCOUNTING_SHEETS_IMPORT.LEDGER);
           if (ledgerSheetId !== null) {
-            // 집행된 장부 항목 삭제 (역순으로 삭제하여 잔액 계산 오류 방지)
-            for (const entry of budgetEntries.reverse()) {
+            // 헤더 포함 스냅샷에서 삭제할 행 인덱스를 모아 내림차순으로 삭제합니다.
+            const rowsToDelete = budgetEntries.map((entry) => {
               const rowIndex = ledgerData.values.findIndex((row: string[]) => row[0] === entry.entryId);
-              if (rowIndex !== -1) {
-                await deleteRow(spreadsheetId, ledgerSheetId, rowIndex + 1);
-                console.log('🗑️ 집행된 장부 항목 삭제:', entry.entryId);
-              }
+              return rowIndex === -1 ? null : { entryId: entry.entryId, rowIndex };
+            }).filter((item): item is { entryId: string; rowIndex: number } => item !== null)
+              .sort((a, b) => b.rowIndex - a.rowIndex);
+            for (const item of rowsToDelete) {
+              await deleteRow(spreadsheetId, ledgerSheetId, item.rowIndex);
+              log.debug('집행된 장부 항목 삭제:', item.entryId);
             }
           } else {
-            console.error('❌ 장부 시트 ID를 찾을 수 없습니다.');
+            log.error('장부 시트 ID를 찾을 수 없습니다.');
           }
           
           // 통장 잔액 재계산 (남은 항목들로)
@@ -1120,8 +1031,9 @@ export const deleteBudgetPlan = async (
     if (!budgetData || !budgetData.values || budgetData.values.length <= 1) {
       throw new Error('예산 계획 데이터를 찾을 수 없습니다.');
     }
+    const headers = getBudgetHeaderMap(budgetData.values);
     
-    const rowIndex = budgetData.values.findIndex((row: string[]) => row[0] === budgetId);
+    const rowIndex = findBudgetRowIndex(budgetData.values, headers, budgetId);
     if (rowIndex === -1) {
       throw new Error('예산 계획을 시트에서 찾을 수 없습니다.');
     }
@@ -1136,28 +1048,12 @@ export const deleteBudgetPlan = async (
     // data.values[0] = 헤더 (시트 1행)
     // data.values[rowIndex] = 찾은 행 (시트 rowIndex + 1행)
     const actualSheetRowNumber = rowIndex + 1;
-    
-    console.log('🗑️ 예산 계획 삭제 시도:', {
-      budgetId,
-      rowIndex,
-      actualSheetRowNumber,
-      sheetId
-    });
 
     // Google Sheets API를 직접 사용하여 행 삭제
     if (!window.gapi || !window.gapi.client) {
       throw new Error('Google API가 초기화되지 않았습니다.');
     }
 
-    // 삭제 전 현재 행 번호 확인
-    const beforeDeleteData = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN);
-    const beforeRowCount = beforeDeleteData?.values?.length || 0;
-    console.log('🗑️ 삭제 전 상태:', {
-      totalRows: beforeRowCount,
-      targetRowNumber: actualSheetRowNumber,
-      targetRowData: beforeDeleteData?.values?.[rowIndex]
-    });
-    
     // Google Sheets API의 deleteDimension은 0-based 인덱스를 사용합니다
     // data.values[0] = 헤더 (시트 1행, API 인덱스 0)
     // data.values[rowIndex] = 찾은 행 (시트 rowIndex + 1행, API 인덱스 rowIndex)
@@ -1190,25 +1086,28 @@ export const deleteBudgetPlan = async (
     while (stillExists && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 300 * (attempts + 1))); // 점진적으로 대기 시간 증가
       const verifyData = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN);
-      stillExists = verifyData?.values?.some((row: string[]) => row && row[0] === budgetId) || false;
+      if (verifyData?.values) {
+        const verifyHeaders = getBudgetHeaderMap(verifyData.values);
+        stillExists = findBudgetRowIndex(verifyData.values, verifyHeaders, budgetId) !== -1;
+      } else {
+        stillExists = false;
+      }
       
       if (!stillExists) {
-        console.log(`✅ 삭제 확인 성공 (시도 ${attempts + 1}/${maxAttempts}):`, {
-          beforeRowCount,
-          afterRowCount: verifyData?.values?.length || 0
-        });
         break;
       }
       
       attempts++;
-      console.log(`⏳ 삭제 확인 시도 ${attempts}/${maxAttempts}...`);
+      log.debug(`삭제 확인 시도 ${attempts}/${maxAttempts}...`);
     }
     
     if (stillExists) {
       // 최종 확인: 삭제 후 데이터 다시 조회
       const finalCheck = await getSheetData(spreadsheetId, ACCOUNTING_SHEETS.BUDGET_PLAN);
-      const finalRowData = finalCheck?.values?.find((row: string[]) => row && row[0] === budgetId);
-      console.error('❌ 삭제 실패 - 최종 확인:', {
+      const finalHeaders = getBudgetHeaderMap(finalCheck.values);
+      const finalRowIndex = findBudgetRowIndex(finalCheck.values, finalHeaders, budgetId);
+      const finalRowData = finalRowIndex === -1 ? undefined : finalCheck.values[finalRowIndex];
+      log.error('삭제 실패 - 최종 확인:', {
         budgetId,
         stillExists,
         finalRowData,
@@ -1217,10 +1116,8 @@ export const deleteBudgetPlan = async (
       });
       throw new Error('예산 계획 삭제에 실패했습니다. 시트를 직접 확인해주세요.');
     }
-
-    console.log('✅ 예산 계획 삭제 완료:', budgetId);
   } catch (error) {
-    console.error('❌ 예산 계획 삭제 오류:', error);
+    log.error('예산 계획 삭제 오류:', error);
     throw error;
   }
 };

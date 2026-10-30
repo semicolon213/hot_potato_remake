@@ -1,3 +1,4 @@
+import { logger } from '../logger';
 import { API_CONFIG, API_ACTIONS } from '../../config/api';
 import { ENV_CONFIG } from '../../config/environment';
 import type {
@@ -18,6 +19,7 @@ import type {
   WorkflowTemplatesListResponse
 } from '../../types/api/apiResponses';
 import type { LedgerResponse } from '../../types/features/accounting';
+import type { RowData } from '../../types/googleSheets';
 import type {
   WorkflowRequestData,
   SetWorkflowLineData,
@@ -29,12 +31,15 @@ import type {
 } from '../../types/documents';
 import type { ApprovalStatusResponse } from '../../types/api/userResponses';
 import { getCacheManager } from '../cache/cacheManager';
+import { tokenManager } from '../auth/tokenManager';
 import { 
   generateCacheKey, 
   getCacheTTL, 
   getActionCategory, 
   CACHEABLE_ACTIONS 
 } from '../cache/cacheUtils';
+const log = logger.scope('utils/api/apiClient');
+
 
 // API 응답 타입 정의
 export interface ApiResponse<T = unknown> {
@@ -42,12 +47,31 @@ export interface ApiResponse<T = unknown> {
   message?: string;
   data?: T;
   error?: string;
+  notFound?: string[];
   debug?: Record<string, unknown>;
+  failures?: Array<{ id?: string; message?: string }>;
   permissionResult?: {
     successCount: number;
     failCount: number;
   };
 }
+
+const RETRYABLE_READ_ACTIONS = new Set([
+  'checkUserStatus',
+  'decryptEmail',
+  'decryptEmailBatch',
+  'encryptEmail',
+  'getFieldList',
+  'getGraduationGrade',
+  'getEmploymentByStdNum',
+  'validateStudentForEmployment'
+]);
+
+const hasIncompleteSpreadsheetIds = (action: string, response: ApiResponse<unknown>): boolean => {
+  if (action !== 'getSpreadsheetIds') return false;
+  const ids = response.data as Record<string, unknown> | undefined;
+  return Boolean(response.notFound?.length) || Object.values(ids || {}).some(id => !id);
+};
 
 // API 요청 옵션 타입 정의
 interface ApiRequestOptions {
@@ -57,12 +81,33 @@ interface ApiRequestOptions {
 }
 
 // API 클라이언트 클래스
+// 장부 목록은 요청자가 접근 대상으로 지정된 장부만 받는다 (캐시도 사용자별로 나뉜다)
+const ledgerListParams = (): { userEmail: string; userType: string } => {
+  const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
+  return { userEmail: user.email || '', userType: user.userType || '' };
+};
+
 export class ApiClient {
   private baseUrl: string;
   private defaultTimeout: number;
   private defaultRetries: number;
   private cacheManager = getCacheManager();
   private dataSyncService: any = null; // DataSyncService 인스턴스 (나중에 주입)
+  private inFlightRequests = new Map<string, Promise<ApiResponse<unknown>>>();
+  private cacheGenerations = new Map<string, number>();
+
+  invalidateInFlight(patterns: string[]): void {
+    for (const key of this.inFlightRequests.keys()) {
+      const invalidated = patterns.some(pattern => new RegExp('^' + pattern.replace(/\*/g, '.*') + '$').test(key));
+      if (!invalidated) continue;
+      this.cacheGenerations.set(key, (this.cacheGenerations.get(key) || 0) + 1);
+      this.inFlightRequests.delete(key);
+    }
+  }
+
+  clearInFlightRequests(): void {
+    this.invalidateInFlight(['*']);
+  }
 
   constructor() {
     // 개발(localhost): Vite 프록시 /api → Apps Script
@@ -75,13 +120,6 @@ export class ApiClient {
     this.baseUrl = isLocal ? '/api' : '/.netlify/functions/proxy';
     this.defaultTimeout = API_CONFIG.TIMEOUT;
     this.defaultRetries = API_CONFIG.MAX_RETRIES;
-    
-    console.log('API 클라이언트 초기화 (프록시 사용):', {
-      baseUrl: this.baseUrl,
-      isLocal,
-      timeout: this.defaultTimeout,
-      retries: this.defaultRetries
-    });
   }
 
   /**
@@ -105,25 +143,34 @@ export class ApiClient {
 
     // 캐시 가능한 요청인지 확인
     const isCacheable = CACHEABLE_ACTIONS.includes(action);
+    const isRetryableReadAction = isCacheable || RETRYABLE_READ_ACTIONS.has(action);
     let cacheKey: string | null = null;
+    let cacheGeneration = 0;
     
     if (isCacheable) {
       // 캐시 키 생성
       const category = getActionCategory(action);
       cacheKey = generateCacheKey(category, action, data);
+      cacheGeneration = this.cacheGenerations.get(cacheKey) || 0;
       
       // 캐시에서 데이터 조회
       const cachedData = await this.cacheManager.get<ApiResponse<T>>(cacheKey);
-      if (cachedData) {
-        console.log('✅ 캐시에서 데이터 로드:', cacheKey);
+      if (cachedData && !hasIncompleteSpreadsheetIds(action, cachedData)) {
         return cachedData;
+      }
+      if (cachedData) await this.cacheManager.invalidate(cacheKey);
+
+      const inFlightRequest = this.inFlightRequests.get(cacheKey);
+      if (inFlightRequest) {
+        return inFlightRequest as Promise<ApiResponse<T>>;
       }
     }
 
     // 웹앱용 요청 데이터 형식
     const requestData = {
       action,
-      ...data
+      ...data,
+      accessToken: tokenManager.get() || ''
     };
 
     const requestOptions: RequestInit = {
@@ -139,110 +186,102 @@ export class ApiClient {
       body: JSON.stringify(requestData)
     };
 
-    // 타임아웃 설정 (더 관대한 설정)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.warn(`API 요청 타임아웃 (${timeout}ms):`, action);
-      controller.abort();
-    }, timeout);
-    requestOptions.signal = controller.signal;
+    const executeRequest = async (): Promise<ApiResponse<T>> => {
+      const isWriteAction = this.isWriteAction(action);
+      let lastError: Error | null = null;
 
-    let lastError: Error | null = null;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          log.warn(`API 요청 타임아웃 (${timeout}ms):`, action);
+          controller.abort();
+        }, timeout);
 
-    // 재시도 로직
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        console.log(`API 요청 시도 ${attempt + 1}/${retries + 1}:`, {
-          action,
-          data: requestData,
-          url: this.baseUrl
-        });
+        try {
 
-        const response = await fetch(this.baseUrl, requestOptions);
-        clearTimeout(timeoutId);
-
-        // 429 (Too Many Requests) 에러 처리
-        if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          // Retry-After 헤더가 있으면 그 시간 사용, 없으면 기본값 사용
-          let waitTime: number;
-          if (retryAfter) {
-            const retrySeconds = parseInt(retryAfter, 10);
-            waitTime = retrySeconds * 1000; // 초를 밀리초로 변환
-            console.warn(`⚠️ API 호출 제한 초과 (429). 서버 권장 대기 시간: ${retrySeconds}초 (약 ${Math.round(retrySeconds / 60)}분)`);
-          } else {
-            // Retry-After가 없으면 지수 백오프 사용 (최소 5초, 최대 60초)
-            waitTime = Math.min(Math.pow(2, attempt + 2) * 1000, 60000);
-            console.warn(`⚠️ API 호출 제한 초과 (429). ${Math.round(waitTime / 1000)}초 후 재시도...`);
-          }
-          
-          if (attempt < retries) {
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            continue; // 재시도
-          } else {
-            // 최종 실패 시 안내 메시지
-            const waitMinutes = retryAfter ? Math.round(parseInt(retryAfter, 10) / 60) : 60;
-            const errorMsg = `HTTP 429: API 호출 제한 초과. ${waitMinutes}분 후 다시 시도해주세요.`;
-            console.warn(`⚠️ ${errorMsg}`);
-            throw new Error(errorMsg);
-          }
-        }
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        
-        // 성공한 응답을 캐시에 저장
-        if (isCacheable && result.success && cacheKey) {
-          const ttl = getCacheTTL(action);
-          await this.cacheManager.set(cacheKey, result as ApiResponse<T>, ttl);
-          console.log('💾 캐시에 데이터 저장:', cacheKey, `TTL: ${ttl / 1000}초`);
-        }
-        
-        // 쓰기 작업 성공 시 자동으로 캐시 무효화
-        if (result.success && this.isWriteAction(action)) {
-          const cacheKeys = this.getCacheKeysToInvalidate(action, data);
-          if (cacheKeys.length > 0 && this.dataSyncService) {
-            // 비동기로 처리하여 응답 지연 최소화
-            this.dataSyncService.invalidateAndRefresh(cacheKeys).catch((err: Error) => {
-              console.warn('캐시 무효화 실패:', err);
-            });
-          }
-        }
-        
-        // 성공/실패 여부에 따라 적절한 로그 출력
-        if (result.success) {
-          console.log(`✅ API 응답 성공:`, {
-            action,
-            message: result.message
+          const response = await fetch(this.baseUrl, {
+            ...requestOptions,
+            signal: controller.signal
           });
-        } else {
-          console.warn(`⚠️ API 응답 실패:`, {
-            action,
-            message: result.message,
-            error: result.error,
-            debug: (result as any).debug || (result as any).debugInfo
-          });
-        }
+          clearTimeout(timeoutId);
 
-        return result as ApiResponse<T>;
-      } catch (error) {
-        lastError = error as Error;
-        console.warn(`API 요청 실패 (시도 ${attempt + 1}/${retries + 1}):`, error);
+          if (response.status === 429) {
+            const retryAfter = response.headers.get('Retry-After');
+            const retrySeconds = retryAfter ? Number.parseInt(retryAfter, 10) : NaN;
+            const waitTime = Number.isFinite(retrySeconds)
+              ? Math.min(retrySeconds * 1000, 60000)
+              : Math.min(Math.pow(2, attempt + 2) * 1000, 60000);
 
-        if (attempt < retries) {
-          // 지수 백오프로 재시도 간격 설정
+            if (attempt < retries) {
+              log.warn(`API 호출 제한 초과 (429). ${Math.round(waitTime / 1000)}초 후 재시도...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              continue;
+            }
+            throw new Error('HTTP 429: API 호출 제한 초과. 잠시 후 다시 시도해주세요.');
+          }
+
+          if (!response.ok) {
+            const responseError = new Error(`HTTP ${response.status}: ${response.statusText}`) as Error & {
+              retryable?: boolean;
+            };
+            responseError.retryable = response.status >= 500;
+            throw responseError;
+          }
+
+          const result = await response.json();
+
+          if (isCacheable && result.success && cacheKey && cacheGeneration === (this.cacheGenerations.get(cacheKey) || 0) && !hasIncompleteSpreadsheetIds(action, result)) {
+            const ttl = getCacheTTL(action);
+            await this.cacheManager.set(cacheKey, result as ApiResponse<T>, ttl);
+          }
+
+          if (result.success && isWriteAction) {
+            const cacheKeys = this.getCacheKeysToInvalidate(action, data);
+            if (cacheKeys.length > 0 && this.dataSyncService) {
+              this.dataSyncService.invalidateAndRefresh(cacheKeys).catch((err: Error) => {
+                log.warn('캐시 무효화 실패:', err);
+              });
+            }
+          }
+
+          if (result.success) {
+      // Intentionally ignored.
+
+          } else {
+            log.warn('API 응답 실패');
+          }
+
+          return result as ApiResponse<T>;
+        } catch (error) {
+          lastError = error as Error;
+          const retryable = (error as Error & {retryable?: boolean}).retryable !== false;
+          const canRetry = attempt < retries && isRetryableReadAction && !isWriteAction && retryable;
+          log.warn(`API 요청 실패 (시도 ${attempt + 1}/${retries + 1}):`, error);
+
+          if (!canRetry) throw lastError;
+
           const delay = Math.pow(2, attempt) * 1000;
-          console.log(`${delay}ms 후 재시도...`);
+          log.debug(`${delay}ms 후 재시도...`);
           await new Promise(resolve => setTimeout(resolve, delay));
+        } finally {
+          clearTimeout(timeoutId);
         }
       }
-    }
 
-    clearTimeout(timeoutId);
-    throw lastError || new Error('API 요청 실패');
+      throw lastError || new Error('API 요청 실패');
+    };
+
+    const requestPromise = executeRequest();
+    if (!cacheKey) return requestPromise;
+
+    this.inFlightRequests.set(cacheKey, requestPromise as Promise<ApiResponse<unknown>>);
+    try {
+      return await requestPromise;
+    } finally {
+      if (this.inFlightRequests.get(cacheKey) === requestPromise) {
+        this.inFlightRequests.delete(cacheKey);
+      }
+    }
   }
 
   // 사용자 관리 API
@@ -289,11 +328,8 @@ export class ApiClient {
   }
 
   // 관리자 키 API
-  async sendAdminKeyEmail(userEmail: string, adminAccessToken: string) {
-    return this.request(API_ACTIONS.SEND_ADMIN_KEY_EMAIL, {
-      userEmail,
-      adminAccessToken
-    });
+  async sendAdminKeyEmail(userEmail: string) {
+    return this.request(API_ACTIONS.SEND_ADMIN_KEY_EMAIL, { userEmail });
   }
 
   // 이메일 마이그레이션 API
@@ -320,6 +356,42 @@ export class ApiClient {
 
   async getTemplates() {
     return this.request('getTemplates');
+  }
+
+  async getBootstrapData(params: Record<string, unknown>) {
+    type BootstrapPayload = Record<string, ApiResponse<unknown>>;
+    const actions = ['getStaticTags', 'getWorkflowTemplates', 'getLedgerList', 'getTemplates', 'getAnnouncements'];
+    const bootstrapPromise = this.request<BootstrapPayload>('getBootstrapData', { ...params, userEmail: ledgerListParams().userEmail });
+
+    const cachePromises = actions.map((action) => {
+      const actionParams = action === 'getAnnouncements' ? params : action === 'getLedgerList' ? ledgerListParams() : {};
+      const cacheKey = generateCacheKey(getActionCategory(action), action, actionParams);
+      const cacheGeneration = this.cacheGenerations.get(cacheKey) || 0;
+      const actionPromise = bootstrapPromise.then(async (response) => {
+        const actionResponse = response.data?.[action];
+        if (actionResponse?.success) {
+          if (cacheGeneration === (this.cacheGenerations.get(cacheKey) || 0)) {
+            await this.cacheManager.set(cacheKey, actionResponse, getCacheTTL(action));
+          }
+          return actionResponse;
+        }
+        if (this.inFlightRequests.get(cacheKey) === actionPromise) this.inFlightRequests.delete(cacheKey);
+        return this.request(action, actionParams);
+      });
+
+      this.inFlightRequests.set(cacheKey, actionPromise as Promise<ApiResponse<unknown>>);
+      const cleanup = () => {
+        if (this.inFlightRequests.get(cacheKey) === actionPromise) {
+          this.inFlightRequests.delete(cacheKey);
+        }
+      };
+      void actionPromise.then(cleanup, cleanup);
+      return actionPromise;
+    });
+
+    const response = await bootstrapPromise;
+    await Promise.all(cachePromises);
+    return response;
   }
 
   // 공유 템플릿 업로드(파일 업로드)
@@ -384,8 +456,27 @@ export class ApiClient {
     return this.request<DocumentsListResponse>('getDocuments', params);
   }
 
-  async deleteDocuments(documentIds: string[], role: string) {
-    return this.request('deleteDocuments', { documentIds, role });
+  async deleteDocuments(documentIds: string[], role: string, userEmail: string) {
+    return this.request('deleteDocuments', { documentIds, role, userEmail });
+  }
+
+  // 증빙 파일 업로드 (Apps Script가 장부 증빙 폴더에 저장)
+  async uploadEvidenceFile(params: { spreadsheetId: string; evidenceFolderId: string; userEmail: string; userType: string; fileName: string; mimeType: string; fileData: string }) {
+    return this.request<{ fileId: string; fileName: string }>('uploadEvidenceFile', params);
+  }
+
+  // 공유 양식(문서·스프레드시트)을 Office 형식(base64)으로 받기 (개인 폴더에 Google 파일로 변환해 올릴 때 사용)
+  async exportTemplateFile(templateId: string) {
+    return this.request<{ name: string; sourceMimeType: string; exportMimeType: string; fileData: string }>('exportTemplateFile', { templateId });
+  }
+
+  async getTemplateSheetPreview(templateId: string, sheetName?: string) {
+    return this.request<{ sheets: Array<{ properties: { title: string; sheetId: number }; merges?: Array<{ sheetId: number; startRowIndex: number; endRowIndex: number; startColumnIndex: number; endColumnIndex: number }>; data?: Array<{ rowData?: RowData[] }> }> }>('getTemplateSheetPreview', { templateId, sheetName });
+  }
+
+  // 공지 첨부파일 업로드 (Apps Script가 첨부 폴더에 저장하고 링크 공개)
+  async uploadNoticeAttachment(params: { fileName: string; mimeType: string; fileData: string; userEmail: string }) {
+    return this.request<{ id: string; name: string; url: string }>('uploadNoticeAttachment', params);
   }
 
   // 스프레드시트 ID 목록 조회
@@ -423,10 +514,10 @@ export class ApiClient {
       try {
         await getCacheManager().invalidate('accounting:getLedgerList:*');
       } catch (e) {
-        console.warn('장부 목록 캐시 무효화 실패 (계속 진행):', e);
+        log.warn('장부 목록 캐시 무효화 실패 (계속 진행):', e);
       }
     }
-    return this.request<{ success: boolean; data: LedgerResponse[] }>('getLedgerList', {});
+    return this.request<{ success: boolean; data: LedgerResponse[] }>('getLedgerList', ledgerListParams());
   }
 
   async updateAccountSubManagers(data: {
@@ -499,18 +590,16 @@ export class ApiClient {
   // 간단한 연결 테스트
   async testConnection() {
     try {
-      console.log('연결 테스트 시작:', this.baseUrl);
       const response = await fetch(this.baseUrl, {
         method: 'GET',
         mode: 'cors',
         cache: 'no-cache'
       });
-      console.log('연결 테스트 응답:', response.status, response.statusText);
       const text = await response.text();
-      console.log('연결 테스트 내용:', text.substring(0, 200));
+      log.debug('연결 테스트 내용:', text.substring(0, 200));
       return { success: true, status: response.status, data: text };
     } catch (error) {
-      console.error('연결 테스트 실패:', error);
+      log.error('연결 테스트 실패:', error);
       return { success: false, error: (error as Error).message };
     }
   }
@@ -820,7 +909,7 @@ export class ApiClient {
     const writeActions = [
       // 문서 관리
       'createDocument', 'deleteDocuments',
-      'uploadSharedTemplate', 'updateSharedTemplateMeta', 'deleteSharedTemplate',
+      'uploadSharedDocument', 'uploadSharedTemplate', 'updateSharedTemplateMeta', 'deleteSharedTemplate',
       'addStaticTag', 'updateStaticTag', 'deleteStaticTag',
       
       // 워크플로우
@@ -834,12 +923,13 @@ export class ApiClient {
       'createLedger', 'updateAccountSubManagers',
       
       // 사용자 관리
-      'approveUserWithGroup', 'rejectUser', 'addUsersToSpreadsheet',
+      'registerUser', 'approveUserWithGroup', 'rejectUser', 'addUsersToSpreadsheet',
       'requestPinnedAnnouncementApproval',
       'requestPinnedAnnouncement',
       'createAnnouncement',
       'updateAnnouncement',
       'deleteAnnouncement',
+      'incrementAnnouncementView',
       'approvePinnedAnnouncement',
       
       // 기타
@@ -847,7 +937,7 @@ export class ApiClient {
       // 학생 취업관리
       'saveEmployment', 'updateEmploymentAfter', 'createField', 'updateField', 'deleteField',
       // 학년/유급
-      'updateStudentRetained', 'setGraduationGrade', 'updateStudentGrades',
+      'updateStudentRetained', 'setGraduationGrade', 'updateStudentGrades', 'updateStudentGradesSelected', 'setGraduatedAdvanced',
     ];
     return writeActions.includes(action);
   }
@@ -889,7 +979,7 @@ export class ApiClient {
           }
         }
       } catch (error) {
-        console.warn(`⚠️ 캐시 키 처리 실패 (${key}):`, error);
+        log.warn("캐시 키 처리 실패 (", error);
       }
     }
 
@@ -906,16 +996,14 @@ export class ApiClient {
           const category = getActionCategory(action);
           const ttl = getCacheTTL(action);
           await cacheManager.set(key, updatedData, ttl);
-          console.log(`✨ 낙관적 업데이트 적용: ${key}`);
         }
       } catch (error) {
-        console.warn(`⚠️ 낙관적 업데이트 실패 (${key}):`, error);
+        log.warn("낙관적 업데이트 실패 (", error);
       }
     }
 
     // 롤백 함수 반환
     return async () => {
-      console.log('🔄 낙관적 업데이트 롤백 시작');
       for (const [key, backup] of backups.entries()) {
         try {
           if (backup === null) {
@@ -927,9 +1015,8 @@ export class ApiClient {
             const ttl = getCacheTTL(action);
             await cacheManager.set(key, backup, ttl);
           }
-          console.log(`✅ 롤백 완료: ${key}`);
         } catch (error) {
-          console.error(`❌ 롤백 실패 (${key}):`, error);
+          log.error("롤백 실패 (", error);
         }
       }
     };
@@ -941,8 +1028,9 @@ export class ApiClient {
   private getCacheKeysToInvalidate(action: string, data: any): string[] {
     const cacheKeyMap: Record<string, (data: any) => string[]> = {
       // 문서 관리
-      'createDocument': () => ['documents:getDocuments:*', 'documents:getAllDocuments:{}'],
-      'deleteDocuments': () => ['documents:getDocuments:*', 'documents:getAllDocuments:{}'],
+      'createDocument': () => ['documents:getDocuments:*', 'documents:getAllDocuments:*'],
+      'deleteDocuments': () => ['documents:getDocuments:*', 'documents:getAllDocuments:*'],
+      'uploadSharedDocument': () => ['documents:getDocuments:*', 'documents:getAllDocuments:*'],
       'uploadSharedTemplate': () => ['templates:getTemplates:*', 'templates:getSharedTemplates:*'],
       'updateSharedTemplateMeta': () => ['templates:getSharedTemplates:*'],
       'deleteSharedTemplate': () => ['templates:getSharedTemplates:*'],
@@ -998,9 +1086,15 @@ export class ApiClient {
       'updateAccountSubManagers': () => ['accounting:getLedgerList:*'],
       
       // 사용자 관리
+      'registerUser': () => ['users:getPendingUsers:*'],
       'approveUserWithGroup': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
-      'rejectUser': () => ['users:getPendingUsers:*'],
+      'rejectUser': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
       'addUsersToSpreadsheet': () => ['users:getAllUsers:*'],
+      'updateStudentRetained': () => ['students:fetchStudents:*'],
+      'setGraduationGrade': () => ['students:fetchStudents:*'],
+      'updateStudentGrades': () => ['students:fetchStudents:*'],
+      'updateStudentGradesSelected': () => ['students:fetchStudents:*'],
+      'setGraduatedAdvanced': () => ['students:fetchStudents:*'],
       'requestPinnedAnnouncementApproval': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
       'requestPinnedAnnouncement': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
       'createAnnouncement': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
@@ -1018,8 +1112,8 @@ export class ApiClient {
 export const apiClient = new ApiClient();
 
 // 기존 API 함수들과의 호환성을 위한 래퍼 함수들
-export const sendAdminKeyEmail = (userEmail: string, adminAccessToken: string) =>
-  apiClient.sendAdminKeyEmail(userEmail, adminAccessToken);
+export const sendAdminKeyEmail = (userEmail: string) =>
+  apiClient.sendAdminKeyEmail(userEmail);
 
 export const fetchAllUsers = () =>
   apiClient.getAllUsers();

@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 /**
  * @file DataSyncStatus.tsx
  * @brief 데이터 동기화 상태 표시 컴포넌트
@@ -9,6 +10,8 @@ import { FaSync, FaCheckCircle, FaExclamationCircle, FaPause, FaPlay } from 'rea
 import { useNotification } from '../../hooks/ui/useNotification';
 import { getDataSyncService } from '../../services/dataSyncService';
 import './DataSyncStatus.css';
+const log = logger.scope('components/ui/DataSyncStatus');
+
 
 // React 19 호환성을 위한 타입 단언
 const SyncIcon = FaSync as React.ComponentType<React.SVGProps<SVGSVGElement>>;
@@ -99,7 +102,7 @@ export const DataSyncStatus: React.FC<DataSyncStatusProps> = ({
   // 새로고침 버튼 클릭 핸들러
   const handleRefresh = async () => {
     if (!onRefresh) {
-      console.warn('onRefresh 함수가 제공되지 않았습니다.');
+      log.warn('onRefresh 함수가 제공되지 않았습니다.');
       return;
     }
 
@@ -112,7 +115,7 @@ export const DataSyncStatus: React.FC<DataSyncStatusProps> = ({
       setTimeout(() => setShowSuccess(false), 3000); // 3초 후 성공 메시지 숨김
       showNotification('데이터 갱신이 완료되었습니다.', 'success');
     } catch (error) {
-      console.error('데이터 갱신 실패:', error);
+      log.error('데이터 갱신 실패:', error);
       const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
       
       // 429 에러인 경우 특별한 안내 메시지

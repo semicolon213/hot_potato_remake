@@ -15,10 +15,17 @@
 | 매일 (자동) | 관리자 키 갱신 | Apps Script 트리거 |
 | 수시 | 데이터 확인·수정 | Google Drive의 스프레드시트 |
 | 파일 교체·이동 후 | 스프레드시트 ID 캐시 비우기 (`clearSpreadsheetIdCache`) | Apps Script 편집기 (§7) |
+| 그룹 주소 변경·기존 설치 업데이트 후 | 역할 폴더·장부 권한 다시 부여 (`applyRoleFolderSharing`, `applyLedgerSharing`) | Apps Script 편집기 (§3.4, §6) |
 
 ## 2. 최초 세팅
 
-1. [DEPLOYMENT.md](./DEPLOYMENT.md) 1~5단계를 끝냅니다.
+1. [DEPLOYMENT.md](./DEPLOYMENT.md) 1~5단계를 끝냅니다. 새 기관에 설치할 때 순서는 다음과 같습니다.
+   1. Apps Script를 독립형 프로젝트로 올리고 웹앱으로 배포합니다.
+   2. 기관의 Google 그룹 주소가 기본값과 다르면 스크립트 속성 `GROUP_EMAIL_JSON`을 먼저 넣습니다(§3.4).
+   3. `initializeSystem`을 실행합니다. 폴더, `hp_member`를 포함한 시트, 스크립트 속성 연결, 역할 폴더 공유까지 한 번에 합니다.
+   4. 편집기에서 아무 함수나 실행해 권한을 승인합니다. "외부 서비스에 연결"(`script.external_request`)도 허용합니다.
+
+   > 배포 계정의 [myaccount.google.com/permissions](https://myaccount.google.com/permissions)에서 이 Apps Script 프로젝트 권한을 지우면 **모든 웹앱 배포가 403(액세스 거부됨)**을 돌려줍니다. 편집기에서 아무 함수나 실행해 다시 승인해야 풀립니다.
 2. **관리자 키를 처음 만듭니다.** Apps Script 편집기에서 `handleDailyKeyUpdate`를 한 번 직접 실행합니다. 트리거는 다음 날부터 자동으로 돌기 때문입니다.
 3. **첫 관리자를 사전 등록합니다.** `hp_member` 스프레드시트의 `user` 시트에 직접 한 행을 넣습니다: `no_member`(학번/교번), `name_member`(이름)만 채우고 나머지 칸은 비웁니다.
 4. 키 확인: 편집기에서 `getCurrentAdminKeyForUse`를 실행하면 현재 키가 로그에 나옵니다.
@@ -40,7 +47,7 @@
 
 1. **관리자** 화면의 **사용자 승인 및 그룹스 권한 설정**에서 승인 대기 사용자를 확인합니다.
 2. **승인**을 누르고 그룹 역할을 고릅니다. 기본값은 사용자가 신청한 가입유형입니다.
-3. 승인하면 그 역할의 Google 그룹에 추가합니다.
+3. 승인하면 그 역할의 Google 그룹에 추가합니다. **파일 접근은 그룹 가입으로 정해집니다.** 역할 폴더는 그룹에 공유되어 있기 때문입니다. `hp_member`의 `user_type`은 앱 화면과 API에서 쓰는 역할일 뿐 Drive 권한을 바꾸지 않습니다.
    - Workspace 관리자 권한이 없어 자동 추가에 실패하면 그룹 관리자에게 안내 메일이 갑니다. 이때는 그룹에 수동으로 추가합니다.
    - 처리 결과는 `hp_member.group_management_log` 시트에 남습니다(`MEMBER_ADDED` 또는 `NOTIFICATION_SENT`).
 4. 사용자는 **로그아웃 후 다시 로그인**해야 승인 상태가 반영됩니다. 승인 대기 화면은 자동으로 새로 고쳐지지 않습니다.
@@ -52,6 +59,23 @@
 1. **관리자** 화면의 **사용자 승인 및 관리자 키 전송**에서 새 관리자에게 오늘 키를 메일로 보냅니다.
 2. 새 관리자는 가입 신청할 때 키를 입력합니다. 키는 매일 바뀝니다.
 3. 이미 가입한 사용자를 관리자로 바꾸려면 `user` 시트의 `is_admin`을 `O`로 고칩니다.
+
+### 3.4 그룹 주소와 역할 폴더 공유
+
+역할별 Google 그룹 주소는 기관마다 다릅니다.
+
+| 키 | 역할 | 기본값 |
+|---|---|---|
+| `STUDENT` | 학생 | `student_hp@googlegroups.com` |
+| `COUNCIL` | 학생회 | `std_council_hp@googlegroups.com` |
+| `ASSISTANT` | 조교 | `assistant_hp@googlegroups.com` |
+| `ADJ_PROFESSOR` | 겸임교원 | `adj_professor_hp@googlegroups.com` |
+| `PROFESSOR` | 교수 | `professor_hp@googlegroups.com` |
+
+- 서버는 스크립트 속성 `GROUP_EMAIL_JSON`, 프론트는 Netlify 환경변수 `VITE_GROUP_EMAIL`을 씁니다. 두 값을 같게 맞춥니다. `initializeSystem`은 이미 있는 `GROUP_EMAIL_JSON`을 덮어쓰지 않습니다.
+- 역할 폴더는 그 역할과 상위 역할 그룹에 편집 권한으로 공유됩니다(학생 < 학생회 < 조교 ≈ 겸임교원 ≈ 교수). 표는 [DEPLOYMENT.md §3](./DEPLOYMENT.md#3-초기-세팅-drive-폴더시트-생성)에 있습니다.
+- 공통 폴더(`notice`, `workflow`, `document`, `account`)와 `hp_member`, `user_setting`은 그룹에 공유하지 않습니다.
+- 그룹 주소를 바꿨거나 예전 버전으로 설치한 환경이면 편집기에서 `applyRoleFolderSharing`을 실행합니다. 역할 폴더 공유만 다시 적용하고 결과를 로그에 출력합니다. 이미 있는 권한은 건너뜁니다.
 
 ## 4. 콘텐츠 관리
 
@@ -82,6 +106,9 @@
 1. **회계 → 새 장부 만들기**에서 장부 이름, 통장 이름, 최초 잔액, 주관리인, 부관리인, 접근 사용자·그룹을 정합니다.
 2. `account/{장부명}/` 폴더, 장부 스프레드시트, `evidence/` 폴더가 생기고 지정한 사람에게만 공유됩니다.
 3. 접근 권한은 Drive 공유로 관리됩니다. 사람을 추가하거나 빼려면 장부 폴더의 공유 설정을 바꿉니다.
+   - 장부 목록에는 요청한 사람이 **접근 대상으로 지정된 장부만** 나옵니다. 접근 대상은 만든 사람, 주관리인, 부관리인, 접근 사용자, 그리고 `통장` 시트의 `access_group_emails`에 저장된 그룹의 역할 구성원입니다. Drive 공유만 바꾸면 목록에는 반영되지 않습니다.
+   - 편집기에서 `applyLedgerSharing`을 실행하면 저장된 접근 대상으로 장부 폴더·시트·증빙 폴더 권한을 다시 부여합니다. 예전 기본값으로 저장된 그룹 주소(`ad_professor_hp@`, `hp_supp@`)도 현재 `GROUP_EMAIL_JSON` 주소로 고칩니다.
+   - 증빙 파일은 Apps Script가 대신 올리며 파일당 4MB 이하입니다. 장부 Excel 내보내기는 서버가 내보낸 파일을 사용자 개인 폴더에 저장합니다.
 4. 예산 계획은 **작성 → 부관리인 검토 → 주관리인 승인 → 집행** 순서로 처리됩니다. 부관리인이 없는 통장은 검토 단계로 넘어가지 못하므로 부관리인을 1명 이상 지정합니다.
 
 ## 7. 데이터 직접 수정 시 주의
@@ -100,8 +127,12 @@ Google Sheets가 DB이므로 운영자가 시트를 직접 고칠 수 있습니�
 | 설정 | 위치 |
 |---|---|
 | 폴더·시트 이름(서버) | Apps Script → 프로젝트 설정 → 스크립트 속성 |
-| 역할별 그룹 이메일(서버) | 스크립트 속성 `GROUP_EMAIL_JSON` |
+| 역할별 그룹 이메일(서버) | 스크립트 속성 `GROUP_EMAIL_JSON` (키: `STUDENT`, `COUNCIL`, `PROFESSOR`, `ADJ_PROFESSOR`, `ASSISTANT`) |
+| 루트 폴더, 회원 DB | 스크립트 속성 `ROOT_FOLDER_ID`, `SPREADSHEET_ID`. `initializeSystem`이 실제로 쓴 폴더와 `hp_member`로 다시 씀. 서버는 `hp_member`의 부모 폴더를 루트로 보고 `ROOT_FOLDER_ID`는 그 폴더를 찾지 못할 때만 씀 |
+| 서버 로그 수준 | 스크립트 속성 `LOG_LEVEL` |
+| 개인 폴더 이름(프론트) | `VITE_FOLER_NAME`의 `PERSONAL` (기본값 `hot_potato_personal`) |
 | 폴더·시트 이름, 그룹 이메일(프론트) | Netlify 환경변수 `VITE_*` |
 | Apps Script 주소 | Netlify 환경변수 `APP_SCRIPT_URL` |
 | 졸업 학년 | 앱 학년 관리 화면 (스크립트 속성 `GRADUATION_GRADE_*`에 저장) |
 | 관리자 키 갱신 주기 | Apps Script 트리거 |
+| 브라우저 디버그 로그 | 운영 빌드는 경고·오류만 남김. 브라우저 `localStorage`에 `HP_DEBUG`=`1`을 넣으면 디버그 로그까지 출력 |

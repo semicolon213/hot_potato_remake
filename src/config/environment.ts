@@ -1,3 +1,6 @@
+import { logger } from '../utils/logger';
+
+const log = logger.scope('config/environment');
 /**
  * @file environment.ts
  * @brief 환경변수 설정 파일 (V2 JSON 형식)
@@ -36,6 +39,7 @@ function getEnvJson<T extends Record<string, string>>(
 // ========== JSON 기본값 (.env 미설정 시 사용) ==========
 const DEFAULT_FOLER: Record<string, string> = {
   ROOT: 'hot_potato_remake',
+  PERSONAL: 'hot_potato_personal',
   DOCUMENT: 'document',
   S_DOC: 'shared_documents',
   P_DOC: 'personal_documents',
@@ -145,6 +149,8 @@ export const ENV_CONFIG = {
 
   // Drive 폴더
   ROOT_FOLDER_NAME: FOLER.ROOT ?? 'hot_potato_remake',
+  // 사용자 개인 드라이브 폴더 (공유 루트와 이름을 다르게 둬 혼동을 막는다)
+  PERSONAL_ROOT_FOLDER_NAME: FOLER.PERSONAL ?? 'hot_potato_personal',
   DOCUMENT_FOLDER_NAME: FOLER.DOCUMENT ?? 'document',
   SHARED_DOCUMENT_FOLDER_NAME: FOLER.S_DOC ?? 'shared_documents',
   PERSONAL_DOCUMENT_FOLDER_NAME: FOLER.P_DOC ?? 'personal_documents',
@@ -186,13 +192,13 @@ export const validateEnvironmentVariables = (): boolean => {
   ];
   const missing = required.filter((v) => !v);
   if (missing.length > 0) {
-    console.error('❌ 필수 환경변수가 설정되지 않았습니다.');
-    console.error('현재 설정:', {
+    log.error('필수 환경변수가 설정되지 않았습니다.');
+    log.error('현재 설정:', {
       GOOGLE_CLIENT_ID: c.GOOGLE_CLIENT_ID ? '설정됨' : '미설정',
       APP_SCRIPT_URL: c.APP_SCRIPT_URL ? '설정됨' : '미설정',
     });
     return false;
   }
-  console.log('✅ 필수 환경변수 검증 통과');
+  log.debug('필수 환경변수 검증 통과');
   return true;
 };

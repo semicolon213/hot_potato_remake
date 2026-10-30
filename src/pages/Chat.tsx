@@ -1,6 +1,9 @@
+import { logger } from '../utils/logger';
 import React, { useEffect, useRef, useState } from 'react';
 import { HiChatBubbleLeftRight, HiXMark } from 'react-icons/hi2';
 import '../styles/pages/Chat.css';
+const log = logger.scope('pages/Chat');
+
 
 interface ChatProps {
   onClick?: () => void;
@@ -32,7 +35,7 @@ const Chat: React.FC<ChatProps> = ({ onClick }) => {
         webviewRef.current.setAttribute('useragent', mobileUserAgent);
         webviewRef.current.setAttribute('src', chatUrl);
       } catch (e) {
-        console.error(e);
+        log.error(e);
       }
     }
   }, [isChatOpen]);

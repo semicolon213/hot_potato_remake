@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HP ERP 백엔드 설치</title>
+  <style>
+    body{font:16px system-ui;max-width:640px;margin:40px auto;padding:0 20px;color:#222}label{display:block;margin:16px 0 6px}input,button{box-sizing:border-box;width:100%;padding:10px;font:inherit}button{margin-top:24px;cursor:pointer}#status{white-space:pre-wrap;margin-top:20px}
+  </style>
+</head>
+<body>
+  <h1>HP ERP 백엔드 설치</h1>
+  <form id="setup">
+    <label for="googleClientId">Google OAuth 클라이언트 ID</label><input id="googleClientId" autocomplete="off" placeholder="...apps.googleusercontent.com" required>
+    <label for="root">루트 폴더 이름</label><input id="root" value="hot_potato_remake" required>
+    <label for="student">학생 그룹 이메일</label><input id="student" type="email" required>
+    <label for="council">집행부 그룹 이메일</label><input id="council" type="email" required>
+    <label for="assistant">조교 그룹 이메일</label><input id="assistant" type="email" required>
+    <label for="professor">교수 그룹 이메일</label><input id="professor" type="email" required>
+    <label for="adjProfessor">겸임교원 그룹 이메일</label><input id="adjProfessor" type="email" required>
+    <label for="admin">최초 관리자 이메일</label><input id="admin" type="email" required>
+    <label for="setupToken">설치 토큰</label><input id="setupToken" type="password" autocomplete="off" required>
+    <small>Apps Script 편집기에서 <code>createSetupToken</code>을 실행하고 최초 권한을 승인한 뒤, 실행 로그의 토큰을 복사해 입력하세요.</small>
+    <button type="submit">설치</button>
+  </form>
+  <p id="status" role="status"></p>
+  <script>
+    const form = document.querySelector('#setup');
+    const status = document.querySelector('#status');
+    google.script.run.withSuccessHandler(({installed, groupEmails}) => {
+      student.value=groupEmails.STUDENT;council.value=groupEmails.COUNCIL;assistant.value=groupEmails.ASSISTANT;professor.value=groupEmails.PROFESSOR;adjProfessor.value=groupEmails.ADJ_PROFESSOR;
+      if(installed){form.hidden=true;status.textContent='설치가 완료된 백엔드입니다.'}
+    }).getSetupDefaults();
+    form.addEventListener('submit', event => {
+      event.preventDefault();status.textContent='폴더와 시트를 만드는 중입니다…';form.querySelector('button').disabled=true;
+      const config={rootFolderName:root.value,googleClientId:googleClientId.value,adminEmail:admin.value,setupToken:setupToken.value,groupEmails:{STUDENT:student.value,COUNCIL:council.value,ASSISTANT:assistant.value,PROFESSOR:professor.value,ADJ_PROFESSOR:adjProfessor.value}};
+      google.script.run.withSuccessHandler(() => {form.hidden=true;status.textContent='설치가 완료되었습니다.'}).withFailureHandler(error => {status.textContent=error.message;form.querySelector('button').disabled=false}).installSystem(config);
+    });
+  </script>
+</body>
+</html>

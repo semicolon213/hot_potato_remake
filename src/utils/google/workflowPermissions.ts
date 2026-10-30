@@ -1,3 +1,6 @@
+import { logger } from '../logger';
+
+const log = logger.scope('utils/google/workflowPermissions');
 /**
  * workflowPermissions.ts
  * 프론트엔드에서 개인 문서 권한 부여 유틸리티
@@ -89,7 +92,7 @@ export async function grantPersonalDocumentPermissions(
       
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ 권한 부여 실패 [${email}]:`, errorMessage);
+      log.error("권한 부여 실패 [", errorMessage);
       results.failCount++;
       results.failedUsers.push(email);
       results.details.push({

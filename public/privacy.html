@@ -3,12 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>개인정보처리방침 — HP ERP (뜨거운 감자)</title>
+    <title>개인정보처리방침 | HP ERP (뜨거운 감자)</title>
+    <meta name="description" content="HP ERP(뜨거운 감자)가 Google 사용자 데이터를 어떻게 접근, 사용, 저장, 공유하는지 설명합니다." />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <style>
       :root {
         --text: #334155;
         --heading: #0f172a;
         --link: #1e3a5f;
+        --line: #e2e8f0;
       }
       body {
         margin: 0;
@@ -20,9 +23,9 @@
         min-height: 100vh;
       }
       .wrap {
-        max-width: 640px;
+        max-width: 760px;
         margin: 0 auto;
-        padding: 24px 20px 48px;
+        padding: 24px 16px 48px;
       }
       .panel {
         background: #fff;
@@ -40,18 +43,23 @@
       .back:hover {
         text-decoration: underline;
       }
+      a {
+        color: var(--link);
+      }
       h1 {
-        margin: 0 0 20px;
+        margin: 0 0 8px;
         font-size: 1.35rem;
         color: var(--heading);
       }
+      .meta {
+        margin: 0 0 20px;
+        font-size: 0.85rem;
+        color: #64748b;
+      }
       h2 {
-        margin: 1.25em 0 0.5em;
+        margin: 1.5em 0 0.5em;
         font-size: 1.05rem;
         color: var(--heading);
-      }
-      h2:first-of-type {
-        margin-top: 0.5em;
       }
       ul {
         margin: 0.5em 0 0;
@@ -60,52 +68,202 @@
       li {
         margin-bottom: 0.35em;
       }
-      .lead {
-        margin: 0 0 1em;
+      .table-wrap {
+        overflow-x: auto;
       }
-      .note {
-        margin-top: 1.5em;
-        padding: 12px 14px;
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        margin-top: 0.5em;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
         background: #f8fafc;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        color: #64748b;
+        color: var(--heading);
+      }
+      code {
+        font-size: 0.85em;
+        word-break: break-all;
+      }
+      .limited-use {
+        margin-top: 0.75em;
+        padding: 4px 14px;
+        background: #f1f5f9;
+        border-left: 3px solid var(--link);
+        border-radius: 4px;
       }
       .footer-links {
         margin-top: 28px;
         padding-top: 16px;
-        border-top: 1px solid #e2e8f0;
+        border-top: 1px solid var(--line);
         font-size: 13px;
-      }
-      .footer-links a {
-        color: var(--link);
       }
     </style>
   </head>
   <body>
     <div class="wrap">
-      <div class="panel">
-        <a class="back" href="/">← 홈으로</a>
+      <main class="panel">
+        <a class="back" href="/">&larr; HP ERP 홈으로</a>
         <h1>개인정보처리방침</h1>
-        <p class="lead">
-          HP ERP(뜨거운 감자, 이하 &quot;서비스&quot;)는 Google 계정으로 로그인하며, 학사·행정 업무 처리를 위해 Google 스프레드시트·드라이브·캘린더 등 Google API를 사용할 수 있습니다.
+        <p class="meta">시행일: 2026년 11월 1일 · 서비스명: HP ERP (뜨거운 감자) · 운영: 유한대학교 감자도리</p>
+
+        <p>
+          HP ERP(뜨거운 감자, 이하 &quot;서비스&quot;)는 학과 구성원(학생, 교수, 조교, 학생회 등)이 공지, 일정, 문서, 회계,
+          학생·교직원 관리 같은 학과 행정 업무를 처리하도록 돕는 웹 서비스입니다. 서비스는 Google 계정으로 로그인하며,
+          아래에 적은 범위에서만 Google 사용자 데이터에 접근합니다. 이 방침은 서비스가 Google 사용자 데이터를 어떻게 접근,
+          사용, 저장, 공유, 삭제하는지 설명합니다.
         </p>
-        <h2>1. 수집·이용 정보</h2>
+
+        <h2>1. 서비스가 접근하는 Google 사용자 데이터</h2>
+        <p>로그인할 때 Google 동의 화면에서 아래 권한을 요청합니다. 각 권한은 표에 적은 기능에만 사용합니다.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>데이터 및 권한</th>
+                <th>사용하는 기능</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>기본 프로필(이메일 주소, 이름)<br /><code>email</code>, <code>profile</code></td>
+                <td>본인 확인, 회원가입과 승인, 화면에 사용자 이름 표시</td>
+              </tr>
+              <tr>
+                <td>Google 스프레드시트<br /><code>spreadsheets</code></td>
+                <td>
+                  서비스가 데이터 저장소로 쓰는 스프레드시트(공지, 회계 장부, 학생·교직원 명단, 문서 목록, 개인 설정 등)를
+                  읽고 기록합니다.
+                </td>
+              </tr>
+              <tr>
+                <td>Google 드라이브<br /><code>drive.file</code></td>
+                <td>
+                  이 서비스가 만든 파일에만 접근합니다. 사용자 드라이브에 개인 폴더(<code>hot_potato_personal</code>와 하위
+                  폴더)와 개인 설정 파일을 만들고, 사용자가 서비스에서 만들거나 올린 개인 문서·서식·장부 내보내기 사본을 만들고
+                  수정하고 삭제합니다. 사용자의 다른 드라이브 파일은 보거나 읽지 않습니다. 학과 공유 폴더의 문서·서식 조회, 공유
+                  문서 생성과 권한 부여, 공지 첨부·회계 증빙 업로드는 이 권한이 아니라 학과 운영 계정의 Apps Script가 처리합니다.
+                </td>
+              </tr>
+              <tr>
+                <td>Google 캘린더<br /><code>calendar.events</code>, <code>calendar.readonly</code></td>
+                <td>
+                  사용자의 기본 캘린더 정보와 일정, 대한민국 공휴일 캘린더를 읽어 서비스 달력에 표시합니다. 사용자가
+                  서비스에서 일정을 추가, 수정, 삭제하면 기본 캘린더에 반영합니다.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>서비스는 Gmail 메일함, 연락처, 사진 등 위 표에 없는 Google 데이터에는 접근하지 않습니다.</p>
+
+        <h2>2. 사용자가 직접 입력하는 정보</h2>
         <ul>
-          <li>Google OAuth를 통해 제공되는 프로필 정보(이메일, 이름 등)</li>
-          <li>서비스 이용 과정에서 입력·저장되는 학번/교번, 직책, 문서·일정·공지 등 업무 데이터</li>
+          <li>회원가입 정보: 학번 또는 교번, 이름, 사용자 유형(학생, 교수, 조교 등), 관리자 인증 키(관리자 가입 시)</li>
+          <li>업무 데이터: 공지, 일정, 문서, 서식, 회계 장부와 증빙, 학생·교직원 정보, 취업 현황 등 사용자가 서비스에 입력하는 내용</li>
         </ul>
-        <h2>2. 이용 목적</h2>
-        <p>본인 확인, 권한에 따른 기능 제공, 공지·일정·문서·회계 등 서비스 운영 및 기술 지원.</p>
-        <h2>3. 보관 및 파기</h2>
-        <p>관리 정책 및 관련 법령에 따라 보관하며, 목적 달성 후 안전하게 삭제합니다.</p>
-        <h2>4. 문의</h2>
-        <p>서비스 운영 주체의 담당 부서에 문의해 주세요.</p>
-        <p class="note">본 문서는 내부용 서비스를 위한 안내이며, 필요 시 법무·개인정보 보호 담당자 검토를 받으시기 바랍니다.</p>
+
+        <h2>3. 데이터 사용 목적</h2>
+        <ul>
+          <li>로그인, 본인 확인, 사용자 유형에 따른 권한 부여</li>
+          <li>1번 표에 적은 공지, 일정, 문서, 회계, 구성원 관리 기능 제공</li>
+          <li>오류 확인과 서비스 안정성 유지</li>
+        </ul>
+        <p>
+          서비스는 Google 사용자 데이터를 광고, 판매, 신용 평가, 대출 심사에 사용하지 않으며, 범용 인공지능이나 머신러닝
+          모델 학습에도 사용하지 않습니다.
+        </p>
+
+        <h2>4. 저장 위치와 보관</h2>
+        <ul>
+          <li>
+            Google 액세스 토큰: 사용자 브라우저의 로컬 저장소에 보관하며 약 1시간 뒤 만료됩니다. 로그아웃하면 삭제됩니다.
+            요청을 보낸 사람이 승인된 회원인지 확인하려고 서비스 요청마다 학과 운영 계정의 Apps Script로 함께 보냅니다.
+            Apps Script는 Google의 토큰 확인 서비스로 이메일만 확인하며, 토큰을 저장하거나 기록하지 않습니다. 확인 결과(이메일)는
+            최대 5분 동안 임시 캐시에 보관합니다.
+          </li>
+          <li>
+            사용자 드라이브의 파일: 서비스가 만든 폴더와 파일은 사용자 본인의 Google 드라이브에 저장되며, 사용자가 언제든
+            직접 확인하고 삭제할 수 있습니다.
+          </li>
+          <li>
+            회원 정보와 학과 업무 데이터: 학과 운영 계정이 소유한 Google 스프레드시트와 Google Apps Script에 저장합니다. 일부
+            개인 식별 정보는 암호화하여 저장합니다.
+          </li>
+          <li>브라우저 캐시: 화면을 빠르게 표시하려고 파일 ID, 목록 등 일부 데이터를 브라우저 로컬 저장소에 임시로 보관합니다.</li>
+        </ul>
+        <p>회원 정보의 보관 기간은 서비스를 사용하는 기관(학과 등)의 지침을 따릅니다. 탈퇴 또는 삭제 요청이 처리되면 지체 없이 삭제합니다.</p>
+
+        <h2>5. 공유와 제3자 제공</h2>
+        <ul>
+          <li>Google 사용자 데이터를 판매하거나 광고 플랫폼, 데이터 중개업체 등 제3자에게 제공하지 않습니다.</li>
+          <li>
+            서비스 운영에 필요한 범위에서만 외부 인프라를 씁니다. 웹사이트 호스팅과 API 중계는 Netlify, 데이터 저장과 서버
+            처리는 Google(Google 드라이브, Google 스프레드시트, Apps Script)을 사용합니다.
+          </li>
+          <li>
+            사용자가 문서 공유, 결재 요청 등을 실행하면 해당 문서와 정보가 사용자가 지정한 학과 구성원이나 학과 Google 그룹에
+            공유됩니다.
+          </li>
+          <li>학과 관리자는 회원 승인과 운영을 위해 회원 정보와 서비스에 입력된 업무 데이터를 볼 수 있습니다.</li>
+          <li>법령에 따라 요구되는 경우에는 예외로 합니다.</li>
+        </ul>
+
+        <h2>6. Google API 서비스 사용자 데이터 정책 준수 (Limited Use)</h2>
+        <div class="limited-use">
+          <p lang="en">
+            HP ERP's use and transfer to any other app of information received from Google APIs will adhere to the
+            <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
+            including the Limited Use requirements.
+          </p>
+          <p>
+            HP ERP가 Google API에서 받은 정보를 사용하고 다른 앱으로 전송하는 일은
+            <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API 서비스 사용자 데이터 정책</a>의
+            제한적 사용(Limited Use) 요구사항을 포함한 모든 조항을 따릅니다.
+          </p>
+        </div>
+
+        <h2>7. 권한 철회와 데이터 삭제</h2>
+        <ul>
+          <li>
+            Google 계정 권한은 <a href="https://myaccount.google.com/permissions">Google 계정의 서드파티 연결</a> 페이지에서
+            언제든 철회할 수 있습니다. 철회하면 서비스는 더 이상 Google 데이터에 접근하지 못합니다.
+          </li>
+          <li>사용자 드라이브의 <code>hot_potato_personal</code> 폴더는 사용자가 직접 삭제할 수 있습니다.</li>
+          <li>회원 정보 삭제는 아래 문의처로 요청하면 처리합니다.</li>
+        </ul>
+
+        <h2>8. 보호 조치</h2>
+        <ul>
+          <li>모든 통신은 HTTPS로 암호화합니다.</li>
+          <li>사용자 유형과 관리자 승인에 따라 기능과 데이터 접근을 제한합니다.</li>
+          <li>서버는 요청마다 Google 액세스 토큰으로 요청자를 확인하고, 승인된 회원과 관리자에게만 해당 기능을 허용합니다. 토큰은 저장하거나 기록하지 않습니다.</li>
+          <li>공지 첨부파일은 공지 공개 범위에 해당하는 학과 Google 그룹과 회원에게만 공유합니다.</li>
+        </ul>
+
+        <h2>9. 방침 변경</h2>
+        <p>
+          Google 사용자 데이터를 사용하는 방식이 바뀌면 이 페이지를 고치고 서비스 화면에서 알린 뒤, 필요하면 다시 동의를
+          받습니다.
+        </p>
+
+        <h2>10. 문의처</h2>
+        <p>
+          운영: 유한대학교 감자도리<br />
+          이메일: <a href="mailto:khk213624@gmail.com">khk213624@gmail.com</a>
+        </p>
+
         <nav class="footer-links" aria-label="관련 링크">
-          <a href="/">홈</a> · <a href="/terms.html">이용약관</a>
+          <a href="/">홈</a> · <a href="/about.html">서비스 소개</a> · <a href="/terms.html">이용약관</a>
         </nav>
-      </div>
+      </main>
     </div>
   </body>
 </html>

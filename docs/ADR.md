@@ -19,7 +19,8 @@
 | [ADR-010](#adr-010-라우터-없이-상태-기반으로-화면을-전환한다) | 라우터 없이 상태 기반으로 화면을 전환한다 | 채택 |
 | [ADR-011](#adr-011-electron은-같은-번들을-감싸는-선택-배포로-둔다) | Electron은 같은 번들을 감싸는 선택 배포로 둔다 | 채택 |
 | [ADR-012](#adr-012-ci를-걷어내고-netlify-빌드를-배포-게이트로-쓴다) | CI를 걷어내고 Netlify 빌드를 배포 게이트로 쓴다 | 채택 (재도입 예정) |
-| [ADR-013](#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다) | 스프레드시트 ID를 Drive 검색 1회와 서버 캐시로 찾는다 | 채택 (브랜치 `feature/loading-performance`, 미병합) |
+| [ADR-013](#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다) | 스프레드시트 ID를 Drive 검색 1회와 서버 캐시로 찾는다 | 채택 (브랜치 `feature/loading-performance`, develop에 반영, 운영 배포 전) |
+| [ADR-014](#adr-014-drive-범위를-drivefile로-줄이고-공유-파일은-apps-script가-다룬다) | Drive 범위를 `drive.file`로 줄이고 공유 파일은 Apps Script가 다룬다 | 채택 (브랜치 `feature/drive-file-scope`, develop에 반영, 운영 배포 전) |
 
 ---
 
@@ -52,6 +53,7 @@
 **결정:**
 - **Apps Script 경유:** 회원, 공지, 결재, 공유 문서처럼 배포자 권한으로 처리해야 하거나 여러 사용자가 공유하는 데이터
 - **브라우저 직접(papyrus-db + 사용자 OAuth 토큰):** 캘린더, 학생·교직원, 장부 데이터, 개인 설정처럼 조회가 잦고 **Drive 공유 권한으로 접근을 통제할 수 있는** 데이터
+- 브랜치 `feature/drive-file-scope`에서는 `papyrus-db`를 자체 모듈 `sheetsClient`로 바꾸고, 공유 파일의 Drive 조작(검색, 업로드, 복사)을 Apps Script 쪽으로 옮겼습니다([ADR-014](#adr-014-drive-범위를-drivefile로-줄이고-공유-파일은-apps-script가-다룬다)).
 
 **결과:**
 - 조회가 많은 화면이 빨라지고 Apps Script 호출이 줄었습니다.
@@ -69,7 +71,7 @@
 - 대가: 요청마다 한 단계를 더 거칩니다. Netlify 대시보드의 환경변수 설정을 빠뜨리면 모든 API가 500을 반환합니다([RUNBOOK.md](./RUNBOOK.md)).
 - 대가: Netlify 동기 함수는 약 10초에서 끊깁니다. Apps Script가 그보다 오래 걸리면 클라이언트는 응답 대신 Netlify 오류를 받습니다. 2026-10-29 측정에서 운영 배포의 `getSpreadsheetIds`가 49.4초 걸려, 사이트를 통한 첫 로딩은 시간 초과와 재시도를 반복했을 것으로 봅니다.
 
-**보완 (브랜치 `feature/loading-performance`, 미병합):**
+**보완 (브랜치 `feature/loading-performance`, develop에 반영, 운영 배포 전):**
 - 프록시가 Apps Script 호출을 약 9초에서 직접 끊고 504 `{success:false, error, retryable:true}`를 돌려줍니다. 클라이언트는 이 응답을 재시도 가능한 오류로 처리합니다.
 - `APP_SCRIPT_URL`만 읽습니다. `VITE_APP_SCRIPT_URL`만 있으면 500입니다.
 - 로그에는 HTTP 메서드와 `action`만 남기고, 요청 본문과 Apps Script URL은 남기지 않습니다.
@@ -90,7 +92,7 @@
 - 같은 데이터를 여러 화면에서 써도 호출은 한 번입니다.
 - 대가: 캐시 무효화 규칙을 액션마다 관리해야 합니다. 캐시가 계정별로 분리되지 않아 로그아웃 시 정리가 필요합니다([STATUS.md](./STATUS.md#4-기술-백로그)).
 
-**보완 (브랜치 `feature/loading-performance`, 미병합):**
+**보완 (브랜치 `feature/loading-performance`, develop에 반영, 운영 배포 전):**
 - 같은 캐시 키의 조회가 진행 중이면 새 호출을 보내지 않고 진행 중인 요청을 함께 씁니다.
 - `getSpreadsheetIds`·`getAccountingFolderId` TTL을 45분에서 6시간으로 늘렸습니다. ID는 세션과 무관하고 거의 바뀌지 않기 때문입니다. 대신 `getSpreadsheetIds` 결과에 빠진 ID(`null`, `notFound`)가 있으면 캐시하지 않고, 캐시에 남아 있던 불완전 결과도 버립니다.
 - 재시도를 줄였습니다(타임아웃 60초·5회 → 시도마다 30초·2회). 쓰기 액션은 재시도하지 않아 중복 쓰기를 막습니다. 429는 예외로 `Retry-After`를 지켜 재시도합니다.
@@ -136,6 +138,7 @@
 **결과:**
 - Drive 공유 권한만으로 장부별 접근을 나눌 수 있습니다.
 - 대가: 장부 목록을 보려면 폴더를 탐색해야 하고, 장부 스키마를 바꾸면 기존 장부 파일을 하나씩 마이그레이션해야 합니다.
+- 브랜치 `feature/drive-file-scope`부터 장부 목록은 Apps Script가 만들고, `통장` 시트에 저장된 접근 대상에게만 보여 줍니다. Drive 공유가 저장된 대상과 어긋나면 `applyLedgerSharing`으로 다시 맞춥니다.
 
 ## ADR-010 라우터 없이 상태 기반으로 화면을 전환한다
 
@@ -169,12 +172,12 @@
 
 ## ADR-013 스프레드시트 ID를 Drive 검색 1회와 서버 캐시로 찾는다
 
-> 상태: 채택, 브랜치 `feature/loading-performance`(미병합). 측정은 [TEST_PLAN.md §8](./TEST_PLAN.md#8-로딩-성능-개선-검증-2026-10-29-featureloading-performance).
+> 상태: 채택, 브랜치 `feature/loading-performance`(develop에 반영, 운영 배포 전). 측정은 [TEST_PLAN.md §8](./TEST_PLAN.md#8-로딩-성능-개선-검증-2026-10-29-featureloading-performance).
 
 **상황:** 앱은 로그인 직후 `getSpreadsheetIds`로 스프레드시트 이름 목록을 ID로 바꿔야 다음 단계로 넘어갑니다. 기존 Apps Script는 이름 하나마다 루트 폴더 트리 전체를 재귀 탐색했고(이름 8개면 8번), 결과를 캐시하지 않았습니다. 2026-10-29 운영 배포 @34에서 이 호출 한 번이 49.4초 걸렸고, Netlify 동기 함수 제한(10초)을 크게 넘었습니다.
 
 **결정:**
-- 루트 폴더를 한 번만 정합니다. 스크립트 속성 `ROOT_FOLDER_ID`가 실제로 열리는 폴더면 그것을, 아니면 `hp_member` 스프레드시트의 부모 폴더를 씁니다. 결과는 `CacheService`에 6시간 보관합니다.
+- 루트 폴더를 한 번만 정합니다. 스크립트 속성 `ROOT_FOLDER_ID`가 실제로 열리는 폴더면 그것을, 아니면 `hp_member` 스프레드시트의 부모 폴더를 씁니다. 결과는 `CacheService`에 6시간 보관합니다. 브랜치 `feature/drive-file-scope`에서는 순서를 바꿔 `hp_member`의 부모 폴더를 먼저 쓰고(내 드라이브 최상위면 제외), `ROOT_FOLDER_ID`는 대체값으로만 씁니다. `ROOT_FOLDER_ID`가 다른 폴더를 가리켜 서버가 엉뚱한 트리를 보던 문제를 막기 위해서입니다.
 - 찾을 이름 전체를 `DriveApp.searchFiles` **한 번**으로 검색합니다(구글 시트, 휴지통 제외, 제목 일치). 결과 중 **루트 폴더 아래에 있는 파일만** 씁니다.
 - 찾은 ID는 `CacheService`에 6시간 보관합니다. 캐시 키에는 스크립트 속성 `SHEET_ID_CACHE_VERSION`이 들어갑니다.
 - 캐시 무효화는 `clearSpreadsheetIdCache()`가 `SHEET_ID_CACHE_VERSION`을 1 올리고 루트 폴더 캐시를 지우는 방식입니다. `initializeSystem()` 끝에서도 자동으로 부릅니다.
@@ -186,3 +189,22 @@
 - 다른 Apps Script 기능이 쓰는 `getSheetIdByName`도 같은 경로와 캐시를 씁니다.
 - 대가: 파일을 교체·이동·이름 변경한 뒤 `clearSpreadsheetIdCache()`를 실행하지 않으면 최대 6시간 옛 ID가 반환됩니다([RUNBOOK.md RB-08](./RUNBOOK.md#rb-08-시트를-바꾼-뒤-옛-데이터나-빈-화면이-보임)).
 - 대가: 루트 밖에 같은 이름의 시트가 많으면 검색 결과를 걸러 내느라 부모 폴더 확인이 늘어납니다(폴더별 결과를 한 실행 안에서 기억해 줄임).
+
+## ADR-014 Drive 범위를 drive.file로 줄이고 공유 파일은 Apps Script가 다룬다
+
+> 상태: 채택, 브랜치 `feature/drive-file-scope`(develop에 반영, 운영 배포 전). 인증 절차는 [OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md).
+
+**상황:** 웹 클라이언트가 `drive`(restricted)와 쓰지 않는 `gmail.compose`(restricted), `documents`를 요청하고 있었습니다. 이대로 OAuth 앱을 게시하려면 restricted 범위 인증과 매년 유료 보안 평가(CASA)가 필요합니다.
+
+**결정:**
+- 웹 클라이언트 범위를 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`로 줄입니다. 관리자 키 메일 요청에서도 액세스 토큰을 보내지 않습니다.
+- `drive.file`로는 배포자 소유 공유 파일이 보이지 않으므로, 공지 첨부·본문 이미지 업로드, 공유 스프레드시트 ID 조회, 증빙 업로드, 장부 목록, 공유 양식 내보내기를 Apps Script(배포자 권한)가 맡습니다.
+- 공유 양식으로 개인 문서를 만들거나 장부를 Excel로 내보낼 때는 Apps Script가 원본을 docx·xlsx로 내보내고(`exportTemplateFile`), 브라우저가 변환 업로드로 사용자 개인 폴더에 저장합니다.
+- 개인 데이터는 공유 루트와 이름이 다른 개인 폴더 `hot_potato_personal/`에 둡니다. 이 폴더와 안의 파일은 앱이 만든 것이므로 `drive.file`로 접근할 수 있습니다.
+- 시트 값 읽기·쓰기는 `spreadsheets` 범위로 계속 브라우저에서 직접 합니다.
+
+**결과:**
+- restricted 범위가 없어져 보안 평가(CASA) 없이 브랜드 인증과 민감한 범위 인증만 받으면 됩니다.
+- 대가: Apps Script 호출이 늘고, 업로드 파일은 base64로 프록시를 거쳐 파일당 4MB로 제한됩니다.
+- 대가: `exportTemplateFile`이 `UrlFetchApp`을 써서 배포자가 `script.external_request`를 한 번 더 승인해야 합니다.
+- 대가: 예전 버전이 사용자 드라이브에 만든 파일은 새 범위에서 보이지 않습니다.

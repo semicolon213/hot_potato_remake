@@ -1,3 +1,6 @@
+import { logger } from '../logger';
+
+const log = logger.scope('utils/helpers/localStorageUtils');
 interface RecentDocument {
   id: string;
   title: string;
@@ -16,7 +19,7 @@ export const getRecentDocuments = (): RecentDocument[] => {
     // Sort by lastAccessed descending (newest first)
     return parsed.sort((a, b) => b.lastAccessed - a.lastAccessed);
   } catch (error) {
-    console.error("Error reading recent documents from localStorage", error);
+    log.error("Error reading recent documents from localStorage", error);
     return [];
   }
 };
@@ -39,6 +42,6 @@ export const addRecentDocument = (doc: { id: string; title: string; url: string 
 
     localStorage.setItem(RECENTS_KEY, JSON.stringify(trimmedRecents));
   } catch (error) {
-    console.error("Error saving recent document to localStorage", error);
+    log.error("Error saving recent document to localStorage", error);
   }
 };

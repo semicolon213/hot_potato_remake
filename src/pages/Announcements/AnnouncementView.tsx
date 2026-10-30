@@ -1,3 +1,4 @@
+import { logger } from '../../utils/logger';
 import React, { useState, useEffect, useRef } from 'react';
 import type { Post, User, AnnouncementAccessRights, AnnouncementUser } from '../../types/app';
 import '../../styles/pages/AnnouncementView.css';
@@ -11,6 +12,8 @@ import { getNoticeSpreadsheetApiFields, incrementViewCount } from '../../utils/d
 import { formatDateToYYYYMMDD } from '../../utils/helpers/timeUtils';
 import { useNotification } from '../../hooks/ui/useNotification';
 import { NotificationModal } from '../../components/ui/NotificationModal';
+const log = logger.scope('pages/Announcements/AnnouncementView');
+
 
 const GROUP_TYPES = [
   { value: 'student', label: '학생' },
@@ -24,7 +27,7 @@ interface AnnouncementViewProps {
   post: Post;
   user: User | null;
   onBack: () => void;
-  onUpdate: (announcementId: string, postData: { title: string; content: string; attachments: File[]; existingAttachments: { name: string, url: string }[] }) => Promise<void>;
+  onUpdate: (announcementId: string, postData: { title: string; content: string; attachments: File[]; existingAttachments: { id?: string; name: string; url: string }[] }) => Promise<void>;
   onDelete: (announcementId: string) => Promise<void>;
   onRefresh?: () => void; // 목록 새로고침용
 }
@@ -33,7 +36,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(post.title);
   const [editedContent, setEditedContent] = useState('');
-  const [existingAttachments, setExistingAttachments] = useState<{name: string, url: string}[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<{id?: string; name: string; url: string}[]>([]);
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const [isPinned, setIsPinned] = useState(post.fix_notice === 'O' || post.fix_notice === '-');
   const [users, setUsers] = useState<AnnouncementUser[]>([]);
@@ -41,7 +44,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [showPermissionSettings, setShowPermissionSettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { notification, showNotification, hideNotification } = useNotification();
+  const { notification, showNotification, hideNotification, confirmAsync } = useNotification();
 
   const [mainContent, setMainContent] = useState('');
   const [attachmentHtml, setAttachmentHtml] = useState<string | null>(null);
@@ -58,7 +61,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
             const files = JSON.parse(post.file_notice);
             setExistingAttachments(files);
         } catch (error) {
-            console.error("Error parsing file_notice JSON:", error);
+            log.error("Error parsing file_notice JSON:", error);
             setExistingAttachments([]);
         }
     } else {
@@ -80,7 +83,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
         setSelectedIndividualUsers(accessRights.individual || []);
         setSelectedGroups(accessRights.groups || []);
       } catch (error) {
-        console.error('권한 설정 파싱 오류:', error);
+        log.error('권한 설정 파싱 오류:', error);
         setSelectedIndividualUsers([]);
         setSelectedGroups([]);
       }
@@ -117,7 +120,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
             }
           }
         } catch (error) {
-          console.error('사용자 목록 로드 오류:', error);
+          log.error('사용자 목록 로드 오류:', error);
         }
       };
       loadUsers();
@@ -184,8 +187,8 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
     setIsEditing(false);
   };
 
-  const handleDelete = () => {
-    if (window.confirm('정말로 이 공지사항을 삭제하시겠습니까?')) {
+  const handleDelete = async () => {
+    if (await confirmAsync('정말로 이 공지사항을 삭제하시겠습니까?', { type: 'danger' })) {
       onDelete(post.id);
     }
   };
@@ -215,7 +218,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
       return;
     }
 
-    if (!window.confirm('고정 공지 승인을 다시 요청하시겠습니까?')) {
+    if (!(await confirmAsync('고정 공지 승인을 다시 요청하시겠습니까?', { type: 'warning' }))) {
       return;
     }
 
@@ -235,7 +238,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
         showNotification('고정 공지 승인 요청에 실패했습니다: ' + (response.message || '알 수 없는 오류'), 'error');
       }
     } catch (error) {
-      console.error('고정 공지 재요청 오류:', error);
+      log.error('고정 공지 재요청 오류:', error);
       showNotification('고정 공지 승인 요청 중 오류가 발생했습니다.', 'error');
     }
   };

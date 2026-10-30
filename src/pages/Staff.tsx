@@ -50,10 +50,11 @@ interface ConvertedData {
 interface StaffProps {
   onPageChange: (pageName: string) => void;
   staffSpreadsheetId: string | null;
+  hotPotatoDBSpreadsheetId: string | null;
   initialTab?: 'staff' | 'committee';
 }
 
-const Staff: React.FC<StaffProps> = ({ staffSpreadsheetId, initialTab = 'staff', onPageChange }) => {
+const Staff: React.FC<StaffProps> = ({ staffSpreadsheetId, hotPotatoDBSpreadsheetId, initialTab = 'staff', onPageChange }) => {
   // Modal states
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
   const [isAddCommitteeModalOpen, setIsAddCommitteeModalOpen] = useState(false);
@@ -63,7 +64,7 @@ const Staff: React.FC<StaffProps> = ({ staffSpreadsheetId, initialTab = 'staff',
 
   // Hooks
   const staffHook = useStaffOnly(staffSpreadsheetId);
-  const committeeHook = useCommitteeOnly(staffSpreadsheetId);
+  const committeeHook = useCommitteeOnly(staffSpreadsheetId, hotPotatoDBSpreadsheetId);
 
   // CRUD Handlers
   const handleAddStaff = () => setIsAddStaffModalOpen(true);

@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * WorkflowDetailModal.tsx
  * 워크플로우 상세 정보 모달 (읽기 전용)
@@ -7,6 +8,8 @@ import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../../utils/api/apiClient';
 import type { WorkflowInfoResponse } from '../../../types/api/apiResponses';
 import './WorkflowDetailModal.css';
+const log = logger.scope('components/features/workflow/WorkflowDetailModal');
+
 
 interface WorkflowDetailModalProps {
   isOpen: boolean;
@@ -50,26 +53,22 @@ const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
     if (!workflow) return;
     
     if (!workflow.workflowId) {
-      console.error('❌ workflowId가 없습니다:', workflow);
+      log.error('workflowId가 없습니다:', workflow);
       return;
     }
-    
-    console.log('📋 히스토리 로드 시작:', { workflowId: workflow.workflowId });
     setIsLoadingHistory(true);
     try {
       const response = await apiClient.getWorkflowHistory({
         workflowId: workflow.workflowId
       });
       
-      console.log('📋 히스토리 응답:', response);
-      
       if (response.success && response.data) {
         setHistory(response.data as WorkflowHistoryItem[]);
       } else {
-        console.warn('⚠️ 히스토리 응답 실패:', response.message);
+        log.warn('히스토리 응답 실패');
       }
     } catch (error) {
-      console.error('❌ 히스토리 로드 오류:', error);
+      log.error('히스토리 로드 오류:', error);
     } finally {
       setIsLoadingHistory(false);
     }
