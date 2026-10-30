@@ -14,11 +14,11 @@ function savedSiteUrl() {
   const buildUrl = process.env.HP_ERP_SITE_URL;
   if (validSiteUrl(buildUrl)) return buildUrl;
   try {
-    const value = JSON.parse(fs.readFileSync(path.join(__dirname, 'site-url.json'), 'utf8')).siteUrl;
+    const value = JSON.parse(fs.readFileSync(configPath(), 'utf8')).siteUrl;
     if (validSiteUrl(value)) return value;
   } catch {}
   try {
-    const value = JSON.parse(fs.readFileSync(configPath(), 'utf8')).siteUrl;
+    const value = JSON.parse(fs.readFileSync(path.join(__dirname, 'site-url.json'), 'utf8')).siteUrl;
     return validSiteUrl(value) ? value : '';
   } catch { return ''; }
 }
@@ -35,8 +35,13 @@ function createMainWindow(siteUrl) {
     if (url.startsWith('https://accounts.google.com/')) {
       return { action: 'allow', overrideBrowserWindowOptions: { webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } } };
     }
-    shell.openExternal(url);
+    if (validSiteUrl(url)) shell.openExternal(url);
     return { action: 'deny' };
+  });
+  window.webContents.once('did-fail-load', (_event, errorCode, _description, _url, isMainFrame) => {
+    if (!isMainFrame || errorCode === -3 || window.isDestroyed()) return;
+    createSitePrompt();
+    window.close();
   });
   window.loadURL(siteUrl);
   return window;
@@ -68,7 +73,10 @@ ipcMain.handle('save-site-url', (event, value) => {
 });
 
 app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
+  Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate([
+    { role: 'appMenu' },
+    { role: 'editMenu' }
+  ]) : null);
   if (isDev) createMainWindow(devUrl);
   else {
     const siteUrl = savedSiteUrl();
