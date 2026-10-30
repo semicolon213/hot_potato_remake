@@ -92,6 +92,16 @@ export class ApiClient {
   private cacheManager = getCacheManager();
   private dataSyncService: any = null; // DataSyncService 인스턴스 (나중에 주입)
   private inFlightRequests = new Map<string, Promise<ApiResponse<unknown>>>();
+  private cacheGenerations = new Map<string, number>();
+
+  invalidateInFlight(patterns: string[]): void {
+    for (const key of this.inFlightRequests.keys()) {
+      const invalidated = patterns.some(pattern => new RegExp('^' + pattern.replace(/\*/g, '.*') + '$').test(key));
+      if (!invalidated) continue;
+      this.cacheGenerations.set(key, (this.cacheGenerations.get(key) || 0) + 1);
+      this.inFlightRequests.delete(key);
+    }
+  }
 
   constructor() {
     // 개발(localhost): Vite 프록시 /api → Apps Script
@@ -129,11 +139,13 @@ export class ApiClient {
     const isCacheable = CACHEABLE_ACTIONS.includes(action);
     const isRetryableReadAction = isCacheable || RETRYABLE_READ_ACTIONS.has(action);
     let cacheKey: string | null = null;
+    let cacheGeneration = 0;
     
     if (isCacheable) {
       // 캐시 키 생성
       const category = getActionCategory(action);
       cacheKey = generateCacheKey(category, action, data);
+      cacheGeneration = this.cacheGenerations.get(cacheKey) || 0;
       
       // 캐시에서 데이터 조회
       const cachedData = await this.cacheManager.get<ApiResponse<T>>(cacheKey);
@@ -211,7 +223,7 @@ export class ApiClient {
 
           const result = await response.json();
 
-          if (isCacheable && result.success && cacheKey && !hasIncompleteSpreadsheetIds(action, result)) {
+          if (isCacheable && result.success && cacheKey && cacheGeneration === (this.cacheGenerations.get(cacheKey) || 0) && !hasIncompleteSpreadsheetIds(action, result)) {
             const ttl = getCacheTTL(action);
             await this.cacheManager.set(cacheKey, result as ApiResponse<T>, ttl);
           }
