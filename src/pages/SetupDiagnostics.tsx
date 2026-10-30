@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { ENV_CONFIG } from '../config/environment';
+import { getApiBaseUrl } from '../config/api';
 import './SetupDiagnostics.css';
 
 type BackendStatus = { installed: boolean; spreadsheetReady: boolean; version: string };
@@ -12,10 +13,12 @@ export default function SetupDiagnostics() {
   const testLogin = useGoogleLogin({ onSuccess: () => setOauth('ok'), onError: () => setOauth('error') });
 
   useEffect(() => {
-    if (!ENV_CONFIG.APP_SCRIPT_URL) return;
-    const url = new URL(ENV_CONFIG.APP_SCRIPT_URL);
-    url.searchParams.set('action', 'getSetupStatus');
-    fetch(url).then(response => {
+    // 앱의 다른 API와 같은 프록시를 거친다 (브라우저에서 Apps Script를 직접 부르면 CORS로 막힘)
+    fetch(getApiBaseUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getSetupStatus' })
+    }).then(response => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     }).then(setBackend).catch(error => setBackendError(error.message));

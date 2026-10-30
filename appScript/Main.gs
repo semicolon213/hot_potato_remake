@@ -42,6 +42,10 @@ function doPost(e) {
         .createTextOutput(JSON.stringify(getBootstrapData(req)))
         .setMimeType(ContentService.MimeType.JSON);
     }
+
+    if (req.action === 'getSetupStatus') {
+      return json(getSetupStatus());
+    }
     
     // 암복호화 액션 처리
     if (req.action === 'encryptEmail') {
