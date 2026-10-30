@@ -313,13 +313,13 @@ export const useCommitteeOnly = (
             notifyGlobal(`중복된 위원회 구성원이 발견되었습니다: ${duplicates.join(', ')}`, 'warning', 5000);
           }
 
-          if (newCommitteeList.length > 0 && staffSpreadsheetId) {
+          if (newCommitteeList.length > 0 && committeeSpreadsheetId) {
             setIsLoading(true);
             try {
               // 각 위원회 구성원을 암호화하여 추가
               for (const newCommittee of newCommitteeList) {
                 const encryptedCommittee = await encryptData(newCommittee);
-                await addCommitteeToPapyrus(staffSpreadsheetId, encryptedCommittee);
+                await addCommitteeToPapyrus(committeeSpreadsheetId, encryptedCommittee);
               }
               
               await fetchCommittee();
@@ -375,7 +375,7 @@ export const useCommitteeOnly = (
       setIsLoading(true);
       try {
         const encryptedCommittee = await encryptData(newCommittee);
-        await addCommitteeToPapyrus(staffSpreadsheetId!, encryptedCommittee);
+        await addCommitteeToPapyrus(committeeSpreadsheetId!, encryptedCommittee);
         await fetchCommittee();
       } catch (err) {
         setError(err instanceof Error ? err.message : '위원회 추가 실패');
@@ -387,7 +387,7 @@ export const useCommitteeOnly = (
       setIsLoading(true);
       try {
         const encryptedCommittee = await encryptData(updatedCommittee);
-        await updateCommitteeInPapyrus(staffSpreadsheetId!, committeeName, encryptedCommittee);
+        await updateCommitteeInPapyrus(committeeSpreadsheetId!, committeeName, encryptedCommittee);
         await fetchCommittee();
       } catch (err) {
         setError(err instanceof Error ? err.message : '위원회 업데이트 실패');
@@ -398,7 +398,7 @@ export const useCommitteeOnly = (
     deleteCommittee: async (committeeName: string) => {
       setIsLoading(true);
       try {
-        await deleteCommitteeFromPapyrus(staffSpreadsheetId!, committeeName);
+        await deleteCommitteeFromPapyrus(committeeSpreadsheetId!, committeeName);
         await fetchCommittee();
       } catch (err) {
         setError(err instanceof Error ? err.message : '위원회 삭제 실패');
