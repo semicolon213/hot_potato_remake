@@ -10,12 +10,16 @@
 | 항목 | 구현 |
 |---|---|
 | 설치 토큰 | 백엔드 설치 화면은 1회용 설치 토큰이 있어야 실행됩니다. 배포 계정이 편집기에서 `createSetupToken()`을 실행하면 스크립트 속성 `SETUP_TOKEN`에 저장되고 실행 로그에 찍힙니다. 이 첫 실행이 웹앱에 필요한 최초 권한 승인도 겸합니다. 설치가 끝나면 `SETUP_TOKEN`을 지우고 `SETUP_DONE`을 `true`로 둡니다 |
-| 설치 안내 | 설치 페이지(`install/app.js`) 결과 화면이 편집기 열기 → `createSetupToken` 실행 → 권한 승인 → 토큰 복사 → `?page=setup` 열기 순서를 보여 줍니다 |
+| 설치 안내 | 배포된 사이트의 `/install/`이 준비부터 첫 운영 체크리스트까지 0~14단계를 한 페이지에서 안내합니다. 진행 상태·주소·공개 설정값은 브라우저에 저장하고 Google 액세스 토큰과 설치 토큰은 저장하지 않습니다 |
+| 배포 파일 | `public/install/`의 정적 페이지가 Vite 결과의 `dist/install/`에 포함되고, `npm run build`가 백엔드 코드를 묶어 `dist/backend-bundle.json`까지 만듭니다 |
+| 설치용 OAuth | 설치 안내 사이트 운영자가 `VITE_INSTALL_CLIENT_ID` 또는 `public/install/config.js`에 별도 웹 클라이언트 ID를 설정합니다. 비어 있으면 마법사 상단에 운영자 안내를 표시하고 백엔드 자동 생성을 막습니다 |
+| 한 번 배포 | 사이트 이름을 먼저 정해 Google OAuth 원본을 만들고, 백엔드 주소·운영 클라이언트 ID·그룹 JSON을 Netlify에 한 번에 넣습니다. 실제 Netlify 주소가 예정 주소와 다르면 OAuth 원본을 실제 주소로 고치도록 안내합니다 |
+| 운영 시작 | 자동 점검 뒤 첫 관리자 로그인, 그룹 구성원 초대, 사용자 일괄 등록·승인, Testing 제한 안내문, 최종 체크리스트를 이어서 제공합니다 |
 | 설치 화면 파일 | `appScript/SetupPage.html`. `Setup.gs`와 이름이 겹쳐 `Setup.html`에서 바꿨습니다 |
 | 입력 항목 | Google OAuth 클라이언트 ID, 루트 폴더 이름, 그룹 이메일 5개, 첫 관리자 이메일, 설치 토큰. 클라이언트 ID는 스크립트 속성 `GOOGLE_CLIENT_ID`에 저장되고 서버 측 인가에 쓰입니다([ADR-015](./ADR.md#adr-015-apps-script가-액세스-토큰으로-요청자를-확인한다)). 운영 주체 명칭·문의 이메일 입력은 구현하지 않았습니다 |
 | 설치 내용 | `installSystem`이 속성 저장 → `initializeSystem` → 첫 관리자 등록(승인·관리자 `O`)을 실행합니다. 관리자 키 트리거는 자동으로 만들지 않으므로 직접 등록합니다([DEPLOYMENT.md §3](./DEPLOYMENT.md#3-초기-세팅-drive-폴더시트-생성)) |
 | 기존 설치 | `SPREADSHEET_ID`가 있고 `SETUP_TOKEN`이 없으면 설치된 것으로 봅니다. 설치 화면과 `createSetupToken`이 거부합니다 |
-| `/setup` 점검 | OAuth 클라이언트 ID, 백엔드 연결(버전), 백엔드 설치, 회원 시트, **서버·사이트 클라이언트 ID 일치**, OAuth 자바스크립트 원본. 클라이언트 ID 일치는 `getSetupStatus`에 사이트 값을 보내 `clientIdMatches`만 받고, 서버 값은 응답에 넣지 않습니다. 운영 사이트에서는 이 화면에 스타일이 적용되지 않는 문제가 남아 있습니다 |
+| `/setup` 점검 | OAuth 클라이언트 ID, 백엔드 연결(버전), 백엔드 설치, 회원 시트, **서버·사이트 클라이언트 ID 일치**, OAuth 자바스크립트 원본. 실패 항목의 ‘설치 안내 열기’가 `/install/#step-N`의 고칠 단계로 이동합니다 |
 
 ## 1. 목표
 
@@ -56,7 +60,7 @@ flowchart TD
 
 ### 3.1 설치 페이지 (새로 만듦)
 
-- **위치:** 정적 페이지 하나. 설치할 기관에는 아직 사이트가 없으므로, 저장소의 GitHub Pages 또는 운영 중인 사이트의 `/install`에 둡니다.
+- **위치:** `public/install/` 정적 페이지를 Vite 빌드에 포함해 운영 중인 설치 안내 사이트의 `/install/`에서 엽니다.
 - **로그인:** 설치 전용 OAuth 클라이언트를 씁니다(본 앱과 다른 클라이언트). 요청 권한은 `script.projects`(프로젝트 생성·코드 업로드), `script.deployments`(웹앱 배포), `userinfo.email`입니다.
 - **코드 묶음:** 릴리스할 때 `appScript/*.gs`와 `appsscript.json`을 JSON 하나(`backend-bundle.json`)로 묶어 함께 배포합니다. 설치 페이지는 이 파일을 그대로 업로드합니다.
 - **Apps Script API 호출 순서:**

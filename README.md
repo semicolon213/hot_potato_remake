@@ -197,9 +197,9 @@ npm run dev:web        # http://localhost:5173
 
 ### 쉬운 설치
 
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/semicolon213/hot_potato_remake)
+운영 중인 설치 안내 사이트의 **`/install/`**을 열고 0단계부터 마지막 체크리스트까지 따라가면 됩니다. 마법사가 Apps Script 백엔드 생성, 사이트 이름·Google 로그인·그룹 설정, Netlify 한 번 배포, 백엔드 설치와 `/setup` 점검, 첫 운영 준비를 순서대로 안내하며 진행 상황은 해당 브라우저에 저장합니다.
 
-버튼을 눌러 저장소를 복제하고 `VITE_APP_SCRIPT_URL`, `VITE_GOOGLE_CLIENT_ID`, 기관별 `VITE_GROUP_EMAIL`을 입력하면 웹 앱을 배포할 수 있습니다. Apps Script 백엔드를 먼저 만들려면 [`install/index.html`](./install/index.html)을 정적 서버에서 열고, `install/config.js`에 설치용 OAuth 클라이언트 ID를 설정하세요. 설치는 한 번 쓰는 설치 토큰으로 보호되므로, 설치 페이지가 안내하는 대로 Apps Script 편집기에서 `createSetupToken()`을 실행해 토큰을 받아 입력합니다. 설치 화면에서 입력한 Google OAuth 클라이언트 ID는 `VITE_GOOGLE_CLIENT_ID`와 같아야 합니다. 배포 후 사이트의 `/setup`에서 연결 상태를 확인합니다. 설계는 [docs/EASY_SETUP_DESIGN.md](docs/EASY_SETUP_DESIGN.md)에 있습니다.
+설치 안내 사이트 운영자는 설치 전용 OAuth 웹 클라이언트 ID를 빌드 환경변수 `VITE_INSTALL_CLIENT_ID`에 넣거나 [`public/install/config.js`](public/install/config.js)의 `googleClientId`에 설정해야 합니다. 이 값은 기관 운영 앱의 `VITE_GOOGLE_CLIENT_ID`와 별개이며 비어 있으면 `/install/` 상단에 설정 안내가 표시됩니다. 자세한 설계는 [docs/EASY_SETUP_DESIGN.md](docs/EASY_SETUP_DESIGN.md), 수동 배포 절차는 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)에 있습니다.
 
 ## 아쉬운 점과 앞으로 할 것
 
