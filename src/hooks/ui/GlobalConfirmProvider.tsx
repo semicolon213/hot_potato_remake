@@ -37,6 +37,7 @@ export const GlobalConfirmProvider: React.FC<React.PropsWithChildren> = ({ child
   }, []);
 
   const showConfirm = useCallback((message: string, onConfirm: () => void, options?: ConfirmOptions) => {
+    settle(false);
     setConfirm({
       isOpen: true,
       message,
@@ -47,9 +48,10 @@ export const GlobalConfirmProvider: React.FC<React.PropsWithChildren> = ({ child
       type: options?.type || 'info',
       onCancelAction: options?.onCancel
     });
-  }, []);
+  }, [settle]);
 
   const confirmAsync = useCallback((message: string, options?: ConfirmOptions) => new Promise<boolean>((resolve) => {
+    settle(false);
     pendingResult.current = resolve;
     setConfirm({
       isOpen: true,
@@ -60,7 +62,7 @@ export const GlobalConfirmProvider: React.FC<React.PropsWithChildren> = ({ child
       type: options?.type || 'info',
       onCancelAction: options?.onCancel
     });
-  }), []);
+  }), [settle]);
 
   const hideConfirm = useCallback(() => {
     const onCancel = confirm.onCancelAction;
