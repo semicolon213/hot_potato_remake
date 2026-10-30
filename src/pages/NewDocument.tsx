@@ -953,6 +953,7 @@ function NewDocument({
     // 관리자 전용: 기본(공유) 템플릿 업로드 모달
     const [showSharedUploadModal, setShowSharedUploadModal] = useState(false);
     const [sharedUploadFile, setSharedUploadFile] = useState<File | null>(null);
+    const [isUploadingSharedTemplate, setIsUploadingSharedTemplate] = useState(false);
     const [sharedMeta, setSharedMeta] = useState({ title: '', description: '', tag: '' });
     const handleSharedFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
       const f = e.target.files?.[0] || null;
@@ -1887,18 +1888,23 @@ function NewDocument({
                     </div>
                   </div>
                   <div className="document-modal-actions">
-                    <button type="button" className="action-btn cancel-btn" onClick={resetSharedUpload}><span>취소</span></button>
-                    <button type="button" className="action-btn save-btn" disabled={!sharedUploadFile || !sharedMeta.title || !sharedMeta.tag} onClick={async ()=>{
-                      if(!sharedUploadFile) return; 
-                      const res = await uploadSharedTemplate(sharedUploadFile, { ...sharedMeta, creatorEmail: userInfo.email });
-                      if(res.success){
-                        showNotification('업로드 완료', 'success');
-                        resetSharedUpload();
-                      } else {
-                        showNotification('업로드 실패: ' + (res.message||'알 수 없는 오류'), 'error');
+                    <button type="button" className="action-btn cancel-btn" disabled={isUploadingSharedTemplate} onClick={resetSharedUpload}><span>취소</span></button>
+                    <button type="button" className="action-btn save-btn" disabled={isUploadingSharedTemplate || !sharedUploadFile || !sharedMeta.title || !sharedMeta.tag} onClick={async ()=>{
+                      if(!sharedUploadFile || isUploadingSharedTemplate) return;
+                      setIsUploadingSharedTemplate(true);
+                      try {
+                        const res = await uploadSharedTemplate(sharedUploadFile, { ...sharedMeta, creatorEmail: userInfo.email });
+                        if(res.success){
+                          showNotification('업로드 완료', 'success');
+                          resetSharedUpload();
+                        } else {
+                          showNotification('업로드 실패: ' + (res.message||'알 수 없는 오류'), 'error');
+                        }
+                      } finally {
+                        setIsUploadingSharedTemplate(false);
                       }
                     }}>
-                      <span>업로드</span>
+                      <span>{isUploadingSharedTemplate ? '업로드 중...' : '업로드'}</span>
                     </button>
                   </div>
                 </div>

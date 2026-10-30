@@ -43,6 +43,7 @@ const NewAnnouncementPost: React.FC<NewAnnouncementPostProps> = ({
     const [content, setContent] = useState('');
     const [authorName, setAuthorName] = useState(''); // 작성자 이름 상태 추가
     const [attachments, setAttachments] = useState<File[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isPinned, setIsPinned] = useState(false);
     const [users, setUsers] = useState<AnnouncementUser[]>([]);
     const [selectedIndividualUsers, setSelectedIndividualUsers] = useState<string[]>([]);
@@ -112,38 +113,34 @@ const NewAnnouncementPost: React.FC<NewAnnouncementPostProps> = ({
     }, []);
 
     const handleSavePost = async () => {
+        if (isSubmitting) return;
         if (!title.trim() || !content.trim()) {
             showNotification('제목과 내용을 모두 입력해주세요.', 'warning');
             return;
         }
-
-        // 권한 설정 구성
         const accessRights: AnnouncementAccessRights = {};
-        if (selectedIndividualUsers.length > 0) {
-            accessRights.individual = selectedIndividualUsers;
-        }
-        if (selectedGroups.length > 0) {
-            accessRights.groups = selectedGroups;
-        }
+        if (selectedIndividualUsers.length > 0) accessRights.individual = selectedIndividualUsers;
+        if (selectedGroups.length > 0) accessRights.groups = selectedGroups;
 
+        setIsSubmitting(true);
         try {
             await onAddPost({
                 title,
-                content, // HTML content from TiptapEditor
+                content,
                 author: authorName || user?.name || 'Unknown',
                 writer_id: user?.studentId || '',
-                attachments: attachments,
+                attachments,
                 accessRights: Object.keys(accessRights).length > 0 ? accessRights : undefined,
                 isPinned,
                 userType: user?.userType || 'student',
             });
-            // onAddPost가 완료되면 자동으로 목록으로 이동됨 (App.tsx의 handleAddAnnouncement에서 처리)
         } catch (error) {
             log.error('공지사항 저장 오류:', error);
-            // 에러는 App.tsx에서 처리되므로 여기서는 추가 처리 불필요
+            showNotification('공지사항 저장 중 오류가 발생했습니다.', 'error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
-
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             setAttachments(prev => [...prev, ...Array.from(e.target.files)]);
@@ -182,11 +179,11 @@ const NewAnnouncementPost: React.FC<NewAnnouncementPostProps> = ({
                 <div className="card-header">
                     <h2><BiPencil /> 새 공지사항 작성</h2>
                     <div className="header-actions">
-                        <button onClick={handleCancel} className="action-button cancel-button">
+                        <button onClick={handleCancel} className="action-button cancel-button" disabled={isSubmitting}>
                             <BiX /> 취소
                         </button>
-                        <button onClick={handleSavePost} className="action-button save-button" disabled={!isAuthenticated}>
-                            <BiSave /> 저장
+                        <button onClick={handleSavePost} className="action-button save-button" disabled={!isAuthenticated || isSubmitting}>
+                            <BiSave /> {isSubmitting ? '저장 중...' : '저장'}
                         </button>
                     </div>
                 </div>
