@@ -1,4 +1,6 @@
 /* global google */
+import { updateOrCreateDeployment } from './deployment.js';
+
 const STORAGE_KEY = 'hp-erp-install-wizard:v1';
 const STEP_META = [
   ['준비', '준비물 확인'],
@@ -24,7 +26,7 @@ const INSTALL_SCOPES = [
 ].join(' ');
 
 const GROUP_KEYS = ['STUDENT', 'COUNCIL', 'ASSISTANT', 'PROFESSOR', 'ADJ_PROFESSOR'];
-const emptyState = { currentStep: 0, completed: {}, backendUrl: '', scriptId: '', siteName: '', siteUrl: '', authMode: '', appClientId: '', directClientId: '', institutionName: '', requesterContact: '', testUsers: '', groups: {}, finalChecks: {}, apiError: '' };
+const emptyState = { currentStep: 0, completed: {}, backendUrl: '', scriptId: '', deploymentId: '', backendAccountEmail: '', siteName: '', siteUrl: '', authMode: '', appClientId: '', directClientId: '', institutionName: '', requesterContact: '', testUsers: '', groups: {}, finalChecks: {}, apiError: '' };
 let state = loadState();
 let finalCheckPassed = false;
 
@@ -320,17 +322,26 @@ async function deployBackend(token, email, isWorkspace) {
   const bundleResponse = await fetch('/backend-bundle.json', { cache: 'no-store' });
   if (!bundleResponse.ok) throw new Error('백엔드 코드 묶음을 읽지 못했습니다. 운영자에게 알려 주세요.');
   const bundle = bundleForAccount(await bundleResponse.json(), isWorkspace);
-  const storageKey = `hp-erp-script-id:${email.toLowerCase()}`;
-  let scriptId = state.scriptId || localStorage.getItem(storageKey) || '';
+  const accountEmail = email.toLowerCase();
+  const storageKey = `hp-erp-script-id:${accountEmail}`;
+  const deploymentStorageKey = `hp-erp-deployment-id:${accountEmail}`;
+  const sameAccount = state.backendAccountEmail === accountEmail;
+  let scriptId = (sameAccount ? state.scriptId : '') || localStorage.getItem(storageKey) || '';
+  let deploymentId = (sameAccount ? state.deploymentId : '') || localStorage.getItem(deploymentStorageKey) || '';
   let cached = Boolean(scriptId);
 
   const createProject = async () => {
     const project = await appsScriptApi('projects', token, { method: 'POST', body: JSON.stringify({ title: 'HP ERP Backend' }) });
     scriptId = project.scriptId;
     state.scriptId = scriptId;
+    state.deploymentId = '';
+    state.backendUrl = '';
+    state.backendAccountEmail = accountEmail;
     localStorage.setItem(storageKey, scriptId);
+    localStorage.removeItem(deploymentStorageKey);
     saveState();
     cached = false;
+    deploymentId = '';
   };
 
   if (!scriptId) await createProject();
@@ -345,14 +356,22 @@ async function deployBackend(token, email, isWorkspace) {
   }
   setBackendProgress(2, '백엔드 코드 업로드 완료');
   const version = await appsScriptApi(`projects/${scriptId}/versions`, token, { method: 'POST', body: JSON.stringify({ description: 'HP ERP 초기 설치' }) });
-  const deployment = await appsScriptApi(`projects/${scriptId}/deployments`, token, { method: 'POST', body: JSON.stringify({ versionNumber: version.versionNumber, manifestFileName: 'appsscript', description: 'HP ERP 운영' }) });
+  const deployment = await updateOrCreateDeployment(
+    (path, options) => appsScriptApi(path, token, options),
+    scriptId,
+    deploymentId,
+    { versionNumber: version.versionNumber, manifestFileName: 'appsscript', description: 'HP ERP 운영' }
+  );
 
   state.scriptId = scriptId;
+  state.deploymentId = deployment.deploymentId;
+  state.backendAccountEmail = accountEmail;
   state.backendUrl = `https://script.google.com/macros/s/${deployment.deploymentId}/exec`;
+  localStorage.setItem(deploymentStorageKey, deployment.deploymentId);
   state.completed[2] = true;
   saveState();
   setBackendProgress(3, '웹앱 배포 완료');
-  showMessage('백엔드가 준비되었습니다. 주소를 복사해 다음 단계로 가세요.', 'success');
+  showMessage('백엔드가 준비되었습니다. 다시 실행해도 같은 주소가 새 버전으로 갱신됩니다.', 'success');
   render();
 }
 
