@@ -1020,6 +1020,17 @@ export const updateTemplate = async (
 export const updateTemplateFavorite = async (_rowIndex: number, _favoriteStatus: string | undefined): Promise<void> => {};
 
 // 캘린더 관련 함수들
+// 역할 위계: 학생 < 학생회 < 조교 ≈ 겸임교수 ≈ 교수. 상위 역할만 하위 역할 폴더의 시트를 읽을 수 있다.
+export const STAFF_ROLES = ['supp', 'professor', 'ad_professor', 'staff'];
+
+const getStoredUserType = (): string => {
+    try {
+        return JSON.parse(localStorage.getItem('user') || '{}').userType || '';
+    } catch {
+        return '';
+    }
+};
+
 export const fetchCalendarEvents = async (): Promise<Event[]> => {
     const cacheManager = getCacheManager();
     const action = 'fetchCalendarEvents';
@@ -1033,13 +1044,19 @@ export const fetchCalendarEvents = async (): Promise<Event[]> => {
             return cachedData;
         }
 
-        const allCalendarIds = [
-            calendarProfessorSpreadsheetId,
-            calendarStudentSpreadsheetId,
-            calendarCouncilSpreadsheetId,
-            calendarADProfessorSpreadsheetId,
-            calendarSuppSpreadsheetId
-        ].filter((id): id is string => !!id);
+        const userType = getStoredUserType();
+        const readableCalendarIds = userType === 'student'
+            ? [calendarStudentSpreadsheetId]
+            : userType === 'std_council'
+                ? [calendarStudentSpreadsheetId, calendarCouncilSpreadsheetId]
+                : [
+                    calendarProfessorSpreadsheetId,
+                    calendarStudentSpreadsheetId,
+                    calendarCouncilSpreadsheetId,
+                    calendarADProfessorSpreadsheetId,
+                    calendarSuppSpreadsheetId
+                ];
+        const allCalendarIds = readableCalendarIds.filter((id): id is string => !!id);
 
         if (allCalendarIds.length === 0) return [];
 

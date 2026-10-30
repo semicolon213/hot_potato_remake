@@ -9,7 +9,7 @@ import { apiClient } from '../utils/api/apiClient';
 import { getCacheManager } from '../utils/cache/cacheManager';
 import { generateCacheKey, getActionCategory, CACHEABLE_ACTIONS } from '../utils/cache/cacheUtils';
 import { tokenManager } from '../utils/auth/tokenManager';
-import { clearSpreadsheetIds, getNoticeSpreadsheetApiFields, initializeSpreadsheetIds } from '../utils/database/papyrusManager';
+import { clearSpreadsheetIds, getNoticeSpreadsheetApiFields, initializeSpreadsheetIds, STAFF_ROLES } from '../utils/database/papyrusManager';
 import type { User } from '../types/app';
 const log = logger.scope('services/dataSyncService');
 
@@ -113,7 +113,7 @@ const INITIAL_DATA_TASKS: InitialDataTaskConfig[] = [
     scope: 'page',
     phase: 2,
     required: false,
-    runIf: () => true,
+    runIf: (user) => !!user.userType && user.userType !== 'student',
     fn: async () => {
       const { fetchStudents } = await import('../utils/database/papyrusManager');
       return fetchStudents();
@@ -126,7 +126,7 @@ const INITIAL_DATA_TASKS: InitialDataTaskConfig[] = [
     scope: 'page',
     phase: 2,
     required: false,
-    runIf: () => true,
+    runIf: (user) => STAFF_ROLES.includes(user.userType || ''),
     fn: async () => {
       const { fetchStaff } = await import('../utils/database/papyrusManager');
       return fetchStaff();
@@ -139,7 +139,7 @@ const INITIAL_DATA_TASKS: InitialDataTaskConfig[] = [
     scope: 'page',
     phase: 2,
     required: false,
-    runIf: () => true,
+    runIf: (user) => STAFF_ROLES.includes(user.userType || ''),
     fn: async () => {
       const { fetchAttendees } = await import('../utils/database/papyrusManager');
       return fetchAttendees();
