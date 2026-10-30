@@ -345,6 +345,12 @@ function doPost(e) {
     }
     
     // 문서 삭제 액션 처리
+    if (req.action === 'exportTemplateDocx') {
+      return ContentService
+        .createTextOutput(JSON.stringify(exportTemplateDocx(req)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     if (req.action === 'deleteDocuments') {
       const result = (typeof handleDeleteDocuments === 'function') ? handleDeleteDocuments(req) : (typeof DocumentSpreadsheet !== 'undefined' && DocumentSpreadsheet.handleDeleteDocuments ? DocumentSpreadsheet.handleDeleteDocuments(req) : { success: false, message: 'DocumentSpreadsheet is not defined' });
       return ContentService

@@ -429,6 +429,11 @@ export class ApiClient {
     return this.request('deleteDocuments', { documentIds, role });
   }
 
+  // 공유 양식을 docx(base64)로 받기 (개인 폴더에 Google 문서로 변환해 올릴 때 사용)
+  async exportTemplateDocx(templateId: string) {
+    return this.request<{ name: string; fileData: string }>('exportTemplateDocx', { templateId });
+  }
+
   // 공지 첨부파일 업로드 (Apps Script가 첨부 폴더에 저장하고 링크 공개)
   async uploadNoticeAttachment(params: { fileName: string; mimeType: string; fileData: string }) {
     return this.request<{ id: string; name: string; url: string }>('uploadNoticeAttachment', params);

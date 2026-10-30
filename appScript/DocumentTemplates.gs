@@ -814,3 +814,42 @@ function getDocumentTemplatesInfo() {
     dependencies: ['CONFIG.gs']
   };
 }
+
+/**
+ * 공유 양식을 docx(base64)로 내보낸다.
+ * 사용자 드라이브 권한(drive.file)으로는 배포자 소유 양식을 복사할 수 없어서,
+ * 프론트가 이 내용을 받아 사용자 개인 폴더에 Google 문서로 변환해 올린다.
+ * 프로젝트 루트 아래 파일만 허용한다.
+ * @param {Object} req - { templateId }
+ */
+function exportTemplateDocx(req) {
+  try {
+    const templateId = req && req.templateId;
+    if (!templateId) return { success: false, message: '양식 ID가 필요합니다.' };
+
+    const rootId = getProjectRootFolderId_();
+    const file = DriveApp.getFileById(templateId);
+    if (!rootId || !isUnderRootFolder_(file, rootId, {})) {
+      return { success: false, message: '내보낼 수 없는 파일입니다.' };
+    }
+    if (file.getMimeType() !== MimeType.GOOGLE_DOCS) {
+      return { success: false, message: 'Google 문서 양식만 내보낼 수 있습니다.' };
+    }
+
+    const response = UrlFetchApp.fetch(
+      'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(templateId) +
+        '/export?mimeType=' + encodeURIComponent('application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+      { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true }
+    );
+    if (response.getResponseCode() !== 200) {
+      return { success: false, message: '양식 내보내기 실패 (' + response.getResponseCode() + ')' };
+    }
+    return {
+      success: true,
+      data: { name: file.getName(), fileData: Utilities.base64Encode(response.getBlob().getBytes()) }
+    };
+  } catch (error) {
+    logError_('DocumentTemplates', '양식 내보내기 오류:', error);
+    return { success: false, message: '양식 내보내기 중 오류가 발생했습니다: ' + error.message };
+  }
+}

@@ -698,6 +698,37 @@ export const createBlankGoogleDocument = async (title: string): Promise<{ id: st
   return response.result as { id: string, webViewLink: string };
 };
 
+const uploadTemplateAsGoogleDoc = async (
+  templateId: string,
+  title: string,
+  folderId: string,
+  token: string
+): Promise<{ id: string; webViewLink: string }> => {
+  const { apiClient } = await import('../api/apiClient');
+  const exported = await apiClient.exportTemplateDocx(templateId);
+  if (!exported.success || !exported.data) {
+    throw new Error(exported.message || '양식을 가져오지 못했습니다.');
+  }
+  const bytes = Uint8Array.from(atob(exported.data.fileData), ch => ch.charCodeAt(0));
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify({
+    name: title,
+    mimeType: 'application/vnd.google-apps.document',
+    parents: [folderId]
+  })], { type: 'application/json' }));
+  form.append('file', new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
+
+  const upload = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token },
+    body: form
+  });
+  if (!upload.ok) {
+    throw new Error(`양식으로 문서를 만들지 못했습니다 (${upload.status})`);
+  }
+  return upload.json();
+};
+
 export const copyGoogleDocument = async (fileId: string, newTitle: string): Promise<{ id: string, webViewLink: string } | null> => {
   try {
     // 토큰 확인
@@ -767,14 +798,22 @@ export const copyGoogleDocument = async (fileId: string, newTitle: string): Prom
       }) => Promise<{ result: { id: string; webViewLink: string } }>;
     };
     
-    const response = await DriveAPI.copy({
-      fileId: fileId,
-      resource: {
-        name: newTitle,
-        parents: [personalDocFolderId] // 개인 문서 폴더에 저장
-      },
-      fields: 'id, webViewLink',
-    });
+    let response: { result: { id: string; webViewLink: string } };
+    try {
+      response = await DriveAPI.copy({
+        fileId: fileId,
+        resource: {
+          name: newTitle,
+          parents: [personalDocFolderId] // 개인 문서 폴더에 저장
+        },
+        fields: 'id, webViewLink',
+      });
+    } catch (copyError: any) {
+      // drive.file 범위에서는 배포자 소유 공유 양식을 직접 복사할 수 없다 (403/404).
+      // 서버가 docx로 내보낸 내용을 개인 폴더에 Google 문서로 변환해 올린다.
+      if (copyError?.status !== 403 && copyError?.status !== 404) throw copyError;
+      response = { result: await uploadTemplateAsGoogleDoc(fileId, newTitle, personalDocFolderId, token) };
+    }
 
     const { invalidateDocumentsCache } = await import('../helpers/loadDocumentsFromDrive');
     await invalidateDocumentsCache();
