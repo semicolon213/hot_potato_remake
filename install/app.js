@@ -58,7 +58,8 @@ async function deploy(token, email) {
   const url = `https://script.google.com/macros/s/${deployment.deploymentId}/exec`;
   mark(3, '웹 앱 배포 완료');
   const repositoryUrl = window.INSTALL_CONFIG.repositoryUrl;
-  result.innerHTML = `백엔드 주소: <code>${url}</code><br><a href="${url}?page=setup" target="_blank" rel="noreferrer">백엔드 초기 설정 열기</a>${repositoryUrl ? `<br><a href="${repositoryUrl}/actions/workflows/electron-release.yml" target="_blank" rel="noreferrer">설치 파일 만들기</a> · <a href="${repositoryUrl}/releases" target="_blank" rel="noreferrer">설치 파일 다운로드</a>` : ''}`;
+  const editorUrl = `https://script.google.com/d/${encodeURIComponent(scriptId)}/edit`;
+  result.innerHTML = `백엔드 주소: <code>${url}</code><ol><li><a href="${editorUrl}" target="_blank" rel="noreferrer">Apps Script 편집기 열기</a></li><li>함수 목록에서 <code>createSetupToken</code> 선택 후 실행</li><li>처음 실행할 때 요청되는 권한 승인(웹앱 실행에 필요한 최초 승인도 함께 완료됩니다)</li><li>실행 로그의 토큰 복사</li><li><a href="${url}?page=setup" target="_blank" rel="noreferrer">백엔드 초기 설정 열기</a></li></ol>${repositoryUrl ? `<a href="${repositoryUrl}/actions/workflows/electron-release.yml" target="_blank" rel="noreferrer">설치 파일 만들기</a> · <a href="${repositoryUrl}/releases" target="_blank" rel="noreferrer">설치 파일 다운로드</a>` : ''}`;
 }
 
 button.addEventListener('click', () => {

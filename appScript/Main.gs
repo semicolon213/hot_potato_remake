@@ -48,7 +48,7 @@ function doPost(e) {
     }
 
     if (req.action === 'getSetupStatus') {
-      return json(getSetupStatus());
+      return json(getSetupStatus(req));
     }
     
     // 암복호화 액션 처리
@@ -1490,7 +1490,7 @@ function doGet(e) {
       return HtmlService.createHtmlOutputFromFile('SetupPage').setTitle('HP ERP 백엔드 설치');
     }
     if (e && e.parameter && e.parameter.action === 'getSetupStatus') {
-      return json(getSetupStatus());
+      return json(getSetupStatus(e.parameter));
     }
     // UserManagement.gs의 doGetAuthInternal 함수 호출
     return callUserManagementGet(e);
