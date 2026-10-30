@@ -18,7 +18,7 @@
 
 ## 2. 요청 범위
 
-코드(`src/` 로그인 요청)와 Data Access 목록을 똑같이 맞춥니다.
+코드(`src/` 로그인 요청, `public/install/` 설치용 로그인)와 Data Access 목록을 똑같이 맞춥니다.
 
 | 범위 | 분류 | 제출 대상 |
 |---|---|---|
@@ -27,6 +27,10 @@
 | `https://www.googleapis.com/auth/spreadsheets` | 민감 | 예 |
 | `https://www.googleapis.com/auth/calendar.events` | 민감 | 예 |
 | `https://www.googleapis.com/auth/calendar.readonly` | 민감 | 예 |
+| `https://www.googleapis.com/auth/script.projects` | 민감 | 예 (설치 마법사 전용) |
+| `https://www.googleapis.com/auth/script.deployments` | 민감 | 예 (설치 마법사 전용) |
+
+같은 프로젝트에 클라이언트가 둘 있습니다. 웹 앱은 `651515712118-v387…`, 설치 마법사(`/install/`)는 `651515712118-h5n9…`이며 설치용 클라이언트는 `script.projects`, `script.deployments`, `userinfo.email`만 요청합니다.
 
 ## 3. 범위별 사용 이유 (제출 양식에 그대로 붙여 넣는 영문)
 
@@ -45,6 +49,19 @@
 **`https://www.googleapis.com/auth/calendar.readonly`**
 
 > Used to read the user's calendar metadata (default calendar color and time zone via calendars.get) and the public Korean holidays calendar so the in-app calendar matches the user's Google Calendar. No event data is written with this scope.
+
+**`https://www.googleapis.com/auth/script.projects`, `https://www.googleapis.com/auth/script.deployments`**
+
+> Used only by the one-time installer page (/install) so a department admin can create, upload and deploy their own Apps Script backend from the browser; never used by the main app.
+
+**짧은 통합 설명** (글자 수 제한이 있는 칸에 씀)
+
+> HP ERP is an internal web app for a university department. Approved members sign in with Google to work with department data in Google Sheets and Google Calendar.
+> spreadsheets: notices, rosters, calendar, ledgers and budget plans are Sheets owned by the department account and shared via Google Groups. The app reads them and writes rows when a member saves an entry. drive.file cannot open them because the app did not create them.
+> calendar.events: events a member creates, edits or deletes in the app are written to their own Google Calendar.
+> calendar.readonly: reads default calendar color/time zone and the public Korean holidays calendar.
+> script.projects, script.deployments: used only by the one-time installer page (/install) so a department admin can create, upload and deploy their own Apps Script backend from the browser; never used by the main app.
+> Data is never sold, used for ads, or shared with third parties (Limited Use).
 
 **Data handling (공통)**
 
@@ -67,14 +84,15 @@
 | 7 | 일정 추가 → Google Calendar 새 탭에서 같은 일정 확인 | `calendar.events` 쓰기 |
 | 8 | 일정 수정·삭제 → Google Calendar에서 반영 확인 | `calendar.events` 수정·삭제 |
 | 9 | 문서 > 새 문서 > 나만 보기로 생성 | `drive.file`(비민감이지만 데이터 흐름 설명용) |
-| 10 | `https://myaccount.google.com/permissions`에서 앱 권한 철회 | 사용자가 언제든 철회할 수 있음 |
+| 10 | `https://yuhancse.netlify.app/install/` 2단계 "로그인하고 백엔드 만들기" | 설치용 동의 화면(`script.projects`, `script.deployments`)과 주소창의 설치용 `client_id`. 프로젝트 생성 → 코드 업로드 → 배포 완료와 백엔드 주소 표시 |
+| 11 | `https://myaccount.google.com/permissions`에서 앱 권한 철회 | 사용자가 언제든 철회할 수 있음 |
 
 ## 5. 제출 전 확인
 
-- [ ] 운영 사이트가 develop 코드로 배포됨(요청 범위가 2절과 같음)
+- [ ] 운영 사이트가 develop 코드로 배포됨(요청 범위가 2절과 같음). 2026-10-31 main `05448e1`
 - [ ] Search Console에서 `https://yuhancse.netlify.app/` 소유 확인
 - [ ] Branding 저장 후 "Verify branding" 통과(결과는 7일 유효)
-- [ ] Data Access에서 `drive`, `documents`, `gmail.compose` 제거
+- [ ] Data Access에서 `drive`, `documents`, `gmail.compose` 제거, `script.projects`, `script.deployments` 추가(추가 완료)
 - [ ] 개인정보처리방침이 실제 동작과 같음: `drive.file`, 토큰을 신원 확인용으로만 Apps Script에 보냄, 공지 첨부 공유 범위
 - [ ] 시연 영상 링크, 3절 문구
 - [ ] 심사 중 Google 메일을 받을 개발자 연락처 확인

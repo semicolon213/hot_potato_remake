@@ -55,6 +55,8 @@
 | OAuth 범위 | `drive.file`(이 앱이 만든 파일만), `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`만 요청. Gmail·Docs 범위는 요청하지 않음 |
 | Apps Script 경유 (회원, 공지, 결재, 공유 문서, 공지 첨부, 증빙 업로드, 양식 내보내기) | 서버 측 인가(§2.1의 4)와 기능별 검사. 공지 첨부·증빙 업로드는 승인 회원만, 서버에서 4MB 제한, 공지 첨부는 허용 형식만. 양식 내보내기·미리보기는 `shared_forms` 바로 아래 파일만. 이름으로 찾은 시스템 스프레드시트는 배포 계정 소유일 때만 씀 |
 | 화면 | 역할에 따라 메뉴·버튼 표시 (보조 수단. 화면 숨김만으로 권한을 보장하지 않음) |
+| 설치 마법사 `/install/` | 별도 설치용 클라이언트로 `script.projects`, `script.deployments`, `userinfo.email`만 요청. 본 앱은 이 범위를 쓰지 않음. 액세스 토큰과 설치 토큰은 브라우저에 저장하지 않음. 설치용 매니페스트는 최소 범위(`drive`, `spreadsheets`, `documents`, `script.send_mail`, `script.external_request`, `userinfo.email`, Workspace만 `admin.directory.group.member`)로 올려 Gmail 접근을 요청하지 않음. 운영 매니페스트 `appScript/appsscript.json`은 아직 더 넓음([STATUS.md](./STATUS.md) 백로그) |
+| 백엔드 설치 화면 | 1회용 설치 토큰이 있어야 실행. `installSystem`은 우리 학과 그룹 주소를 거부해, 새 기관 폴더가 다른 기관 구성원에게 공유되지 않게 함. 마법사가 주소로 넘기는 값은 클라이언트 ID와 그룹 JSON뿐이고 설치 토큰은 주소에 넣지 않음 |
 
 ## 3. 데이터 보호
 

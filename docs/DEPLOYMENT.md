@@ -19,11 +19,11 @@ flowchart LR
 
 ### 개발 지식이 없는 담당자의 새 설치
 
-운영 중인 설치 안내 사이트의 `/install/`을 열어 0~14단계를 순서대로 진행합니다. 4단계에서 운영자 OAuth 클라이언트를 공유받는 쉬운 방식 또는 기관이 직접 Google Cloud 클라이언트를 만드는 독립 방식을 고릅니다. 공유 방식은 요청문을 운영자에게 보내 원본·테스트 사용자 등록을 기다리고, 직접 방식은 4-1~4-7을 진행합니다. 어느 방식이든 `VITE_APP_SCRIPT_URL`, `VITE_GOOGLE_CLIENT_ID`, `VITE_GROUP_EMAIL`을 Netlify 첫 배포에 한 번에 넣습니다. 실제 Netlify 주소가 예정 주소와 다르면 OAuth 원본과 리디렉션 URI를 실제 주소로 바꿔야 합니다.
+운영 중인 설치 안내 사이트의 `/install/`(운영: https://yuhancse.netlify.app/install/)을 열어 0~14단계를 순서대로 진행합니다. 순서는 사이트 이름 정하기 → 로그인 방식 고르기 → (공유: 운영자에게 등록 요청 / 직접: Google Cloud 프로젝트·동의 화면·범위·테스트 사용자·웹 클라이언트 만들기) → Netlify 한 번 배포 → 설치 토큰 → 백엔드 설치 → `/setup` 점검 → 운영 시작(첫 관리자 로그인, Google 그룹, 구성원 사전 등록, OAuth 테스트 사용자, 구성원 안내문, 최종 체크리스트)입니다. 4단계에서 운영자 OAuth 클라이언트를 공유받는 쉬운 방식 또는 기관이 직접 Google Cloud 클라이언트를 만드는 독립 방식을 고릅니다. 공유 방식은 요청문을 운영자에게 보내 원본·테스트 사용자 등록을 기다리고, 직접 방식은 4-1~4-7을 진행합니다. 어느 방식이든 `VITE_APP_SCRIPT_URL`, `VITE_GOOGLE_CLIENT_ID`, `VITE_GROUP_EMAIL`을 Netlify 첫 배포에 한 번에 넣습니다. 실제 Netlify 주소가 예정 주소와 다르면 OAuth 원본과 리디렉션 URI를 실제 주소로 바꿔야 합니다.
 
-설치 안내 사이트 자체를 배포하는 운영자는 별도 설치용 OAuth 웹 클라이언트 ID를 `VITE_INSTALL_CLIENT_ID`에 넣습니다. 환경변수를 쓰지 않는 정적 호스팅은 `public/install/config.js`의 `googleClientId`에 넣을 수 있습니다. 이 값이 없으면 `/install/`은 경고를 표시하고 자동 백엔드 생성을 안전하게 막습니다. 운영 앱용 `VITE_GOOGLE_CLIENT_ID`와 혼동하지 마세요.
+설치 안내 사이트 자체를 배포하는 운영자는 별도 설치용 OAuth 웹 클라이언트 ID를 `VITE_INSTALL_CLIENT_ID`에 넣습니다. 빌드할 때 `scripts/prepare-install.mjs`가 이 값으로 `dist/install/config.js`를 씁니다. 설치용 클라이언트는 `script.projects`, `script.deployments`, `userinfo.email`만 요청하고, 승인된 JavaScript 원본에 설치 안내 사이트 주소와 `http://localhost:5173`을 넣습니다. 운영 값은 운영 계정 소유 프로젝트의 `651515712118-h5n9…`입니다. 환경변수를 쓰지 않는 정적 호스팅은 `public/install/config.js`의 `googleClientId`에 넣을 수 있습니다. 이 값이 없으면 `/install/`은 경고를 표시하고 자동 백엔드 생성을 안전하게 막습니다. 운영 앱용 `VITE_GOOGLE_CLIENT_ID`와 혼동하지 마세요.
 
-공유 로그인을 제공하려면 설치 안내 사이트 빌드에 운영자 앱의 `VITE_GOOGLE_CLIENT_ID`와 요청 수신용 `VITE_OPERATOR_CONTACT_EMAIL`도 넣습니다. 둘 중 하나가 없으면 공유 선택지가 비활성화됩니다. 공유 요청을 받은 운영자는 자기 웹 클라이언트의 승인된 JavaScript 원본·리디렉션 URI에 기관 주소를 끝 슬래시 없이 추가하고, Audience가 Testing이면 요청받은 이메일을 테스트 사용자에 추가합니다. 이 방식은 운영자의 Testing 사용자 100명 한도와 동의 화면 정보를 여러 기관이 공유합니다.
+공유 로그인을 제공하려면 설치 안내 사이트 빌드에 운영자 앱의 `VITE_GOOGLE_CLIENT_ID`와 요청 수신용 `VITE_OPERATOR_CONTACT_EMAIL`도 넣습니다. 둘 중 하나가 없으면 공유 선택지가 비활성화됩니다. 운영 값은 `VITE_OPERATOR_CONTACT_EMAIL` = `khk213624@gmail.com`이고, 공유되는 클라이언트는 이 사이트의 `VITE_GOOGLE_CLIENT_ID`입니다. 공유 요청을 받은 운영자는 자기 웹 클라이언트의 승인된 JavaScript 원본·리디렉션 URI에 기관 주소를 끝 슬래시 없이 추가하고, Audience가 Testing이면 요청받은 이메일을 테스트 사용자에 추가합니다. 이 방식은 운영자의 Testing 사용자 100명 한도와 동의 화면 정보를 여러 기관이 공유합니다.
 
 ## 1. Google Cloud Console
 
@@ -88,7 +88,7 @@ clasp list-deployments   # 새 배포 ID 확인
 4. 매니페스트의 고급 서비스(특히 AdminDirectory)가 바뀌면 편집기에서 함수를 한 번 실행해 권한을 다시 승인해야 할 수 있습니다.
 5. 다 쓴 테스트 배포는 **배포 관리**에서 보관 처리합니다.
 
-2026-10-30 기준으로 운영 배포(배포 ID `AKfycbxTkbSb…`)는 @59(고정 버전, `main` @ `c2b8a6c`와 같은 코드)입니다. 직전 운영 버전은 @34입니다.
+2026-10-31 기준으로 운영 배포(배포 ID `AKfycbxTkbSb…`)는 @60(고정 버전, `main` @ `05448e1`과 같은 코드)입니다. 직전 운영 버전은 @59입니다.
 
 ## 3. 초기 세팅 (Drive 폴더·시트 생성)
 
@@ -146,6 +146,8 @@ clasp list-deployments   # 새 배포 ID 확인
    | `VITE_GOOGLE_CLIENT_ID` | ✅ | 빌드 시 번들에 포함. Apps Script `GOOGLE_CLIENT_ID`와 같은 값 |
    | `VITE_APP_SCRIPT_URL` | 권장 | 빌드 시 환경 검증용. `APP_SCRIPT_URL`이 없을 때 프록시의 대체값 |
    | `VITE_FOLER_NAME`, `VITE_SPREADSHEET_NAME`, `VITE_SHEET_NAME`, `VITE_GROUP_EMAIL` | 기본값을 바꿀 때만 | 빌드 시 번들에 포함. **한 줄 JSON**으로 넣거나, 기본값을 쓸 거면 아예 만들지 않음 |
+   | `VITE_INSTALL_CLIENT_ID` | 설치 안내 사이트만 | 빌드 때 `dist/install/config.js`에 들어가는 설치 마법사용 OAuth 클라이언트 ID. 비면 `/install/`이 백엔드 자동 생성을 막음 |
+   | `VITE_OPERATOR_CONTACT_EMAIL` | 설치 안내 사이트만 | 공유 로그인 등록 요청을 받을 운영자 이메일. 비면 공유 방식이 비활성화됨 |
 
    > JSON 변수는 `.env.example`처럼 여러 줄로 붙여 넣으면 Netlify에는 첫 줄 `{`만 저장됩니다. 이 경우 파싱이 **경고 없이** 실패하고 `src/config/environment.ts`의 기본값이 쓰입니다. 2026-10-29에 운영 사이트의 네 값이 모두 `{`인 것을 확인했습니다. 예: `VITE_GROUP_EMAIL` = `{"STUDENT":"student_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","ADJ_PROFESSOR":"adj_professor_hp@googlegroups.com","ASSISTANT":"assistant_hp@googlegroups.com"}`. 이 값은 스크립트 속성 `GROUP_EMAIL_JSON`과 같아야 합니다.
 
@@ -188,7 +190,7 @@ Google Cloud Console의 OAuth 클라이언트에서 **승인된 JavaScript 원�
 
 ### 운영 반영 체크리스트
 
-2026-10-30에 develop을 main(`c2b8a6c`)에 병합하고 Apps Script 운영 배포를 @34에서 @59로 올릴 때 쓴 순서입니다. 다음 운영 반영에도 같은 순서를 씁니다.
+2026-10-30에 develop을 main(`c2b8a6c`)에 병합하고 Apps Script 운영 배포를 @34에서 @59로 올릴 때 쓴 순서입니다. 2026-10-31(main `05448e1`, @59 → @60)에도 같은 순서를 썼습니다. 다음 운영 반영에도 같은 순서를 씁니다.
 
 1. 병합할 `develop` 코드를 테스트 배포(§2.3)와 로컬 개발 서버에서 먼저 확인합니다.
 2. Netlify 환경변수를 확인합니다. `APP_SCRIPT_URL`(또는 `VITE_APP_SCRIPT_URL`)이 운영 배포 URL이고, `VITE_GOOGLE_CLIENT_ID`가 운영 OAuth 클라이언트 ID인지 봅니다.
@@ -205,15 +207,15 @@ Google Cloud Console의 OAuth 클라이언트에서 **승인된 JavaScript 원�
    | `applyNoticeAttachmentSharing` | 기존 공지 첨부의 링크 공개를 없애고 공개 범위 대상에게 공유. 배포자가 관리할 수 없는 파일은 건너뛰고 로그에 남김 | 첨부 권한이 어긋난 경우 |
    | `migrateBudgetPlanColumns` | 기존 장부의 `예산계획` 시트를 헤더 기준 열 순서로 옮김(백업 시트 생성) | 예산계획 열 순서가 다른 옛 장부가 생긴 경우 |
 
-7. 프론트를 `main`에 병합합니다. Netlify가 자동으로 빌드·배포합니다. OAuth 범위가 바뀌었으면 사용자는 다음 로그인 때 다시 동의합니다.
-8. §6 체크리스트와 [TEST_PLAN.md §9.4](./TEST_PLAN.md#94-develop-qa와-서버-측-인가-검증-2026-10-30)의 확인 항목을 운영 사이트에서 다시 봅니다.
+7. 프론트를 `main`에 병합합니다. Netlify가 자동으로 빌드·배포합니다. OAuth 범위가 바뀌었으면 사용자는 다음 로그인 때 다시 동의합니다. 로컬에서 `npm run build`를 돌리면 저장소의 `backend-bundle.json`이 줄바꿈만 바뀐 채로 다시 써집니다. 커밋하지 말고 `git checkout -- backend-bundle.json`으로 되돌립니다.
+8. `/install/`, `/backend-bundle.json`, `/setup`이 열리는지 확인합니다. §6 체크리스트와 [TEST_PLAN.md §9.4](./TEST_PLAN.md#94-develop-qa와-서버-측-인가-검증-2026-10-30)의 확인 항목을 운영 사이트에서 다시 봅니다.
 
 ### 롤백
 
 | 대상 | 방법 |
 |---|---|
 | Netlify | **Deploys**에서 이전 배포를 골라 **Publish deploy**. 코드도 되돌리려면 `main`에서 병합 커밋을 revert |
-| Apps Script | **배포 관리 → 기존 배포 편집**에서 이전 버전 선택. 또는 `clasp deploy -i <운영 배포 ID> -V <이전 버전>` (2026-10-30 반영분의 이전 버전은 34) |
+| Apps Script | **배포 관리 → 기존 배포 편집**에서 이전 버전 선택. 또는 `clasp deploy -i <운영 배포 ID> -V <이전 버전>` (2026-10-31 반영분의 이전 버전은 59) |
 
 Apps Script와 프론트는 함께 되돌립니다. 한쪽만 되돌리면 새 액션(`getTemplateSheetPreview` 등)이나 바뀐 요청 형식이 맞지 않을 수 있습니다.
 
