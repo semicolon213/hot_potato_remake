@@ -7,7 +7,7 @@ const scopes = [
 const button = document.querySelector('#login');
 const steps = [...document.querySelectorAll('#steps li')];
 const result = document.querySelector('#result');
-let scriptId = localStorage.getItem('hp-erp-script-id') || '';
+let scriptId = '';
 
 function mark(index, message, failed = false) {
   steps[index].textContent = message;
@@ -20,21 +20,38 @@ async function api(path, token, options = {}) {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...options.headers }
   });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error?.message || `Google API 오류 (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(body.error?.message || `Google API 오류 (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
   return body;
 }
 
-async function deploy(token) {
+async function deploy(token, email) {
   const bundleResponse = await fetch('../backend-bundle.json');
   if (!bundleResponse.ok) throw new Error('backend-bundle.json을 읽을 수 없습니다.');
   const bundle = await bundleResponse.json();
 
-  if (!scriptId) {
+  const storageKey = `hp-erp-script-id:${email.toLowerCase()}`;
+  scriptId = localStorage.getItem(storageKey) || '';
+  let cached = Boolean(scriptId);
+  const createProject = async () => {
     scriptId = (await api('projects', token, { method: 'POST', body: JSON.stringify({ title: 'HP ERP Backend' }) })).scriptId;
-    localStorage.setItem('hp-erp-script-id', scriptId);
-  }
+    localStorage.setItem(storageKey, scriptId);
+    cached = false;
+  };
+  if (!scriptId) await createProject();
   mark(1, `프로젝트 생성 완료: ${scriptId}`);
-  await api(`projects/${scriptId}/content`, token, { method: 'PUT', body: JSON.stringify(bundle) });
+  try {
+    await api(`projects/${scriptId}/content`, token, { method: 'PUT', body: JSON.stringify(bundle) });
+  } catch (error) {
+    if (!cached || ![403, 404].includes(error.status)) throw error;
+    localStorage.removeItem(storageKey);
+    await createProject();
+    mark(1, `프로젝트 새로 생성 완료: ${scriptId}`);
+    await api(`projects/${scriptId}/content`, token, { method: 'PUT', body: JSON.stringify(bundle) });
+  }
   mark(2, '백엔드 코드 업로드 완료');
   const version = await api(`projects/${scriptId}/versions`, token, { method: 'POST', body: JSON.stringify({ description: 'HP ERP 초기 설치' }) });
   const deployment = await api(`projects/${scriptId}/deployments`, token, { method: 'POST', body: JSON.stringify({ versionNumber: version.versionNumber, manifestFileName: 'appsscript', description: 'HP ERP 웹 앱' }) });
@@ -51,6 +68,10 @@ button.addEventListener('click', () => {
     result.className = 'error';
     return;
   }
+  if (typeof google === 'undefined' || !google.accounts?.oauth2) {
+    finishError(new Error('Google 로그인 스크립트를 불러오는 중입니다. 잠시 후 다시 시도하세요.'));
+    return;
+  }
   button.disabled = true;
   google.accounts.oauth2.initTokenClient({
     client_id: clientId,
@@ -58,7 +79,13 @@ button.addEventListener('click', () => {
     callback: async response => {
       if (response.error) return finishError(new Error(response.error_description || response.error));
       mark(0, 'Google 로그인 완료');
-      try { await deploy(response.access_token); } catch (error) { finishError(error); }
+      try {
+        const profile = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${response.access_token}` } }).then(res => {
+          if (!res.ok) throw new Error('Google 계정 이메일을 확인할 수 없습니다.');
+          return res.json();
+        });
+        await deploy(response.access_token, profile.email);
+      } catch (error) { finishError(error); }
     },
     error_callback: error => finishError(new Error(error.message || error.type))
   }).requestAccessToken();
