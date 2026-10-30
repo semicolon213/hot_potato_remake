@@ -43,6 +43,8 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
   const isCreateModalOpen = externalIsCreateModalOpen !== undefined ? externalIsCreateModalOpen : internalIsCreateModalOpen;
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [mutatingBudgetId, setMutatingBudgetId] = useState<string | null>(null);
+  const [mutationAction, setMutationAction] = useState<'review' | 'approve' | 'reject' | 'execute' | 'delete' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
@@ -91,8 +93,8 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
     }
   };
 
-  const loadBudgetPlans = async () => {
-    setIsLoading(true);
+  const loadBudgetPlans = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     setError(null);
 
     try {
@@ -199,11 +201,14 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       log.error('예산 계획 목록 조회 오류:', err);
       setError('예산 계획을 불러오는데 실패했습니다.');
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
   const handleReview = async (budgetId: string) => {
+    if (mutatingBudgetId) return;
+    setMutatingBudgetId(budgetId);
+    setMutationAction('review');
     try {
       const userInfo = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('user') || '{}')
@@ -222,16 +227,22 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       }
       
       await reviewBudgetPlan(spreadsheetId, budgetId, reviewerEmail);
-      await loadBudgetPlans();
+      await loadBudgetPlans(false);
       notifyGlobal('검토가 완료되었습니다.', 'success');
     } catch (err: unknown) {
       log.error('검토 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '검토 처리에 실패했습니다.';
       notifyGlobal(errorMessage, 'error');
+    } finally {
+      setMutatingBudgetId(null);
+      setMutationAction(null);
     }
   };
 
   const handleApprove = async (budgetId: string) => {
+    if (mutatingBudgetId) return;
+    setMutatingBudgetId(budgetId);
+    setMutationAction('approve');
     try {
       const userInfo = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('user') || '{}')
@@ -241,16 +252,20 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       const approverId = userInfo.email || userInfo.studentId || currentUserEmail;
       
       await approveBudgetPlan(spreadsheetId, budgetId, approverId);
-      await loadBudgetPlans();
+      await loadBudgetPlans(false);
       notifyGlobal('승인이 완료되었습니다.', 'success');
     } catch (err: unknown) {
       log.error('승인 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '승인 처리에 실패했습니다.';
       notifyGlobal(errorMessage, 'error');
+    } finally {
+      setMutatingBudgetId(null);
+      setMutationAction(null);
     }
   };
 
   const handleOpenRejectModal = (budgetId: string) => {
+    if (mutatingBudgetId) return;
     setRejectingBudgetId(budgetId);
     setRejectReason('');
     setIsRejectModalOpen(true);
@@ -263,6 +278,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
   };
 
   const handleReject = async () => {
+    if (mutatingBudgetId) return;
     if (!rejectReason.trim()) {
       notifyGlobal('반려 사유를 입력해주세요.', 'warning');
       return;
@@ -272,6 +288,8 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       return;
     }
 
+    setMutatingBudgetId(rejectingBudgetId);
+    setMutationAction('reject');
     try {
       const userInfo = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('user') || '{}')
@@ -280,36 +298,43 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       // 이메일을 우선 사용 (서브 관리자 목록이 이메일로 저장되어 있음)
       const rejecterEmail = userInfo.email || userInfo.studentId || currentUserEmail;
       await rejectBudgetPlan(spreadsheetId, rejectingBudgetId, rejectReason, rejecterEmail);
-      await loadBudgetPlans();
+      await loadBudgetPlans(false);
       handleCloseRejectModal();
       notifyGlobal('반려가 완료되었습니다.', 'success');
     } catch (err: unknown) {
       log.error('반려 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '반려 처리에 실패했습니다.';
       notifyGlobal(errorMessage, 'error');
+    } finally {
+      setMutatingBudgetId(null);
+      setMutationAction(null);
     }
   };
 
   const handleExecute = async (budgetId: string) => {
-    if (!(await confirmAsync('예산 계획을 집행하시겠습니까? 장부에 자동으로 반영됩니다.', { type: 'warning' }))) {
-      return;
-    }
-
+    if (mutatingBudgetId) return;
+    setMutatingBudgetId(budgetId);
+    setMutationAction('execute');
     try {
+      if (!(await confirmAsync('예산 계획을 집행하시겠습니까? 장부에 자동으로 반영됩니다.', { type: 'warning' }))) return;
       const userInfo = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('user') || '{}')
         : {};
       
       await executeBudgetPlan(spreadsheetId, budgetId, userInfo.studentId || userInfo.email || 'unknown');
-      await loadBudgetPlans();
+      await loadBudgetPlans(false);
       notifyGlobal('예산 계획이 성공적으로 집행되었습니다.', 'success');
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '집행 처리에 실패했습니다.';
       notifyGlobal(errorMessage, 'error');
+    } finally {
+      setMutatingBudgetId(null);
+      setMutationAction(null);
     }
   };
 
   const handleDelete = async (budgetId: string) => {
+    if (mutatingBudgetId) return;
     const plan = budgetPlans.find(p => p.budgetId === budgetId);
     if (!plan) {
       return;
@@ -321,23 +346,25 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       confirmMessage = '⚠️ 경고: 이미 집행된 예산 계획입니다.\n\n이 예산 계획을 삭제하면 장부에 반영된 항목들도 함께 삭제됩니다.\n정말로 삭제하시겠습니까?';
     }
 
-    if (!(await confirmAsync(confirmMessage, { type: 'danger' }))) {
-      return;
-    }
-
+    setMutatingBudgetId(budgetId);
+    setMutationAction('delete');
     try {
+      if (!(await confirmAsync(confirmMessage, { type: 'danger' }))) return;
       const userInfo = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('user') || '{}')
         : {};
       
       const deleterId = userInfo.email || userInfo.studentId || currentUserEmail;
       await deleteBudgetPlan(spreadsheetId, budgetId, deleterId);
-      await loadBudgetPlans();
+      await loadBudgetPlans(false);
       notifyGlobal('예산 계획이 삭제되었습니다.', 'success');
     } catch (err: unknown) {
       log.error('삭제 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '삭제 처리에 실패했습니다.';
       notifyGlobal(errorMessage, 'error');
+    } finally {
+      setMutatingBudgetId(null);
+      setMutationAction(null);
     }
   };
 
@@ -453,6 +480,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
               ) : (
                 <>
                   {budgetPlans.map(plan => {
+                const isMutating = mutatingBudgetId === plan.budgetId;
                 // 디버깅: 각 계획의 상태와 조건 확인
                 if (plan.status === 'reviewed') {
       // Intentionally ignored.
@@ -497,13 +525,13 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
                         <button
                           onClick={() => handleReview(plan.budgetId)}
                           className={`action-btn review-btn review-btn-with-progress ${!isSubManager || hasUserReviewed(plan) ? 'disabled' : ''}`}
-                          disabled={!isSubManager || hasUserReviewed(plan)}
+                          disabled={Boolean(mutatingBudgetId) || !isSubManager || hasUserReviewed(plan)}
                           style={{
                             '--progress-percentage': `${getReviewProgress(plan).percentage}%`
                           } as React.CSSProperties}
                         >
                           <span className="review-btn-text">
-                            검토 {getReviewProgress(plan).completed}/{getReviewProgress(plan).total}
+                            {isMutating && mutationAction === 'review' ? '검토 중...' : `검토 ${getReviewProgress(plan).completed}/${getReviewProgress(plan).total}`}
                           </span>
                         </button>
                       )}
@@ -512,12 +540,14 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
                           <button
                             onClick={() => handleApprove(plan.budgetId)}
                             className="action-btn approve-btn"
+                            disabled={Boolean(mutatingBudgetId)}
                           >
-                            승인
+                            {isMutating && mutationAction === 'approve' ? '승인 중...' : '승인'}
                           </button>
                           <button
                             onClick={() => handleOpenRejectModal(plan.budgetId)}
                             className="action-btn reject-btn"
+                            disabled={Boolean(mutatingBudgetId)}
                           >
                             반려
                           </button>
@@ -527,16 +557,18 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
                         <button
                           onClick={() => handleExecute(plan.budgetId)}
                           className="action-btn execute-btn"
+                          disabled={Boolean(mutatingBudgetId)}
                         >
-                          집행
+                          {isMutating && mutationAction === 'execute' ? '집행 중...' : '집행'}
                         </button>
                       )}
                       {isManager && (
                         <button
                           onClick={() => handleDelete(plan.budgetId)}
                           className="action-btn delete-btn"
+                          disabled={Boolean(mutatingBudgetId)}
                         >
-                          삭제
+                          {isMutating && mutationAction === 'delete' ? '삭제 중...' : '삭제'}
                         </button>
                       )}
                     </div>
@@ -570,7 +602,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
           }
         }}
         onSuccess={() => {
-          loadBudgetPlans();
+          loadBudgetPlans(false);
           if (onCloseCreateModal) {
             onCloseCreateModal();
           } else {
@@ -587,7 +619,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
           budgetId={selectedBudgetId}
           onClose={() => setSelectedBudgetId(null)}
           onSave={() => {
-            loadBudgetPlans();
+            loadBudgetPlans(false);
             setSelectedBudgetId(null);
           }}
         />
@@ -637,6 +669,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
             }}>
               <button
                 onClick={handleCloseRejectModal}
+                disabled={Boolean(mutatingBudgetId)}
                 style={{
                   padding: '10px 20px',
                   border: '1px solid #ddd',
@@ -650,7 +683,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
               </button>
               <button
                 onClick={handleReject}
-                disabled={!rejectReason.trim()}
+                disabled={!rejectReason.trim() || Boolean(mutatingBudgetId)}
                 style={{
                   padding: '10px 20px',
                   border: 'none',
@@ -661,7 +694,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
                   fontSize: '14px'
                 }}
               >
-                반려
+                {mutationAction === 'reject' ? '반려 중...' : '반려'}
               </button>
             </div>
           </div>
