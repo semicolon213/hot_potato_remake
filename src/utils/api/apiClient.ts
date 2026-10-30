@@ -19,6 +19,7 @@ import type {
   WorkflowTemplatesListResponse
 } from '../../types/api/apiResponses';
 import type { LedgerResponse } from '../../types/features/accounting';
+import type { RowData } from '../../types/googleSheets';
 import type {
   WorkflowRequestData,
   SetWorkflowLineData,
@@ -443,6 +444,10 @@ export class ApiClient {
   // 공유 양식(문서·스프레드시트)을 Office 형식(base64)으로 받기 (개인 폴더에 Google 파일로 변환해 올릴 때 사용)
   async exportTemplateFile(templateId: string) {
     return this.request<{ name: string; sourceMimeType: string; exportMimeType: string; fileData: string }>('exportTemplateFile', { templateId });
+  }
+
+  async getTemplateSheetPreview(templateId: string, sheetName?: string) {
+    return this.request<{ sheets: Array<{ properties: { title: string; sheetId: number }; merges?: Array<{ sheetId: number; startRowIndex: number; endRowIndex: number; startColumnIndex: number; endColumnIndex: number }>; data?: Array<{ rowData?: RowData[] }> }> }>('getTemplateSheetPreview', { templateId, sheetName });
   }
 
   // 공지 첨부파일 업로드 (Apps Script가 첨부 폴더에 저장하고 링크 공개)

@@ -126,8 +126,9 @@ function getTemplatesFromFolder() {
     }
     
     // Google Docs 파일만 필터링
-    const googleDocsFiles = allFiles.files ? allFiles.files.filter(file => 
-      file.mimeType === 'application/vnd.google-apps.document'
+    const googleDocsFiles = allFiles.files ? allFiles.files.filter(file =>
+      file.mimeType === 'application/vnd.google-apps.document' ||
+      file.mimeType === 'application/vnd.google-apps.spreadsheet'
     ) : [];
     
     googleDocsFiles.forEach((file, index) => {
@@ -150,6 +151,7 @@ function getTemplatesFromFolder() {
         id: file.id,
         type: file.id,
         title: file.name,
+        mimeType: file.mimeType,
         description: p.description || file.description || '템플릿 파일',
         tag: p.tag || '기본',
         fullTitle: file.name,
@@ -863,5 +865,67 @@ function exportTemplateFile(req) {
   } catch (error) {
     logError_('DocumentTemplates', '양식 내보내기 오류:', error);
     return { success: false, message: '양식 내보내기 중 오류가 발생했습니다: ' + error.message };
+  }
+}
+
+/** Return preview data only for spreadsheets stored directly in shared_forms. */
+function getTemplateSheetPreview(req) {
+  try {
+    const templateId = req && req.templateId;
+    if (!templateId) return { success: false, message: '템플릿 ID가 필요합니다.' };
+
+    const folderResult = findOrCreateFolder(getTemplateFolderPath());
+    if (!folderResult || !folderResult.success || !folderResult.data || !folderResult.data.id) {
+      return { success: false, message: '공유 양식 폴더를 찾을 수 없습니다.' };
+    }
+
+    const file = DriveApp.getFileById(templateId);
+    const parentIds = [];
+    const parents = file.getParents();
+    while (parents.hasNext()) parentIds.push(parents.next().getId());
+    if (parentIds.indexOf(folderResult.data.id) === -1 ||
+        file.getMimeType() !== MimeType.GOOGLE_SHEETS) {
+      return { success: false, message: '공유 양식 폴더의 스프레드시트만 미리 볼 수 있습니다.' };
+    }
+
+    const spreadsheet = SpreadsheetApp.openById(templateId);
+    const sheets = spreadsheet.getSheets();
+    const result = { success: true, data: { sheets: sheets.map(sheet => ({ properties: { title: sheet.getName(), sheetId: sheet.getSheetId() } })) } };
+    if (!req.sheetName) return result;
+
+    const sheet = sheets.find(item => item.getName() === req.sheetName);
+    if (!sheet) return { success: false, message: '지정한 시트를 찾을 수 없습니다.' };
+    const range = sheet.getRange(1, 1, Math.max(1, Math.min(1000, sheet.getLastRow())), Math.max(1, Math.min(702, sheet.getLastColumn())));
+    const values = range.getValues();
+    const displayValues = range.getDisplayValues();
+    const rowData = values.map((row, rowIndex) => ({ values: row.map((value, columnIndex) => {
+      const effectiveValue = {};
+      if (value instanceof Date) {
+        effectiveValue.numberValue = value.getTime() / 86400000 + 25569;
+      } else if (typeof value === 'number') {
+        effectiveValue.numberValue = value;
+      } else if (typeof value === 'boolean') {
+        effectiveValue.boolValue = value;
+      } else if (value !== '' && value != null) {
+        effectiveValue.stringValue = String(value);
+      }
+      return { effectiveValue: effectiveValue, formattedValue: displayValues[rowIndex][columnIndex] };
+    }) }));
+    const merges = sheet.getMergedRanges().map(merged => ({
+      sheetId: sheet.getSheetId(),
+      startRowIndex: merged.getRow() - 1,
+      endRowIndex: merged.getLastRow(),
+      startColumnIndex: merged.getColumn() - 1,
+      endColumnIndex: merged.getLastColumn()
+    }));
+    result.data.sheets = [{
+      properties: { title: sheet.getName(), sheetId: sheet.getSheetId() },
+      merges: merges,
+      data: [{ rowData: rowData }]
+    }];
+    return result;
+  } catch (error) {
+    logError_('DocumentTemplates', '공유 양식 미리보기 오류:', error);
+    return { success: false, message: '공유 양식 미리보기를 불러오지 못했습니다: ' + error.message };
   }
 }

@@ -357,6 +357,12 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
+    if (req.action === 'getTemplateSheetPreview') {
+      return ContentService
+        .createTextOutput(JSON.stringify(getTemplateSheetPreview(req)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     if (req.action === 'deleteDocuments') {
       const result = (typeof handleDeleteDocuments === 'function') ? handleDeleteDocuments(req) : (typeof DocumentSpreadsheet !== 'undefined' && DocumentSpreadsheet.handleDeleteDocuments ? DocumentSpreadsheet.handleDeleteDocuments(req) : { success: false, message: 'DocumentSpreadsheet is not defined' });
       return ContentService
