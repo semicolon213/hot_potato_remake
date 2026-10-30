@@ -665,10 +665,21 @@ function applyNoticeFilesSharing_(fileNotice, content, accessRights, writerEmail
   const currentIds = getNoticeFileIds_(fileNotice, content);
   const previousIds = getNoticeFileIds_(previousFileNotice, previousContent);
   const targets = getNoticeSharingTargets_(accessRights, writerEmail);
-  currentIds.forEach(function(fileId) { reconcileNoticeFileSharing_(fileId, targets); });
+  const skipped = [];
+  // 예전 버전에서 사용자가 직접 올린 첨부는 사용자 소유라 배포 계정이 권한을 바꿀 수 없다. 공지 저장을 막지 않도록 건너뛴다.
+  const reconcile = function(fileId, fileTargets) {
+    try {
+      reconcileNoticeFileSharing_(fileId, fileTargets);
+    } catch (error) {
+      logWarn_('AnnouncementManagement', '첨부 권한 조정 건너뜀:', fileId, error.message);
+      skipped.push({ id: fileId, message: error.message });
+    }
+  };
+  currentIds.forEach(function(fileId) { reconcile(fileId, targets); });
   previousIds.forEach(function(fileId) {
-    if (currentIds.indexOf(fileId) === -1) reconcileNoticeFileSharing_(fileId, []);
+    if (currentIds.indexOf(fileId) === -1) reconcile(fileId, []);
   });
+  return skipped;
 }
 
 function processAndUploadImages_(content) {
@@ -980,6 +991,7 @@ function applyNoticeAttachmentSharing() {
   const headerMap = {};
   data[0].forEach(function(header, index) { headerMap[header] = index; });
   let processed = 0;
+  let skippedAll = [];
   for (let i = 1; i < data.length; i++) {
     if (!data[i][headerMap['no_notice']]) continue;
     let writerEmail = '';
@@ -987,10 +999,12 @@ function applyNoticeAttachmentSharing() {
     const fileNotice = data[i][headerMap['file_notice']] || '';
     const content = data[i][headerMap['content_notice']] || '';
     const ids = getNoticeFileIds_(fileNotice, content);
-    applyNoticeFilesSharing_(fileNotice, content, data[i][headerMap['access_rights']] || '', writerEmail, '', '');
-    processed += ids.length;
+    const skipped = applyNoticeFilesSharing_(fileNotice, content, data[i][headerMap['access_rights']] || '', writerEmail, '', '');
+    skippedAll = skippedAll.concat(skipped);
+    processed += ids.length - skipped.length;
   }
-  return { success: true, processed: processed };
+  if (skippedAll.length) Logger.log('권한을 바꿀 수 없어 건너뛴 첨부 (소유자가 직접 공유 설정 필요): ' + JSON.stringify(skippedAll));
+  return { success: true, processed: processed, skipped: skippedAll };
 }
 
 /**
