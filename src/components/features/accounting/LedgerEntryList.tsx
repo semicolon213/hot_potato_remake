@@ -80,6 +80,8 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   const [newEntryEvidenceFile, setNewEntryEvidenceFile] = useState<File | null>(null);
   const [editingEntryEvidenceFile, setEditingEntryEvidenceFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>(accountId || '');
   const [currentPage, setCurrentPage] = useState<{ [monthKey: string]: number }>({});
@@ -99,7 +101,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; entry: LedgerEntry | null; isEmpty: boolean } | null>(null);
   
   // loadEntries를 useCallback으로 먼저 정의
-  const loadEntries = useCallback(async (accountId?: string): Promise<LedgerEntry[] | undefined> => {
+  const loadEntries = useCallback(async (accountId?: string, showLoading = true): Promise<LedgerEntry[] | undefined> => {
     // accountId 파라미터가 있으면 사용, 없으면 selectedAccountId 사용
     const targetAccountId = accountId || selectedAccountId;
     
@@ -108,7 +110,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       return;
     }
 
-    setIsLoading(true);
+    if (showLoading) setIsLoading(true);
     setError(null);
 
     try {
@@ -129,7 +131,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       setError('장부 항목을 불러오는데 실패했습니다.');
       return;
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   }, [spreadsheetId, selectedAccountId, onEntriesChange]);
 
@@ -233,7 +235,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   };
 
   const handleSaveAdd = async () => {
-    if (isLoading) return;
+    if (isSaving || deletingEntryId) return;
     if (!selectedAccountId) {
       setError('통장 정보를 찾을 수 없습니다.');
       return;
@@ -250,7 +252,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
     }
 
     try {
-      setIsLoading(true);
+      setIsSaving(true);
       setError(null);
 
       const userInfo = typeof window !== 'undefined'
@@ -284,7 +286,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
         source: ''
       });
       setNewEntryEvidenceFile(null);
-      const updatedEntries = await loadEntries();
+      const updatedEntries = await loadEntries(undefined, false);
       if (updatedEntries && onEntriesChange) {
         onEntriesChange(updatedEntries);
       }
@@ -294,7 +296,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       const errorMessage = err instanceof Error ? err.message : '장부 항목 추가에 실패했습니다.';
       setError(errorMessage);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -348,7 +350,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   };
 
   const handleSaveEdit = async () => {
-    if (isLoading) return;
+    if (isSaving || deletingEntryId) return;
     if (!editingEntry || !editingEntryId || !selectedAccountId) {
       return;
     }
@@ -364,7 +366,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
     }
 
     try {
-      setIsLoading(true);
+      setIsSaving(true);
       setError(null);
 
       const updateData: UpdateLedgerEntryRequest = {
@@ -382,7 +384,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       
       setEditingEntryId(null);
       setEditingEntry(null);
-      const updatedEntries = await loadEntries();
+      const updatedEntries = await loadEntries(undefined, false);
       if (updatedEntries && onEntriesChange) {
         onEntriesChange(updatedEntries);
       }
@@ -392,25 +394,22 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       const errorMessage = err instanceof Error ? err.message : '장부 항목 수정에 실패했습니다.';
       setError(errorMessage);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async (entry: LedgerEntry) => {
-    if (!(await confirmAsync('정말로 이 장부 항목을 삭제하시겠습니까?', { type: 'danger' }))) {
-      setContextMenu(null); // 컨텍스트 메뉴 닫기
-      return;
-    }
-
-    if (!selectedAccountId) {
-      notifyGlobal('통장 정보를 찾을 수 없습니다.', 'error');
-      return;
-    }
+    if (isSaving || deletingEntryId) return;
+    setDeletingEntryId(entry.entryId);
 
     try {
-      setIsLoading(true);
+      if (!(await confirmAsync('정말로 이 장부 항목을 삭제하시겠습니까?', { type: 'danger' }))) return;
+      if (!selectedAccountId) {
+        notifyGlobal('통장 정보를 찾을 수 없습니다.', 'error');
+        return;
+      }
       await deleteLedgerEntry(spreadsheetId, entry.entryId, selectedAccountId);
-      const updatedEntries = await loadEntries();
+      const updatedEntries = await loadEntries(undefined, false);
       if (updatedEntries && onEntriesChange) {
         onEntriesChange(updatedEntries);
       }
@@ -421,7 +420,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       setError(errorMessage);
       notifyGlobal('장부 항목 삭제에 실패했습니다: ' + errorMessage, 'error');
     } finally {
-      setIsLoading(false);
+      setDeletingEntryId(null);
     }
   };
 
@@ -1233,14 +1232,14 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
                               <button
                                 onClick={handleSaveAdd}
                                 className="btn-save action-btn"
-                                disabled={isLoading}
+                                disabled={isSaving}
                               >
-                                {isLoading ? '저장 중...' : '저장'}
+                                {isSaving ? '저장 중...' : '저장'}
                               </button>
                               <button
                                 onClick={handleCancelAdd}
                                 className="btn-cancel action-btn"
-                                disabled={isLoading}
+                                disabled={isSaving}
                               >
                                 취소
                               </button>
@@ -1451,14 +1450,14 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
                                   <button
                                     onClick={handleSaveEdit}
                                     className="btn-save action-btn"
-                                    disabled={isLoading}
+                                    disabled={isSaving}
                                   >
-                                    {isLoading ? '저장 중...' : '저장'}
+                                    {isSaving ? '저장 중...' : '저장'}
                                   </button>
                                   <button
                                     onClick={handleCancelEdit}
                                     className="btn-cancel action-btn"
-                                    disabled={isLoading}
+                                    disabled={isSaving}
                                   >
                                     취소
                                   </button>
@@ -1670,6 +1669,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
               <>
                 <button
                   className="context-menu-item"
+                  disabled={isSaving || Boolean(deletingEntryId)}
                   onClick={() => {
                     if (contextMenu.entry) {
                       handleStartEdit(contextMenu.entry);
@@ -1681,15 +1681,16 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
                 </button>
                 <button
                   className="context-menu-item"
-                  onClick={() => {
+                  disabled={isSaving || Boolean(deletingEntryId)}
+                  onClick={async () => {
                     if (contextMenu.entry) {
-                      handleDelete(contextMenu.entry);
+                      await handleDelete(contextMenu.entry);
                     }
                     handleCloseContextMenu();
                   }}
                 >
                   <FaTrash />
-                  <span>삭제</span>
+                  <span>{deletingEntryId === contextMenu.entry?.entryId ? '삭제 중...' : '삭제'}</span>
                 </button>
               </>
             )}
