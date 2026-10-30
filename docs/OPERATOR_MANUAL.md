@@ -17,6 +17,7 @@
 | 파일 교체·이동 후 | 스프레드시트 ID 캐시 비우기 (`clearSpreadsheetIdCache`) | Apps Script 편집기 (§7) |
 | 그룹 주소 변경·기존 설치 업데이트 후 | 역할 폴더·장부·공지 첨부 권한 다시 부여 (`applyRoleFolderSharing`, `applyLedgerSharing`, `applyNoticeAttachmentSharing`) | Apps Script 편집기 (§3.4, §6, [DEPLOYMENT.md §7](./DEPLOYMENT.md#7-변경-배포)) |
 | OAuth 클라이언트를 바꾼 뒤 | 스크립트 속성 `GOOGLE_CLIENT_ID`와 Netlify `VITE_GOOGLE_CLIENT_ID`를 같은 값으로 맞추고 `/setup`에서 확인 | Apps Script 프로젝트 설정, Netlify (§8) |
+| 공유 로그인 요청을 받은 뒤 | 운영자 OAuth 클라이언트에 기관 원본·리디렉션 URI와 테스트 사용자를 등록 | Google Auth Platform (§2.1) |
 
 ## 2. 최초 세팅
 
@@ -36,6 +37,16 @@
 5. 첫 관리자가 앱에 로그인합니다. 가입 폼에서 학번·이름·가입유형을 넣고 **관리자 키**를 입력해 신청합니다.
 6. `user` 시트에서 그 행의 `Approval`을 `O`로, `approval_date`를 오늘 날짜로 바꿉니다. 첫 관리자는 승인해 줄 사람이 없기 때문입니다.
 7. 다시 로그인하면 사이드바에 **관리자** 메뉴가 보입니다.
+
+### 2.1 공유 로그인 등록 요청 처리
+
+설치 마법사의 ‘운영자 클라이언트 사용’ 요청을 받으면 다음 세 가지만 처리합니다.
+
+1. 요청문의 기관 사이트 주소를 확인합니다. 운영자 웹 OAuth 클라이언트의 **승인된 JavaScript 원본**과 **승인된 리디렉션 URI** 양쪽에 끝 슬래시 없이 같은 주소를 추가합니다.
+2. Google Auth Platform의 **Audience**가 Testing이면 요청문의 이메일을 테스트 사용자에 추가합니다. Testing 전체 한도는 클라이언트 전체 100명이며 동의는 7일마다 만료될 수 있습니다.
+3. 기관 담당자에게 등록 완료를 회신하고 `/setup`의 Google 로그인 테스트를 다시 누르게 합니다. Netlify 실제 주소가 요청 주소와 달라졌다면 실제 주소로 1번을 다시 처리합니다.
+
+공유 기관의 Netlify `VITE_GOOGLE_CLIENT_ID`와 Apps Script `GOOGLE_CLIENT_ID`에는 운영자 클라이언트 ID가 들어갑니다. 동의 화면에는 운영자 앱 이름과 운영자 개인정보처리방침이 표시되므로 요청 기관에 미리 알립니다. 설치 안내 사이트가 요청문과 ID를 자동 채우려면 빌드 환경변수 `VITE_GOOGLE_CLIENT_ID`, `VITE_OPERATOR_CONTACT_EMAIL`을 설정합니다.
 
 ## 3. 회원 관리
 

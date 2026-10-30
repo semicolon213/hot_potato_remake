@@ -19,9 +19,11 @@ flowchart LR
 
 ### 개발 지식이 없는 담당자의 새 설치
 
-운영 중인 설치 안내 사이트의 `/install/`을 열어 0~14단계를 순서대로 진행합니다. 마법사에서 사이트 이름을 먼저 정하고 Google OAuth 원본을 만든 뒤, `VITE_APP_SCRIPT_URL`, `VITE_GOOGLE_CLIENT_ID`, `VITE_GROUP_EMAIL`을 Netlify 첫 배포에 한 번에 넣습니다. 실제 Netlify 주소가 예정 주소와 다르면 Google Cloud의 승인된 JavaScript 원본과 리디렉션 URI를 실제 주소로 바꿔야 합니다.
+운영 중인 설치 안내 사이트의 `/install/`을 열어 0~14단계를 순서대로 진행합니다. 4단계에서 운영자 OAuth 클라이언트를 공유받는 쉬운 방식 또는 기관이 직접 Google Cloud 클라이언트를 만드는 독립 방식을 고릅니다. 공유 방식은 요청문을 운영자에게 보내 원본·테스트 사용자 등록을 기다리고, 직접 방식은 4-1~4-7을 진행합니다. 어느 방식이든 `VITE_APP_SCRIPT_URL`, `VITE_GOOGLE_CLIENT_ID`, `VITE_GROUP_EMAIL`을 Netlify 첫 배포에 한 번에 넣습니다. 실제 Netlify 주소가 예정 주소와 다르면 OAuth 원본과 리디렉션 URI를 실제 주소로 바꿔야 합니다.
 
 설치 안내 사이트 자체를 배포하는 운영자는 별도 설치용 OAuth 웹 클라이언트 ID를 `VITE_INSTALL_CLIENT_ID`에 넣습니다. 환경변수를 쓰지 않는 정적 호스팅은 `public/install/config.js`의 `googleClientId`에 넣을 수 있습니다. 이 값이 없으면 `/install/`은 경고를 표시하고 자동 백엔드 생성을 안전하게 막습니다. 운영 앱용 `VITE_GOOGLE_CLIENT_ID`와 혼동하지 마세요.
+
+공유 로그인을 제공하려면 설치 안내 사이트 빌드에 운영자 앱의 `VITE_GOOGLE_CLIENT_ID`와 요청 수신용 `VITE_OPERATOR_CONTACT_EMAIL`도 넣습니다. 둘 중 하나가 없으면 공유 선택지가 비활성화됩니다. 공유 요청을 받은 운영자는 자기 웹 클라이언트의 승인된 JavaScript 원본·리디렉션 URI에 기관 주소를 끝 슬래시 없이 추가하고, Audience가 Testing이면 요청받은 이메일을 테스트 사용자에 추가합니다. 이 방식은 운영자의 Testing 사용자 100명 한도와 동의 화면 정보를 여러 기관이 공유합니다.
 
 ## 1. Google Cloud Console
 

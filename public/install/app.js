@@ -5,7 +5,7 @@ const STEP_META = [
   ['계정 설정', 'Apps Script API 켜기'],
   ['백엔드', '로그인하고 백엔드 만들기'],
   ['사이트', '사이트 이름 정하기'],
-  ['Google 로그인', '웹 클라이언트 설정'],
+  ['Google 로그인', '로그인 방식 선택'],
   ['그룹', 'Google 그룹 만들기'],
   ['사이트 배포', 'Netlify에 한 번에 배포'],
   ['설치 토큰', '설치 토큰 만들기'],
@@ -24,7 +24,7 @@ const INSTALL_SCOPES = [
 ].join(' ');
 
 const GROUP_KEYS = ['STUDENT', 'COUNCIL', 'ASSISTANT', 'PROFESSOR', 'ADJ_PROFESSOR'];
-const emptyState = { currentStep: 0, completed: {}, backendUrl: '', scriptId: '', siteName: '', siteUrl: '', appClientId: '', groups: {}, finalChecks: {}, apiError: '' };
+const emptyState = { currentStep: 0, completed: {}, backendUrl: '', scriptId: '', siteName: '', siteUrl: '', authMode: '', appClientId: '', directClientId: '', institutionName: '', requesterContact: '', testUsers: '', groups: {}, finalChecks: {}, apiError: '' };
 let state = loadState();
 let finalCheckPassed = false;
 
@@ -35,11 +35,18 @@ const siteInput = document.querySelector('#site-url');
 const siteNameInput = document.querySelector('#site-name');
 const clientInput = document.querySelector('#app-client-id');
 const loginButton = document.querySelector('#login');
+const sharedModeInput = document.querySelector('#auth-mode-shared');
+const directModeInput = document.querySelector('#auth-mode-direct');
+const institutionInput = document.querySelector('#institution-name');
+const requesterContactInput = document.querySelector('#requester-contact');
+const testUsersInput = document.querySelector('#test-user-emails');
 
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    return { ...emptyState, ...saved, completed: saved.completed || {}, groups: saved.groups || {}, finalChecks: saved.finalChecks || {} };
+    const loaded = { ...emptyState, ...saved, completed: saved.completed || {}, groups: saved.groups || {}, finalChecks: saved.finalChecks || {} };
+    if (!loaded.directClientId && !loaded.authMode) loaded.directClientId = loaded.appClientId || '';
+    return loaded;
   } catch {
     return { ...emptyState };
   }
@@ -126,6 +133,28 @@ function validEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }
 
+function operatorConfig() {
+  return {
+    clientId: String(window.INSTALL_CONFIG?.operatorClientId || '').trim(),
+    contactEmail: String(window.INSTALL_CONFIG?.operatorContactEmail || '').trim()
+  };
+}
+
+function testUserEmails() {
+  return state.testUsers.split(/\r?\n/).map(email => email.trim()).filter(Boolean);
+}
+
+function sharedModeAvailable() {
+  const config = operatorConfig();
+  return validClientId(config.clientId) && validEmail(config.contactEmail);
+}
+
+function sharedRequestText() {
+  const plannedUrl = state.siteUrl || (validSiteName(state.siteName) ? `https://${state.siteName}.netlify.app` : '(사이트 주소 미입력)');
+  const users = testUserEmails();
+  return `HP ERP 공유 Google 로그인 등록을 요청합니다.\n\n기관·학과: ${state.institutionName || '(미입력)'}\n담당자 연락처: ${state.requesterContact || '(미입력)'}\n기관 사이트 주소: ${plannedUrl}\n테스트 사용자:\n${users.length ? users.map(email => `- ${email}`).join('\n') : '- (미입력)'}\n\n운영자 OAuth 클라이언트의 승인된 JavaScript 원본과 리디렉션 URI에 기관 사이트 주소를 추가하고, Audience 테스트 사용자에 위 이메일을 등록해 주세요.`;
+}
+
 function groupJson() {
   return GROUP_KEYS.every(key => validEmail(state.groups[key]))
     ? JSON.stringify(Object.fromEntries(GROUP_KEYS.map(key => [key, state.groups[key]])))
@@ -141,9 +170,21 @@ function validateStep(step) {
     document.querySelector('#site-name-error').textContent = '영문 소문자, 숫자, 하이픈만 입력하세요.';
     return false;
   }
-  if (step === 4 && !validClientId(clientInput.value || state.appClientId)) {
-    document.querySelector('#client-id-error').textContent = '.apps.googleusercontent.com으로 끝나는 클라이언트 ID를 입력하세요.';
-    return false;
+  if (step === 4) {
+    if (!state.authMode) {
+      showMessage('Google 로그인 방식 하나를 선택하세요.', 'error');
+      return false;
+    }
+    if (state.authMode === 'shared') {
+      const users = testUserEmails();
+      if (!sharedModeAvailable() || !validSiteName(state.siteName) || !state.institutionName.trim() || !state.requesterContact.trim() || !users.length || users.some(email => !validEmail(email))) {
+        showMessage('운영자 등록 요청에 필요한 기관명, 담당자 연락처와 테스트 사용자 이메일을 확인하세요.', 'error');
+        return false;
+      }
+    } else if (!validClientId(clientInput.value || state.directClientId)) {
+      document.querySelector('#client-id-error').textContent = '.apps.googleusercontent.com으로 끝나는 클라이언트 ID를 입력하세요.';
+      return false;
+    }
   }
   if (step === 5 && !groupJson()) {
     showMessage('Google 그룹 이메일 5개를 모두 확인하세요.', 'error');
@@ -185,7 +226,26 @@ function updateDerivedValues() {
   const plannedUrl = validSiteName(state.siteName) ? `https://${state.siteName}.netlify.app` : '';
   const activeSiteUrl = state.siteUrl || plannedUrl;
   const groups = groupJson();
-  document.querySelector('#site-url-warning').textContent = state.siteUrl && plannedUrl && state.siteUrl !== plannedUrl ? '예정 주소와 다릅니다. 4단계의 JavaScript 원본과 리디렉션 URI를 이 실제 주소로 고치세요.' : '';
+  const sharedAvailable = sharedModeAvailable();
+  sharedModeInput.disabled = !sharedAvailable;
+  sharedModeInput.checked = state.authMode === 'shared';
+  directModeInput.checked = state.authMode === 'direct';
+  document.querySelector('#shared-mode-disabled').hidden = sharedAvailable;
+  document.querySelector('#shared-mode-disabled').textContent = sharedAvailable ? '' : '운영자 연락처 또는 공유 클라이언트가 설정되지 않아 쉬운 방식을 선택할 수 없습니다. 직접 만들기를 선택하세요.';
+  document.querySelector('#shared-auth-panel').hidden = state.authMode !== 'shared';
+  document.querySelector('#direct-auth-panel').hidden = state.authMode !== 'direct';
+  document.querySelector('#shared-site-url').textContent = activeSiteUrl || '3단계에서 사이트 이름을 입력하세요.';
+  const requestText = sharedRequestText();
+  document.querySelector('#operator-request').value = requestText;
+  const config = operatorConfig();
+  document.querySelector('#operator-mail-link').href = validEmail(config.contactEmail)
+    ? `mailto:${config.contactEmail}?subject=${encodeURIComponent(`[HP ERP] ${state.institutionName || '기관'} 공유 로그인 등록 요청`)}&body=${encodeURIComponent(requestText)}`
+    : '#';
+  document.querySelector('#site-url-warning').textContent = state.siteUrl && plannedUrl && state.siteUrl !== plannedUrl
+    ? state.authMode === 'shared'
+      ? '예정 주소와 다릅니다. 4단계 요청문을 실제 주소로 고쳐 운영자에게 다시 보내세요.'
+      : '예정 주소와 다릅니다. 4단계의 JavaScript 원본과 리디렉션 URI를 이 실제 주소로 고치세요.'
+    : '';
   document.querySelector('#backend-result').hidden = !state.backendUrl;
   document.querySelector('#backend-url').textContent = state.backendUrl;
   document.querySelector('#script-id').textContent = state.scriptId;
@@ -390,9 +450,15 @@ async function runFinalCheck() {
 buildNav();
 const initialStep = stepFromHash();
 if (initialStep !== null) state.currentStep = initialStep;
+if (state.authMode === 'shared' && !sharedModeAvailable()) state.authMode = '';
+if (state.authMode === 'shared') state.appClientId = operatorConfig().clientId;
+if (state.authMode === 'direct') state.appClientId = state.directClientId;
 siteNameInput.value = state.siteName;
 siteInput.value = state.siteUrl;
-clientInput.value = state.appClientId;
+clientInput.value = state.directClientId;
+institutionInput.value = state.institutionName;
+requesterContactInput.value = state.requesterContact;
+testUsersInput.value = state.testUsers;
 GROUP_KEYS.forEach(key => {
   const input = document.querySelector(`#group-${key.toLowerCase().replace('_', '-')}`);
   input.value = state.groups[key] || '';
@@ -415,11 +481,45 @@ document.querySelectorAll('[data-final-check]').forEach(input => {
 document.querySelector('#deploy-netlify').href = `https://app.netlify.com/start/deploy?repository=${encodeURIComponent(window.INSTALL_CONFIG?.repositoryUrl || '')}`;
 document.querySelector('#operator-warning').hidden = validClientId(window.INSTALL_CONFIG?.googleClientId || '');
 
+document.querySelectorAll('[name="auth-mode"]').forEach(input => input.addEventListener('change', () => {
+  state.authMode = input.value;
+  state.appClientId = input.value === 'shared' ? operatorConfig().clientId : state.directClientId;
+  state.completed[4] = input.value === 'direct' && validClientId(state.directClientId);
+  saveState();
+  render();
+}));
+
+institutionInput.addEventListener('input', () => {
+  state.institutionName = institutionInput.value;
+  if (state.authMode === 'shared') state.completed[4] = false;
+  document.querySelector('#institution-name-error').textContent = state.institutionName.trim() ? '' : '기관·학과 이름을 입력하세요.';
+  saveState();
+  updateDerivedValues();
+});
+
+requesterContactInput.addEventListener('input', () => {
+  state.requesterContact = requesterContactInput.value;
+  if (state.authMode === 'shared') state.completed[4] = false;
+  document.querySelector('#requester-contact-error').textContent = state.requesterContact.trim() ? '' : '담당자 연락처를 입력하세요.';
+  saveState();
+  updateDerivedValues();
+});
+
+testUsersInput.addEventListener('input', () => {
+  state.testUsers = testUsersInput.value;
+  if (state.authMode === 'shared') state.completed[4] = false;
+  const users = testUserEmails();
+  document.querySelector('#test-user-emails-error').textContent = users.length && users.every(validEmail) ? '' : '한 줄에 올바른 이메일 주소 하나씩 입력하세요.';
+  saveState();
+  updateDerivedValues();
+});
+
 siteNameInput.addEventListener('input', () => {
   const value = siteNameInput.value.trim();
   document.querySelector('#site-name-error').textContent = value && !validSiteName(value) ? '영문 소문자, 숫자, 하이픈만 입력하세요.' : '';
   state.siteName = value;
   state.completed[3] = validSiteName(value);
+  if (state.authMode === 'shared') state.completed[4] = false;
   saveState();
   updateDerivedValues();
 });
@@ -428,7 +528,6 @@ siteInput.addEventListener('input', () => {
   document.querySelector('#site-url-error').textContent = siteInput.value && !normalized ? 'https://로 시작하는 사이트 주소만 입력하세요. 경로와 끝 슬래시는 빼 주세요.' : '';
   state.siteUrl = normalized;
   const plannedUrl = validSiteName(state.siteName) ? `https://${state.siteName}.netlify.app` : '';
-  document.querySelector('#site-url-warning').textContent = normalized && plannedUrl && normalized !== plannedUrl ? '예정 주소와 다릅니다. 4단계의 JavaScript 원본과 리디렉션 URI를 이 실제 주소로 고치세요.' : '';
   state.completed[6] = Boolean(normalized && state.backendUrl && state.appClientId && groupJson());
   saveState();
   updateDerivedValues();
@@ -436,8 +535,9 @@ siteInput.addEventListener('input', () => {
 clientInput.addEventListener('input', () => {
   const value = clientInput.value.trim();
   document.querySelector('#client-id-error').textContent = value && !validClientId(value) ? '.apps.googleusercontent.com으로 끝나는 클라이언트 ID를 입력하세요.' : '';
-  state.appClientId = validClientId(value) ? value : '';
-  state.completed[4] = validClientId(value);
+  state.directClientId = validClientId(value) ? value : '';
+  if (state.authMode === 'direct') state.appClientId = state.directClientId;
+  state.completed[4] = state.authMode === 'direct' && validClientId(value);
   saveState();
   render();
 });

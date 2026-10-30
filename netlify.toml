@@ -12,6 +12,7 @@
   VITE_INSTALL_CLIENT_ID = "설치 마법사용 OAuth 클라이언트 ID(선택)"
   VITE_APP_SCRIPT_URL = "마법사 2단계에서 복사한 Apps Script /exec 주소"
   VITE_GOOGLE_CLIENT_ID = "마법사 4-7에서 복사한 웹 클라이언트 ID"
+  VITE_OPERATOR_CONTACT_EMAIL = "공유 로그인 등록 요청을 받을 운영자 이메일(선택)"
   VITE_GROUP_EMAIL = "마법사 5단계에서 복사한 한 줄 JSON"
 
 # Netlify Functions 설정 (배포 시 Apps Script 프록시)

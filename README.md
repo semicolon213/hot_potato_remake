@@ -197,9 +197,9 @@ npm run dev:web        # http://localhost:5173
 
 ### 쉬운 설치
 
-운영 중인 설치 안내 사이트의 **`/install/`**을 열고 0단계부터 마지막 체크리스트까지 따라가면 됩니다. 마법사가 Apps Script 백엔드 생성, 사이트 이름·Google 로그인·그룹 설정, Netlify 한 번 배포, 백엔드 설치와 `/setup` 점검, 첫 운영 준비를 순서대로 안내하며 진행 상황은 해당 브라우저에 저장합니다.
+운영 중인 설치 안내 사이트의 **`/install/`**을 열고 0단계부터 마지막 체크리스트까지 따라가면 됩니다. Google 로그인은 운영자 클라이언트를 공유받는 쉬운 방식과 기관이 직접 만드는 독립 방식 중 고를 수 있습니다. 마법사가 Apps Script 백엔드 생성, 사이트 이름·Google 로그인·그룹 설정, Netlify 한 번 배포, 백엔드 설치와 `/setup` 점검, 첫 운영 준비를 순서대로 안내하며 진행 상황은 해당 브라우저에 저장합니다.
 
-설치 안내 사이트 운영자는 설치 전용 OAuth 웹 클라이언트 ID를 빌드 환경변수 `VITE_INSTALL_CLIENT_ID`에 넣거나 [`public/install/config.js`](public/install/config.js)의 `googleClientId`에 설정해야 합니다. 이 값은 기관 운영 앱의 `VITE_GOOGLE_CLIENT_ID`와 별개이며 비어 있으면 `/install/` 상단에 설정 안내가 표시됩니다. 자세한 설계는 [docs/EASY_SETUP_DESIGN.md](docs/EASY_SETUP_DESIGN.md), 수동 배포 절차는 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)에 있습니다.
+설치 안내 사이트 운영자는 설치 전용 OAuth 웹 클라이언트 ID를 빌드 환경변수 `VITE_INSTALL_CLIENT_ID`에 넣거나 [`public/install/config.js`](public/install/config.js)의 `googleClientId`에 설정해야 합니다. 공유 로그인까지 제공하려면 운영 앱 클라이언트 `VITE_GOOGLE_CLIENT_ID`와 요청을 받을 `VITE_OPERATOR_CONTACT_EMAIL`도 설정합니다. 설치용 ID는 기관 운영 앱 ID와 별개이며 비어 있으면 `/install/` 상단에 설정 안내가 표시됩니다. 자세한 설계는 [docs/EASY_SETUP_DESIGN.md](docs/EASY_SETUP_DESIGN.md), 수동 배포 절차는 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)에 있습니다.
 
 ## 아쉬운 점과 앞으로 할 것
 
