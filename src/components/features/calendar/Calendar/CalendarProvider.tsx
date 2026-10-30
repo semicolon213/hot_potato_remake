@@ -1,3 +1,4 @@
+import { toCalendarRole } from '../../../../utils/helpers/calendarRole';
 import { logger } from '../../../../utils/logger';
 import React, {useState, useMemo, useEffect, type ReactNode} from "react";
 import {
@@ -288,7 +289,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
       
       const attendeeItems = attendees.split(',').map((id: string) => id.trim());
       const userStudentId = String(user.studentId);
-      const userType = user.userType;
+      const userType = toCalendarRole(user.userType);
       
       // 그룹 선택 여부 확인
       const isInGroup = attendeeItems.some(item => {
@@ -306,7 +307,7 @@ const CalendarProvider: React.FC<CalendarProviderProps> = ({
         } else if (item.includes(':')) {
           // 개별 참석자: student:123 -> 사용자 ID가 123이면 표시
           const [itemUserType, attendeeId] = item.split(':');
-          return (itemUserType === userType && attendeeId === userStudentId) || attendeeId === userStudentId;
+          return (toCalendarRole(itemUserType) === userType && attendeeId === userStudentId) || attendeeId === userStudentId;
         } else {
           // 기존 형식 (호환성): 참석자ID만 있는 경우
           return item === userStudentId;

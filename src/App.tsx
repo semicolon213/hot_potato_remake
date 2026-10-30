@@ -1,3 +1,4 @@
+import { toCalendarRole } from './utils/helpers/calendarRole';
 import { logger } from './utils/logger';
 /**
  * @file App.tsx
@@ -670,7 +671,8 @@ const App: React.FC = () => {
   // 캘린더 이벤트 추가 핸들러
   const handleAddCalendarEvent = async (eventData: Omit<Event, 'id'>) => {
     try {
-      let eventOwnerType = user.userType;
+      const userCalendarRole = toCalendarRole(user.userType);
+      let eventOwnerType = userCalendarRole;
       let targetSpreadsheetId: string | null = null;
       log.debug('현재 사용자 타입');
 
@@ -691,7 +693,7 @@ const App: React.FC = () => {
             }
           } else if (trimmed.includes(':')) {
             // 개별 참석자: student:123 -> student
-            const [userType] = trimmed.split(':');
+            const userType = toCalendarRole(trimmed.split(':')[0]);
             if (userType && !individualUserTypes.includes(userType)) {
               individualUserTypes.push(userType);
               log.debug('개별 참석자 타입 추가:', userType, 'from', trimmed);
@@ -739,14 +741,14 @@ const App: React.FC = () => {
         }
 
         // 본인 권한도 고려 (개별 참석자나 그룹에 본인이 없을 경우)
-        if (user?.userType) {
-          const isInIndividual = individualUserTypes.includes(user.userType);
-          const isInGroup = groupTypes.includes(user.userType);
+        if (userCalendarRole) {
+          const isInIndividual = individualUserTypes.includes(userCalendarRole);
+          const isInGroup = groupTypes.includes(userCalendarRole);
           
           if (!isInIndividual && !isInGroup) {
             // 본인이 참석자 목록에 없으면 본인 권한도 비교
-            if (!lowestPermissionType || permissionHierarchy.indexOf(user.userType) < permissionHierarchy.indexOf(lowestPermissionType)) {
-              lowestPermissionType = user.userType;
+            if (!lowestPermissionType || permissionHierarchy.indexOf(userCalendarRole) < permissionHierarchy.indexOf(lowestPermissionType)) {
+              lowestPermissionType = userCalendarRole;
               log.debug('본인 권한이 가장 낮음:', lowestPermissionType);
             }
           }
@@ -755,7 +757,7 @@ const App: React.FC = () => {
         // 참석자가 있는데도 lowestPermissionType이 null인 경우 경고
         if (!lowestPermissionType && (individualUserTypes.length > 0 || groupTypes.length > 0)) {
           log.warn('참석자가 있지만 권한 타입을 결정할 수 없습니다. 사용자 타입을 사용합니다');
-          lowestPermissionType = user.userType || 'student';
+          lowestPermissionType = userCalendarRole || 'student';
         }
 
         if (lowestPermissionType) {
@@ -786,9 +788,9 @@ const App: React.FC = () => {
       }
 
       // 참석자가 없거나 targetSpreadsheetId가 null인 경우, 사용자 타입에 따라 기본 스프레드시트 ID 선택
-      if (!targetSpreadsheetId && user.userType) {
+      if (!targetSpreadsheetId && userCalendarRole) {
         log.warn('참석자가 없거나 권한 계산 실패 - 사용자 타입으로 기본 캘린더 선택');
-        switch (user.userType) {
+        switch (userCalendarRole) {
           case 'professor':
             targetSpreadsheetId = calendarProfessorSpreadsheetId;
             break;
