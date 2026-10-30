@@ -12,6 +12,7 @@
 <body>
   <h1>HP ERP 백엔드 설치</h1>
   <form id="setup">
+    <label for="googleClientId">Google OAuth 클라이언트 ID</label><input id="googleClientId" autocomplete="off" placeholder="...apps.googleusercontent.com" required>
     <label for="root">루트 폴더 이름</label><input id="root" value="hot_potato_remake" required>
     <label for="student">학생 그룹 이메일</label><input id="student" type="email" required>
     <label for="council">집행부 그룹 이메일</label><input id="council" type="email" required>
@@ -32,7 +33,7 @@
     }).getSetupDefaults();
     form.addEventListener('submit', event => {
       event.preventDefault();status.textContent='폴더와 시트를 만드는 중입니다…';form.querySelector('button').disabled=true;
-      const config={rootFolderName:root.value,adminEmail:admin.value,setupToken:setupToken.value,groupEmails:{STUDENT:student.value,COUNCIL:council.value,ASSISTANT:assistant.value,PROFESSOR:professor.value,ADJ_PROFESSOR:adjProfessor.value}};
+      const config={rootFolderName:root.value,googleClientId:googleClientId.value,adminEmail:admin.value,setupToken:setupToken.value,groupEmails:{STUDENT:student.value,COUNCIL:council.value,ASSISTANT:assistant.value,PROFESSOR:professor.value,ADJ_PROFESSOR:adjProfessor.value}};
       google.script.run.withSuccessHandler(() => {form.hidden=true;status.textContent='설치가 완료되었습니다.'}).withFailureHandler(error => {status.textContent=error.message;form.querySelector('button').disabled=false}).installSystem(config);
     });
   </script>

@@ -19,8 +19,16 @@ function setupScriptPropertiesOnly() {
  * 시스템 초기 세팅 실행
  * @returns {Object} 초기화 결과
  */
-function initializeSystem() {
+function initializeSystem(config) {
   try {
+    config = config || {};
+    const googleClientId = String(config.googleClientId || '').trim();
+    if (googleClientId) {
+      if (!/\.apps\.googleusercontent\.com$/.test(googleClientId)) {
+        throw new Error('올바른 Google OAuth 클라이언트 ID를 입력하세요.');
+      }
+      PropertiesService.getScriptProperties().setProperty('GOOGLE_CLIENT_ID', googleClientId);
+    }
     logInfo_('InitialSetup', '시스템 초기 세팅 시작');
     
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
