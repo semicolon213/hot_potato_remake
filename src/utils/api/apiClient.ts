@@ -31,6 +31,7 @@ import type {
 } from '../../types/documents';
 import type { ApprovalStatusResponse } from '../../types/api/userResponses';
 import { getCacheManager } from '../cache/cacheManager';
+import { tokenManager } from '../auth/tokenManager';
 import { 
   generateCacheKey, 
   getCacheTTL, 
@@ -168,7 +169,8 @@ export class ApiClient {
     // 웹앱용 요청 데이터 형식
     const requestData = {
       action,
-      ...data
+      ...data,
+      accessToken: tokenManager.get() || ''
     };
 
     const requestOptions: RequestInit = {
