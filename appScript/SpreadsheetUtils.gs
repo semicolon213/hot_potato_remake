@@ -23,6 +23,8 @@ function sheetIdCacheKey_(rootId, name) {
 
 /**
  * 프로젝트 루트 폴더 ID
+ * 백엔드가 실제로 쓰는 회원 DB(hp_member)의 부모 폴더를 루트로 본다.
+ * hp_member를 찾을 수 없을 때만 스크립트 속성 ROOT_FOLDER_ID를 쓰고, 둘이 다르면 경고한다.
  * @returns {string|null}
  */
 function getProjectRootFolderId_() {
@@ -35,34 +37,35 @@ function getProjectRootFolderId_() {
     return rootFolderIdMemo_;
   }
 
-  var props = PropertiesService.getScriptProperties();
-  var fromProps = props && props.getProperty('ROOT_FOLDER_ID');
-  if (fromProps) {
-    try {
-      var configuredFolder = DriveApp.getFolderById(fromProps);
-      configuredFolder.getName();
-      rootFolderIdMemo_ = configuredFolder.getId();
-      cache.put(ROOT_FOLDER_CACHE_KEY_, rootFolderIdMemo_, SHEET_ID_CACHE_TTL_SEC_);
-      return rootFolderIdMemo_;
-    } catch (error) {
-      logWarn_('SpreadsheetUtils', 'ROOT_FOLDER_ID 사용 불가, hp_member 부모 폴더를 사용합니다:', error.message);
-    }
-  }
-
+  var fromProps = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_ID');
+  var detected = null;
   try {
     var hpSpreadsheet = getHpMemberSpreadsheet();
     var parents = DriveApp.getFileById(hpSpreadsheet.getId()).getParents();
-    if (parents.hasNext()) {
-      rootFolderIdMemo_ = parents.next().getId();
-      cache.put(ROOT_FOLDER_CACHE_KEY_, rootFolderIdMemo_, SHEET_ID_CACHE_TTL_SEC_);
-      return rootFolderIdMemo_;
-    }
+    if (parents.hasNext()) detected = parents.next().getId();
   } catch (error) {
     logWarn_('SpreadsheetUtils', 'hp_member 부모 폴더 사용 불가:', error.message);
   }
 
-  logWarn_('SpreadsheetUtils', '루트 폴더를 찾을 수 없습니다. ROOT_FOLDER_ID 또는 hp_member 연결을 확인하세요.');
-  return null;
+  if (detected) {
+    if (fromProps && fromProps !== detected) {
+      logWarn_('SpreadsheetUtils', 'ROOT_FOLDER_ID가 hp_member 부모 폴더와 달라 hp_member 부모 폴더를 사용합니다:', fromProps, '->', detected);
+    }
+    rootFolderIdMemo_ = detected;
+  } else if (fromProps) {
+    try {
+      rootFolderIdMemo_ = DriveApp.getFolderById(fromProps).getId();
+    } catch (error) {
+      logWarn_('SpreadsheetUtils', 'ROOT_FOLDER_ID 사용 불가:', error.message);
+    }
+  }
+
+  if (!rootFolderIdMemo_) {
+    logWarn_('SpreadsheetUtils', '루트 폴더를 찾을 수 없습니다. hp_member 위치 또는 ROOT_FOLDER_ID를 확인하세요.');
+    return null;
+  }
+  cache.put(ROOT_FOLDER_CACHE_KEY_, rootFolderIdMemo_, SHEET_ID_CACHE_TTL_SEC_);
+  return rootFolderIdMemo_;
 }
 
 function isUnderRootFolder_(file, rootId, folderMemo) {

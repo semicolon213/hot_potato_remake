@@ -131,9 +131,10 @@ function shareRoleFolders(folderStructure) {
  * 이미 설치된 환경에서 역할 폴더 공유만 다시 적용 (편집기에서 실행)
  */
 function applyRoleFolderSharing() {
-  // 이름 검색은 같은 이름의 개인 폴더를 잡을 수 있어 ROOT_FOLDER_ID 기준 루트를 쓰고, 폴더를 새로 만들지 않는다.
+  // 루트는 hp_member 부모 폴더로 자동 감지하고(캐시를 비워 새로 감지), 폴더를 새로 만들지 않는다.
+  clearSpreadsheetIdCache();
   const rootId = getProjectRootFolderId_();
-  if (!rootId) throw new Error('루트 폴더를 찾을 수 없습니다. 스크립트 속성 ROOT_FOLDER_ID를 확인하세요.');
+  if (!rootId) throw new Error('루트 폴더를 찾을 수 없습니다. hp_member 위치를 확인하세요.');
   const root = DriveApp.getFolderById(rootId);
   const folders = [];
   Object.keys(ROLE_FOLDER_GROUPS_).forEach(function(name) {
@@ -155,16 +156,10 @@ function applyRoleFolderSharing() {
 
 function getOrCreateRootFolder() {
   try {
-    const props = PropertiesService.getScriptProperties();
-    const rootFolderId = props.getProperty('ROOT_FOLDER_ID');
-    if (rootFolderId) {
-      try {
-        return DriveApp.getFolderById(rootFolderId);
-      } catch (error) {
-        logWarn_('InitialSetup', 'ROOT_FOLDER_ID 폴더를 열 수 없어 이름으로 찾습니다:', error.message);
-      }
-    }
-    const rootFolderName = props.getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    // 이미 설치된 환경이면 hp_member 부모 폴더(없으면 ROOT_FOLDER_ID)를 그대로 쓴다.
+    const existingRootId = getProjectRootFolderId_();
+    if (existingRootId) return DriveApp.getFolderById(existingRootId);
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
     const folders = DriveApp.getFoldersByName(rootFolderName);
     
     if (folders.hasNext()) {
