@@ -47,12 +47,12 @@ restricted 범위를 남길 때 생기는 일:
 | 1 | 사용자 유형: Internal은 Google Workspace 또는 Cloud Identity 조직에 속한 프로젝트에서, 조직 구성원만 쓸 때 가능 | 사용자가 개인 Google 계정이고 그룹도 `googlegroups.com`이라 Internal 불가 | External 유지. 모든 구성원이 학교 Workspace 계정을 쓸 수 있다면 Internal로 인증 없이 운영하는 길도 있으니 결정 필요 | 사용자 |
 | 2 | Testing 한도: 테스트 사용자 100명, 민감 범위 동의는 7일 뒤 만료 | Testing 상태 | 인증 전까지 사용 중인 구성원을 Audience > Test users에 등록 | 사용자 |
 | 3 | 미인증 상태로 게시하면 경고 화면, 신규 사용자 평생 100명 제한 | 해당 없음 | 인증 없이 In production으로 바꾸지 않음 | 사용자 |
-| 4 | 홈페이지: 공개 접근, 기능 설명, 개인정보처리방침 링크, 로그인 페이지만으로는 불가 | 루트(`/`)는 로그인 화면. `index.html` 상단 정적 바에 앱 이름과 약관 링크만 있었음 | `public/about.html`(`/about`) 소개 페이지 추가, 상단 바에 한 줄 설명과 "서비스 소개" 링크 추가 | 준비됨 (브랜치 `chore/oauth-publishing`, 토큰 전송 수정 후 배포) |
+| 4 | 홈페이지: 공개 접근, 기능 설명, 개인정보처리방침 링크, 로그인 페이지만으로는 불가 | 루트(`/`)는 로그인 화면. `index.html` 상단 정적 바에 앱 이름과 약관 링크만 있었음 | `public/about.html`(`/about`) 소개 페이지 추가, 상단 바에 한 줄 설명과 "서비스 소개" 링크 추가 | 완료 |
 | 5 | 홈페이지 URL을 루트로 쓰려면 로그인 화면에도 기능 설명 필요 | 로그인 카드에 설명 없음 | `Login.tsx`에 2~3문장 설명과 소개 링크 추가. 그 전에는 홈페이지 URL을 `https://yuhancse.netlify.app/about.html`로 등록 | Codex / 사용자 |
 | 6 | 개인정보처리방침: 홈페이지와 같은 도메인, 접근·사용·저장·공유 방식 공개 | 4줄짜리 일반 문구, Google 데이터 설명 없음 | 범위별 사용 목적, 저장 위치, 공유, 삭제, 권한 철회, 방침 변경 고지를 코드 기준으로 작성 | 완료 |
-| 7 | Limited Use 준수 문구 | 없음 | 영문·국문 문구를 `privacy.html` 6절과 소개 페이지에 추가 | 준비됨 (브랜치 `chore/oauth-publishing`, 토큰 전송 수정 후 배포) |
+| 7 | Limited Use 준수 문구 | 없음 | 영문·국문 문구를 `privacy.html` 6절과 소개 페이지에 추가 | 완료 |
 | 8 | 개인정보처리방침의 사실 정확성 | 관리자 키 메일 요청이 액세스 토큰을 Apps Script로 보내고 `appScript/Main.gs:15`가 요청 전체를 로그에 남김 | 토큰 전송 제거, 요청 로그 축소. **이 수정이 배포되기 전에는 새 `privacy.html`을 배포하지 않음** | Codex |
-| 9 | 개인정보처리방침의 미확정 값 | 시행일, 운영 주체, 문의 이메일, 회원 정보 보관 기간이 TODO | 값을 정해 `public/privacy.html`, `public/terms.html`의 TODO 주석 위치를 바꿈 | 사용자 |
+| 9 | 개인정보처리방침의 미확정 값 | 시행일, 운영 주체, 문의 이메일, 회원 정보 보관 기간이 TODO | 값을 정해 `public/privacy.html`, `public/terms.html`의 TODO 주석 위치를 바꿈 | 완료 (운영: 유한대학교 감자도리, 문의 khk213624@gmail.com, 보관 기간은 사용 기관 지침, 시행일 2026-11-01) |
 | 10 | 범위 축소 후 방침 갱신 | `documents`, `gmail.compose` 행이 "제거 예정"으로 남아 있음 | Codex 1단계 배포 후 해당 행 삭제, `drive.file` 전환 시 드라이브 행 수정 | Codex / 문서 |
 | 11 | 이용약관(선택) | 일반 문구 | Google 연동, 권한 철회, 책임 조항 보강 | 완료 |
 | 12 | 승인된 도메인: 홈페이지, 방침, 약관, 리디렉션 URI의 최상위 비공개 도메인 | `netlify.app`은 공개 접미사 목록(PSL)에 있으므로 `yuhancse.netlify.app` 자체가 최상위 비공개 도메인 | Branding > Authorized domains에 `yuhancse.netlify.app` 추가 | 사용자 |
@@ -64,7 +64,7 @@ restricted 범위를 남길 때 생기는 일:
 | 18 | Google 로그인 버튼 브랜딩 가이드 준수 | 자체 버튼(G 로고, "Google로 로그인") | 가이드 문구("Google 계정으로 로그인")와 스타일 맞춤 확인 | Codex |
 | 19 | 최소 범위 요청 | `gmail.compose`, `documents` 미사용, `drive` 과다 | 2절 권장안 적용 | Codex |
 | 20 | 민감 범위 인증 자료: 범위별 사용 이유, 영어 동의 화면이 보이는 시연 영상 | 없음 | 범위 축소 배포 후 시연 영상 촬영(로그인부터 각 기능까지, 동의 화면 언어 English), 범위별 설명 작성 | 사용자 |
-| 21 | 파비콘 경로 | `index.html`이 `public/logo.svg`를 가리켜 배포 사이트에서 깨짐 | `/logo.svg`로 수정 | 준비됨 (브랜치 `chore/oauth-publishing`, 토큰 전송 수정 후 배포) |
+| 21 | 파비콘 경로 | `index.html`이 `public/logo.svg`를 가리켜 배포 사이트에서 깨짐 | `/logo.svg`로 수정 | 완료 |
 
 근거 문서:
 

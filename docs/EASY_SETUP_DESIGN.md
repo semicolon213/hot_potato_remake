@@ -55,7 +55,8 @@ flowchart TD
 ### 3.2 백엔드 설치 화면 (Apps Script에 추가)
 
 - `doGet(?page=setup)`이 HTML 입력 화면을 돌려줍니다.
-- 입력 항목: 학과·서비스 이름, 루트 폴더 이름(기본값 제공), 그룹 이메일 5개(학생, 집행부, 교수, 겸임교원, 조교), 첫 관리자 이메일.
+- 입력 항목: 학과·서비스 이름, 운영 주체 명칭, 문의 이메일, 루트 폴더 이름(기본값 제공), 그룹 이메일 5개(학생, 집행부, 교수, 겸임교원, 조교), 첫 관리자 이메일.
+- 운영 주체 명칭과 문의 이메일은 개인정보처리방침·약관 페이지에 들어갑니다. 사이트 빌드 환경변수(예: `VITE_OPERATOR_NAME`, `VITE_SUPPORT_EMAIL`)로 넘기고, 비어 있으면 `/setup` 점검에서 빨강으로 표시합니다.
 - **설치** 버튼을 누르면 다음을 차례로 실행하고 진행 상황을 단계별로 보여 줍니다.
   1. 폴더·시트 생성
   2. `SPREADSHEET_ID`·`ROOT_FOLDER_ID`·`GROUP_EMAIL_JSON` 저장
@@ -122,6 +123,7 @@ flowchart TD
 | 7 | 점검 화면 `/setup` | `src/` |
 | 8 | Electron: 기관 사이트 주소 로드, 첫 실행 주소 입력, 보안 옵션 정리, 외부 링크 처리 | `electron/main.cjs` |
 | 9 | 설치 파일 빌드 워크플로(Windows·macOS, 기관 주소는 저장소 변수) | `.github/workflows/` |
+| 10 | 정책 페이지의 운영 주체·문의 이메일·서비스명을 기관별 값으로 주입 | `public/privacy.html`, `public/terms.html`, 빌드 설정 |
 
 ## 7. 검증 계획 (Claude)
 

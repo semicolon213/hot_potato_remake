@@ -38,6 +38,11 @@
   status = 301
 
 [[redirects]]
+  from = "/about"
+  to = "/about.html"
+  status = 301
+
+[[redirects]]
   from = "/terms"
   to = "/terms.html"
   status = 301
