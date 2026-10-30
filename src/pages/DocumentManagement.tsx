@@ -9,6 +9,7 @@ import { getSheetIdByName, getSheetData, updateTitleInSheetByDocId, initializeGo
 import { getRecentDocuments, addRecentDocument } from "../utils/helpers/localStorageUtils";
 import { generateDocumentNumber } from "../utils/helpers/documentNumberGenerator";
 import { loadAllDocuments } from "../utils/helpers/loadDocumentsFromDrive";
+import { DATA_SYNC_COMPLETED_EVENT } from "../services/dataSyncService";
 import { formatRelativeTime, formatDateToYYYYMMDD } from "../utils/helpers/timeUtils";
 import { useTemplateUI, type Template } from "../hooks/features/templates/useTemplateUI";
 import { ENV_CONFIG } from "../config/environment";
@@ -485,10 +486,10 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
   }, [showUploadModal]);
 
   useEffect(() => {
-    const loadDocuments = async () => {
+    const loadDocuments = async (forceRefresh = false) => {
       setIsLoading(true);
       try {
-        const allDocs = await loadAllDocuments();
+        const allDocs = await loadAllDocuments(forceRefresh);
         log.debug("로딩된 문서 수:", allDocs.length);
         
         const convertedDocs: FetchedDocument[] = allDocs.map((doc, index) => ({
@@ -523,10 +524,18 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
         loadDocuments();
       }
     };
+    const handleDataSyncCompleted = (event: Event) => {
+      const detail = (event as CustomEvent<{ categories?: string[]; fullRefresh?: boolean }>).detail;
+      if (detail?.fullRefresh || detail?.categories?.includes('documents')) {
+        loadDocuments(true);
+      }
+    };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener(DATA_SYNC_COMPLETED_EVENT, handleDataSyncCompleted);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener(DATA_SYNC_COMPLETED_EVENT, handleDataSyncCompleted);
     };
   }, []);
 

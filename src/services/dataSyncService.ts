@@ -13,6 +13,8 @@ import { clearSpreadsheetIds, getNoticeSpreadsheetApiFields, initializeSpreadshe
 import type { User } from '../types/app';
 const log = logger.scope('services/dataSyncService');
 
+export const DATA_SYNC_COMPLETED_EVENT = 'dataSyncCompleted';
+
 
 type InitialDataScope = 'global' | 'dashboard' | 'page';
 type InitialDataPhase = 1 | 2;
@@ -251,6 +253,7 @@ export class DataSyncService {
   private readonly PAGE_CATEGORY_MAP: Record<string, string[]> = {
     'dashboard': ['announcements', 'calendar', 'workflow'],
     'workflow': ['workflow'],
+    'workflow_management': ['workflow'],
     'accounting': ['accounting'],
     'announcements': ['announcements'],
     'documents': ['documents', 'templates'],
@@ -401,6 +404,7 @@ export class DataSyncService {
       // 1단계 + 2단계 모두 실행하여 전체 갱신
       await this.initializeDataFull(user, onProgress);
       await this.initializePhase2(user, onProgress);
+      this.notifyDataSyncCompleted([], true);
 
     } catch (error) {
       log.error('전체 데이터 갱신 실패:', error);
@@ -454,6 +458,7 @@ export class DataSyncService {
         .then(() => {
           this.lastSyncTime = new Date();
           this.lastSyncByCategory.set(category, Date.now());
+          this.notifyDataSyncCompleted([category]);
         })
         .catch((error) => {
           log.error(`${category} 갱신 실패, 다음 주기에 재시도 예정`);
@@ -465,12 +470,21 @@ export class DataSyncService {
         await this.fetchCategoryDataInBackground(category);
         this.lastSyncTime = new Date();
         this.lastSyncByCategory.set(category, Date.now());
+        this.notifyDataSyncCompleted([category]);
       } catch (error) {
         this.handle429Error(category, error);
         throw error;
       } finally {
         clearRefreshing();
       }
+    }
+  }
+
+  private notifyDataSyncCompleted(categories: string[], fullRefresh = false): void {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(DATA_SYNC_COMPLETED_EVENT, {
+        detail: { categories, fullRefresh }
+      }));
     }
   }
 

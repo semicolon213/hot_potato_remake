@@ -13,6 +13,7 @@ import WorkflowDetailModal from '../components/features/workflow/WorkflowDetailM
 import WorkflowResubmitModal from '../components/features/workflow/WorkflowResubmitModal';
 import WorkflowTemplateModal from '../components/features/workflow/WorkflowTemplateModal';
 import type { WorkflowInfoResponse, WorkflowListResponse } from '../types/api/apiResponses';
+import { DATA_SYNC_COMPLETED_EVENT } from '../services/dataSyncService';
 import '../components/features/templates/TemplateUI.css';
 import './WorkflowManagement.css';
 const log = logger.scope('pages/WorkflowManagement');
@@ -30,6 +31,7 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
   const [pendingWorkflows, setPendingWorkflows] = useState<WorkflowInfoResponse[]>([]);
   const [completedWorkflows, setCompletedWorkflows] = useState<WorkflowInfoResponse[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [userEmail, setUserEmail] = useState<string>('');
   const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState<boolean>(false);
   const [selectedDocument, setSelectedDocument] = useState<{ id?: string; title?: string } | null>(null);
@@ -51,6 +53,17 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
     const userInfo = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
     setUserEmail(userInfo.email || '');
     setIsAdmin(userInfo.is_admin === 'O' || userInfo.isAdmin === true);
+  }, []);
+
+  useEffect(() => {
+    const handleDataSyncCompleted = (event: Event) => {
+      const detail = (event as CustomEvent<{ categories?: string[]; fullRefresh?: boolean }>).detail;
+      if (detail?.fullRefresh || detail?.categories?.includes('workflow')) {
+        setRefreshVersion((version) => version + 1);
+      }
+    };
+    window.addEventListener(DATA_SYNC_COMPLETED_EVENT, handleDataSyncCompleted);
+    return () => window.removeEventListener(DATA_SYNC_COMPLETED_EVENT, handleDataSyncCompleted);
   }, []);
 
   // 모든 탭 데이터 한번에 로드 (초기 로드 및 userEmail 변경 시)
@@ -98,7 +111,7 @@ const WorkflowManagement: React.FC<WorkflowManagementProps> = ({ onPageChange })
     };
 
     loadAllData();
-  }, [userEmail]);
+  }, [userEmail, refreshVersion]);
 
   const getCurrentWorkflows = (): WorkflowInfoResponse[] => {
     switch (activeTab) {
