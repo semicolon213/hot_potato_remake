@@ -39,6 +39,7 @@ function getEnvJson<T extends Record<string, string>>(
 // ========== JSON 기본값 (.env 미설정 시 사용) ==========
 const DEFAULT_FOLER: Record<string, string> = {
   ROOT: 'hot_potato_remake',
+  PERSONAL: 'hot_potato_개인설정',
   DOCUMENT: 'document',
   S_DOC: 'shared_documents',
   P_DOC: 'personal_documents',
