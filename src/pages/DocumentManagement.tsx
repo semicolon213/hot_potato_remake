@@ -352,12 +352,12 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
       if (!creatorEmail) {
         return true; // creatorEmail이 없으면 삭제 불가
       }
-      return creatorEmail !== userEmail && !creatorEmail.includes(userEmail) && !userEmail.includes(creatorEmail);
+      return creatorEmail.trim().toLowerCase() !== userEmail.trim().toLowerCase();
     });
 
     if (unauthorizedDocs.length > 0) {
       const docTitles = unauthorizedDocs.map(doc => doc.title).join(', ');
-      showNotification(`본인이 생성한 문서만 삭제할 수 있습니다.\n삭제할 수 없는 문서: ${docTitles}`, 'error');
+      showNotification(`본인이 생성한 문서만 삭제할 수 있습니다.\n삭제할 수 없는 문서: ${docTitles}`, 'error', 0);
       return;
     }
 
@@ -373,9 +373,12 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
       if (sharedDocs.length > 0) {
         const sharedDocIds = sharedDocs.map(doc => doc.id).filter(Boolean);
         if (sharedDocIds.length > 0) {
-          const result = await apiClient.deleteDocuments(sharedDocIds, 'shared');
+          const result = await apiClient.deleteDocuments(sharedDocIds, 'shared', userEmail);
           if (!result.success) {
-            throw new Error(result.message || '공유 문서 삭제 실패');
+            const failures = Array.isArray(result.failures)
+              ? result.failures.map((failure: { message?: string }) => failure.message).filter(Boolean).join('\n')
+              : '';
+            throw new Error(failures || result.message || '공유 문서 삭제 실패');
           }
         }
       }
@@ -420,7 +423,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
       setDocuments(convertedDocs);
     } catch (error) {
       log.error('문서 삭제 오류:', error);
-      showNotification(`문서 삭제 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error');
+      showNotification(`문서 삭제 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error', 0);
     } finally {
       setIsLoading(false);
     }

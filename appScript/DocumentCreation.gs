@@ -153,7 +153,6 @@ function handleCreateDocument(req) {
         descriptionError: descriptionError,
         tag: tag,
         creatorEmail: creatorEmail,
-        creatorName: creatorName,  // 사용자 이름 추가
         documentId: documentId,
         verifiedProperties: verifiedProperties,
         documentType: documentType,

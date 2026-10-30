@@ -133,6 +133,17 @@ function doPost(e) {
         
         const documentId = document.data.id;
         const documentUrl = document.data.webViewLink;
+
+        // 실제 API 진입점도 DocumentCreation과 동일하게 생성자 메타데이터를 남긴다.
+        const metadata = {
+          creator: creatorEmail,
+          creatorEmail: creatorEmail,
+          createdDate: new Date().toLocaleString('ko-KR')
+        };
+        Drive.Files.update({
+          properties: metadata,
+          description: `생성자: ${creatorEmail} | 생성일: ${new Date().toLocaleString('ko-KR')}`
+        }, documentId);
         
         // 권한 설정 (직접 처리)
         let permissionResult = null;

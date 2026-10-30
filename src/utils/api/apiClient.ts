@@ -48,6 +48,7 @@ export interface ApiResponse<T = unknown> {
   error?: string;
   notFound?: string[];
   debug?: Record<string, unknown>;
+  failures?: Array<{ id?: string; message?: string }>;
   permissionResult?: {
     successCount: number;
     failCount: number;
@@ -453,8 +454,8 @@ export class ApiClient {
     return this.request<DocumentsListResponse>('getDocuments', params);
   }
 
-  async deleteDocuments(documentIds: string[], role: string) {
-    return this.request('deleteDocuments', { documentIds, role });
+  async deleteDocuments(documentIds: string[], role: string, userEmail: string) {
+    return this.request('deleteDocuments', { documentIds, role, userEmail });
   }
 
   // 증빙 파일 업로드 (Apps Script가 장부 증빙 폴더에 저장)

@@ -164,6 +164,23 @@ function getSharedDocumentsFromFolder() {
   }
 }
 
+function extractDocumentCreatorEmail_(file) {
+  var properties = file && file.properties || {};
+  var creatorEmail = '';
+  if (Array.isArray(properties)) {
+    for (var i = 0; i < properties.length; i++) {
+      if (properties[i] && properties[i].key === 'creatorEmail') creatorEmail = properties[i].value || '';
+      if (!creatorEmail && properties[i] && properties[i].key === 'creator') creatorEmail = properties[i].value || '';
+    }
+  } else {
+    creatorEmail = properties.creatorEmail || properties.creator || '';
+  }
+  if (creatorEmail && creatorEmail.indexOf('@') !== -1) return String(creatorEmail).trim();
+
+  var match = String(file && file.description || '').match(/생성자:\s*([^\s|]+@[^\s|]+)/);
+  return match ? match[1].trim() : '';
+}
+
 /**
  * 문서 목록 조회
  * @param {Object} req - 요청 데이터
@@ -198,7 +215,7 @@ function handleGetDocuments(req) {
         // properties에서 메타데이터 추출 (기본 템플릿처럼)
         var p = file.properties || {};
         var creatorRaw = '';
-        var creatorEmail = '';
+        var creatorEmail = extractDocumentCreatorEmail_(file);
         var tag = '공용';
         
         // properties가 배열인 경우 (v2)
@@ -211,7 +228,7 @@ function handleGetDocuments(req) {
                   creatorRaw = prop.value || '';
                   break;
                 case 'creatorEmail':
-                  creatorEmail = prop.value || '';
+                  creatorEmail = creatorEmail || prop.value || '';
                   break;
                 case 'tag':
                   tag = prop.value || '공용';
@@ -222,7 +239,7 @@ function handleGetDocuments(req) {
         } else if (p && typeof p === 'object') {
           // 객체 형태인 경우 (v3)
           creatorRaw = p.creator || p['creator'] || '';
-          creatorEmail = p.creatorEmail || p['creatorEmail'] || '';
+          creatorEmail = creatorEmail || p.creatorEmail || p['creatorEmail'] || '';
           tag = p.tag || p['tag'] || '공용';
         }
         
@@ -430,12 +447,16 @@ function handleGetDocuments(req) {
  */
 function handleDeleteDocuments(req) {
   try {
-    const { documentIds, role } = req;
+    const { documentIds, role, userEmail } = req;
     if (!Array.isArray(documentIds) || documentIds.length === 0) {
       return {
         success: false,
         message: '삭제할 문서 ID가 필요합니다.'
       };
+    }
+    const normalizedUserEmail = String(userEmail || '').trim().toLowerCase();
+    if (!normalizedUserEmail) {
+      return { success: false, message: '문서를 삭제하려면 사용자 이메일이 필요합니다.', failures: documentIds };
     }
 
     const folderResult = findOrCreateFolder(getSharedDocumentFolderPath());
@@ -456,6 +477,12 @@ function handleDeleteDocuments(req) {
         }
         if (!isDirectChild) {
           failures.push({ id: docId, message: '공유 문서 폴더 바로 아래 파일만 삭제할 수 있습니다.' });
+          return;
+        }
+        const fileMetadata = Drive.Files.get(docId, { fields: 'properties,description' });
+        const creatorEmail = extractDocumentCreatorEmail_(fileMetadata).toLowerCase();
+        if (!creatorEmail || creatorEmail !== normalizedUserEmail) {
+          failures.push({ id: docId, message: '본인이 생성한 문서만 삭제할 수 있습니다.' });
           return;
         }
         eligibleIds.push(docId);
