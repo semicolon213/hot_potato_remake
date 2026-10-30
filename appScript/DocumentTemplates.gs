@@ -823,11 +823,28 @@ const TEMPLATE_EXPORT_TYPES_ = {
   'application/vnd.google-apps.spreadsheet': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 };
 
+function getTemplateFolderId_() {
+  const folderResult = findOrCreateFolder(getTemplateFolderPath());
+  return folderResult && folderResult.success && folderResult.data && folderResult.data.id
+    ? folderResult.data.id
+    : null;
+}
+
+function isDirectlyInTemplateFolder_(file, templateFolderId) {
+  templateFolderId = templateFolderId || getTemplateFolderId_();
+  if (!templateFolderId) return false;
+  const parents = file.getParents();
+  while (parents.hasNext()) {
+    if (parents.next().getId() === templateFolderId) return true;
+  }
+  return false;
+}
+
 /**
  * 공유 양식(문서·스프레드시트)을 Office 형식(base64)으로 내보낸다.
  * 사용자 드라이브 권한(drive.file)으로는 배포자 소유 양식을 복사할 수 없어서,
  * 프론트가 이 내용을 받아 사용자 개인 폴더에 Google 파일로 변환해 올린다.
- * 프로젝트 루트 아래 파일만 허용한다.
+ * 공유 양식 폴더 바로 아래 파일만 허용한다.
  * @param {Object} req - { templateId }
  */
 function exportTemplateFile(req) {
@@ -835,9 +852,8 @@ function exportTemplateFile(req) {
     const templateId = req && req.templateId;
     if (!templateId) return { success: false, message: '양식 ID가 필요합니다.' };
 
-    const rootId = getProjectRootFolderId_();
     const file = DriveApp.getFileById(templateId);
-    if (!rootId || !isUnderRootFolder_(file, rootId, {})) {
+    if (!isDirectlyInTemplateFolder_(file)) {
       return { success: false, message: '내보낼 수 없는 파일입니다.' };
     }
     const exportType = TEMPLATE_EXPORT_TYPES_[file.getMimeType()];
@@ -874,16 +890,13 @@ function getTemplateSheetPreview(req) {
     const templateId = req && req.templateId;
     if (!templateId) return { success: false, message: '템플릿 ID가 필요합니다.' };
 
-    const folderResult = findOrCreateFolder(getTemplateFolderPath());
-    if (!folderResult || !folderResult.success || !folderResult.data || !folderResult.data.id) {
+    const templateFolderId = getTemplateFolderId_();
+    if (!templateFolderId) {
       return { success: false, message: '공유 양식 폴더를 찾을 수 없습니다.' };
     }
 
     const file = DriveApp.getFileById(templateId);
-    const parentIds = [];
-    const parents = file.getParents();
-    while (parents.hasNext()) parentIds.push(parents.next().getId());
-    if (parentIds.indexOf(folderResult.data.id) === -1 ||
+    if (!isDirectlyInTemplateFolder_(file, templateFolderId) ||
         file.getMimeType() !== MimeType.GOOGLE_SHEETS) {
       return { success: false, message: '공유 양식 폴더의 스프레드시트만 미리 볼 수 있습니다.' };
     }
