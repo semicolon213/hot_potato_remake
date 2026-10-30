@@ -1,10 +1,12 @@
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { loadEnv } from 'vite';
 
 const distDir = resolve('dist');
 const installDir = resolve(distDir, 'install');
 const sourceConfig = resolve('public', 'install', 'config.js');
-const clientId = String(process.env.VITE_INSTALL_CLIENT_ID || '').trim();
+const env = loadEnv(process.env.NODE_ENV || 'production', process.cwd(), 'VITE_');
+const clientId = String(process.env.VITE_INSTALL_CLIENT_ID || env.VITE_INSTALL_CLIENT_ID || '').trim();
 
 await mkdir(installDir, { recursive: true });
 await copyFile(resolve('backend-bundle.json'), resolve(distDir, 'backend-bundle.json'));
