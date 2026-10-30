@@ -50,6 +50,9 @@ function initializeSystem() {
     // 4. 스크립트 속성 설정 (루트 폴더 ID, hp_member ID 전달)
     const propertiesResult = setScriptProperties(rootFolder.getId(), spreadsheetResults);
     results.properties = propertiesResult;
+
+    // 5. 역할 폴더를 해당 역할과 상위 역할 그룹스에 공유
+    results.sharing = shareRoleFolders(folderStructure);
     
     // 에러가 있으면 success를 false로 설정
     if (results.errors.length > 0) {
@@ -75,6 +78,64 @@ function initializeSystem() {
  * 루트 폴더 찾기 또는 생성
  * @returns {Object} 루트 폴더 객체
  */
+/**
+ * 역할 폴더 공유 대상 (학생 < 학생회 < 조교 ≈ 겸임교수 ≈ 교수)
+ * 각 폴더는 그 역할과 상위 역할 그룹스에 편집 권한으로 공유한다.
+ * 키는 폴더 이름, 값은 CONFIG의 그룹스 역할 키(getGroupEmailByRole)
+ */
+const ROLE_FOLDER_GROUPS_ = {
+  student: ['student', 'std_council', 'supp', 'ad_professor', 'professor'],
+  std_council: ['std_council', 'supp', 'ad_professor', 'professor'],
+  assistant: ['supp', 'ad_professor', 'professor'],
+  adj_professor: ['supp', 'ad_professor', 'professor'],
+  professor: ['supp', 'ad_professor', 'professor']
+};
+
+/**
+ * 역할 폴더에 그룹스 편집 권한 부여. 이미 있는 권한은 건너뛰어 다시 실행해도 중복되지 않는다.
+ * @param {Array} folderStructure - createFolderStructure 결과
+ * @returns {Array} 폴더별 부여 결과
+ */
+function shareRoleFolders(folderStructure) {
+  const results = [];
+  folderStructure.forEach(function(folder) {
+    const roles = ROLE_FOLDER_GROUPS_[folder.name];
+    if (!roles || folder.path.split('/').length !== 2) return;
+
+    const existing = listPermissions_(folder.id).map(function(p) {
+      return String(p.emailAddress || '').toLowerCase();
+    });
+    roles.forEach(function(role) {
+      const email = getGroupEmailByRole(role);
+      if (!email) {
+        results.push({ folder: folder.name, role: role, status: 'no_group_email' });
+        return;
+      }
+      if (existing.indexOf(email.toLowerCase()) !== -1) {
+        results.push({ folder: folder.name, email: email, status: 'exists' });
+        return;
+      }
+      try {
+        grantPermission_(folder.id, 'group', email, 'writer');
+        results.push({ folder: folder.name, email: email, status: 'granted' });
+      } catch (error) {
+        logError_('InitialSetup', '역할 폴더 공유 실패:', folder.name, email, error);
+        results.push({ folder: folder.name, email: email, status: 'failed', message: error.message });
+      }
+    });
+  });
+  return results;
+}
+
+/**
+ * 이미 설치된 환경에서 역할 폴더 공유만 다시 적용 (편집기에서 실행)
+ */
+function applyRoleFolderSharing() {
+  const results = shareRoleFolders(createFolderStructure(getOrCreateRootFolder()));
+  logInfo_('InitialSetup', '역할 폴더 공유 결과:', JSON.stringify(results));
+  return results;
+}
+
 function getOrCreateRootFolder() {
   try {
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
