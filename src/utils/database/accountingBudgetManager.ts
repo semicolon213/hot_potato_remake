@@ -942,13 +942,15 @@ export const deleteBudgetPlan = async (
           // 시트 이름을 시트 ID로 변환
           const ledgerSheetId = await getSheetId(spreadsheetId, ACCOUNTING_SHEETS_IMPORT.LEDGER);
           if (ledgerSheetId !== null) {
-            // 집행된 장부 항목 삭제 (역순으로 삭제하여 잔액 계산 오류 방지)
-            for (const entry of budgetEntries.reverse()) {
+            // 헤더 포함 스냅샷에서 삭제할 행 인덱스를 모아 내림차순으로 삭제합니다.
+            const rowsToDelete = budgetEntries.map((entry) => {
               const rowIndex = ledgerData.values.findIndex((row: string[]) => row[0] === entry.entryId);
-              if (rowIndex !== -1) {
-                await deleteRow(spreadsheetId, ledgerSheetId, rowIndex + 1);
-                log.debug('집행된 장부 항목 삭제:', entry.entryId);
-              }
+              return rowIndex === -1 ? null : { entryId: entry.entryId, rowIndex };
+            }).filter((item): item is { entryId: string; rowIndex: number } => item !== null)
+              .sort((a, b) => b.rowIndex - a.rowIndex);
+            for (const item of rowsToDelete) {
+              await deleteRow(spreadsheetId, ledgerSheetId, item.rowIndex);
+              log.debug('집행된 장부 항목 삭제:', item.entryId);
             }
           } else {
             log.error('장부 시트 ID를 찾을 수 없습니다.');

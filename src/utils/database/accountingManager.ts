@@ -754,7 +754,7 @@ export const deleteLedgerEntry = async (
       await updateCategoryUsageCount(spreadsheetId, entry.category, -1);
 
       // 행 삭제
-      await deleteRow(spreadsheetId, sheetId, rowIndex + 1);
+      await deleteRow(spreadsheetId, sheetId, rowIndex);
     } catch (apiError) {
       // API 실패 시 롤백
       if (rollback) {
