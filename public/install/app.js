@@ -258,7 +258,7 @@ function updateDerivedValues() {
   document.querySelector('#editor-link').href = state.scriptId ? `https://script.google.com/d/${encodeURIComponent(state.scriptId)}/edit` : '#';
   document.querySelector('#trigger-editor-link').href = state.scriptId ? `https://script.google.com/d/${encodeURIComponent(state.scriptId)}/edit` : '#';
   document.querySelector('#backend-setup-link').href = state.backendUrl
-    ? `${state.backendUrl}?page=setup${state.appClientId ? `&clientId=${encodeURIComponent(state.appClientId)}` : ''}`
+    ? `${state.backendUrl}?page=setup${state.appClientId ? `&clientId=${encodeURIComponent(state.appClientId)}` : ''}${groups ? `&groups=${encodeURIComponent(groups)}` : ''}`
     : '#';
   document.querySelector('#setup-link').href = state.siteUrl ? `${state.siteUrl}/setup` : '#';
   document.querySelector('#site-login-link').href = state.siteUrl || '#';

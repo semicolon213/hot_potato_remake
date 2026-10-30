@@ -32,3 +32,13 @@ test('설치 상태는 서버 클라이언트 ID를 노출하지 않고 사이�
   status = context.getSetupStatus({ clientId: 'server.apps.googleusercontent.com' });
   assert.equal(status.clientIdMatches, true);
 });
+
+test('신규 설치 기본값은 그룹 이메일을 노출하지 않고 기존 학과 주소를 거부한다', () => {
+  properties.clear();
+  const defaults = context.getSetupDefaults();
+  assert.equal(defaults.installed, false);
+  assert.equal('groupEmails' in defaults, false);
+  assert.equal(context.isDefaultGroupEmail_('student_hp@googlegroups.com'), true);
+  assert.equal(context.isDefaultGroupEmail_(' STUDENT_HP@googlegroups.com '), true);
+  assert.equal(context.isDefaultGroupEmail_('student@another-university.example'), false);
+});
