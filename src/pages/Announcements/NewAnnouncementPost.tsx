@@ -51,7 +51,7 @@ const NewAnnouncementPost: React.FC<NewAnnouncementPostProps> = ({
     const [showPermissionSettings, setShowPermissionSettings] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const { notification, showNotification, hideNotification } = useNotification();
+    const { notification, showNotification, hideNotification, confirmAsync } = useNotification();
     
     useEffect(() => {
         if (!isAuthenticated) {
@@ -158,14 +158,14 @@ const NewAnnouncementPost: React.FC<NewAnnouncementPostProps> = ({
         }
     };
 
-    const handleCancel = () => {
+    const handleCancel = async () => {
         const hasUnsavedChanges =
             title.trim() !== '' ||
             content.trim() !== '' ||
             attachments.length > 0;
 
         if (hasUnsavedChanges) {
-            if (window.confirm('작성 중인 내용이 있습니다. 정말로 취소하시겠습니까?')) {
+            if (await confirmAsync('작성 중인 내용이 있습니다. 정말로 취소하시겠습니까?', { type: 'warning' })) {
                 onPageChange('announcements');
             }
         } else {

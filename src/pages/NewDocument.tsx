@@ -6,7 +6,7 @@ import type { Template } from "../hooks/features/templates/useTemplateUI";
 import { ENV_CONFIG } from "../config/environment";
 import { apiClient } from "../utils/api/apiClient";
 import { useNotification } from "../hooks/ui/useNotification";
-import { NotificationModal, ConfirmModal } from "../components/ui/NotificationModal";
+import { NotificationModal } from "../components/ui/NotificationModal";
 import type { TagImpactCheckResponse, DeleteTagResponse, CreateDocumentResponse, TemplateInfo } from "../types/api/apiResponses";
 import { 
     addTag as addPersonalTag,
@@ -79,12 +79,9 @@ function NewDocument({
     // 알림 모달 훅
     const {
         notification,
-        confirm,
         showNotification,
         hideNotification,
-        showConfirm,
-        hideConfirm,
-        handleConfirm
+        showConfirm
     } = useNotification();
     
     // 기본 태그 추가 핸들러 (관리자 전용)
@@ -2124,18 +2121,6 @@ function NewDocument({
                 duration={notification.duration}
             />
 
-            {/* 확인 모달 */}
-            <ConfirmModal
-                isOpen={confirm.isOpen}
-                message={confirm.message}
-                title={confirm.title}
-                confirmText={confirm.confirmText}
-                cancelText={confirm.cancelText}
-                type={confirm.type}
-                onConfirm={handleConfirm}
-                onCancel={hideConfirm}
-                onCancelAction={confirm.onCancelAction}
-            />
         </div>
     );
 }

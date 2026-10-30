@@ -44,7 +44,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [showPermissionSettings, setShowPermissionSettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { notification, showNotification, hideNotification } = useNotification();
+  const { notification, showNotification, hideNotification, confirmAsync } = useNotification();
 
   const [mainContent, setMainContent] = useState('');
   const [attachmentHtml, setAttachmentHtml] = useState<string | null>(null);
@@ -187,8 +187,8 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
     setIsEditing(false);
   };
 
-  const handleDelete = () => {
-    if (window.confirm('정말로 이 공지사항을 삭제하시겠습니까?')) {
+  const handleDelete = async () => {
+    if (await confirmAsync('정말로 이 공지사항을 삭제하시겠습니까?', { type: 'danger' })) {
       onDelete(post.id);
     }
   };
@@ -218,7 +218,7 @@ const AnnouncementView: React.FC<AnnouncementViewProps> = ({ post, user, onBack,
       return;
     }
 
-    if (!window.confirm('고정 공지 승인을 다시 요청하시겠습니까?')) {
+    if (!(await confirmAsync('고정 공지 승인을 다시 요청하시겠습니까?', { type: 'warning' }))) {
       return;
     }
 

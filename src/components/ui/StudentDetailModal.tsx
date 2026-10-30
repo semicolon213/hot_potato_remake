@@ -56,7 +56,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   mainClassifications = [],
   otherClassifications = [],
 }) => {
-  const { notification, showNotification, hideNotification } = useNotification();
+  const { notification, showNotification, hideNotification, confirmAsync } = useNotification();
   const [activeTab, setActiveTab] = useState<'info' | 'issues' | 'employment'>('info');
   const [isEditing, setIsEditing] = useState(isAdding);
   const [editedStudent, setEditedStudent] = useState<StudentWithCouncil | null>(isAdding ? emptyStaff : student);
@@ -88,8 +88,8 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const [studentCouncilEntries, setStudentCouncilEntries] = useState<Array<{ year: string; position: string }>>([]);
   const isSupp = user?.userType === 'supp'; // 조교 여부
 
-  const handleDelete = () => {
-    if (window.confirm('정말로 이 항목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+  const handleDelete = async () => {
+    if (await confirmAsync('정말로 이 항목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.', { type: 'danger' })) {
       if (editedStudent) {
         onDelete(editedStudent);
         onClose();
@@ -161,9 +161,13 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   };
 
   // 모달 닫기 핸들러 (수정 중일 때 확인)
-  const handleCloseModal = () => {
+  const handleCloseModal = async () => {
     if (isEditing && hasUnsavedChanges()) {
-      const shouldSave = window.confirm('수정된 내용이 있습니다. 저장하시겠습니까?');
+      const shouldSave = await confirmAsync('수정된 내용이 있습니다. 저장하시겠습니까?', {
+        confirmText: '저장',
+        cancelText: '저장하지 않음',
+        type: 'warning'
+      });
       if (shouldSave) {
         handleSave();
       } else {

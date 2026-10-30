@@ -30,7 +30,7 @@ interface StudentsProps {
 }
 
 const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initialTab = 'list', onPageChange }) => {
-  const { notification, showNotification, hideNotification } = useNotification();
+  const { notification, showNotification, hideNotification, confirmAsync } = useNotification();
   const isSupp = user?.userType === 'supp';
   const {
     students,
@@ -278,7 +278,7 @@ const Students: React.FC<StudentsProps> = ({ studentSpreadsheetId, user, initial
   };
 
   const handleDeleteField = async (field_num: string) => {
-    if (!studentSpreadsheetId || !userEmail || !window.confirm(`직종 "${field_num}"을(를) 삭제하시겠습니까?`)) return;
+    if (!studentSpreadsheetId || !userEmail || !(await confirmAsync(`직종 "${field_num}"을(를) 삭제하시겠습니까?`, { type: 'danger' }))) return;
     setFieldSaving(true);
     try {
       const res = await apiClient.deleteField(studentSpreadsheetId, field_num, userEmail);

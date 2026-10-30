@@ -5,6 +5,7 @@ import type { Post, User } from '../../types/app';
 import { formatDateToYYYYMMDD } from '../../utils/helpers/timeUtils';
 import TableColumnFilter, { type SortDirection, type FilterValue } from '../../components/ui/common/TableColumnFilter';
 import StatCard from '../../components/features/documents/StatCard';
+import { useNotification } from '../../hooks/ui/useNotification';
 
 interface AnnouncementsProps {
   onPageChange: (pageName: string) => void;
@@ -61,6 +62,7 @@ const getPaginationNumbers = (currentPage: number, totalPages: number) => {
 
 
 const AnnouncementsPage: React.FC<AnnouncementsProps> = ({ onPageChange, onSelectAnnouncement, onUnpinAnnouncement, posts, isAuthenticated, announcementSpreadsheetId, isLoading, user }) => {
+  const { confirmAsync } = useNotification();
   const [currentPage, setCurrentPage] = useState(1);
   const postsPerPage = 8;
 
@@ -446,9 +448,9 @@ const AnnouncementsPage: React.FC<AnnouncementsProps> = ({ onPageChange, onSelec
                       {post.isPinned && user && onUnpinAnnouncement && (
                         (String(user.studentId) === post.writer_id || user.isAdmin) && (
                           <button
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
-                              if (window.confirm('고정 공지를 해제하시겠습니까?')) {
+                              if (await confirmAsync('고정 공지를 해제하시겠습니까?', { type: 'warning' })) {
                                 onUnpinAnnouncement(post.id);
                               }
                             }}

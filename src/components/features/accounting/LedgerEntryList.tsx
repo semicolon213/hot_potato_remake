@@ -14,6 +14,7 @@ import TableColumnFilter, { type SortDirection, type FilterOption } from '../../
 import { FaDownload, FaPlus, FaFilter, FaTimes, FaEdit, FaTrash, FaPaperclip } from 'react-icons/fa';
 import type { LedgerEntry, LedgerEntryFilter, Account, Category, CreateLedgerEntryRequest, UpdateLedgerEntryRequest } from '../../../types/features/accounting';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+import { useNotification } from '../../../hooks/ui/useNotification';
 import './accounting.css';
 const log = logger.scope('components/features/accounting/LedgerEntryList');
 
@@ -53,6 +54,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   onAddingNewChange,
   onControlsRender
 }) => {
+  const { confirmAsync } = useNotification();
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -393,7 +395,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   };
 
   const handleDelete = async (entry: LedgerEntry) => {
-    if (!window.confirm('정말로 이 장부 항목을 삭제하시겠습니까?')) {
+    if (!(await confirmAsync('정말로 이 장부 항목을 삭제하시겠습니까?', { type: 'danger' }))) {
       setContextMenu(null); // 컨텍스트 메뉴 닫기
       return;
     }

@@ -3,10 +3,12 @@ import React, { useState, useEffect } from 'react';
 import './Timetable.css';
 import AddTimetableEventModal, { type TimetableEvent } from '../components/features/timetable/AddTimetableEventModal';
 import { getScheduleEvents, addScheduleEvent, deleteScheduleEvent, updateScheduleEvent } from '../utils/database/personalConfigManager';
+import { useNotification } from '../hooks/ui/useNotification';
 const log = logger.scope('pages/Timetable');
 
 
 const Timetable: React.FC = () => {
+    const { confirmAsync } = useNotification();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [events, setEvents] = useState<TimetableEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -89,7 +91,7 @@ const Timetable: React.FC = () => {
     };
 
     const handleDelete = async (eventNo: number) => {
-        if (window.confirm('이 일정을 삭제하시겠습니까?')) {
+        if (await confirmAsync('이 일정을 삭제하시겠습니까?', { type: 'danger' })) {
             const originalEvents = events;
             // Optimistic update
             setEvents(prevEvents => prevEvents.filter(event => parseInt(event.no!, 10) !== eventNo));

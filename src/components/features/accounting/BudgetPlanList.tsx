@@ -16,6 +16,7 @@ import { CreateBudgetPlanModal } from './CreateBudgetPlanModal';
 import { BudgetPlanDetail } from './BudgetPlanDetail';
 import type { BudgetPlan, Account } from '../../../types/features/accounting';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+import { useNotification } from '../../../hooks/ui/useNotification';
 import './accounting.css';
 const log = logger.scope('components/features/accounting/BudgetPlanList');
 
@@ -33,6 +34,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
   isCreateModalOpen: externalIsCreateModalOpen,
   onCloseCreateModal
 }) => {
+  const { confirmAsync } = useNotification();
   const [budgetPlans, setBudgetPlans] = useState<BudgetPlan[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>(accountId || '');
@@ -289,7 +291,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
   };
 
   const handleExecute = async (budgetId: string) => {
-    if (!confirm('예산 계획을 집행하시겠습니까? 장부에 자동으로 반영됩니다.')) {
+    if (!(await confirmAsync('예산 계획을 집행하시겠습니까? 장부에 자동으로 반영됩니다.', { type: 'warning' }))) {
       return;
     }
 
@@ -319,7 +321,7 @@ export const BudgetPlanList: React.FC<BudgetPlanListProps> = ({
       confirmMessage = '⚠️ 경고: 이미 집행된 예산 계획입니다.\n\n이 예산 계획을 삭제하면 장부에 반영된 항목들도 함께 삭제됩니다.\n정말로 삭제하시겠습니까?';
     }
 
-    if (!confirm(confirmMessage)) {
+    if (!(await confirmAsync(confirmMessage, { type: 'danger' }))) {
       return;
     }
 

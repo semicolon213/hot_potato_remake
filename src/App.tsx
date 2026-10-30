@@ -51,7 +51,8 @@ import { lastUserManager } from './utils/auth/lastUserManager';
 import { useSession } from './hooks/features/auth/useSession';
 import { useNotification } from './hooks/ui/useNotification';
 import { useOnlineStatus } from './hooks/ui/useOnlineStatus';
-import { NotificationModal, ConfirmModal } from './components/ui/NotificationModal';
+import { NotificationModal } from './components/ui/NotificationModal';
+import { GlobalConfirmProvider } from './hooks/ui/GlobalConfirmProvider';
 import { OfflineBanner } from './components/ui/OfflineBanner';
 import LoadingProgress from './components/ui/LoadingProgress';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
@@ -65,7 +66,7 @@ const log = logger.scope('App');
  * @details 사용자 인증 상태에 따라 로그인, 승인 대기, 메인 애플리케이션 화면을 렌더링합니다.
  * @returns {JSX.Element} 렌더링된 컴포넌트
  */
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const isOnline = useOnlineStatus();
   const {
     // User state
@@ -143,11 +144,9 @@ const App: React.FC = () => {
   // 알림 훅
   const {
     notification,
-    confirm,
     showNotification,
     hideNotification,
-    hideConfirm,
-    handleConfirm
+    confirmAsync
   } = useNotification();
 
   // 로그인 처리 (토큰은 useAuth에서 tokenManager에 이미 저장됨, accessToken은 useEffect에서 동기화)
@@ -912,7 +911,7 @@ const App: React.FC = () => {
 
   // 템플릿 관련 핸들러들
   const handleDeleteTemplate = async (rowIndex: number) => {
-    if (!window.confirm("정말로 이 템플릿을 삭제하시겠습니까?")) {
+    if (!(await confirmAsync('정말로 이 템플릿을 삭제하시겠습니까?', { type: 'danger' }))) {
       return;
     }
 
@@ -961,12 +960,12 @@ const App: React.FC = () => {
         const affectedFilesList = impact.affectedFiles.map(file => `• ${file}`).join('\n');
         const confirmMessage = `'${tagToDelete}' 태그를 삭제하면 다음 개인 양식들도 함께 삭제됩니다:\n\n${affectedFilesList}\n\n정말로 삭제하시겠습니까?`;
 
-        if (!window.confirm(confirmMessage)) {
+        if (!(await confirmAsync(confirmMessage, { type: 'danger' }))) {
           return;
         }
       } else {
         // 영향받는 파일이 없는 경우 간단한 확인
-        if (!window.confirm(`'${tagToDelete}' 태그를 삭제하시겠습니까?`)) {
+        if (!(await confirmAsync(`'${tagToDelete}' 태그를 삭제하시겠습니까?`, { type: 'danger' }))) {
           return;
         }
       }
@@ -1005,12 +1004,12 @@ const App: React.FC = () => {
         const affectedFilesList = impact.affectedFiles.map(file => `• ${file}`).join('\n');
         const confirmMessage = `'${oldTag}' 태그를 '${newTag}'로 수정하면 다음 개인 양식들의 파일명도 함께 변경됩니다:\n\n${affectedFilesList}\n\n정말로 수정하시겠습니까?`;
 
-        if (!window.confirm(confirmMessage)) {
+        if (!(await confirmAsync(confirmMessage, { type: 'warning' }))) {
           return;
         }
       } else {
         // 영향받는 파일이 없는 경우 간단한 확인
-        if (!window.confirm(`'${oldTag}' 태그를 '${newTag}'로 수정하시겠습니까?`)) {
+        if (!(await confirmAsync(`'${oldTag}' 태그를 '${newTag}'로 수정하시겠습니까?`, { type: 'warning' }))) {
           return;
         }
       }
@@ -1225,19 +1224,6 @@ const App: React.FC = () => {
         duration={notification.duration}
       />
       
-      {/* 확인 모달 */}
-      <ConfirmModal
-        isOpen={confirm.isOpen}
-        message={confirm.message}
-        title={confirm.title}
-        confirmText={confirm.confirmText}
-        cancelText={confirm.cancelText}
-        type={confirm.type}
-        onConfirm={handleConfirm}
-        onCancel={hideConfirm}
-        onCancelAction={confirm.onCancelAction}
-      />
-      
       {/* 초기 로딩 진행률 */}
       <LoadingProgress
         isVisible={isInitializingData && dataSyncProgress.total > 0}
@@ -1247,5 +1233,11 @@ const App: React.FC = () => {
     </GoogleOAuthProvider>
   );
 };
+
+const App: React.FC = () => (
+  <GlobalConfirmProvider>
+    <AppContent />
+  </GlobalConfirmProvider>
+);
 
 export default App;

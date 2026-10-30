@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useGlobalConfirm } from './GlobalConfirmProvider';
 
 interface NotificationState {
   isOpen: boolean;
@@ -19,6 +20,7 @@ interface ConfirmState {
 }
 
 export const useNotification = () => {
+  const globalConfirm = useGlobalConfirm();
   const [notification, setNotification] = useState<NotificationState>({
     isOpen: false,
     message: '',
@@ -26,7 +28,7 @@ export const useNotification = () => {
     duration: 3000
   });
 
-  const [confirm, setConfirm] = useState<ConfirmState>({
+  const [localConfirm, setLocalConfirm] = useState<ConfirmState>({
     isOpen: false,
     message: '',
     type: 'info'
@@ -49,7 +51,7 @@ export const useNotification = () => {
     setNotification(prev => ({ ...prev, isOpen: false }));
   }, []);
 
-  const showConfirm = useCallback((
+  const showLocalConfirm = useCallback((
     message: string,
     onConfirm: () => void,
     options?: {
@@ -60,7 +62,7 @@ export const useNotification = () => {
       onCancel?: () => void;
     }
   ) => {
-    setConfirm({
+    setLocalConfirm({
       isOpen: true,
       message,
       onConfirm,
@@ -72,16 +74,27 @@ export const useNotification = () => {
     });
   }, []);
 
-  const hideConfirm = useCallback(() => {
-    setConfirm(prev => ({ ...prev, isOpen: false }));
-  }, []);
+  const hideLocalConfirm = useCallback(() => {
+    setLocalConfirm(prev => ({ ...prev, isOpen: false }));
+    localConfirm.onCancelAction?.();
+  }, [localConfirm.onCancelAction]);
 
-  const handleConfirm = useCallback(() => {
-    if (confirm.onConfirm) {
-      confirm.onConfirm();
+  const handleLocalConfirm = useCallback(() => {
+    if (localConfirm.onConfirm) {
+      localConfirm.onConfirm();
     }
-    hideConfirm();
-  }, [confirm, hideConfirm]);
+    setLocalConfirm(prev => ({ ...prev, isOpen: false }));
+  }, [localConfirm]);
+
+  const showConfirm = globalConfirm?.showConfirm || showLocalConfirm;
+  const hideConfirm = globalConfirm?.hideConfirm || hideLocalConfirm;
+  const handleConfirm = globalConfirm?.handleConfirm || handleLocalConfirm;
+  const confirm = globalConfirm?.confirm || localConfirm;
+  const confirmAsync = globalConfirm?.confirmAsync || ((message: string, options?: {
+    title?: string; confirmText?: string; cancelText?: string; type?: 'danger' | 'warning' | 'info'; onCancel?: () => void;
+  }) => new Promise<boolean>((resolve) => {
+    showLocalConfirm(message, () => resolve(true), { ...options, onCancel: () => { options?.onCancel?.(); resolve(false); } });
+  }));
 
   return {
     notification,
@@ -89,6 +102,7 @@ export const useNotification = () => {
     showNotification,
     hideNotification,
     showConfirm,
+    confirmAsync,
     hideConfirm,
     handleConfirm
   };

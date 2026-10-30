@@ -12,6 +12,7 @@ import { FaEdit, FaTrash, FaPlus, FaSearch, FaTags } from 'react-icons/fa';
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../../../utils/database/accountingManager';
 import type { Category } from '../../../types/features/accounting';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+import { useNotification } from '../../../hooks/ui/useNotification';
 import './accounting.css';
 const log = logger.scope('components/features/accounting/CategoryManagement');
 
@@ -23,6 +24,7 @@ interface CategoryManagementProps {
 export const CategoryManagement: React.FC<CategoryManagementProps> = ({
   spreadsheetId
 }) => {
+  const { confirmAsync } = useNotification();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -162,7 +164,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
   };
 
   const handleDeleteCategory = async (category: Category) => {
-    if (!window.confirm(`카테고리 "${category.categoryName}"를 삭제하시겠습니까?\n\n사용 중인 항목이 있으면 삭제할 수 없습니다.`)) {
+    if (!(await confirmAsync(`카테고리 "${category.categoryName}"를 삭제하시겠습니까?\n\n사용 중인 항목이 있으면 삭제할 수 없습니다.`, { type: 'danger' }))) {
       return;
     }
 

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import type { Template } from "../../../hooks/features/templates/useTemplateUI";
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import { BiTrash, BiDotsVerticalRounded, BiEdit, BiTable, BiFileBlank, BiStar } from "react-icons/bi";
+import { useNotification } from '../../../hooks/ui/useNotification';
 const log = logger.scope('components/features/templates/TemplateCard');
 
 
@@ -45,6 +46,7 @@ function getCustomTagColorClass(tagName: string): string {
 
 export const TemplateCard = React.forwardRef<HTMLDivElement, Props>(
     ({ template, onUse, onDelete, onDeleteTemplate, onEdit, onEditPersonal, isFixed, defaultTags, style, attributes, listeners, onToggleFavorite, isFavorite, allowFormEdit = true, isAdmin = false }, ref) => {
+        const { confirmAsync } = useNotification();
         const [isMenuOpen, setIsMenuOpen] = useState(false);
         const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
         const [isSelected, setIsSelected] = useState(false);
@@ -120,15 +122,16 @@ export const TemplateCard = React.forwardRef<HTMLDivElement, Props>(
             }
         };
 
-        const handleDeleteTemplate = (e: React.MouseEvent) => {
+        const handleDeleteTemplate = async (e: React.MouseEvent) => {
             e.preventDefault();
             e.stopPropagation();
             setContextMenu(null);
             if (onDeleteTemplate) {
-                if (window.confirm(
+                if (await confirmAsync(
                     template.isPersonal 
                         ? `"${template.title}" 개인 템플릿을 삭제하시겠습니까?`
-                        : `"${template.title}" 기본 템플릿을 삭제하시겠습니까?`
+                        : `"${template.title}" 기본 템플릿을 삭제하시겠습니까?`,
+                    { type: 'danger' }
                 )) {
                     onDeleteTemplate(template);
                 }

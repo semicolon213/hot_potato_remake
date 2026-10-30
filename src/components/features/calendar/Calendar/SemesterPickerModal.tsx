@@ -2,6 +2,7 @@ import { logger } from '../../../../utils/logger';
 import React, { useState } from 'react';
 import useCalendarContext, { type DateRange, type CustomPeriod } from '../../../../hooks/features/calendar/useCalendarContext';
 import { notifyGlobal } from '../../../../utils/ui/globalNotification';
+import { useNotification } from '../../../../hooks/ui/useNotification';
 const log = logger.scope('components/features/calendar/Calendar/SemesterPickerModal');
 
 
@@ -18,6 +19,7 @@ interface SemesterPickerModalProps {
 }
 
 const SemesterPickerModal: React.FC<SemesterPickerModalProps> = ({ isOpen, onClose, onSave }) => {
+    const { confirmAsync } = useNotification();
     const {
         semesterStartDate,
         setSemesterStartDate,
@@ -126,8 +128,8 @@ const SemesterPickerModal: React.FC<SemesterPickerModalProps> = ({ isOpen, onClo
         setGradeEntryPeriod({ ...gradeEntryPeriod, [part]: newDate });
     };
 
-    const handleDeleteCustomPeriod = (id: string) => {
-        if (window.confirm('이 항목을 정말로 삭제하시겠습니까?')) {
+    const handleDeleteCustomPeriod = async (id: string) => {
+        if (await confirmAsync('이 항목을 정말로 삭제하시겠습니까?', { type: 'danger' })) {
             const updatedPeriods = customPeriods.filter(p => p.id !== id);
             setCustomPeriods(updatedPeriods);
         }

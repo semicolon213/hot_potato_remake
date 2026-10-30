@@ -8,6 +8,7 @@ import { logger } from '../../../utils/logger';
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../../utils/api/apiClient';
 import { NotificationModal } from '../../ui/NotificationModal';
+import { useNotification } from '../../../hooks/ui/useNotification';
 import type { ReviewLine, PaymentLine, WorkflowLineStep } from '../../../types/documents';
 import type { WorkflowTemplatesListResponse, UsersListResponse } from '../../../types/api/apiResponses';
 import './WorkflowTemplateModal.css';
@@ -43,6 +44,7 @@ const WorkflowTemplateModal: React.FC<WorkflowTemplateModalProps> = ({
   onSelectTemplate,
   isAdmin = false
 }) => {
+  const { confirmAsync } = useNotification();
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedTemplate, setSelectedTemplate] = useState<WorkflowTemplate | null>(null);
@@ -148,7 +150,7 @@ const WorkflowTemplateModal: React.FC<WorkflowTemplateModalProps> = ({
   };
 
   const handleDelete = async (templateId: string) => {
-    if (!window.confirm('템플릿을 삭제하시겠습니까?')) {
+    if (!(await confirmAsync('템플릿을 삭제하시겠습니까?', { type: 'danger' }))) {
       return;
     }
 

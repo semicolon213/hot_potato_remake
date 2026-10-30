@@ -95,7 +95,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
   const [recentDocuments, setRecentDocuments] = useState<InfoCardItem[]>([]);
   const [favoriteTemplates, setFavoriteTemplates] = useState<InfoCardItem[]>([]);
   const { onUseTemplate, allDefaultTemplates, personalTemplates } = useTemplateUI(customTemplates, onPageChange, '', '전체');
-  const { notification, showNotification, hideNotification } = useNotification();
+  const { notification, showNotification, hideNotification, confirmAsync } = useNotification();
   
   // 검색 및 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
@@ -335,7 +335,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
     }
 
     // 삭제 확인
-    if (!confirm(`선택한 ${selectedDocs.length}개의 문서를 삭제하시겠습니까?`)) {
+    if (!(await confirmAsync(`선택한 ${selectedDocs.length}개의 문서를 삭제하시겠습니까?`, { type: 'danger' }))) {
       return;
     }
 
