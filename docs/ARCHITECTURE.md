@@ -507,7 +507,7 @@ Apps Script는 응답이 느리고 호출 할당량이 있어서, **호출 수�
 | 개인 설정·개인 문서 | 브라우저 직접 (Drive API) | 내 드라이브 `hot_potato_personal/`. 이 앱이 만든 파일이라 `drive.file`로 보임 |
 
 - `exportTemplateFile`은 `UrlFetchApp`을 쓰므로 배포자가 `script.external_request`를 승인해야 합니다([DEPLOYMENT.md §2.2](./DEPLOYMENT.md#22-웹앱-배포)).
-- 장부 내보내기 창의 양식 미리보기(시트 목록, 병합, 셀 값)는 아직 브라우저가 공유 양식을 직접 읽어 권한 오류가 납니다. Apps Script 미리보기 액션으로 옮기는 중입니다([TEST_PLAN.md §9](./TEST_PLAN.md#9-drivefile-전환-화면-검증-2026-10-30-featuredrive-file-scope)).
+- 장부 내보내기 창의 양식 미리보기(시트 목록, 병합, 셀 값)는 Apps Script `getTemplateSheetPreview`가 `shared_forms` 안의 스프레드시트만 돌려줍니다.
 - 개인 설정 파일과 폴더는 첫 로그인 때 여러 곳에서 동시에 찾아도 한 번만 만듭니다.
 - 파일 접근은 Google 그룹 가입으로 정해집니다. 역할 폴더는 그룹에 공유되고, 승인 때 사용자를 역할 그룹에 넣습니다. `hp_member`의 `user_type`은 앱 화면과 API에서만 씁니다.
 - 캘린더 역할 키는 `src/utils/helpers/calendarRole.ts`에서 회원 역할과 맞춥니다(`std_council` → `council`, `ad_professor` → `ADprofessor`). 일정은 참석 역할 중 가장 낮은 역할의 캘린더 시트에 저장하고, 화면에는 참석자 기준으로 걸러 보여 줍니다. 이 필터는 화면에서만 적용되므로 캘린더 시트를 읽을 수 있는 사람은 그 시트의 일정을 모두 볼 수 있습니다.

@@ -37,7 +37,7 @@
 | 회계 | 장부 생성, 입출금, 증빙, 잔액 계산 | ✅ | |
 | 회계 | 카테고리 | ⚠️ | BUG-07 |
 | 회계 | 예산 계획 검토·승인·집행 | ⚠️ | BUG-04. 부관리인이 없는 통장은 검토 단계로 못 넘어감 |
-| 회계 | 장부 내보내기 | ⚠️ | 브랜치 `feature/drive-file-scope`에서는 양식 미리보기가 권한 오류로 실패 (수정 중, [TEST_PLAN.md §9](./TEST_PLAN.md#9-drivefile-전환-화면-검증-2026-10-30-featuredrive-file-scope)) |
+| 회계 | 장부 내보내기 | ✅ | 브랜치 `feature/drive-file-scope`에서 양식 미리보기를 Apps Script로 옮김 ([TEST_PLAN.md §9](./TEST_PLAN.md#9-drivefile-전환-화면-검증-2026-10-30-featuredrive-file-scope)) |
 | 일정 | 역할별 캘린더 통합, 일정 CRUD, 반복 일정, 학사 일정 | ⚠️ | BUG-03 (집행부·겸임교원 캘린더). 수정은 기능 브랜치에 반영, develop 병합 전 |
 | 일정 | 개인 시간표 | ✅ | |
 | 학생 | 목록·상세·추가·수정, 학생회 | ✅ | |
@@ -46,7 +46,7 @@
 | 교직원 | 교직원·위원회 관리 | ⚠️ | develop에서는 교직원 목록 조회(`fetchStaff`)가 학생 시트를 읽음. 수정은 기능 브랜치에 반영, develop 병합 전 |
 | 공통 | 오프라인 배너, 오류 경계, 캐시·프리페치 | ⚠️ | BUG-13 (결재·문서관리 화면에서 페이지 기반 자동 갱신 안 됨). 첫 로딩 지연과 BUG-06은 `feature/loading-performance`에서 수정 (미병합) |
 | 공통 | 개인정보처리방침·이용약관 페이지 | ✅ | |
-| 공통 | 만들기·수정·삭제 후 즉시 갱신, 서버 대기 중 표시 | ⚠️ | 일부 화면은 새로고침해야 반영되고, 진행 표시와 중복 실행 방지가 없음 (수정 중, [TEST_PLAN.md §9](./TEST_PLAN.md#9-drivefile-전환-화면-검증-2026-10-30-featuredrive-file-scope)) |
+| 공통 | 만들기·수정·삭제 후 즉시 갱신, 서버 대기 중 표시, 공통 확인 모달 | ✅ | 기능 브랜치에 반영, develop 병합 전. BUG-13 포함 ([TEST_PLAN.md §9](./TEST_PLAN.md#9-drivefile-전환-화면-검증-2026-10-30-featuredrive-file-scope)) |
 | 배포 | 웹 (Netlify) | ⚠️ | JSON 환경변수 4개가 `{`만 저장되어 있어 코드 기본값으로 동작 중 (2026-10-29 확인, §4 백로그) |
 | 배포 | 데스크톱 (Electron) | ⚠️ | 패키징 앱의 로그인·API 경로 미검증 |
 | 미사용 | 채팅(`Chat.tsx`), 회의록(`proceedings`) | ⏳ | 메뉴에 연결 안 됨 |
