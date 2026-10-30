@@ -22,6 +22,10 @@ function installSystem(config) {
 
     const adminEmail = String(config.adminEmail || '').trim();
     if (!isValidEmail(adminEmail)) throw new Error('올바른 관리자 이메일을 입력하세요.');
+    const googleClientId = String(config.googleClientId || '').trim();
+    if (!googleClientId || !/\.apps\.googleusercontent\.com$/.test(googleClientId)) {
+      throw new Error('올바른 Google OAuth 클라이언트 ID를 입력하세요.');
+    }
 
     const groupEmails = {};
     Object.keys(DEFAULT_GROUP_EMAILS_).forEach(function(role) {
@@ -32,10 +36,11 @@ function installSystem(config) {
 
     properties.setProperties({
       ROOT_FOLDER_NAME: String(config.rootFolderName || '').trim() || 'hot_potato_remake',
-      GROUP_EMAIL_JSON: JSON.stringify(groupEmails)
+      GROUP_EMAIL_JSON: JSON.stringify(groupEmails),
+      GOOGLE_CLIENT_ID: googleClientId
     });
 
-    const result = initializeSystem();
+    const result = initializeSystem({ googleClientId: googleClientId });
     if (!result.success) throw new Error(result.message || '초기화에 실패했습니다.');
     registerInitialAdmin_(adminEmail);
     properties.setProperty('SETUP_DONE', 'true');

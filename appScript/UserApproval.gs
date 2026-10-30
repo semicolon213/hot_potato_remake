@@ -319,8 +319,8 @@ function rejectUser(studentId) {
     }
     const spreadsheetId = spreadsheet.getId();
     
-    const sheetName = 'users';
-    const data = getSheetData(spreadsheetId, sheetName, 'A:F');
+    const sheetName = PropertiesService.getScriptProperties().getProperty('SHEET_NAME_USER') || 'user';
+    const data = getSheetData(spreadsheetId, sheetName, 'A:G');
     
     if (!data || data.length <= 1) {
       return {
@@ -341,7 +341,7 @@ function rejectUser(studentId) {
       };
     });
     
-    const user = users.find(u => u.student_id === studentId);
+    const user = users.find(u => String(u.no_member || '').trim() === String(studentId).trim());
     
     if (!user) {
       return {
@@ -350,29 +350,28 @@ function rejectUser(studentId) {
       };
     }
     
-    if (user.status !== 'pending') {
+    if (getUserApprovalStatus(user) !== 'X') {
       return {
         success: false,
         message: '이미 처리된 사용자입니다.'
       };
     }
     
-    // 사용자 상태를 'rejected'로 업데이트
-    const updatedData = [...data];
-    const statusColumnIndex = header.indexOf('status');
+    // 승인 대기(X)에서 거부(R)로 바꾸면 대기 목록에서 빠지고 재가입 시 같은 행을 재사용한다.
+    const statusColumnIndex = findApprovalColumnIndex(header);
     
     if (statusColumnIndex !== -1) {
-      updatedData[user.rowIndex - 1][statusColumnIndex] = 'rejected';
-      
       // 스프레드시트 업데이트
       const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(sheetName);
-      sheet.getRange(user.rowIndex, statusColumnIndex + 1).setValue('rejected');
+      sheet.getRange(user.rowIndex, statusColumnIndex + 1).setValue('R');
       
       return {
         success: true,
         message: '사용자가 거부되었습니다.',
         user: {
           ...user,
+          approval: 'R',
+          Approval: 'R',
           status: 'rejected'
         }
       };
@@ -417,8 +416,8 @@ function checkApprovalStatus(email) {
     }
     const spreadsheetId = spreadsheet.getId();
     
-    const sheetName = 'users';
-    const data = getSheetData(spreadsheetId, sheetName, 'A:F');
+    const sheetName = PropertiesService.getScriptProperties().getProperty('SHEET_NAME_USER') || 'user';
+    const data = getSheetData(spreadsheetId, sheetName, 'A:G');
     
     if (!data || data.length <= 1) {
       return {
@@ -439,7 +438,11 @@ function checkApprovalStatus(email) {
       return user;
     });
     
-    const user = users.find(u => u.email === email);
+    const user = users.find(u => {
+      if (!u.google_member) return false;
+      try { return decryptEmailMain(u.google_member).toLowerCase() === String(email).toLowerCase(); }
+      catch (error) { return false; }
+    });
     
     if (!user) {
       return {
@@ -451,11 +454,13 @@ function checkApprovalStatus(email) {
       };
     }
     
+    const approvalStatus = getUserApprovalStatus(user);
+    const status = approvalStatus === 'O' ? 'approved' : approvalStatus === 'X' ? 'pending' : 'rejected';
     return {
       success: true,
       data: {
-        status: user.status || 'pending',
-        message: getApprovalStatusMessage(user.status),
+        status: status,
+        message: getApprovalStatusMessage(status),
         user: user
       }
     };

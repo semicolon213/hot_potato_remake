@@ -507,6 +507,7 @@ function processReviewActionUnlocked_(req, action) {
     }
     
     const reviewLine = workflow.reviewLine;
+    const paymentLine = workflow.paymentLine || [];
     const currentStep = workflow.currentReviewStep || 1;
     const userEmail = req.userEmail;
     const step = req.step || currentStep;
@@ -629,7 +630,7 @@ function processReviewActionUnlocked_(req, action) {
         }
       });
       
-      // 결재 라인의 모든 단계를 '-' 상태로 표기
+      // 검토 반려도 결재 반려와 같은 반려 이력 상태를 남긴다.
       paymentLine.forEach(paymentStep => {
         paymentStep.status = '-';
         paymentStep.date = '';
@@ -658,6 +659,13 @@ function processReviewActionUnlocked_(req, action) {
         paymentLine.forEach((p, index) => {
           p.step = index + 1;
         });
+      } else {
+        const requesterIndex = paymentLine.findIndex(p => p.email === requesterEmail);
+        if (requesterIndex > 0) {
+          const requesterStep = paymentLine.splice(requesterIndex, 1)[0];
+          paymentLine.unshift(requesterStep);
+        }
+        paymentLine.forEach((p, index) => { p.step = index + 1; });
       }
       
       // 반려 시 단계 초기화 (요청자에게 돌아감을 의미)
@@ -674,11 +682,17 @@ function processReviewActionUnlocked_(req, action) {
     
     // 스프레드시트 업데이트
     const reviewLineIdx = headers.indexOf('review_line');
+    const paymentLineIdx = headers.indexOf('payment_line');
     const workflowStatusIdx = headers.indexOf('workflow_status');
     const currentReviewStepIdx = headers.indexOf('current_review_step');
     const updatedAtIdx = headers.indexOf('updated_at');
     
     documentsSheet.getRange(rowIndex, reviewLineIdx + 1).setValue(JSON.stringify(reviewLine));
+    if (action === 'reject') {
+      documentsSheet.getRange(rowIndex, paymentLineIdx + 1).setValue(JSON.stringify(paymentLine));
+      const currentPaymentStepIdx = headers.indexOf('current_payment_step');
+      documentsSheet.getRange(rowIndex, currentPaymentStepIdx + 1).setValue(0);
+    }
     documentsSheet.getRange(rowIndex, workflowStatusIdx + 1).setValue(workflowStatus);
     documentsSheet.getRange(rowIndex, currentReviewStepIdx + 1).setValue(nextReviewStep);
     documentsSheet.getRange(rowIndex, updatedAtIdx + 1).setValue(timestamp);

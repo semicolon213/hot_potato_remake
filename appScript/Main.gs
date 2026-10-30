@@ -36,6 +36,10 @@ function doPost(e) {
   try {
     // 요청 데이터 파싱
     const req = parseRequest(e);
+    req.verifiedEmail = verifyRequester_(req);
+    if (req.verifiedEmail) req.userEmail = req.verifiedEmail;
+    const authorization = authorizeRequest_(req);
+    if (!authorization.success) return json(authorization);
 
     if (req.action === 'getBootstrapData') {
       return ContentService
@@ -1069,7 +1073,7 @@ function callUserManagementPost(req) {
               reviewLineLength: req.reviewLine ? req.reviewLine.length : 0,
               hasPaymentLine: !!req.paymentLine,
               paymentLineLength: req.paymentLine ? req.paymentLine.length : 0,
-              requestKeys: Object.keys(req)
+              requestKeys: Object.keys(req).filter(function(key) { return key !== 'accessToken'; })
             }
           }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -1090,8 +1094,7 @@ function callUserManagementPost(req) {
               reviewLineLength: req.reviewLine ? req.reviewLine.length : 0,
               hasPaymentLine: !!req.paymentLine,
               paymentLineLength: req.paymentLine ? req.paymentLine.length : 0,
-              requestKeys: Object.keys(req),
-              requestData: JSON.stringify(req)
+              requestKeys: Object.keys(req).filter(function(key) { return key !== 'accessToken'; })
             }
           }))
           .setMimeType(ContentService.MimeType.JSON);

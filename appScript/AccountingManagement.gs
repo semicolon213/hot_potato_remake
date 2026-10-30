@@ -366,6 +366,15 @@ function setEvidenceFolderPermissions(params) {
 
 // ===== 회계 관련 시트 생성 =====
 
+const BUDGET_PLAN_HEADERS_ = [
+  'budget_id', 'account_id', 'title', 'total_amount',
+  'requested_date', 'planned_execution_date', 'status',
+  'sub_manager_reviewed', 'sub_manager_review_date',
+  'main_manager_approved', 'main_manager_approval_date',
+  'executed_date', 'created_by', 'rejection_reason', 'details',
+  'sub_manager_reviews'
+];
+
 /**
  * 회계 관련 시트 생성
  * @param {SpreadsheetApp.Spreadsheet} spreadsheet - 스프레드시트 객체
@@ -396,13 +405,7 @@ function createAccountingSheets(spreadsheet) {
     
     // 예산계획 시트 생성
     const budgetSheet = spreadsheet.insertSheet('예산계획');
-    setSheetHeaders(budgetSheet, [
-      'budget_id', 'account_id', 'title', 'total_amount',
-      'requested_date', 'planned_execution_date', 'status',
-      'sub_manager_reviewed', 'sub_manager_review_date',
-      'main_manager_approved', 'main_manager_approval_date',
-      'executed_date', 'created_by', 'rejection_reason', 'details'
-    ]);
+    setSheetHeaders(budgetSheet, BUDGET_PLAN_HEADERS_);
     
     // 카테고리 시트 생성
     const categorySheet = spreadsheet.insertSheet('카테고리');
@@ -435,6 +438,57 @@ function setSheetHeaders(sheet, headers) {
     logError_('AccountingManagement', '헤더 설정 오류:', error);
     throw error;
   }
+}
+
+function migrateBudgetPlanSheet_(spreadsheet) {
+  const sheet = spreadsheet.getSheetByName('예산계획');
+  if (!sheet) return { spreadsheetId: spreadsheet.getId(), status: 'no-sheet' };
+  const values = sheet.getDataRange().getValues();
+  const headers = (values[0] || []).map(String);
+  const statuses = ['pending', 'reviewed', 'approved', 'executed', 'rejected'];
+  const hasLegacyRows = values.slice(1).some(function(row) {
+    return statuses.indexOf(String(row[5] || '')) !== -1 && statuses.indexOf(String(row[6] || '')) === -1;
+  });
+  if (!hasLegacyRows && headers.length === BUDGET_PLAN_HEADERS_.length &&
+      headers.every(function(header, index) { return header === BUDGET_PLAN_HEADERS_[index]; })) {
+    return { spreadsheetId: spreadsheet.getId(), status: 'skipped' };
+  }
+
+  const timestamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmmss');
+  const backup = sheet.copyTo(spreadsheet).setName('예산계획_백업_' + timestamp);
+  const migrated = [BUDGET_PLAN_HEADERS_];
+  values.slice(1).forEach(function(row) {
+    if (statuses.indexOf(String(row[5] || '')) !== -1 && statuses.indexOf(String(row[6] || '')) === -1) {
+      migrated.push([
+        row[0], row[1], row[2], row[3], row[4], row[10], row[5], row[6],
+        row[7], row[8], row[9], '', row[11], row[12], row[13], row[14] || '[]'
+      ]);
+      return;
+    }
+    migrated.push(BUDGET_PLAN_HEADERS_.map(function(header) {
+      let index = headers.indexOf(header);
+      if (index === -1 && header === 'requested_date') index = headers.indexOf('modification_date');
+      return index === -1 ? '' : row[index];
+    }));
+  });
+  sheet.clearContents();
+  sheet.getRange(1, 1, migrated.length, BUDGET_PLAN_HEADERS_.length).setValues(migrated);
+  setSheetHeaders(sheet, BUDGET_PLAN_HEADERS_);
+  return { spreadsheetId: spreadsheet.getId(), status: 'migrated', backupSheet: backup.getName() };
+}
+
+/** 회계 폴더의 모든 장부를 백업한 뒤 예산계획 열을 기준 순서로 맞춘다. */
+function migrateBudgetPlanColumns() {
+  const folder = DriveApp.getFolderById(initializeAccountingFolder());
+  const results = [];
+  const ledgerFolders = folder.getFolders();
+  while (ledgerFolders.hasNext()) {
+    const files = ledgerFolders.next().getFilesByType(MimeType.GOOGLE_SHEETS);
+    while (files.hasNext()) {
+      results.push(migrateBudgetPlanSheet_(SpreadsheetApp.openById(files.next().getId())));
+    }
+  }
+  return results;
 }
 
 // ===== 장부 구조 생성 =====
@@ -593,7 +647,7 @@ function createLedgerStructure(params) {
  * @returns {Array<Object>} 장부 목록
  */
 /**
- * 장부 목록. req.userEmail이 있으면 그 사용자가 접근 대상으로 지정된 장부만 돌려준다.
+ * 장부 목록. req.verifiedEmail 사용자가 접근 대상으로 지정된 장부만 돌려준다.
  * (요청자 정보가 없으면 전체 — 편집기 실행·관리 함수용)
  */
 function getLedgerList(req) {
@@ -652,11 +706,11 @@ function getLedgerList(req) {
       };
     });
 
-    const userEmail = req && req.userEmail ? String(req.userEmail).toLowerCase() : '';
-    if (!userEmail) return ledgers;
+    const verifiedEmail = req && req.verifiedEmail ? String(req.verifiedEmail).toLowerCase() : '';
+    if (!verifiedEmail) return ledgers;
     const groupEmail = String(getGroupEmailByRole(req.userType) || '').toLowerCase();
     return ledgers.filter(function(ledger) {
-      return isLedgerAccessibleBy_(ledger.spreadsheetId, userEmail, groupEmail);
+      return isLedgerAccessibleBy_(ledger.spreadsheetId, verifiedEmail, groupEmail);
     });
 
   } catch (error) {
@@ -853,7 +907,7 @@ function getAccountingCategories(spreadsheetId) {
 /**
  * 통장 시트에 저장된 접근 대상(생성자, 주·별도 관리인, 지정 사용자, 지정 그룹스)에 사용자가 포함되는지
  */
-function isLedgerAccessibleBy_(spreadsheetId, userEmail, groupEmail) {
+function isLedgerAccessibleBy_(spreadsheetId, verifiedEmail, groupEmail) {
   if (!spreadsheetId) return false;
   try {
     const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName('통장');
@@ -869,7 +923,7 @@ function isLedgerAccessibleBy_(spreadsheetId, userEmail, groupEmail) {
         .concat(parse(row, 'sub_manager_ids'), parse(row, 'access_user_emails'))
         .map(function(v) { return String(v || '').toLowerCase(); });
       const groups = parse(row, 'access_group_emails').map(function(v) { return String(v || '').toLowerCase(); });
-      return users.indexOf(userEmail) !== -1 || (!!groupEmail && groups.indexOf(groupEmail) !== -1);
+      return users.indexOf(String(verifiedEmail || '').toLowerCase()) !== -1 || (!!groupEmail && groups.indexOf(groupEmail) !== -1);
     });
   } catch (error) {
     logWarn_('AccountingManagement', '장부 접근 대상 확인 실패:', spreadsheetId, error.message);
@@ -956,14 +1010,14 @@ var EVIDENCE_FILE_MAX_BYTES_ = 4 * 1024 * 1024;
 
 function uploadEvidenceFile(req) {
   try {
-    if (!req || !req.spreadsheetId || !req.evidenceFolderId || !req.userEmail || !req.fileName || !req.fileData) {
+    if (!req || !req.spreadsheetId || !req.evidenceFolderId || !req.verifiedEmail || !req.fileName || !req.fileData) {
       return { success: false, message: '장부, 증빙 폴더, 업로더, 파일 내용이 필요합니다.' };
     }
-    const userEmail = String(req.userEmail).trim().toLowerCase();
+    const verifiedEmail = String(req.verifiedEmail).trim().toLowerCase();
     const groupEmail = String(getGroupEmailByRole(req.userType) || '').toLowerCase();
-    const ledger = getLedgerList().find(function(item) { return item.spreadsheetId === req.spreadsheetId; });
+    const ledger = getLedgerList(req).find(function(item) { return item.spreadsheetId === req.spreadsheetId; });
     if (!ledger || ledger.evidenceFolderId !== req.evidenceFolderId ||
-        !isLedgerAccessibleBy_(req.spreadsheetId, userEmail, groupEmail)) {
+        !isLedgerAccessibleBy_(req.spreadsheetId, verifiedEmail, groupEmail)) {
       return { success: false, message: '이 장부의 증빙 폴더에 업로드할 권한이 없습니다.' };
     }
     const folder = DriveApp.getFolderById(req.evidenceFolderId);

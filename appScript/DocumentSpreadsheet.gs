@@ -447,14 +447,14 @@ function handleGetDocuments(req) {
  */
 function handleDeleteDocuments(req) {
   try {
-    const { documentIds, role, userEmail } = req;
+    const { documentIds, role, verifiedEmail } = req;
     if (!Array.isArray(documentIds) || documentIds.length === 0) {
       return {
         success: false,
         message: '삭제할 문서 ID가 필요합니다.'
       };
     }
-    const normalizedUserEmail = String(userEmail || '').trim().toLowerCase();
+    const normalizedUserEmail = String(verifiedEmail || '').trim().toLowerCase();
     if (!normalizedUserEmail) {
       return { success: false, message: '문서를 삭제하려면 사용자 이메일이 필요합니다.', failures: documentIds };
     }
