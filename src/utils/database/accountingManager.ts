@@ -386,8 +386,7 @@ export const createLedgerEntry = async (
       if (accountData && accountData.values && accountData.values.length > 1) {
         const accountRowIndex = accountData.values.findIndex((row: string[]) => row[0] === account.accountId);
         if (accountRowIndex !== -1) {
-          const finalBalance = sortedEntries.length > 0 ? sortedEntries[sortedEntries.length - 1].balanceAfter : account.initialBalance;
-          await update(spreadsheetId, ACCOUNTING_SHEETS.ACCOUNT, `D${accountRowIndex + 1}`, [[finalBalance]]);
+          await update(spreadsheetId, ACCOUNTING_SHEETS.ACCOUNT, `D${accountRowIndex + 1}`, [[runningBalance]]);
         }
       }
     } catch (sortError) {
