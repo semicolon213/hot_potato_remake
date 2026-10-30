@@ -1468,7 +1468,9 @@ function callUserManagementPost(req) {
 // ===== GET 요청 처리 =====
 function doGet(e) {
   try {
-    
+    if (e && e.parameter && e.parameter.page === 'setup') {
+      return HtmlService.createHtmlOutputFromFile('Setup').setTitle('HP ERP 백엔드 설치');
+    }
     // UserManagement.gs의 doGetAuthInternal 함수 호출
     return callUserManagementGet(e);
   } catch (error) {
