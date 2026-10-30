@@ -65,7 +65,7 @@ restricted 범위를 남길 때 생기는 일:
 | 7 | Limited Use 준수 문구 | 없음 | 영문·국문 문구를 `privacy.html` 6절과 소개 페이지에 추가 | 완료 |
 | 8 | 개인정보처리방침의 사실 정확성 | 관리자 키 메일 요청이 액세스 토큰을 Apps Script로 보내고 `appScript/Main.gs:15`가 요청 전체를 로그에 남김 | 토큰 전송 제거, 요청 로그 축소. **이 수정이 배포되기 전에는 새 `privacy.html`을 배포하지 않음** | develop에 반영(운영 배포 전) |
 | 9 | 개인정보처리방침의 미확정 값 | 시행일, 운영 주체, 문의 이메일, 회원 정보 보관 기간이 TODO | 값을 정해 `public/privacy.html`, `public/terms.html`의 TODO 주석 위치를 바꿈 | 완료 (운영: 유한대학교 감자도리, 문의 khk213624@gmail.com, 보관 기간은 사용 기관 지침, 시행일 2026-11-01) |
-| 10 | 범위 축소 후 방침 갱신 | 브랜치의 `privacy.html`에서 `documents`, `gmail.compose` 행은 지웠지만, 드라이브 행은 아직 `drive` 범위와 `hot_potato_remake` 폴더를 설명함 | 드라이브 행을 `drive.file`(이 앱이 만든 파일만, 개인 폴더 `hot_potato_personal`)과 Apps Script를 거치는 공유 파일 처리에 맞게 수정 | Codex / 문서 |
+| 10 | 범위 축소 후 방침 갱신 | 브랜치의 `privacy.html`에서 `documents`, `gmail.compose` 행은 지웠지만, 드라이브 행은 아직 `drive` 범위와 `hot_potato_remake` 폴더를 설명함 | 드라이브 행을 `drive.file`(이 앱이 만든 파일만, 개인 폴더 `hot_potato_personal`)과 Apps Script를 거치는 공유 파일 처리에 맞게 수정 | 완료(브랜치 `chore/oauth-verification`): 드라이브 행을 `drive.file`로, 토큰을 신원 확인용으로 Apps Script에 보내는 것과 공지 첨부 공유 범위를 반영 |
 | 11 | 이용약관(선택) | 일반 문구 | Google 연동, 권한 철회, 책임 조항 보강 | 완료 |
 | 12 | 승인된 도메인: 홈페이지, 방침, 약관, 리디렉션 URI의 최상위 비공개 도메인 | `netlify.app`은 공개 접미사 목록(PSL)에 있으므로 `yuhancse.netlify.app` 자체가 최상위 비공개 도메인 | Branding > Authorized domains에 `yuhancse.netlify.app` 추가 | 사용자 |
 | 13 | 도메인 소유 확인: Search Console에서 프로젝트 소유자 또는 편집자 계정으로 확인 | 미확인 | Search Console에서 URL 접두어 속성 `https://yuhancse.netlify.app/` 추가 후 HTML 태그 또는 HTML 파일로 확인(DNS 방식은 netlify.app이라 불가) | 사용자 |
@@ -73,9 +73,9 @@ restricted 범위를 남길 때 생기는 일:
 | 15 | 앱 이름: 다른 조직 브랜드와 혼동되면 안 됨, 동의 화면·홈페이지·방침에서 같은 이름 | 모든 페이지가 "HP ERP (뜨거운 감자)"로 통일 | "HP"가 HP Inc. 상표와 혼동될 수 있음. 심사에서 지적되면 "뜨거운 감자 ERP" 등으로 바꿀지 결정 | 사용자 |
 | 16 | 사용자 지원 이메일: 로그인한 사용자 본인 주소 또는 그가 관리하는 Google 그룹 | 미정 | 운영 계정 또는 운영 Google 그룹으로 지정하고 방침 문의처와 같게 맞춤 | 사용자 |
 | 17 | 개발자 연락처: Google 알림 수신, 최신 유지 | 미확인 | 실제로 메일을 읽는 운영자 주소 2개 이상 등록 | 사용자 |
-| 18 | Google 로그인 버튼 브랜딩 가이드 준수 | 자체 버튼(G 로고, "Google로 로그인") | 가이드 문구("Google 계정으로 로그인")와 스타일 맞춤 확인 | Codex |
+| 18 | Google 로그인 버튼 브랜딩 가이드 준수 | 자체 버튼(G 로고, "Google로 로그인") | 가이드 문구("Google 계정으로 로그인")와 스타일 맞춤 확인 | 완료(브랜치 `chore/oauth-verification`): 문구를 "Google 계정으로 로그인"으로 통일, 검은 배경은 가이드의 dark 테마 |
 | 19 | 최소 범위 요청 | `gmail.compose`, `documents` 미사용, `drive` 과다 | 2절 권장안 적용 | develop에 반영(운영 배포 전) |
-| 20 | 민감 범위 인증 자료: 범위별 사용 이유, 영어 동의 화면이 보이는 시연 영상 | 없음 | 범위 축소 배포 후 시연 영상 촬영(로그인부터 각 기능까지, 동의 화면 언어 English), 범위별 설명 작성 | 사용자 |
+| 20 | 민감 범위 인증 자료: 범위별 사용 이유, 영어 동의 화면이 보이는 시연 영상 | 없음 | 범위 축소 배포 후 시연 영상 촬영(로그인부터 각 기능까지, 동의 화면 언어 English), 범위별 설명 작성 | 자료 준비 완료([oauth/VERIFICATION_PACKAGE.md](./oauth/VERIFICATION_PACKAGE.md)). 영상 촬영과 제출은 사용자 |
 | 21 | 파비콘 경로 | `index.html`이 `public/logo.svg`를 가리켜 배포 사이트에서 깨짐 | `/logo.svg`로 수정 | 완료 |
 
 근거 문서:
