@@ -131,14 +131,40 @@ function shareRoleFolders(folderStructure) {
  * 이미 설치된 환경에서 역할 폴더 공유만 다시 적용 (편집기에서 실행)
  */
 function applyRoleFolderSharing() {
-  const results = shareRoleFolders(createFolderStructure(getOrCreateRootFolder()));
-  logInfo_('InitialSetup', '역할 폴더 공유 결과:', JSON.stringify(results));
+  // 이름 검색은 같은 이름의 개인 폴더를 잡을 수 있어 ROOT_FOLDER_ID 기준 루트를 쓰고, 폴더를 새로 만들지 않는다.
+  const rootId = getProjectRootFolderId_();
+  if (!rootId) throw new Error('루트 폴더를 찾을 수 없습니다. 스크립트 속성 ROOT_FOLDER_ID를 확인하세요.');
+  const root = DriveApp.getFolderById(rootId);
+  const folders = [];
+  Object.keys(ROLE_FOLDER_GROUPS_).forEach(function(name) {
+    const found = root.getFoldersByName(name);
+    if (found.hasNext()) {
+      folders.push({ name: name, id: found.next().getId(), path: root.getName() + '/' + name });
+    } else {
+      console.warn('역할 폴더 없음: ' + name);
+    }
+  });
+  console.log('루트 폴더: ' + root.getName() + ' (' + rootId + ')');
+  const results = shareRoleFolders(folders);
+  // 편집기에서 직접 실행하는 함수라 로그 수준과 무관하게 결과를 출력한다.
+  console.log('역할 폴더 공유 결과:\n' + results.map(function(r) {
+    return [r.folder, r.email || r.role, r.status, r.message || ''].join(' | ');
+  }).join('\n'));
   return results;
 }
 
 function getOrCreateRootFolder() {
   try {
-    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    const props = PropertiesService.getScriptProperties();
+    const rootFolderId = props.getProperty('ROOT_FOLDER_ID');
+    if (rootFolderId) {
+      try {
+        return DriveApp.getFolderById(rootFolderId);
+      } catch (error) {
+        logWarn_('InitialSetup', 'ROOT_FOLDER_ID 폴더를 열 수 없어 이름으로 찾습니다:', error.message);
+      }
+    }
+    const rootFolderName = props.getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
     const folders = DriveApp.getFoldersByName(rootFolderName);
     
     if (folders.hasNext()) {
