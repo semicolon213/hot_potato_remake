@@ -39,7 +39,7 @@ function getEnvJson<T extends Record<string, string>>(
 // ========== JSON 기본값 (.env 미설정 시 사용) ==========
 const DEFAULT_FOLER: Record<string, string> = {
   ROOT: 'hot_potato_remake',
-  PERSONAL: 'hot_potato_개인설정',
+  PERSONAL: 'hot_potato_personal',
   DOCUMENT: 'document',
   S_DOC: 'shared_documents',
   P_DOC: 'personal_documents',
@@ -150,7 +150,7 @@ export const ENV_CONFIG = {
   // Drive 폴더
   ROOT_FOLDER_NAME: FOLER.ROOT ?? 'hot_potato_remake',
   // 사용자 개인 드라이브 폴더 (공유 루트와 이름을 다르게 둬 혼동을 막는다)
-  PERSONAL_ROOT_FOLDER_NAME: FOLER.PERSONAL ?? 'hot_potato_개인설정',
+  PERSONAL_ROOT_FOLDER_NAME: FOLER.PERSONAL ?? 'hot_potato_personal',
   DOCUMENT_FOLDER_NAME: FOLER.DOCUMENT ?? 'document',
   SHARED_DOCUMENT_FOLDER_NAME: FOLER.S_DOC ?? 'shared_documents',
   PERSONAL_DOCUMENT_FOLDER_NAME: FOLER.P_DOC ?? 'personal_documents',
