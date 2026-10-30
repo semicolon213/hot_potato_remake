@@ -838,3 +838,72 @@ function getAccountingCategories(spreadsheetId) {
   }
 }
 
+
+// ===== 기존 장부 권한 재적용 (편집기에서 실행) =====
+
+// 예전 기본값으로 저장된 그룹스 주소 → 그룹스 역할 키
+const LEGACY_GROUP_EMAIL_ROLES_ = {
+  'hp_supp@googlegroups.com': 'supp',
+  'ad_professor_hp@googlegroups.com': 'ad_professor'
+};
+
+/**
+ * 모든 장부의 통장 시트에 저장된 접근 대상(관리인, 그룹스, 사용자)으로 장부 폴더·스프레드시트·증빙 폴더 권한을 다시 부여한다.
+ * 예전 기본값으로 저장된 그룹스 주소는 현재 GROUP_EMAIL_JSON 주소로 바꾸고 시트 값도 고친다.
+ * 이미 있는 권한은 건너뛴다.
+ */
+function applyLedgerSharing() {
+  const list = getLedgerList() || [];
+  const lines = [];
+
+  list.forEach(function(ledger) {
+    if (!ledger.spreadsheetId) return;
+    const sheet = SpreadsheetApp.openById(ledger.spreadsheetId).getSheetByName('통장');
+    if (!sheet) {
+      lines.push(ledger.folderName + ' | 통장 시트 없음');
+      return;
+    }
+
+    const values = sheet.getDataRange().getValues();
+    const header = values[0];
+    const col = function(name) { return header.indexOf(name); };
+    const users = [];
+    const groups = [];
+
+    values.slice(1).forEach(function(row, i) {
+      const parse = function(name) {
+        try { return JSON.parse(row[col(name)] || '[]'); } catch (e) { return []; }
+      };
+      const fixedGroups = parse('access_group_emails').map(function(email) {
+        const role = LEGACY_GROUP_EMAIL_ROLES_[String(email).toLowerCase()];
+        return role ? getGroupEmailByRole(role) : email;
+      }).filter(Boolean);
+      if (JSON.stringify(fixedGroups) !== JSON.stringify(parse('access_group_emails'))) {
+        sheet.getRange(i + 2, col('access_group_emails') + 1).setValue(JSON.stringify(fixedGroups));
+      }
+      groups.push.apply(groups, fixedGroups);
+      users.push(row[col('main_manager_id')], row[col('created_by')]);
+      users.push.apply(users, parse('sub_manager_ids'));
+      users.push.apply(users, parse('access_user_emails'));
+    });
+
+    const unique = function(arr) {
+      return arr.filter(function(v, i) { return v && String(v).indexOf('@') > 0 && arr.indexOf(v) === i; });
+    };
+    const params = { users: unique(users), groups: unique(groups) };
+    const targets = [
+      ['폴더', setLedgerFolderPermissions, { folderId: ledger.folderId }],
+      ['시트', setLedgerFilePermissions, { fileId: ledger.spreadsheetId }],
+      ['증빙', setEvidenceFolderPermissions, { folderId: ledger.evidenceFolderId }]
+    ];
+    targets.forEach(function(t) {
+      if (!t[2].folderId && !t[2].fileId) return;
+      const result = t[1](Object.assign({}, t[2], params));
+      lines.push(ledger.folderName + ' | ' + t[0] + ' | ' + (result.message || ('성공 ' + result.successCount + ', 실패 ' + result.failCount + (result.failedUsers && result.failedUsers.length ? ' (' + JSON.stringify(result.failedUsers) + ')' : ''))));
+    });
+    lines.push(ledger.folderName + ' | 그룹스: ' + params.groups.join(', '));
+  });
+
+  console.log('장부 권한 재적용 결과:\n' + lines.join('\n'));
+  return lines;
+}
