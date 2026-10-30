@@ -913,7 +913,7 @@ export class ApiClient {
       // 학생 취업관리
       'saveEmployment', 'updateEmploymentAfter', 'createField', 'updateField', 'deleteField',
       // 학년/유급
-      'updateStudentRetained', 'setGraduationGrade', 'updateStudentGrades', 'setGraduatedAdvanced',
+      'updateStudentRetained', 'setGraduationGrade', 'updateStudentGrades', 'updateStudentGradesSelected', 'setGraduatedAdvanced',
     ];
     return writeActions.includes(action);
   }
@@ -1064,6 +1064,11 @@ export class ApiClient {
       'approveUserWithGroup': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
       'rejectUser': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
       'addUsersToSpreadsheet': () => ['users:getAllUsers:*'],
+      'updateStudentRetained': () => ['students:fetchStudents:*'],
+      'setGraduationGrade': () => ['students:fetchStudents:*'],
+      'updateStudentGrades': () => ['students:fetchStudents:*'],
+      'updateStudentGradesSelected': () => ['students:fetchStudents:*'],
+      'setGraduatedAdvanced': () => ['students:fetchStudents:*'],
       'requestPinnedAnnouncementApproval': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
       'requestPinnedAnnouncement': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
       'createAnnouncement': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
