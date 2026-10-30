@@ -363,12 +363,17 @@ export class ApiClient {
     const cachePromises = actions.map((action) => {
       const actionParams = action === 'getAnnouncements' ? params : action === 'getLedgerList' ? ledgerListParams() : {};
       const cacheKey = generateCacheKey(getActionCategory(action), action, actionParams);
+      const cacheGeneration = this.cacheGenerations.get(cacheKey) || 0;
       const actionPromise = bootstrapPromise.then(async (response) => {
         const actionResponse = response.data?.[action];
         if (actionResponse?.success) {
-          await this.cacheManager.set(cacheKey, actionResponse, getCacheTTL(action));
+          if (cacheGeneration === (this.cacheGenerations.get(cacheKey) || 0)) {
+            await this.cacheManager.set(cacheKey, actionResponse, getCacheTTL(action));
+          }
+          return actionResponse;
         }
-        return actionResponse || { success: false, message: `${action} 응답이 없습니다.` };
+        if (this.inFlightRequests.get(cacheKey) === actionPromise) this.inFlightRequests.delete(cacheKey);
+        return this.request(action, actionParams);
       });
 
       this.inFlightRequests.set(cacheKey, actionPromise as Promise<ApiResponse<unknown>>);
