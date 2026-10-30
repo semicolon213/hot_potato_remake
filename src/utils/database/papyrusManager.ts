@@ -55,7 +55,6 @@ let calendarStudentSpreadsheetId: string | null = null;
 let studentSpreadsheetId: string | null = null;
 let staffSpreadsheetId: string | null = null;
 let accountingFolderId: string | null = null;
-let announcementAttachmentFolderId: string | null = null;
 let hasInitializedSpreadsheetIds = false;
 
 /**
@@ -98,104 +97,13 @@ export const getNoticeSpreadsheetApiFields = (spreadsheetIdOverride?: string | n
     };
 };
 
-/**
- * @brief 드라이브 루트에 있는 프로젝트 루트 폴더 ID 조회
- * @returns {Promise<string | null>} 루트 폴더 ID 또는 null
- */
-const getProjectRootFolderId = async (): Promise<string | null> => {
-    if (!window.gapi?.client) return null;
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME || 'hot_potato_remake';
-    const safeName = rootFolderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    const response = await window.gapi.client.drive.files.list({
-        q: `'root' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name)'
-    });
-    if (response.result.files && response.result.files.length > 0) {
-        return response.result.files[0].id;
-    }
-    return null;
-};
-
-/**
- * @brief 스프레드시트 ID 찾기 함수 (드라이브 루트의 프로젝트 루트 폴더 하위에서만 검색)
- * @param {string} name - 찾을 스프레드시트의 이름
- * @returns {Promise<string | null>} 스프레드시트 ID 또는 null
- */
 export const findSpreadsheetById = async (name: string): Promise<string | null> => {
+    // 공유 루트는 사용자 드라이브 범위(drive.file)로는 검색되지 않으므로 Apps Script가 찾아 준다.
     try {
-        if (!window.gapi || !window.gapi.client) {
-            log.warn(`Google API가 초기화되지 않았습니다. 스프레드시트 '${name}' 검색을 건너뜁니다.`);
-            return null;
-        }
-
-        const token = tokenManager.get();
-        if (!token) {
-            log.warn(`Google API 인증 토큰이 없거나 만료되었습니다. 스프레드시트 '${name}' 검색을 건너뜁니다.`);
-            return null;
-        }
-
-        try {
-            window.gapi.client.setToken({ access_token: token });
-        } catch {
-            log.warn(`토큰 설정 실패`);
-        }
-
-        let attempts = 0;
-        const maxAttempts = 3;
-
-        while (attempts < maxAttempts) {
-            try {
-                log.debug(`스프레드시트 '${name}' 검색 중 (프로젝트 루트 폴더 하위)... (시도 ${attempts + 1}/${maxAttempts})`);
-
-                const rootFolderId = await getProjectRootFolderId();
-                if (!rootFolderId) {
-                    log.warn(`프로젝트 루트 폴더('${ENV_CONFIG.ROOT_FOLDER_NAME || 'hot_potato_remake'}')를 드라이브 루트에서 찾을 수 없습니다.`);
-                    return null;
-                }
-
-                const safeName = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                const response = await window.gapi.client.drive.files.list({
-                    q: `'${rootFolderId}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
-                    fields: 'files(id, name)'
-                });
-
-                if (response.result.files && response.result.files.length > 0) {
-                    const fileId = response.result.files[0].id;
-                    return fileId;
-                }
-
-                // 루트 폴더 직하위에 없으면 하위 폴더들에서 재귀 검색 (SpreadsheetUtils 동작과 동일)
-                const folderResponse = await window.gapi.client.drive.files.list({
-                    q: `'${rootFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-                    fields: 'files(id, name)'
-                });
-                const subFolders = folderResponse.result.files || [];
-                for (const folder of subFolders) {
-                    const subResponse = await window.gapi.client.drive.files.list({
-                        q: `'${folder.id}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
-                        fields: 'files(id, name)'
-                    });
-                    if (subResponse.result.files && subResponse.result.files.length > 0) {
-                        return subResponse.result.files[0].id;
-                    }
-                }
-
-                log.warn(`프로젝트 루트 폴더 하위에서 이름이 '${name}'인 스프레드시트를 찾을 수 없습니다.`);
-                return null;
-            } catch (apiError) {
-                attempts++;
-                log.error(`API 호출 실패 (${attempts}/${maxAttempts}):`, apiError);
-                if (attempts >= maxAttempts) {
-                    log.error(`스프레드시트 '${name}' 검색 실패:`, apiError);
-                    return null;
-                }
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-        }
-
-        return null;
+        const response = await apiClient.getSpreadsheetIds([name]);
+        return response.success ? response.data?.[name] || null : null;
     } catch (error) {
-        log.warn(`Error searching for ${name} spreadsheet:`, error);
+        log.warn(`스프레드시트 '${name}' ID 조회 실패:`, error);
         return null;
     }
 };
@@ -438,126 +346,29 @@ export const fetchAnnouncements = async (
     }
 };
 
-// [MERGE] File 1의 dataURLtoBlob 헬퍼 함수
-const dataURLtoBlob = (dataurl: string) => {
-    const arr = dataurl.split(',');
-    const mime = arr[0].match(/:(.*?);/)?.[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], {type: mime});
-};
+const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024; // 프록시 요청 본문 한도(약 6MB)를 base64 증가분까지 고려한 값
 
-const escapeDriveQueryValue = (value: string): string => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+});
 
-const findOrCreateFolderByName = async (folderName: string, parentFolderId: string): Promise<string> => {
-    const safeName = escapeDriveQueryValue(folderName);
-    const existing = await window.gapi.client.drive.files.list({
-        q: `'${parentFolderId}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name)',
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true
-    });
-
-    const existingId = existing.result.files?.[0]?.id;
-    if (existingId) return existingId;
-
-    const created = await window.gapi.client.drive.files.create({
-        resource: {
-            name: folderName,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [parentFolderId]
-        },
-        fields: 'id',
-        supportsAllDrives: true
-    });
-
-    const createdId = created.result.id;
-    if (!createdId) {
-        throw new Error(`폴더 생성에 실패했습니다: ${folderName}`);
-    }
-    return createdId;
-};
-
-const getAnnouncementAttachmentFolderId = async (): Promise<string> => {
-    if (announcementAttachmentFolderId) return announcementAttachmentFolderId;
-
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME || 'hot_potato_remake';
-    const noticeParentFolderName = ENV_CONFIG.NOTICE_ATTACH_PARENT_FOLDER_NAME || 'notice';
-    const attachFolderName = ENV_CONFIG.NOTICE_ATTACH_FOLDER_NAME || 'attached_file';
-
-    // 1) 프로젝트 루트는 드라이브 루트에서 검색 (없으면 생성)
-    const rootSafeName = escapeDriveQueryValue(rootFolderName);
-    const rootSearch = await window.gapi.client.drive.files.list({
-        q: `'root' in parents and name='${rootSafeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name)',
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true
-    });
-
-    let rootFolderId = rootSearch.result.files?.[0]?.id;
-    if (!rootFolderId) {
-        rootFolderId = await findOrCreateFolderByName(rootFolderName, 'root');
-    }
-
-    // 2) ROOT/NOTICE_PARENT/NOTICE_ATTACH (InitialSetup의 notice/attached_file과 동일)
-    const noticeParentId = await findOrCreateFolderByName(noticeParentFolderName, rootFolderId);
-    const attachFolderId = await findOrCreateFolderByName(attachFolderName, noticeParentId);
-
-    announcementAttachmentFolderId = attachFolderId;
-    return attachFolderId;
-};
-
-// [MERGE] File 2의 uploadFileToDrive 헬퍼 함수
+// 첨부파일은 Apps Script가 공유 루트의 notice/attached_file에 저장한다 (사용자 드라이브 권한과 무관)
 const uploadFileToDrive = async (file: File): Promise<{ name: string, url: string }> => {
-    const token = tokenManager.get();
-    if (!token) {
-        throw new Error('Google Access Token not found or expired');
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+        throw new Error(`첨부파일은 4MB 이하만 올릴 수 있습니다: ${file.name}`);
     }
-
-    const folderId = await getAnnouncementAttachmentFolderId();
-
-    const fileMetadata = {
-        name: file.name,
-        parents: [folderId]
-    };
-
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(fileMetadata)], {type: 'application/json'}));
-    form.append('file', file);
-
-    const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: new Headers({'Authorization': 'Bearer ' + token}),
-        body: form,
+    const response = await apiClient.uploadNoticeAttachment({
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        fileData: await fileToBase64(file)
     });
-
-    const uploadedFile = await uploadResponse.json();
-
-    if (uploadedFile.id) {
-        const fileId = uploadedFile.id;
-
-        await window.gapi.client.drive.permissions.create({
-            fileId: fileId,
-            resource: {
-                role: 'reader',
-                type: 'anyone'
-            }
-        });
-
-        const fileInfo = await window.gapi.client.drive.files.get({
-            fileId: fileId,
-            fields: 'webViewLink'
-        });
-
-        return {name: file.name, url: fileInfo.result.webViewLink};
-    } else {
-        log.error('File upload failed:', uploadedFile);
-        throw new Error('File upload failed');
+    if (!response.success || !response.data) {
+        throw new Error(response.message || `첨부파일 업로드 실패: ${file.name}`);
     }
+    return { name: response.data.name, url: response.data.url };
 };
 
 // 공지사항 작성 (앱스크립트 API 사용)
@@ -593,79 +404,8 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
             throw new Error('Failed to set GAPI token');
         }
 
-        let processedContent = postData.content;
-
-        // Base64 이미지 처리 (프론트엔드에서 처리)
-        const imgRegex = /<img src="(data:image\/[^;]+;base64,[^"]+)"[^>]*>/g;
-        let match;
-        const uploadPromises = [];
-
-        while ((match = imgRegex.exec(postData.content)) !== null) {
-            const fullImgTag = match[0]; // The entire <img ...> tag
-            const base64Src = match[1]; // The base64 data URL
-            const blob = dataURLtoBlob(base64Src);
-            const folderId = await getAnnouncementAttachmentFolderId();
-
-            const fileMetadata = {
-                name: `announcement-image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                parents: [folderId]
-            };
-
-            const form = new FormData();
-            form.append('metadata', new Blob([JSON.stringify(fileMetadata)], {type: 'application/json'}));
-            form.append('file', blob);
-
-            const uploadPromise = fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                method: 'POST',
-                headers: new Headers({'Authorization': 'Bearer ' + token}),
-                body: form,
-            })
-                .then(response => response.json())
-                .then(async uploadedFile => {
-                    if (uploadedFile.id) {
-                        const fileId = uploadedFile.id;
-                        // Make the file publicly readable
-                        await window.gapi.client.drive.permissions.create({
-                            fileId: fileId,
-                            resource: {
-                                role: 'reader',
-                                type: 'anyone'
-                            }
-                        });
-
-                        // Get the thumbnailLink for a potentially better-performing URL
-                        const fileInfo = await window.gapi.client.drive.files.get({
-                            fileId: fileId,
-                            fields: 'thumbnailLink, webContentLink'
-                        });
-                        
-                        // Prioritize thumbnailLink, fallback to webContentLink
-                        const permanentUrl = fileInfo.result.thumbnailLink || fileInfo.result.webContentLink;
-
-                        if (permanentUrl) {
-                            // The thumbnailLink might be sized, remove the sizing parameter for flexibility
-                            const baseUrl = permanentUrl.split('=s')[0];
-                            return { oldTag: fullImgTag, newUrl: baseUrl };
-                        } else {
-                            log.error('webContentLink and thumbnailLink not found for file');
-                            return { oldTag: fullImgTag, newUrl: null };
-                        }
-                    } else {
-                        log.error('File upload failed:', uploadedFile);
-                        return { oldTag: fullImgTag, newUrl: null };
-                    }
-                });
-            uploadPromises.push(uploadPromise);
-        }
-
-        const uploadedImages = await Promise.all(uploadPromises);
-        uploadedImages.forEach(image => {
-            if (image.newUrl) {
-                // Replace the entire old <img> tag with a new one that only has the src
-                const newImgTag = `<img src="${image.newUrl}">`;
-                processedContent = processedContent.replace(image.oldTag, newImgTag);
-            }
-        });
+        // 본문의 base64 이미지는 Apps Script(processAndUploadImages_)가 업로드하고 링크로 바꾼다.
+        const processedContent = postData.content;
 
         // 첨부파일 업로드 (프론트엔드에서 처리)
         let fileInfos: { name: string, url: string }[] = [];

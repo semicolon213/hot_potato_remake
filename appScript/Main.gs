@@ -951,6 +951,12 @@ function callUserManagementPost(req) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
+    if (action === 'uploadNoticeAttachment') {
+      return ContentService
+        .createTextOutput(JSON.stringify(uploadNoticeAttachment(req)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     if (action === 'createAnnouncement') {
       const result = createAnnouncement(req);
       return ContentService

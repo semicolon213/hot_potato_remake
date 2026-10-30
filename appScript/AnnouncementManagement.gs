@@ -532,29 +532,50 @@ function getAnnouncements(req) {
  * @param {string} content - HTML 콘텐츠
  * @returns {string} 처리된 HTML 콘텐츠
  */
-function processAndUploadImages_(content) {
+/**
+ * 공지 첨부·본문 이미지 폴더 (ROOT/notice/attached_file, 없으면 만든다)
+ */
+function getNoticeAttachFolder_() {
   const props = PropertiesService.getScriptProperties();
-  const rootFolderName = props.getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
-  // 문서(document)가 아니라 공지(notice) 하위 — InitialSetup: notice/attached_file 과 동일
-  const noticeParentFolderName = props.getProperty('NOTICE_ATTACH_PARENT_FOLDER_NAME') || 'notice';
-  const noticeAttachFolderName = props.getProperty('NOTICE_ATTACH_FOLDER_NAME') || 'attached_file';
-  const noticeAttachPath = `${rootFolderName}/${noticeParentFolderName}/${noticeAttachFolderName}`;
+  const rootId = getProjectRootFolderId_();
+  if (!rootId) throw new Error('루트 폴더를 찾을 수 없습니다.');
+  const getOrCreateChild = function(parent, name) {
+    const found = parent.getFoldersByName(name);
+    return found.hasNext() ? found.next() : parent.createFolder(name);
+  };
+  const notice = getOrCreateChild(DriveApp.getFolderById(rootId), props.getProperty('NOTICE_ATTACH_PARENT_FOLDER_NAME') || 'notice');
+  return getOrCreateChild(notice, props.getProperty('NOTICE_ATTACH_FOLDER_NAME') || 'attached_file');
+}
 
-  let folderId = null;
+/**
+ * 공지 첨부파일 업로드 (프론트가 base64로 보낸 파일을 배포자 드라이브의 첨부 폴더에 저장)
+ * @param {Object} req - { fileName, mimeType, fileData(base64) }
+ */
+function uploadNoticeAttachment(req) {
   try {
-    // DocumentFolder.gs의 공용 경로 기반 폴더 해석 함수 재사용
-    if (typeof findOrCreateFolder === 'function') {
-      const folderResult = findOrCreateFolder(noticeAttachPath);
-      if (folderResult && folderResult.success && folderResult.data && folderResult.data.id) {
-        folderId = folderResult.data.id;
-      }
+    if (!req.fileName || !req.fileData) {
+      return { success: false, message: '파일 이름과 내용이 필요합니다.' };
     }
-  } catch (folderError) {
-    logWarn_('AnnouncementManagement', '공지 본문 이미지 폴더 경로 해석 실패:', folderError);
+    const blob = Utilities.newBlob(Utilities.base64Decode(req.fileData), req.mimeType || 'application/octet-stream', req.fileName);
+    const file = getNoticeAttachFolder_().createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return { success: true, data: { id: file.getId(), name: req.fileName, url: file.getUrl() } };
+  } catch (error) {
+    logError_('AnnouncementManagement', '공지 첨부파일 업로드 오류:', error);
+    return { success: false, message: '첨부파일 업로드 중 오류가 발생했습니다: ' + error.message };
   }
+}
 
-  // 경로 해석 실패 시 기존 기본 동작(드라이브 루트)로 폴백
-  const targetFolder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
+function processAndUploadImages_(content) {
+  if (!content || content.indexOf('data:image/') === -1) return content;
+
+  let targetFolder;
+  try {
+    targetFolder = getNoticeAttachFolder_();
+  } catch (folderError) {
+    logWarn_('AnnouncementManagement', '공지 본문 이미지 폴더를 찾지 못해 드라이브 루트에 저장합니다:', folderError);
+    targetFolder = DriveApp.getRootFolder();
+  }
   const imgRegex = /<img src="(data:image\/([^;]+);base64,([^"]+))"[^>]*>/g;
   
   let processedContent = content;
@@ -799,7 +820,7 @@ function updateAnnouncement(req) {
     // 수정할 데이터 준비
     const updateData = {};
     if (title !== undefined) updateData[headerMap['title_notice']] = title;
-    if (content !== undefined) updateData[headerMap['content_notice']] = content;
+    if (content !== undefined) updateData[headerMap['content_notice']] = processAndUploadImages_(content);
     if (fileNotice !== undefined) updateData[headerMap['file_notice']] = fileNotice;
     if (accessRights !== undefined) {
       updateData[headerMap['access_rights']] = accessRights ? JSON.stringify(accessRights) : '';
