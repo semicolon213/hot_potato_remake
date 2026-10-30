@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file AddUsersModal.tsx
  * @brief 사용자 일괄 추가 모달
@@ -9,6 +10,8 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import './AddUsersModal.css';
+const log = logger.scope('components/features/admin/AddUsersModal');
+
 
 interface UserInput {
   no_member: string;
@@ -198,7 +201,7 @@ const AddUsersModal: React.FC<AddUsersModalProps> = ({
           fileInputRef.current.value = '';
         }
       } catch (err) {
-        console.error('엑셀 파일 파싱 오류:', err);
+        log.error('엑셀 파일 파싱 오류:', err);
         setError('엑셀 파일을 읽는 중 오류가 발생했습니다.');
       }
     };
@@ -276,7 +279,7 @@ const AddUsersModal: React.FC<AddUsersModalProps> = ({
       await onSuccess();
       onClose();
     } catch (err) {
-      console.error('사용자 추가 오류:', err);
+      log.error('사용자 추가 오류:', err);
       setError(err instanceof Error ? err.message : '사용자 추가에 실패했습니다.');
     }
   };

@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file BudgetPlanDetail.tsx
  * @brief 예산 계획 상세 관리 컴포넌트
@@ -12,6 +13,8 @@ import { getCategories, getAccounts } from '../../../utils/database/accountingMa
 import type { BudgetPlan, BudgetPlanDetail, Category, Account } from '../../../types/features/accounting';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/BudgetPlanDetail');
+
 
 interface BudgetPlanDetailProps {
   spreadsheetId: string;
@@ -71,7 +74,7 @@ export const BudgetPlanDetail: React.FC<BudgetPlanDetailProps> = ({
         setAccount(foundAccount);
       }
     } catch (err: unknown) {
-      console.error('❌ 데이터 로드 오류:', err);
+      log.error('데이터 로드 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '데이터를 불러오는데 실패했습니다.';
       setError(errorMessage);
     } finally {
@@ -155,13 +158,12 @@ export const BudgetPlanDetail: React.FC<BudgetPlanDetailProps> = ({
     setIsSaving(true);
 
     try {
-      console.log('💾 예산 항목 저장 시도:', { budgetId, detailsCount: details.length });
       await updateBudgetPlanDetails(spreadsheetId, budgetId, { details });
       setHasChanges(false);
       onSave();
       notifyGlobal('예산 항목이 저장되었습니다.\n상세 항목이 수정되어 승인 요청 상태로 변경되었습니다.', 'success');
     } catch (err: unknown) {
-      console.error('❌ 예산 항목 저장 오류:', err);
+      log.error('예산 항목 저장 오류:', err);
       
       // 인증 오류인 경우
       const errorMessage = err instanceof Error ? err.message : '예산 항목 저장에 실패했습니다.';

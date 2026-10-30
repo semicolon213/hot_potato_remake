@@ -13,7 +13,6 @@
  */
 function getWorkflowStatus(req) {
   try {
-    console.log('📋 워크플로우 상태 조회 시작:', req);
     
     const spreadsheet = getWorkflowSpreadsheet();
     const documentsSheet = spreadsheet.getSheetByName('workflow_documents');
@@ -81,7 +80,7 @@ function getWorkflowStatus(req) {
     };
     
   } catch (error) {
-    console.error('❌ 워크플로우 상태 조회 오류:', error);
+    logError_('DocumentWorkflowActions', '워크플로우 상태 조회 오류:', error);
     return {
       success: false,
       message: '워크플로우 상태 조회 중 오류가 발생했습니다: ' + error.message
@@ -96,7 +95,6 @@ function getWorkflowStatus(req) {
  */
 function getMyPendingWorkflows(req) {
   try {
-    console.log('📋 내 담당 워크플로우 조회 시작:', req);
     
     const spreadsheet = getWorkflowSpreadsheet();
     const documentsSheet = spreadsheet.getSheetByName('workflow_documents');
@@ -227,7 +225,7 @@ function getMyPendingWorkflows(req) {
     };
     
   } catch (error) {
-    console.error('❌ 내 담당 워크플로우 조회 오류:', error);
+    logError_('DocumentWorkflowActions', '내 담당 워크플로우 조회 오류:', error);
     return {
       success: false,
       message: '내 담당 워크플로우 조회 중 오류가 발생했습니다: ' + error.message
@@ -243,7 +241,6 @@ function getMyPendingWorkflows(req) {
  */
 function getMyRequestedWorkflows(req) {
   try {
-    console.log('📋 내가 올린 결재 목록 조회 시작:', req);
     
     const spreadsheet = getWorkflowSpreadsheet();
     const documentsSheet = spreadsheet.getSheetByName('workflow_documents');
@@ -257,8 +254,6 @@ function getMyRequestedWorkflows(req) {
     
     const userEmail = req.userEmail;
     const workflows = [];
-    
-    console.log('📋 전체 워크플로우 행 수:', data.length - 1);
     
     // 완료된 상태 목록 (결재완료는 참여자에게는 완료로 간주)
     const completedStatuses = ['결재완료'];
@@ -295,12 +290,11 @@ function getMyRequestedWorkflows(req) {
       if (shouldInclude) {
         const workflowInfo = createWorkflowInfoFromRow(row, headers);
         workflows.push(workflowInfo);
-        console.log(`✅ 워크플로우 포함: ${workflowId}, 상태=${workflowStatus}, 요청자=${requesterEmail === userEmail}, 참여자=${shouldInclude && requesterEmail !== userEmail}`);
       }
     }
     
-    console.log('📋 최종 반환 워크플로우 수:', workflows.length);
-    console.log('📋 워크플로우 상태 분포:', workflows.map(w => w.workflowStatus));
+    logDebug_('DocumentWorkflowActions', '최종 반환 워크플로우 수:', workflows.length);
+    logDebug_('DocumentWorkflowActions', '워크플로우 상태 분포:', workflows.map(w => w.workflowStatus));
     
     return {
       success: true,
@@ -309,7 +303,7 @@ function getMyRequestedWorkflows(req) {
     };
     
   } catch (error) {
-    console.error('❌ 내가 올린 결재 목록 조회 오류:', error);
+    logError_('DocumentWorkflowActions', '내가 올린 결재 목록 조회 오류:', error);
     return {
       success: false,
       message: '내가 올린 결재 목록 조회 중 오류가 발생했습니다: ' + error.message
@@ -324,7 +318,6 @@ function getMyRequestedWorkflows(req) {
  */
 function getCompletedWorkflows(req) {
   try {
-    console.log('📋 결재 완료된 리스트 조회 시작:', req);
     
     const spreadsheet = getWorkflowSpreadsheet();
     const documentsSheet = spreadsheet.getSheetByName('workflow_documents');
@@ -384,7 +377,7 @@ function getCompletedWorkflows(req) {
     };
     
   } catch (error) {
-    console.error('❌ 결재 완료된 리스트 조회 오류:', error);
+    logError_('DocumentWorkflowActions', '결재 완료된 리스트 조회 오류:', error);
     return {
       success: false,
       message: '결재 완료된 리스트 조회 중 오류가 발생했습니다: ' + error.message
@@ -478,9 +471,8 @@ function holdReview(req) {
  * @param {string} action - 액션 타입 ('approve' | 'reject' | 'hold')
  * @returns {Object} 처리 결과
  */
-function processReviewAction(req, action) {
+function processReviewActionUnlocked_(req, action) {
   try {
-    console.log(`📋 검토 액션 처리 시작 [${action}]:`, req);
     
     // 워크플로우 찾기
     const workflowResult = getWorkflowStatus(req);
@@ -725,7 +717,7 @@ function processReviewAction(req, action) {
     };
     
   } catch (error) {
-    console.error(`❌ 검토 액션 처리 오류 [${action}]:`, error);
+    logError_('DocumentWorkflowActions', `검토 액션 처리 오류 [${action}]:`, error);
     return {
       success: false,
       message: `검토 ${action} 처리 중 오류가 발생했습니다: ` + error.message
@@ -768,9 +760,8 @@ function holdPayment(req) {
  * @param {string} action - 액션 타입 ('approve' | 'reject' | 'hold')
  * @returns {Object} 처리 결과
  */
-function processPaymentAction(req, action) {
+function processPaymentActionUnlocked_(req, action) {
   try {
-    console.log(`💰 결재 액션 처리 시작 [${action}]:`, req);
     
     // 워크플로우 찾기
     const workflowResult = getWorkflowStatus(req);
@@ -1029,7 +1020,7 @@ function processPaymentAction(req, action) {
     };
     
   } catch (error) {
-    console.error(`❌ 결재 액션 처리 오류 [${action}]:`, error);
+    logError_('DocumentWorkflowActions', `결재 액션 처리 오류 [${action}]:`, error);
     return {
       success: false,
       message: `결재 ${action} 처리 중 오류가 발생했습니다: ` + error.message
@@ -1042,9 +1033,8 @@ function processPaymentAction(req, action) {
  * @param {Object} req - 요청 데이터
  * @returns {Object} 처리 결과
  */
-function resubmitWorkflow(req) {
+function resubmitWorkflowUnlocked_(req) {
   try {
-    console.log('🔄 워크플로우 재제출 시작:', req);
     
     // 필수 필드 검증
     if (!req.workflowId) {
@@ -1141,7 +1131,7 @@ function resubmitWorkflow(req) {
         try {
           reviewLineData = JSON.parse(req.reviewLine);
         } catch (e) {
-          console.error('❌ 검토 라인 파싱 오류:', e);
+          logError_('DocumentWorkflowActions', '검토 라인 파싱 오류:', e);
           reviewLineData = null;
         }
       } else if (Array.isArray(req.reviewLine)) {
@@ -1156,7 +1146,7 @@ function resubmitWorkflow(req) {
         try {
           paymentLineData = JSON.parse(req.paymentLine);
         } catch (e) {
-          console.error('❌ 결재 라인 파싱 오류:', e);
+          logError_('DocumentWorkflowActions', '결재 라인 파싱 오류:', e);
           paymentLineData = null;
         }
       } else if (Array.isArray(req.paymentLine)) {
@@ -1309,10 +1299,8 @@ function resubmitWorkflow(req) {
             body.appendParagraph(plainText);
           }
         }
-        
-        console.log('📄 결재 문서 내용 업데이트 완료:', workflow.workflowDocumentId);
       } catch (error) {
-        console.warn('⚠️ 결재 문서 내용 업데이트 실패 (무시됨):', error.message);
+        logWarn_('DocumentWorkflowActions', '결재 문서 내용 업데이트 실패 (무시됨):', error.message);
       }
     }
     
@@ -1335,8 +1323,6 @@ function resubmitWorkflow(req) {
     // 업데이트된 워크플로우 정보 조회
     const updatedWorkflow = getWorkflowStatus({ workflowId: workflow.workflowId });
     
-    console.log('🔄 워크플로우 재제출 완료:', workflow.workflowId);
-    
     return {
       success: true,
       message: '워크플로우가 성공적으로 재제출되었습니다.',
@@ -1344,7 +1330,7 @@ function resubmitWorkflow(req) {
     };
     
   } catch (error) {
-    console.error('❌ 워크플로우 재제출 오류:', error);
+    logError_('DocumentWorkflowActions', '워크플로우 재제출 오류:', error);
     return {
       success: false,
       message: '워크플로우 재제출 중 오류가 발생했습니다: ' + error.message
@@ -1359,7 +1345,6 @@ function resubmitWorkflow(req) {
  */
 function getWorkflowHistory(req) {
   try {
-    console.log('📋 워크플로우 히스토리 조회 시작:', req);
     
     if (!req.workflowId) {
       return {
@@ -1439,7 +1424,7 @@ function getWorkflowHistory(req) {
     };
     
   } catch (error) {
-    console.error('❌ 워크플로우 히스토리 조회 오류:', error);
+    logError_('DocumentWorkflowActions', '워크플로우 히스토리 조회 오류:', error);
     return {
       success: false,
       message: '워크플로우 히스토리 조회 중 오류가 발생했습니다: ' + error.message

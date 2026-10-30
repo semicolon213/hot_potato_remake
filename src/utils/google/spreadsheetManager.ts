@@ -1,3 +1,5 @@
+import { appendRow } from './sheetsClient';
+import { logger } from '../logger';
 /**
  * @file spreadsheetManager.ts
  * @brief Google Sheets API 관리 유틸리티
@@ -6,11 +8,12 @@
  * @date 2024
  */
 
-import { appendRow } from 'papyrus-db';
 import { updateSheetCell } from './googleSheetUtils';
 import { findSpreadsheetById as findSpreadsheetByIdInRoot } from '../database/papyrusManager';
 import type { Post, Event, DateRange, CustomPeriod, Student, Staff } from '../../types/app';
 import type { Template } from '../../hooks/features/templates/useTemplateUI';
+const log = logger.scope('utils/google/spreadsheetManager');
+
 
 /**
  * @brief 스프레드시트 ID 찾기 (드라이브 루트의 프로젝트 루트 폴더 하위에서만 검색)
@@ -41,7 +44,7 @@ export const fetchPosts = async (boardSpreadsheetId: string, boardSheetName: str
         }
         return [];
     } catch (error) {
-        console.error('Error fetching posts from Google Sheet:', error);
+        log.error('Error fetching posts from Google Sheet:', error);
         return [];
     }
 };
@@ -69,9 +72,8 @@ export const addPost = async (
         };
 
         await appendRow(boardSpreadsheetId, boardSheetName, newPostForSheet);
-        console.log('게시글이 성공적으로 저장되었습니다.');
     } catch (error) {
-        console.error('Error saving post to Google Sheet:', error);
+        log.error('Error saving post to Google Sheet:', error);
         throw error;
     }
 };
@@ -100,7 +102,7 @@ export const fetchAnnouncements = async (announcementSpreadsheetId: string, anno
         }
         return [];
     } catch (error) {
-        console.error('Error fetching announcements from Google Sheet:', error);
+        log.error('Error fetching announcements from Google Sheet:', error);
         return [];
     }
 };
@@ -131,9 +133,8 @@ export const addAnnouncement = async (
         };
 
         await appendRow(announcementSpreadsheetId, announcementSheetName, newPostForSheet);
-        console.log('공지사항이 성공적으로 저장되었습니다.');
     } catch (error) {
-        console.error('Error saving announcement to Google Sheet:', error);
+        log.error('Error saving announcement to Google Sheet:', error);
         throw error;
     }
 };
@@ -151,7 +152,7 @@ export const incrementViewCount = async (announcementSpreadsheetId: string, anno
 
     const rowIndex = data.result.values.findIndex(row => row[0] === announcementId);
     if (rowIndex === -1) {
-      console.log(`Announcement with ID ${announcementId} not found in sheet. It might be a new post.`);
+      log.debug(`Announcement with ID ${announcementId} not found in sheet. It might be a new post.`);
       return;
     }
     
@@ -169,9 +170,9 @@ export const incrementViewCount = async (announcementSpreadsheetId: string, anno
         }
     });
 
-    console.log(`View count for announcement ${announcementId} updated to ${newViews}`);
+    log.debug(`View count for announcement ${announcementId} updated to ${newViews}`);
   } catch (error) {
-    console.error('Error incrementing view count:', error);
+    log.error('Error incrementing view count:', error);
   }
 };
 
@@ -218,14 +219,13 @@ export const fetchCalendarEvents = async (
 ): Promise<Event[]> => {
     const spreadsheetIds = [calendarProfessorSpreadsheetId, calendarStudentSpreadsheetId].filter(Boolean) as string[];
     if (spreadsheetIds.length === 0) {
-        console.log('No calendar spreadsheet IDs available');
         return [];
     }
 
     try {
         const allEventsPromises = spreadsheetIds.map(async (spreadsheetId) => {
             try {
-                console.log(`Fetching calendar events from spreadsheet: ${spreadsheetId}`);
+                log.debug(`Fetching calendar events from spreadsheet: ${spreadsheetId}`);
                 
                 // 먼저 시트가 존재하는지 확인
                 const sheetResponse = await window.gapi.client.sheets.spreadsheets.get({
@@ -234,7 +234,7 @@ export const fetchCalendarEvents = async (
                 });
                 
                 if (!sheetResponse.result.sheets || sheetResponse.result.sheets.length === 0) {
-                    console.log(`Sheet '${calendarSheetName}' not found in spreadsheet ${spreadsheetId}`);
+                    log.debug(`Sheet '${calendarSheetName}' not found in spreadsheet ${spreadsheetId}`);
                     return [];
                 }
 
@@ -246,7 +246,7 @@ export const fetchCalendarEvents = async (
                 
                 const headerData = response.result.values;
                 if (!headerData || headerData.length === 0) {
-                    console.log(`No data found in sheet '${calendarSheetName}' of spreadsheet ${spreadsheetId}`);
+                    log.debug(`No data found in sheet '${calendarSheetName}' of spreadsheet ${spreadsheetId}`);
                     return [];
                 }
 
@@ -280,7 +280,7 @@ export const fetchCalendarEvents = async (
                 }
                 return [];
             } catch (sheetError) {
-                console.error(`Error fetching from spreadsheet ${spreadsheetId}:`, sheetError);
+                log.error(`Error fetching from spreadsheet ${spreadsheetId}:`, sheetError);
                 return [];
             }
         });
@@ -292,10 +292,10 @@ export const fetchCalendarEvents = async (
             index === self.findIndex((e) => e.id === event.id)
         );
 
-        console.log('Loaded calendar events:', uniqueEvents);
+        log.debug('Loaded calendar events:', uniqueEvents);
         return uniqueEvents;
     } catch (error) {
-        console.error('Error fetching calendar events from Google Sheet:', error);
+        log.error('Error fetching calendar events from Google Sheet:', error);
         return [];
     }
 };
@@ -329,9 +329,8 @@ export const addCalendarEvent = async (
         };
 
         await appendRow(targetSpreadsheetId, calendarSheetName, newEventForSheet);
-        console.log('일정이 성공적으로 추가되었습니다.');
     } catch (error) {
-        console.error('Error saving calendar event to Google Sheet:', error);
+        log.error('Error saving calendar event to Google Sheet:', error);
         throw error;
     }
 };
@@ -397,10 +396,10 @@ export const updateCalendarEvent = async (
             },
         });
 
-        console.log(`Event ${finalSheetEventId} updated successfully in row ${targetRow}.`);
+        log.debug(`Event ${finalSheetEventId} updated successfully in row ${targetRow}.`);
 
     } catch (error) {
-        console.error('Error updating calendar event in Google Sheet:', error);
+        log.error('Error updating calendar event in Google Sheet:', error);
         throw error;
     }
 };
@@ -427,7 +426,7 @@ export const fetchStudents = async (spreadsheetId: string, sheetName: string): P
         }
         return [];
     } catch (error) {
-        console.error('Error fetching students from Google Sheet:', error);
+        log.error('Error fetching students from Google Sheet:', error);
         return [];
     }
 };
@@ -455,7 +454,7 @@ export const fetchStaff = async (spreadsheetId: string, sheetName: string): Prom
         }
         return [];
     } catch (error) {
-        console.error('Error fetching staff from Google Sheet:', error);
+        log.error('Error fetching staff from Google Sheet:', error);
         return [];
     }
 };
@@ -562,10 +561,8 @@ export const saveAcademicScheduleToSheet = async (
                 values: values,
             },
         });
-
-        console.log('학사일정이 성공적으로 저장되었습니다.');
     } catch (error) {
-        console.error('Error saving academic schedule to Google Sheet:', error);
+        log.error('Error saving academic schedule to Google Sheet:', error);
         throw error;
     }
 };

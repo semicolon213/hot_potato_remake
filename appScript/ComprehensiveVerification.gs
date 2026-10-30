@@ -11,17 +11,11 @@
  * @returns {Object} 종합 검증 결과
  */
 function runCompleteVerification() {
-  console.log('=== 종합 검증 시작 ===');
   
   const migrationResults = MigrationVerification.verifyMigration();
   const optimizationResults = OptimizationVerification.verifyOptimization();
   
   const overallSuccess = migrationResults.success && optimizationResults.success;
-  
-  console.log('=== 종합 검증 완료 ===');
-  console.log('마이그레이션 성공:', migrationResults.success ? '✅' : '❌');
-  console.log('최적화 완료:', optimizationResults.success ? '✅' : '❌');
-  console.log('전체 성공:', overallSuccess ? '✅' : '❌');
   
   return {
     success: overallSuccess,
@@ -36,7 +30,6 @@ function runCompleteVerification() {
  * @returns {Object} 시스템 상태 확인 결과
  */
 function checkSystemStatus() {
-  console.log('=== 시스템 상태 종합 확인 시작 ===');
   
   try {
     const results = {
@@ -60,9 +53,7 @@ function checkSystemStatus() {
     };
     
     const allSystemsHealthy = Object.values(results).every(result => result.success);
-    
-    console.log('=== 시스템 상태 종합 확인 완료 ===');
-    console.log('전체 시스템 상태:', allSystemsHealthy ? '✅ 정상' : '❌ 문제 있음');
+    logDebug_('ComprehensiveVerification', '전체 시스템 상태:', allSystemsHealthy ? ' 정상' : ' 문제 있음');
     
     return {
       success: allSystemsHealthy,
@@ -71,7 +62,7 @@ function checkSystemStatus() {
     };
     
   } catch (error) {
-    console.error('❌ 시스템 상태 종합 확인 실패:', error);
+    logError_('ComprehensiveVerification', '시스템 상태 종합 확인 실패:', error);
     return {
       success: false,
       error: error.message,
@@ -86,7 +77,6 @@ function checkSystemStatus() {
  */
 function checkBasicSystemStatus() {
   try {
-    console.log('기본 시스템 상태 확인 중...');
     
     // CONFIG.gs 확인
     const configLoaded = typeof CONFIG !== 'undefined' && typeof CONFIG.getDocumentFolderPath === 'function';
@@ -122,7 +112,6 @@ function checkBasicSystemStatus() {
  */
 function checkEncryptionSystemStatus() {
   try {
-    console.log('암호화 시스템 상태 확인 중...');
     
     // EncryptionCore.gs 확인
     const encryptionCoreLoaded = typeof applyEncryption === 'function' && 
@@ -160,7 +149,6 @@ function checkEncryptionSystemStatus() {
  */
 function checkSpreadsheetSystemStatus() {
   try {
-    console.log('스프레드시트 시스템 상태 확인 중...');
     
     // SpreadsheetCore.gs 확인
     const spreadsheetCoreLoaded = typeof SpreadsheetCore.getHpMemberSpreadsheet === 'function' && 
@@ -198,7 +186,6 @@ function checkSpreadsheetSystemStatus() {
  */
 function checkUserManagementSystemStatus() {
   try {
-    console.log('사용자 관리 시스템 상태 확인 중...');
     
     // UserAuth.gs 확인
     const userAuthLoaded = typeof UserAuth.handleCheckUserStatus === 'function' && 
@@ -237,7 +224,6 @@ function checkUserManagementSystemStatus() {
  */
 function checkDocumentManagementSystemStatus() {
   try {
-    console.log('문서 관리 시스템 상태 확인 중...');
     
     // DocumentCreation.gs 확인
     const documentCreationLoaded = typeof DocumentCreation.createGoogleDocument === 'function';
@@ -282,7 +268,6 @@ function checkDocumentManagementSystemStatus() {
  */
 function checkTestSystemStatus() {
   try {
-    console.log('테스트 시스템 상태 확인 중...');
     
     // TestBasic.gs 확인
     const testBasicLoaded = typeof TestBasic.runSimpleTest === 'function' && 

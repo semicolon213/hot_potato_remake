@@ -386,13 +386,6 @@ export interface GoogleDocsCreateResponse {
 }
 
 /**
- * @brief Papyrus Auth 타입 (papyrus-db 라이브러리용)
- */
-export interface PapyrusAuth {
-  client: GoogleClient;
-}
-
-/**
  * @brief Google Credential Response 타입
  * @deprecated Use GoogleCredentialResponse from './google/gapi' instead
  */

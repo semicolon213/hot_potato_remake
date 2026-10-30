@@ -1,3 +1,5 @@
+import { getSheetData, append, update, deleteRow } from '../google/sheetsClient';
+import { logger } from '../logger';
 /**
  * @file personalConfigManager.ts
  * @brief 개인 설정 파일 관리 유틸리티
@@ -6,37 +8,12 @@
  * @date 2024
  */
 
-import { getSheetData, append, update } from 'papyrus-db';
-import { deleteRow } from 'papyrus-db/dist/sheets/delete';
 import { ENV_CONFIG } from '../../config/environment';
 import { tokenManager } from '../auth/tokenManager';
-import type { GoogleClient, GoogleSheetsCreateParams, GoogleSheetsCreateResponse, GoogleSheetsGetParams, GoogleSheetsGetResponse, GoogleSheetsValuesUpdateParams, GoogleSheetsBatchUpdateParams, GoogleDriveFilesListParams, GoogleDriveFilesUpdateParams, PapyrusAuth } from '../../types/google';
+import type { GoogleClient, GoogleSheetsCreateParams, GoogleSheetsCreateResponse, GoogleSheetsGetParams, GoogleSheetsGetResponse, GoogleSheetsValuesUpdateParams, GoogleSheetsBatchUpdateParams, GoogleDriveFilesListParams, GoogleDriveFilesUpdateParams } from '../../types/google';
+const log = logger.scope('utils/database/personalConfigManager');
 
-// papyrus-db에 Google API 인증 설정
-const setupPapyrusAuth = (): void => {
-  if (window.gapi && window.gapi.client) {
-    // tokenManager를 사용하여 올바른 토큰 가져오기 (만료 체크 포함)
-    const token = tokenManager.get();
-    
-    if (token) {
-      try {
-        window.gapi.client.setToken({ access_token: token });
-        console.log('✅ 토큰이 gapi client에 설정되었습니다.');
-      } catch (tokenError) {
-        console.warn('토큰 설정 실패:', tokenError);
-      }
-    } else {
-      console.warn('⚠️ Google API 인증 토큰이 없거나 만료되었습니다.');
-    }
-    
-    // papyrus-db가 gapi.client를 사용하도록 설정
-    window.papyrusAuth = {
-      client: window.gapi.client
-    };
-  } else {
-    console.warn('⚠️ Google API가 초기화되지 않았습니다.');
-  }
-};
+
 
 // 개인 설정 파일 ID 저장
 let personalConfigSpreadsheetId: string | null = null;
@@ -47,7 +24,6 @@ let personalConfigSpreadsheetId: string | null = null;
  */
 export const clearPersonalConfigSpreadsheetId = (): void => {
     personalConfigSpreadsheetId = null;
-    console.log('🧹 개인 설정 파일 ID 초기화 완료');
 };
 
 /**
@@ -57,147 +33,81 @@ export const clearPersonalConfigSpreadsheetId = (): void => {
  */
 export const findPersonalConfigFile = async (): Promise<string | null> => {
   try {
-    setupPapyrusAuth();
-    
-    console.log('🔍 개인 설정 파일 찾기 시작');
-    
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;             // ENV v2: FOLER.ROOT 기반 루트 폴더명
-    const configFileName = ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME;    // ENV v2: SPREADSHEET.CONFIG 기반 개인 설정 파일명
-
-    // 1단계: 루트에서 루트 폴더 찾기
-    const hotPotatoResponse = await window.gapi.client.drive.files.list({
-      q: `'root' in parents and name='${rootFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    // drive.file 범위에서는 이 앱이 만든 파일만 검색되므로 폴더를 거치지 않고 이름으로 바로 찾는다.
+    const response = await window.gapi.client.drive.files.list({
+      q: `name='${ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false`,
       fields: 'files(id,name)',
       spaces: 'drive',
-      orderBy: 'name'
+      orderBy: 'createdTime'
     });
 
-    if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      console.log(`❌ ${rootFolderName} 폴더를 찾을 수 없습니다`);
+    const configFile = response.result.files?.[0];
+    if (!configFile) {
+      log.debug(`${ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME} 파일을 찾을 수 없습니다`);
       return null;
     }
 
-    const hotPotatoFolder = hotPotatoResponse.result.files[0];
-    console.log(`✅ ${rootFolderName} 폴더 찾음:`, hotPotatoFolder.id);
-
-    // 2단계: 루트 폴더에서 개인 설정 파일 찾기
-    const configFileResponse = await window.gapi.client.drive.files.list({
-      q: `'${hotPotatoFolder.id}' in parents and name='${configFileName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!configFileResponse.result.files || configFileResponse.result.files.length === 0) {
-      console.log(`❌ ${ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME} 파일을 찾을 수 없습니다`);
-      return null;
-    }
-
-    const configFile = configFileResponse.result.files[0];
-    console.log(`✅ ${ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME} 파일 찾음:`, configFile.id);
-    
     personalConfigSpreadsheetId = configFile.id;
     return configFile.id;
   } catch (error) {
-    console.error('❌ 개인 설정 파일 찾기 오류:', error);
+    log.error('개인 설정 파일 찾기 오류:', error);
     return null;
   }
 };
 
+
+// 같은 경로를 여러 곳이 동시에 찾으면 각자 "없으면 생성"을 해 폴더가 중복되므로 경로별로 진행 중인 작업과 결과를 공유한다.
+const personalFolderIds = new Map<string, Promise<string>>();
+
+const findOrCreateChildFolder = async (parentId: string, name: string): Promise<string> => {
+  const response = await window.gapi.client.drive.files.list({
+    q: `'${parentId}' in parents and name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    fields: 'files(id,name)',
+    spaces: 'drive',
+    orderBy: 'createdTime'
+  });
+  const existing = response.result.files?.[0];
+  if (existing) return existing.id;
+
+  const created = await window.gapi.client.drive.files.create({
+    resource: { name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] },
+    fields: 'id'
+  });
+  return created.result.id;
+};
+
 /**
- * @brief 개인 템플릿 폴더 ID 찾기
- * @details hot potato/문서/개인 양식 폴더의 ID를 반환합니다.
- * @returns {Promise<string | null>} 개인 템플릿 폴더 ID 또는 null
+ * @brief 내 드라이브의 개인 폴더 아래 경로 폴더 ID (없는 단계는 생성)
+ * @param names 개인 폴더 아래 하위 폴더 이름들. 비우면 개인 폴더 자체
+ */
+export const getOrCreatePersonalFolderPath = (names: string[] = []): Promise<string> => {
+  const path = [ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME, ...names];
+  const key = path.join('/');
+  let pending = personalFolderIds.get(key);
+  if (!pending) {
+    const parent = names.length > 0 ? getOrCreatePersonalFolderPath(names.slice(0, -1)) : Promise.resolve('root');
+    pending = parent.then(parentId => findOrCreateChildFolder(parentId, path[path.length - 1]));
+    pending.catch(() => personalFolderIds.delete(key));
+    personalFolderIds.set(key, pending);
+  }
+  return pending;
+};
+
+export const getOrCreatePersonalRootFolderId = (): Promise<string> => getOrCreatePersonalFolderPath();
+
+/** 로그아웃·계정 전환 시 폴더 ID 기억을 지운다 */
+export const clearPersonalFolderIds = (): void => {
+  personalFolderIds.clear();
+};
+
+/**
+ * @brief 개인 템플릿 폴더 ID 찾기 (개인 폴더/document/personal_forms, 없으면 생성)
  */
 export const findPersonalTemplateFolder = async (): Promise<string | null> => {
   try {
-    console.log('🔍 개인 템플릿 폴더 찾기/생성 시작');
-    
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;
-    const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME;
-    const personalTemplateFolderName = ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME;
-
-    // 1단계: 루트에서 루트 폴더 찾기 또는 생성
-    let hotPotatoResponse = await window.gapi.client.drive.files.list({
-      q: `'root' in parents and name='${rootFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    let hotPotatoFolder;
-    if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      console.log(`📁 ${rootFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-      const createResponse = await window.gapi.client.drive.files.create({
-        resource: {
-          name: rootFolderName,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: ['root']
-        },
-        fields: 'id,name'
-      });
-      hotPotatoFolder = { id: createResponse.result.id, name: createResponse.result.name };
-      console.log(`✅ ${rootFolderName} 폴더 생성 완료:`, hotPotatoFolder.id);
-    } else {
-      hotPotatoFolder = hotPotatoResponse.result.files[0];
-      console.log(`✅ ${rootFolderName} 폴더 찾음:`, hotPotatoFolder.id);
-    }
-
-    // 2단계: 루트 폴더에서 문서 폴더 찾기 또는 생성
-    let documentResponse = await window.gapi.client.drive.files.list({
-      q: `'${hotPotatoFolder.id}' in parents and name='${documentFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    let documentFolder;
-    if (!documentResponse.result.files || documentResponse.result.files.length === 0) {
-      console.log(`📁 ${documentFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-      const createResponse = await window.gapi.client.drive.files.create({
-        resource: {
-          name: documentFolderName,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [hotPotatoFolder.id]
-        },
-        fields: 'id,name'
-      });
-      documentFolder = { id: createResponse.result.id, name: createResponse.result.name };
-      console.log(`✅ ${documentFolderName} 폴더 생성 완료:`, documentFolder.id);
-    } else {
-      documentFolder = documentResponse.result.files[0];
-      console.log(`✅ ${documentFolderName} 폴더 찾음:`, documentFolder.id);
-    }
-
-    // 3단계: 문서 폴더에서 개인 양식 폴더 찾기 또는 생성
-    let personalTemplateResponse = await window.gapi.client.drive.files.list({
-      q: `'${documentFolder.id}' in parents and name='${personalTemplateFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    let personalTemplateFolder;
-    if (!personalTemplateResponse.result.files || personalTemplateResponse.result.files.length === 0) {
-      console.log(`📁 ${personalTemplateFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-      const createResponse = await window.gapi.client.drive.files.create({
-        resource: {
-          name: personalTemplateFolderName,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [documentFolder.id]
-        },
-        fields: 'id,name'
-      });
-      personalTemplateFolder = { id: createResponse.result.id, name: createResponse.result.name };
-      console.log(`✅ ${personalTemplateFolderName} 폴더 생성 완료:`, personalTemplateFolder.id);
-    } else {
-      personalTemplateFolder = personalTemplateResponse.result.files[0];
-      console.log(`✅ ${personalTemplateFolderName} 폴더 찾음:`, personalTemplateFolder.id);
-    }
-
-    return personalTemplateFolder.id;
+    return await getOrCreatePersonalFolderPath([ENV_CONFIG.DOCUMENT_FOLDER_NAME, ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME]);
   } catch (error) {
-    console.error('❌ 개인 템플릿 폴더 찾기/생성 오류:', error);
+    log.error('개인 템플릿 폴더 찾기/생성 오류:', error);
     return null;
   }
 };
@@ -209,25 +119,9 @@ export const findPersonalTemplateFolder = async (): Promise<string | null> => {
  */
 export const createPersonalConfigFile = async (): Promise<string | null> => {
   try {
-    setupPapyrusAuth();
     
-    console.log('📄 개인 설정 파일 생성 시작');
-    
-    // 1단계: 루트 폴더 찾기
-    const hotPotatoResponse = await window.gapi.client.drive.files.list({
-      q: `'root' in parents and name='${ENV_CONFIG.ROOT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      console.log(`❌ ${ENV_CONFIG.ROOT_FOLDER_NAME} 폴더를 찾을 수 없습니다. 폴더를 먼저 생성해주세요.`);
-      return null;
-    }
-
-    const hotPotatoFolder = hotPotatoResponse.result.files[0];
-    console.log(`✅ ${ENV_CONFIG.ROOT_FOLDER_NAME} 폴더 찾음:`, hotPotatoFolder.id);
+    // 1단계: 개인 폴더 찾기 (없으면 생성)
+    const hotPotatoFolder = { id: await getOrCreatePersonalRootFolderId() };
 
     // 2단계: hp_potato_DB 스프레드시트 생성
     const sheetsClient = window.gapi.client.sheets;
@@ -278,7 +172,6 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
     });
 
     const spreadsheetId = spreadsheet.result.spreadsheetId;
-    console.log('✅ user_setting 파일 생성 완료:', spreadsheetId);
 
     // 3단계: hot potato 폴더로 이동
     const driveClient = window.gapi.client.drive;
@@ -294,7 +187,7 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
     personalConfigSpreadsheetId = spreadsheetId;
     return spreadsheetId;
   } catch (error) {
-    console.error('❌ 개인 설정 파일 생성 오류:', error);
+    log.error('개인 설정 파일 생성 오류:', error);
     return null;
   }
 };
@@ -306,7 +199,6 @@ export const createPersonalConfigFile = async (): Promise<string | null> => {
  */
 export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise<void> => {
   try {
-    setupPapyrusAuth();
     
     const sheetsClient = window.gapi.client.sheets;
     
@@ -349,10 +241,8 @@ export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise
         values: [['widget_id', 'widget_type', 'widget_order', 'widget_config']]
       }
     });
-
-    console.log('✅ 개인 설정 파일 헤더 설정 완료');
   } catch (error) {
-    console.error('❌ 헤더 설정 오류:', error);
+    log.error('헤더 설정 오류:', error);
     throw error;
   }
 };
@@ -362,13 +252,25 @@ export const setupPersonalConfigHeaders = async (spreadsheetId: string): Promise
  * @details 개인 설정 파일을 찾거나 생성합니다.
  * @returns {Promise<string | null>} 스프레드시트 ID 또는 null
  */
-export const initializePersonalConfigFile = async (): Promise<string | null> => {
+// 첫 로그인 때 여러 곳이 동시에 호출해도 파일을 한 번만 만들도록 진행 중인 작업을 공유한다.
+let initializingPersonalConfig: Promise<string | null> | null = null;
+
+export const initializePersonalConfigFile = (): Promise<string | null> => {
+  if (!initializingPersonalConfig) {
+    initializingPersonalConfig = initializePersonalConfigFileOnce().finally(() => {
+      initializingPersonalConfig = null;
+    });
+  }
+  return initializingPersonalConfig;
+};
+
+const initializePersonalConfigFileOnce = async (): Promise<string | null> => {
   try {
     // 먼저 기존 파일 찾기
     let spreadsheetId = await findPersonalConfigFile();
     
     if (spreadsheetId) {
-      console.log('✅ 기존 개인 설정 파일 사용:', spreadsheetId);
+      log.debug('기존 개인 설정 파일 사용:', spreadsheetId);
       personalConfigSpreadsheetId = spreadsheetId;
       
       // 기존 파일의 시트 확인 및 누락된 시트 생성
@@ -380,13 +282,12 @@ export const initializePersonalConfigFile = async (): Promise<string | null> => 
         });
         
         const existingSheets = spreadsheet.result.sheets?.map(sheet => sheet.properties?.title) || [];
-        console.log('📄 기존 시트 목록:', existingSheets);
         
         const requiredSheets = [ENV_CONFIG.CONFIG_FAVORITE_SHEET_NAME, ENV_CONFIG.CONFIG_TAG_SHEET_NAME, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME, ENV_CONFIG.DASHBOARD_SHEET_NAME];
         const missingSheets = requiredSheets.filter(sheetName => !existingSheets.includes(sheetName));
         
         if (missingSheets.length > 0) {
-          console.log('📄 누락된 시트 생성:', missingSheets);
+          log.debug('누락된 시트 생성:', missingSheets);
           
           for (const sheetName of missingSheets) {
             let columnCount = 1;
@@ -414,7 +315,6 @@ export const initializePersonalConfigFile = async (): Promise<string | null> => 
                 }]
               }
             });
-            console.log(`✅ ${sheetName} 시트 생성 완료`);
 
             // 생성된 시트에 바로 헤더 설정
             let range = '';
@@ -442,30 +342,28 @@ export const initializePersonalConfigFile = async (): Promise<string | null> => 
                   values: values
                 }
               });
-              console.log(`✅ ${sheetName} 시트 헤더 설정 완료`);
             }
           }
         }
       } catch (error) {
-        console.warn('⚠️ 시트 확인 중 오류 발생, 계속 진행:', error);
+        log.warn('시트 확인 중 오류 발생, 계속 진행:', error);
       }
       
       return spreadsheetId;
     }
 
     // 파일이 없으면 생성
-    console.log('📄 개인 설정 파일이 없어서 새로 생성합니다.');
+    log.debug('개인 설정 파일이 없어서 새로 생성합니다.');
     spreadsheetId = await createPersonalConfigFile();
     
     if (spreadsheetId) {
-      console.log('✅ 개인 설정 파일 생성 완료:', spreadsheetId);
       return spreadsheetId;
     }
 
-    console.error('❌ 개인 설정 파일 초기화 실패');
+    log.error('개인 설정 파일 초기화 실패');
     return null;
   } catch (error) {
-    console.error('❌ 개인 설정 파일 초기화 오류:', error);
+    log.error('개인 설정 파일 초기화 오류:', error);
     return null;
   }
 };
@@ -493,14 +391,13 @@ export const setPersonalConfigSpreadsheetId = (id: string): void => {
 export const getScheduleEvents = async (): Promise<any[]> => {
   try {
     if (!personalConfigSpreadsheetId) {
-      console.warn('⚠️ 개인 설정 파일 ID가 없습니다. 초기화를 먼저 시도합니다.');
+      log.warn('개인 설정 파일 ID가 없습니다. 초기화를 먼저 시도합니다.');
       await initializePersonalConfigFile();
       if (!personalConfigSpreadsheetId) {
         throw new Error('개인 설정 파일을 찾거나 생성할 수 없습니다.');
       }
     }
     
-    setupPapyrusAuth();
     
     // papyrus-db 함수 시그니처에 맞게 수정: getSheetData(spreadsheetId, sheetName)
     const response = await getSheetData(personalConfigSpreadsheetId, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME);
@@ -528,7 +425,7 @@ export const getScheduleEvents = async (): Promise<any[]> => {
     return events;
 
   } catch (error) {
-    console.error('❌ 시간표 일정 가져오기 오류:', error);
+    log.error('시간표 일정 가져오기 오류:', error);
     return [];
   }
 };
@@ -540,14 +437,13 @@ export const getScheduleEvents = async (): Promise<any[]> => {
 export const addScheduleEvent = async (event: any): Promise<void> => {
   try {
     if (!personalConfigSpreadsheetId) {
-      console.warn('⚠️ 개인 설정 파일 ID가 없습니다. 초기화를 먼저 시도합니다.');
+      log.warn('개인 설정 파일 ID가 없습니다. 초기화를 먼저 시도합니다.');
       await initializePersonalConfigFile();
       if (!personalConfigSpreadsheetId) {
         throw new Error('개인 설정 파일을 찾거나 생성할 수 없습니다.');
       }
     }
     
-    setupPapyrusAuth();
 
     // 새 'no'를 결정하기 위해 기존 데이터 가져오기
     const existingEvents = await getScheduleEvents();
@@ -568,10 +464,8 @@ export const addScheduleEvent = async (event: any): Promise<void> => {
     // papyrus-db 함수 시그니처에 맞게 수정: append(spreadsheetId, sheetName, rows)
     await append(personalConfigSpreadsheetId, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME, [newRow]);
 
-    console.log('✅ 시간표 일정 추가 완료');
-
   } catch (error) {
-    console.error('❌ 시간표 일정 추가 오류:', error);
+    log.error('시간표 일정 추가 오류:', error);
     throw error;
   }
 };
@@ -598,7 +492,7 @@ const getSheetIdByName = async (spreadsheetId: string, sheetName: string): Promi
     
     return null;
   } catch (error) {
-    console.error(`❌ 시트 ID를 가져오는 중 오류 발생 (시트 이름: ${sheetName}):`, error);
+    log.error(`시트 ID를 가져오는 중 오류 발생 (시트 이름: ${sheetName}):`, error);
     return null;
   }
 };
@@ -610,14 +504,13 @@ const getSheetIdByName = async (spreadsheetId: string, sheetName: string): Promi
 export const deleteScheduleEvent = async (eventNo: number): Promise<void> => {
   try {
     if (!personalConfigSpreadsheetId) {
-      console.warn('⚠️ 개인 설정 파일 ID가 없습니다. 초기화를 먼저 시도합니다.');
+      log.warn('개인 설정 파일 ID가 없습니다. 초기화를 먼저 시도합니다.');
       await initializePersonalConfigFile();
       if (!personalConfigSpreadsheetId) {
         throw new Error('개인 설정 파일을 찾거나 생성할 수 없습니다.');
       }
     }
     
-    setupPapyrusAuth();
 
     // 시트 이름으로 시트 ID 조회
     const sheetId = await getSheetIdByName(personalConfigSpreadsheetId, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME);
@@ -632,13 +525,12 @@ export const deleteScheduleEvent = async (eventNo: number): Promise<void> => {
       // deleteRow 함수에 시트 이름 대신 시트 ID를 전달
       // Google Sheets API는 0-based 인덱스를 사용하므로, 데이터 행의 인덱스에 헤더 행 1개를 더해줌
       await deleteRow(personalConfigSpreadsheetId, sheetId, rowIndexToDelete + 1);
-      console.log(`✅ 시간표 일정 (no: ${eventNo}) 삭제 완료`);
     } else {
-      console.warn(`⚠️ 시간표 일정 (no: ${eventNo})을 찾을 수 없어 삭제하지 못했습니다.`);
+      log.warn(`시간표 일정 (no: ${eventNo})을 찾을 수 없어 삭제하지 못했습니다.`);
     }
 
   } catch (error) {
-    console.error('❌ 시간표 일정 삭제 오류:', error);
+    log.error('시간표 일정 삭제 오류:', error);
     throw error;
   }
 };
@@ -650,14 +542,13 @@ export const deleteScheduleEvent = async (eventNo: number): Promise<void> => {
 export const updateScheduleEvent = async (event: TimetableEvent): Promise<void> => {
   try {
     if (!personalConfigSpreadsheetId) {
-      console.warn('⚠️ 개인 설정 파일 ID가 없습니다. 초기화를 먼저 시도합니다.');
+      log.warn('개인 설정 파일 ID가 없습니다. 초기화를 먼저 시도합니다.');
       await initializePersonalConfigFile();
       if (!personalConfigSpreadsheetId) {
         throw new Error('개인 설정 파일을 찾거나 생성할 수 없습니다.');
       }
     }
     
-    setupPapyrusAuth();
 
     const existingEvents = await getScheduleEvents();
     // getScheduleEvents는 헤더를 제외한 데이터만 반환하므로, 실제 시트의 행 인덱스를 계산할 때 헤더를 고려해야 함
@@ -677,13 +568,12 @@ export const updateScheduleEvent = async (event: TimetableEvent): Promise<void> 
       // papyrus-db의 update는 1-based 인덱스를 기대하며, 헤더 행(1행)을 고려하여 +2
       const range = `A${rowIndexToUpdate + 2}:G${rowIndexToUpdate + 2}`;
       await update(personalConfigSpreadsheetId, ENV_CONFIG.CONFIG_SCHEDULE_SHEET_NAME, range, [updatedRow]);
-      console.log(`✅ 시간표 일정 (no: ${event.no}) 업데이트 완료`);
     } else {
-      console.warn(`⚠️ 시간표 일정 (no: ${event.no})을 찾을 수 없어 업데이트하지 못했습니다.`);
+      log.warn(`시간표 일정 (no: ${event.no})을 찾을 수 없어 업데이트하지 못했습니다.`);
     }
 
   } catch (error) {
-    console.error('❌ 시간표 일정 업데이트 오류:', error);
+    log.error('시간표 일정 업데이트 오류:', error);
     throw error;
   }
 };

@@ -1,3 +1,4 @@
+import { logger } from '../../../../utils/logger';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { IoSettingsSharp } from "react-icons/io5";
 import { BiSearchAlt2, BiHelpCircle, BiPlus } from "react-icons/bi";
@@ -19,6 +20,8 @@ import MonthYearPicker from './MonthYearPicker';
 import { RRule } from 'rrule';
 import { findSpreadsheetById, fetchCalendarEvents } from '../../../../utils/google/spreadsheetManager';
 import { initializeGoogleAPIOnce } from '../../../../utils/google/googleApiInitializer';
+const log = logger.scope('components/features/calendar/Calendar/Calendar');
+
 
 // Google Calendar API 타입 정의
 interface GoogleCalendarEvent {
@@ -56,14 +59,6 @@ interface GapiClient {
             }) => Promise<GoogleCalendarResponse>;
         };
     };
-}
-
-declare global {
-    interface Window {
-        gapi: {
-            client: GapiClient;
-        };
-    }
 }
 
 interface CalendarProps {
@@ -348,7 +343,7 @@ const Calendar: React.FC<CalendarProps> = ({ onAddEvent, onSelectEvent, onMoreCl
                         });
                     });
                 } catch (e) {
-                    console.error("Error parsing RRULE string:", event.rrule, e);
+                    log.error("Error parsing RRULE string:", event.rrule, e);
                     allEvents.push(event); // Push original event if rule parsing fails
                 }
             } else {

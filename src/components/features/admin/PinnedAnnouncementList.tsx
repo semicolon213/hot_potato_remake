@@ -3,6 +3,7 @@ import { FaCheck, FaTimes, FaChevronLeft, FaChevronRight } from 'react-icons/fa'
 import './UserList.css';
 import { formatDateToYYYYMMDD } from '../../../utils/helpers/timeUtils';
 
+
 interface PinnedAnnouncementRequest {
   id: string;
   title: string;
@@ -34,8 +35,6 @@ const PinnedAnnouncementList: React.FC<PinnedAnnouncementListProps> = ({
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const displayedRequests = requests.slice(startIndex, endIndex);
   const totalPages = Math.ceil(requests.length / ITEMS_PER_PAGE);
-  
-  console.log('📌 PinnedAnnouncementList 렌더링:', { requestsCount: requests.length, requests });
   
   return (
     <>

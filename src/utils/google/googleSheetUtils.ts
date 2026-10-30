@@ -1,8 +1,12 @@
+import { getSheetData as readSheetValues } from './sheetsClient';
+import { logger } from '../logger';
 import { useEffect } from "react";
 
 import { ENV_CONFIG } from '../../config/environment';
 import { tokenManager } from '../auth/tokenManager';
 import { notifyGlobal } from '../ui/globalNotification';
+const log = logger.scope('utils/google/googleSheetUtils');
+
 
 const GOOGLE_CLIENT_ID = ENV_CONFIG.GOOGLE_CLIENT_ID; // ENV v2: VITE_GOOGLE_CLIENT_ID에서 읽는 클라이언트 ID
 
@@ -16,7 +20,6 @@ let googleAPIInitPromise: Promise<void> | null = null;
 export const resetGoogleAPIInitialization = (): void => {
     isGoogleAPIInitialized = false;
     googleAPIInitPromise = null;
-    console.log('🧹 Google API 초기화 상태 리셋 완료');
 };
 
 export const initializeGoogleAPIOnce = async (): Promise<void> => {
@@ -53,8 +56,7 @@ export const initializeGoogleAPIOnce = async (): Promise<void> => {
               discoveryDocs: [
                 'https://sheets.googleapis.com/$discovery/rest?version=v4',
                 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'
-              ],
-              scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive'
+              ]
             });
             const token = tokenManager.get();
             if (token) {
@@ -79,7 +81,7 @@ export const initializeGoogleAPIOnce = async (): Promise<void> => {
 export const getSheetIdByName = async (name: string): Promise<string | null> => {
   const cachedId = localStorage.getItem(`spreadsheet_id_${name}`);
   if (cachedId) {
-    console.log(`Found cached spreadsheet ID for "${name}"`);
+    log.debug(`Found cached spreadsheet ID for "${name}"`);
     return cachedId;
   }
 
@@ -103,7 +105,7 @@ export const getSheetIdByName = async (name: string): Promise<string | null> => 
       return null;
     }
   } catch (error) {
-    console.log('Error searching for spreadsheet. Check console for details.');
+    log.debug('Error searching for spreadsheet. Check console for details.');
     return null;
   }
 };
@@ -197,7 +199,7 @@ export const checkSheetExists = async (spreadsheetId: string, sheetName: string)
 
     return !!sheet;
   } catch (error) {
-    console.error('Error checking for sheet:', error);
+    log.error('Error checking for sheet:', error);
     return false;
   }
 };
@@ -222,7 +224,7 @@ export const createNewSheet = async (spreadsheetId: string, sheetName: string): 
       },
     });
   } catch (error) {
-    console.error('Error creating new sheet:', error);
+    log.error('Error creating new sheet:', error);
   }
 };
 
@@ -241,7 +243,7 @@ export const appendSheetData = async (spreadsheetId: string, sheetName: string, 
       },
     });
   } catch (error) {
-    console.error('Error appending sheet data:', error);
+    log.error('Error appending sheet data:', error);
   }
 };
 
@@ -255,8 +257,8 @@ export const getSheetData = async (spreadsheetId: string, sheetName: string, ran
     if (token && gapi.client) {
       try {
         gapi.client.setToken({ access_token: token });
-      } catch (tokenError) {
-        console.warn("토큰 설정 실패:", tokenError);
+      } catch {
+        log.warn("토큰 설정 실패");
       }
     }
 
@@ -266,18 +268,18 @@ export const getSheetData = async (spreadsheetId: string, sheetName: string, ran
     });
     return response.result.values;
   } catch (error: any) {
-    console.error('Error getting sheet data:', error);
+    log.error('Error getting sheet data:', error);
     
     // 403 오류 처리 (권한 문제)
     if (error.status === 403 || error.code === 403) {
-      console.warn(`403 권한 오류: 스프레드시트 ${spreadsheetId}에 접근 권한이 없습니다.`);
-      console.warn('오류 상세:', error.message || error.error?.message || '알 수 없는 오류');
+      log.warn(`403 권한 오류: 스프레드시트 ${spreadsheetId}에 접근 권한이 없습니다.`);
+      log.warn('오류 상세:', error.message || error.error?.message || '알 수 없는 오류');
       return null;
     }
     
     // 401 오류인 경우 토큰 재설정 후 재시도
     if (error.status === 401 || error.code === 401) {
-      console.log('401 오류 감지, 토큰 재설정 후 재시도...');
+      log.warn('401 오류 감지, 토큰 재설정 후 재시도');
       const token = tokenManager.get();
       if (token && gapi.client) {
         try {
@@ -289,7 +291,7 @@ export const getSheetData = async (spreadsheetId: string, sheetName: string, ran
           });
           return retryResponse.result.values;
         } catch (retryError) {
-          console.error('재시도 실패:', retryError);
+          log.error('재시도 실패:', retryError);
         }
       }
     }
@@ -305,31 +307,25 @@ export const getSheetData = async (spreadsheetId: string, sheetName: string, ran
  */
 export const getAccountingCategorySummary = async (spreadsheetId: string): Promise<{ category: string; income: number; expense: number }[]> => {
   try {
-    console.log('📊 카테고리별 수입/지출 집계 시작:', spreadsheetId);
     
-    // papyrus-db 사용
-    const { getSheetData } = await import('papyrus-db');
     
-    // papyrus-db 인증 설정
+    // gapi 클라이언트에 토큰 설정
     if (window.gapi && window.gapi.client) {
       const token = tokenManager.get();
       if (token) {
         try {
           window.gapi.client.setToken({ access_token: token });
-        } catch (tokenError) {
-          console.warn("토큰 설정 실패:", tokenError);
+        } catch {
+          log.warn("토큰 설정 실패");
         }
       }
-      window.papyrusAuth = {
-        client: window.gapi.client
-      };
     }
     
     // "장부" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
-    const data = await getSheetData(spreadsheetId, '장부');
+    const data = await readSheetValues(spreadsheetId, '장부');
     
     if (!data || !data.values || data.values.length < 2) {
-      console.warn('데이터가 없습니다.');
+      log.warn('데이터가 없습니다.');
       return [];
     }
     
@@ -342,7 +338,7 @@ export const getAccountingCategorySummary = async (spreadsheetId: string): Promi
     );
     
     if (categoryIndex === -1 || amountIndex === -1 || transactionTypeIndex === -1) {
-      console.warn('⚠️ 필요한 열을 찾을 수 없습니다. 헤더:', headers);
+      log.warn('필요한 열을 찾을 수 없습니다. 헤더:', headers);
       return [];
     }
     
@@ -369,11 +365,10 @@ export const getAccountingCategorySummary = async (spreadsheetId: string): Promi
     }
     
     const result = Object.values(summary);
-    console.log('✅ 카테고리별 집계 완료:', result.length, '개 카테고리');
     return result;
     
   } catch (error) {
-    console.error('❌ 카테고리별 집계 오류:', error);
+    log.error('카테고리별 집계 오류:', error);
     return [];
   }
 };
@@ -385,31 +380,25 @@ export const getAccountingCategorySummary = async (spreadsheetId: string): Promi
  */
 export const getLedgerBalance = async (spreadsheetId: string): Promise<number> => {
   try {
-    console.log('💰 장부 잔액 계산 시작:', spreadsheetId);
     
-    // papyrus-db 사용
-    const { getSheetData } = await import('papyrus-db');
     
-    // papyrus-db 인증 설정
+    // gapi 클라이언트에 토큰 설정
     if (window.gapi && window.gapi.client) {
       const token = tokenManager.get();
       if (token) {
         try {
           window.gapi.client.setToken({ access_token: token });
-        } catch (tokenError) {
-          console.warn("토큰 설정 실패:", tokenError);
+        } catch {
+          log.warn("토큰 설정 실패");
         }
       }
-      window.papyrusAuth = {
-        client: window.gapi.client
-      };
     }
     
     // "통장" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
-    const data = await getSheetData(spreadsheetId, '통장');
+    const data = await readSheetValues(spreadsheetId, '통장');
     
     if (!data || !data.values || data.values.length < 2) {
-      console.warn('통장 데이터가 없습니다.');
+      log.warn('통장 데이터가 없습니다.');
       return 0;
     }
     
@@ -418,7 +407,7 @@ export const getLedgerBalance = async (spreadsheetId: string): Promise<number> =
     const currentBalanceIndex = headers.indexOf('current_balance') !== -1 ? headers.indexOf('current_balance') : headers.indexOf('현재잔액');
     
     if (currentBalanceIndex === -1) {
-      console.warn('⚠️ 현재잔액 열을 찾을 수 없습니다.');
+      log.warn('현재잔액 열을 찾을 수 없습니다.');
       return 0;
     }
     
@@ -429,12 +418,10 @@ export const getLedgerBalance = async (spreadsheetId: string): Promise<number> =
       const balance = parseFloat(String(row[currentBalanceIndex] || '0')) || 0;
       totalBalance += balance;
     }
-    
-    console.log('✅ 장부 잔액 계산 완료:', totalBalance.toLocaleString(), '원');
     return totalBalance;
     
   } catch (error) {
-    console.error('❌ 장부 잔액 계산 오류:', error);
+    log.error('장부 잔액 계산 오류:', error);
     return 0;
   }
 };
@@ -447,56 +434,37 @@ export const getLedgerBalance = async (spreadsheetId: string): Promise<number> =
  */
 export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: string): Promise<{ budget_id: string; title: string; total_amount: number; status: string; action_required: string }[]> => {
   try {
-    console.log('📋 예산계획 대기 항목 조회 시작:', { spreadsheetId, userEmail });
     
-    // papyrus-db 사용
-    const { getSheetData } = await import('papyrus-db');
     
-    // papyrus-db 인증 설정
+    // gapi 클라이언트에 토큰 설정
     if (window.gapi && window.gapi.client) {
       const token = tokenManager.get();
       if (token) {
         try {
           window.gapi.client.setToken({ access_token: token });
-        } catch (tokenError) {
-          console.warn("토큰 설정 실패:", tokenError);
+        } catch {
+          log.warn("토큰 설정 실패");
         }
       }
-      window.papyrusAuth = {
-        client: window.gapi.client
-      };
     }
     
-    // papyrus-db로 "예산계획" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
-    const data = await getSheetData(spreadsheetId, '예산계획');
+    // "예산계획" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
+    const data = await readSheetValues(spreadsheetId, '예산계획');
     
     if (!data || !data.values || data.values.length < 2) {
-      console.warn('데이터가 없습니다.');
+      log.warn('데이터가 없습니다.');
       return [];
     }
     
     // 통장 정보 먼저 가져오기 (account_id -> 관리인 매핑, 시트명 하드코딩)
-    const accountData = await getSheetData(spreadsheetId, '통장');
+    const accountData = await readSheetValues(spreadsheetId, '통장');
     const accountMap: Record<string, { mainManagerId: string; subManagerIds: string[] }> = {};
-    
-    console.log('📋 통장 데이터 조회:', {
-      hasData: !!accountData,
-      hasValues: !!(accountData && accountData.values),
-      rowCount: accountData && accountData.values ? accountData.values.length : 0
-    });
     
     if (accountData && accountData.values && accountData.values.length > 1) {
       const accountHeaders = accountData.values[0].map((h: string) => String(h).toLowerCase().trim());
       const accountIdIndex = accountHeaders.indexOf('account_id');
       const mainManagerIdIndex = accountHeaders.indexOf('main_manager_id');
       const subManagerIdsIndex = accountHeaders.indexOf('sub_manager_ids');
-      
-      console.log('📋 통장 헤더 인덱스:', {
-        accountIdIndex,
-        mainManagerIdIndex,
-        subManagerIdsIndex,
-        headers: accountHeaders.slice(0, 10)
-      });
       
       for (let i = 1; i < accountData.values.length; i++) {
         const accountRow = accountData.values[i];
@@ -508,7 +476,7 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
         try {
           subManagerIds = subManagerIdsStr ? JSON.parse(subManagerIdsStr) : [];
         } catch (e) {
-          console.warn(`통장 ${accountId}의 sub_manager_ids 파싱 실패:`, e, '원본:', subManagerIdsStr);
+          log.warn(`통장 ${accountId}의 sub_manager_ids 파싱 실패:`, e, '원본:', subManagerIdsStr);
         }
         
         if (accountId) {
@@ -516,23 +484,9 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
             mainManagerId,
             subManagerIds: Array.isArray(subManagerIds) ? subManagerIds : []
           };
-          console.log(`📋 통장 ${accountId} 매핑:`, {
-            mainManagerId,
-            subManagerIds,
-            userEmail
-          });
         }
       }
     }
-    
-    console.log('📋 통장 매핑 완료:', {
-      accountMapSize: Object.keys(accountMap).length,
-      accountMap: Object.keys(accountMap).map(id => ({
-        id,
-        mainManager: accountMap[id].mainManagerId,
-        subManagers: accountMap[id].subManagerIds
-      }))
-    });
     
     // 헤더 행 찾기
     const headers = data.values[0].map((h: string) => String(h).toLowerCase().trim());
@@ -547,20 +501,8 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
     );
     const executedDateIndex = headers.findIndex((h: string) => h === 'executed_date');
     
-    console.log('📋 예산계획 헤더 인덱스:', {
-      budgetIdIndex,
-      accountIdIndex,
-      titleIndex,
-      totalAmountIndex,
-      statusIndex,
-      subManagerReviewedIndex,
-      mainManagerApprovedIndex,
-      executedDateIndex,
-      headers: headers.slice(0, 15)
-    });
-    
     if (budgetIdIndex === -1 || titleIndex === -1 || accountIdIndex === -1) {
-      console.warn('⚠️ 필요한 열을 찾을 수 없습니다. budgetIdIndex:', budgetIdIndex, 'titleIndex:', titleIndex, 'accountIdIndex:', accountIdIndex);
+      log.warn('필요한 열을 찾을 수 없습니다. budgetIdIndex:', budgetIdIndex, 'titleIndex:', titleIndex, 'accountIdIndex:', accountIdIndex);
       return [];
     }
     
@@ -583,7 +525,7 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
       // 통장 정보 가져오기
       const account = accountMap[accountId];
       if (!account) {
-        console.warn(`통장 ${accountId} 정보를 찾을 수 없습니다. accountMap:`, Object.keys(accountMap));
+        log.warn(`통장 ${accountId} 정보를 찾을 수 없습니다. accountMap:`);
         continue;
       }
       
@@ -594,40 +536,25 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
       const isSubManager = account.subManagerIds.includes(userEmail);
       const isMainManager = account.mainManagerId === userEmail;
       
-      console.log(`📋 예산 ${budgetId} 검사:`, {
-        budgetId,
-        title,
-        accountId,
-        status,
-        subManagerReviewed,
-        mainManagerApproved,
-        executedDate,
-        isSubManager,
-        isMainManager,
-        userEmail,
-        mainManagerId: account.mainManagerId,
-        subManagerIds: account.subManagerIds
-      });
-      
       // 검토자 확인: sub_manager_ids에 포함되어 있고, status가 pending이며, 아직 검토하지 않은 경우
       if (isSubManager && status === 'pending' && subManagerReviewed !== 'TRUE') {
         actionRequired = 'review';
         isRelated = true;
-        console.log(`✅ 검토 필요: ${budgetId} (${title})`);
+        log.debug(`검토 필요: ${budgetId} (${title})`);
       }
       
       // 승인자 확인: main_manager_id이고, status가 pending이며, 검토 완료되었지만 아직 승인하지 않은 경우
       if (isMainManager && status === 'pending' && subManagerReviewed === 'TRUE' && mainManagerApproved !== 'TRUE') {
         actionRequired = 'approve';
         isRelated = true;
-        console.log(`✅ 승인 필요: ${budgetId} (${title})`);
+        log.debug(`승인 필요: ${budgetId} (${title})`);
       }
       
       // 집행자 확인: 승인 완료되었지만 아직 집행하지 않은 경우 (주관리인 또는 별도 관리인)
       if ((isMainManager || isSubManager) && status === 'pending' && mainManagerApproved === 'TRUE' && (!executedDate || executedDate === '')) {
         actionRequired = 'execute';
         isRelated = true;
-        console.log(`✅ 집행 필요: ${budgetId} (${title})`);
+        log.debug(`집행 필요: ${budgetId} (${title})`);
       }
       
       if (isRelated && actionRequired) {
@@ -639,22 +566,13 @@ export const getPendingBudgetPlans = async (spreadsheetId: string, userEmail: st
           action_required: actionRequired
         });
       } else {
-        console.log(`⏭️ 건너뜀: ${budgetId} (${title}) - 관련 없음`);
+        log.debug(`건너뜀: ${budgetId} (${title}) - 관련 없음`);
       }
     }
-    
-    console.log('📋 필터링 결과:', {
-      totalRows: data.values.length - 1,
-      pendingItemsCount: pendingItems.length,
-      userEmail,
-      accountMapSize: Object.keys(accountMap).length
-    });
-    
-    console.log('✅ 예산계획 대기 항목 조회 완료:', pendingItems.length, '개');
     return pendingItems;
     
   } catch (error) {
-    console.error('❌ 예산계획 대기 항목 조회 오류:', error);
+    log.error('예산계획 대기 항목 조회 오류:', error);
     return [];
   }
 };
@@ -677,7 +595,7 @@ export const updateTitleInSheetByDocId = async (
     const titleColIndex = header.indexOf('title');
 
     if (docIdColIndex === -1 || titleColIndex === -1) {
-      console.error('Required columns (document_id, title) not found.');
+      log.error('Required columns (document_id, title) not found.');
       return;
     }
 
@@ -695,7 +613,7 @@ export const updateTitleInSheetByDocId = async (
       });
     }
   } catch (error) {
-    console.error('Error updating title in sheet:', error);
+    log.error('Error updating title in sheet:', error);
   }
 };
 
@@ -717,7 +635,7 @@ export const updateLastModifiedInSheetByDocId = async (
     const lastModifiedColIndex = header.indexOf('last_modified');
 
     if (docIdColIndex === -1 || lastModifiedColIndex === -1) {
-      console.error('Required columns (document_id, last_modified) not found.');
+      log.error('Required columns (document_id, last_modified) not found.');
       return;
     }
 
@@ -735,7 +653,7 @@ export const updateLastModifiedInSheetByDocId = async (
       });
     }
   } catch (error) {
-    console.error('Error updating last_modified in sheet:', error);
+    log.error('Error updating last_modified in sheet:', error);
   }
 };
 
@@ -744,110 +662,93 @@ export const updateLastModifiedInSheetByDocId = async (
  * @details 환경변수에 설정된 경로로 개인 문서 폴더를 찾습니다
  */
 export const findPersonalDocumentFolder = async (): Promise<string | null> => {
-  const gapi = window.gapi;
-  if (!gapi?.client?.drive) {
-    console.error('Google Drive API가 초기화되지 않았습니다.');
+  if (!window.gapi?.client?.drive) {
+    log.error('Google Drive API가 초기화되지 않았습니다.');
     return null;
   }
-
   try {
     const { ENV_CONFIG } = await import('../../config/environment');
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(ROOT) 기반
-    const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(DOCUMENT) 기반
-    const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_DOC) 기반
-
-    // 1단계: 루트에서 루트 폴더 찾기
-    const hotPotatoResponse = await gapi.client.drive.files.list({
-      q: `'root' in parents and name='${rootFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      console.log(`❌ ${rootFolderName} 폴더를 찾을 수 없습니다`);
-      return null;
-    }
-
-    const hotPotatoFolder = hotPotatoResponse.result.files[0];
-
-    // 2단계: 문서 폴더 찾기
-    const documentResponse = await gapi.client.drive.files.list({
-      q: `'${hotPotatoFolder.id}' in parents and name='${documentFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!documentResponse.result.files || documentResponse.result.files.length === 0) {
-      console.log(`❌ ${documentFolderName} 폴더를 찾을 수 없습니다`);
-      return null;
-    }
-
-    const documentFolder = documentResponse.result.files[0];
-
-    // 3단계: 개인 문서 폴더 찾기
-    const personalDocResponse = await gapi.client.drive.files.list({
-      q: `'${documentFolder.id}' in parents and name='${personalDocFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!personalDocResponse.result.files || personalDocResponse.result.files.length === 0) {
-      const { ENV_CONFIG } = await import('../../config/environment');
-      const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_DOC) 기반
-      console.log(`❌ ${personalDocFolderName} 폴더를 찾을 수 없습니다. 폴더를 생성합니다.`);
-      
-      // 개인 문서 폴더 생성
-      const DriveAPI = gapi.client.drive.files as unknown as {
-        create: (params: {
-          resource: { name: string; mimeType: string; parents: string[] };
-          fields: string;
-        }) => Promise<{ result: { id: string } }>;
-      };
-      
-      const createResponse = await DriveAPI.create({
-        resource: {
-          name: personalDocFolderName,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [documentFolder.id]
-        },
-        fields: 'id'
-      });
-      
-      return createResponse.result.id;
-    }
-
-    return personalDocResponse.result.files[0].id as string;
+    const { getOrCreatePersonalFolderPath } = await import('../database/personalConfigManager');
+    return await getOrCreatePersonalFolderPath([ENV_CONFIG.DOCUMENT_FOLDER_NAME, ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME]);
   } catch (error) {
-    console.error('❌ 개인 문서 폴더 찾기 오류:', error);
+    log.error('개인 문서 폴더 찾기 오류:', error);
     return null;
   }
 };
 
-export const copyGoogleDocument = async (fileId: string, newTitle: string, tag?: string): Promise<{ id: string, webViewLink: string } | null> => {
+/**
+ * @brief 개인 문서 폴더에 제목을 가진 빈 Google 문서 생성
+ * @details 앱이 만든 파일이라 drive.file 범위에서도 개인 문서 목록에 보인다.
+ */
+export const createBlankGoogleDocument = async (title: string): Promise<{ id: string, webViewLink: string }> => {
+  const personalDocFolderId = await findPersonalDocumentFolder();
+  if (!personalDocFolderId) {
+    throw new Error('개인 문서 폴더를 찾을 수 없습니다.');
+  }
+  const response = await window.gapi.client.drive.files.create({
+    resource: {
+      name: title,
+      mimeType: 'application/vnd.google-apps.document',
+      parents: [personalDocFolderId]
+    },
+    fields: 'id, webViewLink'
+  });
+  const { invalidateDocumentsCache } = await import('../helpers/loadDocumentsFromDrive');
+  await invalidateDocumentsCache();
+  return response.result as { id: string, webViewLink: string };
+};
+
+/**
+ * @brief 공유 양식을 서버에서 Office 형식으로 받아 지정 폴더에 같은 종류의 Google 파일로 변환해 올린다
+ * @details drive.file 범위에서는 배포자 소유 양식을 직접 복사할 수 없어서 쓰는 경로. 결과 파일은 앱이 만든 파일이다.
+ */
+export const importTemplateCopy = async (
+  templateId: string,
+  title: string,
+  folderId: string,
+  token: string
+): Promise<{ id: string; webViewLink: string }> => {
+  const { apiClient } = await import('../api/apiClient');
+  const exported = await apiClient.exportTemplateFile(templateId);
+  if (!exported.success || !exported.data) {
+    throw new Error(exported.message || '양식을 가져오지 못했습니다.');
+  }
+  const { fileData, sourceMimeType, exportMimeType } = exported.data;
+  const bytes = Uint8Array.from(atob(fileData), ch => ch.charCodeAt(0));
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify({ name: title, mimeType: sourceMimeType, parents: [folderId] })], { type: 'application/json' }));
+  form.append('file', new Blob([bytes], { type: exportMimeType }));
+
+  const upload = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token },
+    body: form
+  });
+  if (!upload.ok) {
+    throw new Error(`양식으로 파일을 만들지 못했습니다 (${upload.status})`);
+  }
+  return upload.json();
+};
+
+export const copyGoogleDocument = async (fileId: string, newTitle: string): Promise<{ id: string, webViewLink: string } | null> => {
   try {
     // 토큰 확인
     const token = tokenManager.get();
     if (!token || !tokenManager.isValid()) {
       const errorMsg = 'Google 인증 토큰이 없거나 만료되었습니다. 다시 로그인해주세요.';
-      console.error('❌', errorMsg);
+      log.error('', errorMsg);
       throw new Error(errorMsg);
     }
-
-    console.log('📄 Google API 초기화 시작...');
 
     // Google API 초기화 (googleApiInitializer의 개선된 버전 사용)
     const { initializeGoogleAPIOnce: initAPI } = await import('./googleApiInitializer');
     try {
       await initAPI(null);
-      console.log('✅ Google API 초기화 완료');
     } catch (initError: any) {
-      console.error('❌ Google API 초기화 실패:', initError);
+      log.error('Google API 초기화 실패:', initError);
       // idpiframe_initialization_failed 에러인 경우 특별 처리
       if (initError?.error === 'idpiframe_initialization_failed' || initError?.result?.error?.error === 'idpiframe_initialization_failed') {
-        console.warn('⚠️ idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
+        log.warn('idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
       } else {
         // 다른 에러는 재시도
         throw initError;
@@ -865,31 +766,29 @@ export const copyGoogleDocument = async (fileId: string, newTitle: string, tag?:
     const gapi = window.gapi;
     if (!gapi?.client?.drive) {
       const errorMsg = 'Google Drive API가 초기화되지 않았습니다. 페이지를 새로고침해주세요.';
-      console.error('❌', errorMsg);
+      log.error('', errorMsg);
       throw new Error(errorMsg);
     }
 
     // 토큰을 gapi client에 명시적으로 설정
     try {
       gapi.client.setToken({ access_token: token });
-      console.log('✅ 토큰이 gapi client에 설정되었습니다.');
-    } catch (tokenError) {
-      console.warn('⚠️ 토큰 설정 실패:', tokenError);
+      log.debug('토큰이 gapi client에 설정되었습니다.');
+    } catch {
+      log.warn('토큰 설정 실패');
       // 토큰 설정 실패해도 계속 진행 (이미 설정되었을 수 있음)
     }
-
-    console.log('📄 문서 복사 시작:', { fileId, newTitle, tag });
 
     // 개인 문서 폴더 찾기
     const personalDocFolderId = await findPersonalDocumentFolder();
     
     if (!personalDocFolderId) {
       const errorMsg = '개인 문서 폴더를 찾을 수 없습니다. 폴더가 생성되어 있는지 확인해주세요.';
-      console.error('❌', errorMsg);
+      log.error('', errorMsg);
       throw new Error(errorMsg);
     }
 
-    console.log('✅ 개인 문서 폴더 찾음:', personalDocFolderId);
+    log.debug('개인 문서 폴더 찾음:', personalDocFolderId);
 
     // 개인 문서 폴더에 문서 복사
     const DriveAPI = gapi.client.drive.files as unknown as {
@@ -900,27 +799,35 @@ export const copyGoogleDocument = async (fileId: string, newTitle: string, tag?:
       }) => Promise<{ result: { id: string; webViewLink: string } }>;
     };
     
-    const response = await DriveAPI.copy({
-      fileId: fileId,
-      resource: {
-        name: newTitle,
-        parents: [personalDocFolderId] // 개인 문서 폴더에 저장
-      },
-      fields: 'id, webViewLink',
-    });
-    
-    console.log('✅ 문서가 개인 문서 폴더에 복사되었습니다:', response.result.id);
-    
+    let response: { result: { id: string; webViewLink: string } };
+    try {
+      response = await DriveAPI.copy({
+        fileId: fileId,
+        resource: {
+          name: newTitle,
+          parents: [personalDocFolderId] // 개인 문서 폴더에 저장
+        },
+        fields: 'id, webViewLink',
+      });
+    } catch (copyError: any) {
+      // drive.file 범위에서는 배포자 소유 공유 양식을 직접 복사할 수 없다 (403/404).
+      // 서버가 docx로 내보낸 내용을 개인 폴더에 Google 문서로 변환해 올린다.
+      if (copyError?.status !== 403 && copyError?.status !== 404) throw copyError;
+      response = { result: await importTemplateCopy(fileId, newTitle, personalDocFolderId, token) };
+    }
+
+    const { invalidateDocumentsCache } = await import('../helpers/loadDocumentsFromDrive');
+    await invalidateDocumentsCache();
     return response.result;
   } catch (error: any) {
-    console.error('❌ Google 문서 복사 오류:', error);
+    log.error('Google 문서 복사 오류:', error);
     
     // 에러 상세 정보 로깅
     if (error.result?.error) {
-      console.error('에러 상세:', error.result.error);
+      log.error('에러 상세');
     }
     if (error.status) {
-      console.error('HTTP 상태 코드:', error.status);
+      log.error('HTTP 상태 코드:', error.status);
     }
     
     // 사용자 친화적인 에러 메시지
@@ -968,7 +875,7 @@ export const deleteRowsByDocIds = async (
     const docIdColIndex = header.indexOf('document_id');
 
     if (docIdColIndex === -1) {
-      console.error('Required column "document_id" not found.');
+      log.error('Required column "document_id" not found.');
       return;
     }
 
@@ -1006,7 +913,7 @@ export const deleteRowsByDocIds = async (
       },
     });
   } catch (error) {
-    console.error('Error deleting rows from sheet:', error);
+    log.error('Error deleting rows from sheet:', error);
         throw error; // Re-throw the error to be caught by the caller
       }
     };
@@ -1019,31 +926,24 @@ export const deleteRowsByDocIds = async (
      */
     export const getAccountingData = async (spreadsheetId: string): Promise<string[] | null> => {
       try {
-        console.log("📊 장부 카테고리 조회 시작:", spreadsheetId);
         
-        // papyrus-db 사용
-        const { getSheetData } = await import('papyrus-db');
         
-        // papyrus-db 인증 설정
+        // gapi 클라이언트에 토큰 설정
         if (window.gapi && window.gapi.client) {
           const token = tokenManager.get();
           if (token) {
             try {
               window.gapi.client.setToken({ access_token: token });
-            } catch (tokenError) {
-              console.warn("토큰 설정 실패:", tokenError);
+            } catch {
+              log.warn("토큰 설정 실패");
             }
           }
-          window.papyrusAuth = {
-            client: window.gapi.client
-          };
         }
         
-        // papyrus-db로 "카테고리" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
-        const data = await getSheetData(spreadsheetId, '카테고리');
+        // "카테고리" 시트 데이터 가져오기 (시트명 하드코딩, ENV로 분리 가능)
+        const data = await readSheetValues(spreadsheetId, '카테고리');
         
         if (!data || !data.values || data.values.length <= 1) {
-          console.log(`데이터가 없습니다.`);
           return [];
         }
     
@@ -1076,12 +976,10 @@ export const deleteRowsByDocIds = async (
             categories.push(category);
           }
         }
-    
-        console.log('✅ 장부 카테고리 조회 완료:', categories.length, '개');
         return categories;
     
       } catch (error: any) {
-        console.error("❌ 장부 카테고리 조회 오류:", error);
+        log.error("장부 카테고리 조회 오류:", error);
         
         // 오류 메시지 정리
         let errorMessage = '알 수 없는 오류';

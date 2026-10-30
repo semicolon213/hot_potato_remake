@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file CategoryManagement.tsx
  * @brief 카테고리 관리 컴포넌트
@@ -11,7 +12,10 @@ import { FaEdit, FaTrash, FaPlus, FaSearch, FaTags } from 'react-icons/fa';
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../../../utils/database/accountingManager';
 import type { Category } from '../../../types/features/accounting';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+import { useNotification } from '../../../hooks/ui/useNotification';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/CategoryManagement');
+
 
 interface CategoryManagementProps {
   spreadsheetId: string;
@@ -20,6 +24,7 @@ interface CategoryManagementProps {
 export const CategoryManagement: React.FC<CategoryManagementProps> = ({
   spreadsheetId
 }) => {
+  const { confirmAsync } = useNotification();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -40,21 +45,22 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
     loadCategories();
   }, [spreadsheetId]);
 
-  const loadCategories = async () => {
-    setListLoading(true);
+  const loadCategories = async (showLoading = true) => {
+    if (showLoading) setListLoading(true);
     setListError(null);
     try {
       const categoriesData = await getCategories(spreadsheetId);
       setCategories(categoriesData);
     } catch (err) {
-      console.error('❌ 카테고리 로드 오류:', err);
+      log.error('카테고리 로드 오류:', err);
       setListError('카테고리를 불러오는데 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
-      setListLoading(false);
+      if (showLoading) setListLoading(false);
     }
   };
 
   const handleAddCategory = async () => {
+    if (isSaving) return;
     if (!newCategoryName.trim()) {
       setError('카테고리 이름을 입력해주세요.');
       return;
@@ -81,13 +87,13 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
         userInfo.studentId || userInfo.email || 'unknown'
       );
 
-      await loadCategories();
+      await loadCategories(false);
       setIsAddModalOpen(false);
       setNewCategoryName('');
       setNewCategoryDescription('');
       setError(null);
     } catch (err: unknown) {
-      console.error('❌ 카테고리 추가 오류:', err);
+      log.error('카테고리 추가 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '카테고리 추가에 실패했습니다.';
       setError(errorMessage);
     } finally {
@@ -119,7 +125,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
   };
 
   const handleUpdateCategory = async () => {
-    if (!editingCategory) return;
+    if (!editingCategory || isSaving) return;
 
     if (!editCategoryName.trim()) {
       setError('카테고리 이름을 입력해주세요.');
@@ -135,7 +141,7 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
     setError(null);
 
     try {
@@ -146,32 +152,30 @@ export const CategoryManagement: React.FC<CategoryManagementProps> = ({
         editCategoryDescription.trim()
       );
 
-      await loadCategories();
+      await loadCategories(false);
       handleCloseEditModal();
       setError(null);
     } catch (err: unknown) {
-      console.error('❌ 카테고리 수정 오류:', err);
+      log.error('카테고리 수정 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '카테고리 수정에 실패했습니다.';
       setError(errorMessage);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
   const handleDeleteCategory = async (category: Category) => {
-    if (!window.confirm(`카테고리 "${category.categoryName}"를 삭제하시겠습니까?\n\n사용 중인 항목이 있으면 삭제할 수 없습니다.`)) {
-      return;
-    }
-
+    if (isSaving) return;
     setIsSaving(true);
     setError(null);
 
     try {
+      if (!(await confirmAsync(`카테고리 "${category.categoryName}"를 삭제하시겠습니까?\n\n사용 중인 항목이 있으면 삭제할 수 없습니다.`, { type: 'danger' }))) return;
       await deleteCategory(spreadsheetId, category.categoryId);
-      await loadCategories();
+      await loadCategories(false);
       setError(null);
     } catch (err: unknown) {
-      console.error('❌ 카테고리 삭제 오류:', err);
+      log.error('카테고리 삭제 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '카테고리 삭제에 실패했습니다.';
       notifyGlobal(errorMessage, 'error');
       setError(errorMessage);

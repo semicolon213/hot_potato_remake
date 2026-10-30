@@ -34,10 +34,10 @@ export const API_CONFIG = {
   GOOGLE_CLIENT_ID: ENV_CONFIG.GOOGLE_CLIENT_ID, // ENV v2: VITE_GOOGLE_CLIENT_ID 기반
   
   // API 타임아웃 (밀리초)
-  TIMEOUT: 60000, // 60초로 증가
+  TIMEOUT: 30000,
   
   // 재시도 횟수
-  MAX_RETRIES: 5, // 5회로 증가
+  MAX_RETRIES: 2,
 };
 
 /**

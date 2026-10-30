@@ -1,8 +1,11 @@
+import { logger } from '../../../utils/logger';
 // 학생 관리 액션 버튼 컴포넌트
 
 import React, { useRef } from 'react';
 import { FaDownload, FaFileDownload, FaUpload } from 'react-icons/fa';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+const log = logger.scope('components/features/students/StudentActionButtons');
+
 
 interface StudentActionButtonsProps {
   onExportCSV: () => void;
@@ -31,7 +34,7 @@ const StudentActionButtons: React.FC<StudentActionButtonsProps> = ({
           fileInputRef.current.value = '';
         }
       } catch (error) {
-        console.error('파일 업로드 실패:', error);
+        log.error('파일 업로드 실패:', error);
         notifyGlobal('파일 업로드에 실패했습니다.', 'error');
       }
     }

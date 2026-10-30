@@ -788,6 +788,23 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
+.login-service-intro {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #555;
+}
+
+.login-policy-links {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.login-policy-links a {
+  color: #555;
+
 .login-legal-links {
   display: flex;
   align-items: center;

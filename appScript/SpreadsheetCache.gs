@@ -20,7 +20,7 @@ function getCachedData(key) {
     }
     return null;
   } catch (error) {
-    console.error('캐시 데이터 가져오기 오류:', error);
+    logError_('SpreadsheetCache', '캐시 데이터 가져오기 오류:', error);
     return null;
   }
 }
@@ -38,7 +38,7 @@ function setCachedData(key, data, expirationInSeconds = 3600) {
     cache.put(key, JSON.stringify(data), expirationInSeconds);
     return true;
   } catch (error) {
-    console.error('캐시 데이터 저장 오류:', error);
+    logError_('SpreadsheetCache', '캐시 데이터 저장 오류:', error);
     return false;
   }
 }
@@ -54,7 +54,7 @@ function removeCachedData(key) {
     cache.remove(key);
     return true;
   } catch (error) {
-    console.error('캐시 데이터 삭제 오류:', error);
+    logError_('SpreadsheetCache', '캐시 데이터 삭제 오류:', error);
     return false;
   }
 }
@@ -69,7 +69,7 @@ function clearAllCache() {
     cache.removeAll();
     return true;
   } catch (error) {
-    console.error('모든 캐시 데이터 삭제 오류:', error);
+    logError_('SpreadsheetCache', '모든 캐시 데이터 삭제 오류:', error);
     return false;
   }
 }
@@ -84,7 +84,7 @@ function getCachedUserData(email) {
     const cacheKey = `user_${email}`;
     return getCachedData(cacheKey);
   } catch (error) {
-    console.error('캐시된 사용자 데이터 가져오기 오류:', error);
+    logError_('SpreadsheetCache', '캐시된 사용자 데이터 가져오기 오류:', error);
     return null;
   }
 }
@@ -101,7 +101,7 @@ function setCachedUserData(email, userData, expirationInSeconds = 3600) {
     const cacheKey = `user_${email}`;
     return setCachedData(cacheKey, userData, expirationInSeconds);
   } catch (error) {
-    console.error('사용자 데이터 캐시 저장 오류:', error);
+    logError_('SpreadsheetCache', '사용자 데이터 캐시 저장 오류:', error);
     return false;
   }
 }
@@ -116,7 +116,7 @@ function removeCachedUserData(email) {
     const cacheKey = `user_${email}`;
     return removeCachedData(cacheKey);
   } catch (error) {
-    console.error('캐시된 사용자 데이터 삭제 오류:', error);
+    logError_('SpreadsheetCache', '캐시된 사용자 데이터 삭제 오류:', error);
     return false;
   }
 }
@@ -133,7 +133,7 @@ function getCachedSpreadsheetData(spreadsheetId, sheetName, range) {
     const cacheKey = `spreadsheet_${spreadsheetId}_${sheetName}_${range}`;
     return getCachedData(cacheKey);
   } catch (error) {
-    console.error('캐시된 스프레드시트 데이터 가져오기 오류:', error);
+    logError_('SpreadsheetCache', '캐시된 스프레드시트 데이터 가져오기 오류:', error);
     return null;
   }
 }
@@ -152,7 +152,7 @@ function setCachedSpreadsheetData(spreadsheetId, sheetName, range, data, expirat
     const cacheKey = `spreadsheet_${spreadsheetId}_${sheetName}_${range}`;
     return setCachedData(cacheKey, data, expirationInSeconds);
   } catch (error) {
-    console.error('스프레드시트 데이터 캐시 저장 오류:', error);
+    logError_('SpreadsheetCache', '스프레드시트 데이터 캐시 저장 오류:', error);
     return false;
   }
 }
@@ -169,7 +169,7 @@ function removeCachedSpreadsheetData(spreadsheetId, sheetName, range) {
     const cacheKey = `spreadsheet_${spreadsheetId}_${sheetName}_${range}`;
     return removeCachedData(cacheKey);
   } catch (error) {
-    console.error('캐시된 스프레드시트 데이터 삭제 오류:', error);
+    logError_('SpreadsheetCache', '캐시된 스프레드시트 데이터 삭제 오류:', error);
     return false;
   }
 }
@@ -190,7 +190,7 @@ function getCacheStats() {
     // 캐시 통계 계산 (간단한 구현)
     return stats;
   } catch (error) {
-    console.error('캐시 통계 가져오기 오류:', error);
+    logError_('SpreadsheetCache', '캐시 통계 가져오기 오류:', error);
     return null;
   }
 }
@@ -201,13 +201,9 @@ function getCacheStats() {
  */
 function optimizeCache() {
   try {
-    console.log('🚀 캐시 성능 최적화 시작');
     
     // 오래된 캐시 데이터 정리
     const cache = CacheService.getScriptCache();
-    
-    // 최적화 완료
-    console.log('🚀 캐시 성능 최적화 완료');
     
     return {
       success: true,
@@ -215,7 +211,7 @@ function optimizeCache() {
     };
     
   } catch (error) {
-    console.error('🚀 캐시 성능 최적화 오류:', error);
+    logError_('SpreadsheetCache', '캐시 성능 최적화 오류:', error);
     return {
       success: false,
       message: '캐시 성능 최적화 중 오류가 발생했습니다: ' + error.message

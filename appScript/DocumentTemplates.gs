@@ -11,42 +11,17 @@
  * @returns {Object} 템플릿 목록 결과
  */
 function getTemplatesFromFolder() {
-  const debugInfo = [];
   
   try {
-    debugInfo.push('📄 템플릿 폴더에서 파일 목록 가져오기 시작');
     
     // Drive API 확인
     if (typeof Drive === 'undefined') {
-      debugInfo.push('❌ Drive API가 정의되지 않았습니다');
       return {
         success: false,
         message: 'Drive API가 활성화되지 않았습니다. Google Apps Script에서 Drive API를 활성화해주세요.',
-        debugInfo: debugInfo
       };
     }
     
-    debugInfo.push('✅ Drive API 사용 가능');
-    
-    // 먼저 루트 폴더의 모든 폴더 검색
-    debugInfo.push('🔍 루트 폴더에서 모든 폴더 검색 시작');
-    try {
-      const rootFolders = Drive.Files.list({
-        q: "'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
-        fields: 'files(id,name)'
-      });
-      
-      debugInfo.push('🔍 루트 폴더 검색 결과: ' + JSON.stringify(rootFolders));
-      debugInfo.push('🔍 루트 폴더에서 찾은 폴더 수: ' + (rootFolders.files ? rootFolders.files.length : 0));
-      
-      if (rootFolders.files && rootFolders.files.length > 0) {
-        rootFolders.files.forEach((folder, index) => {
-          debugInfo.push(`🔍 루트 폴더 ${index + 1}: ${folder.name} (${folder.id})`);
-        });
-      }
-    } catch (rootError) {
-      debugInfo.push('❌ 루트 폴더 검색 오류: ' + rootError.message);
-    }
     
     // 스크립트 속성에서 폴더 이름 가져오기
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
@@ -62,70 +37,53 @@ function getTemplatesFromFolder() {
       templateFolderName
     ];
     
-    debugInfo.push('📁 가능한 폴더 경로들: ' + JSON.stringify(possiblePaths));
     
     let folder = null;
     let successfulPath = null;
     
     for (const path of possiblePaths) {
-      debugInfo.push(`📁 폴더 경로 시도: ${path}`);
       const result = findOrCreateFolder(path);
-      debugInfo.push(`📄 폴더 찾기 결과 (${path}): ` + JSON.stringify(result));
       
       if (result && result.success && result.data && result.data.id) {
         folder = result;
         successfulPath = path;
-        debugInfo.push(`✅ 폴더 찾기 성공: ${path} -> ${result.data.id}`);
         break;
       } else {
-        debugInfo.push(`❌ 폴더 찾기 실패: ${path}`);
       }
     }
     
     if (!folder) {
-      debugInfo.push('❌ 모든 폴더 경로에서 폴더를 찾을 수 없습니다');
       return {
         success: false,
         message: '템플릿 폴더를 찾을 수 없습니다. 폴더 경로를 확인해주세요.',
-        debugInfo: debugInfo
       };
     }
     
-    debugInfo.push(`✅ 사용된 폴더 경로: ${successfulPath}`);
-    debugInfo.push(`✅ 폴더 ID: ${folder.data.id}`);
     
     // 폴더 ID로 직접 검색해보기
-    debugInfo.push('🔍 폴더 ID로 직접 검색 시도');
     try {
       const directFolder = Drive.Files.get(folder.data.id, {
         fields: 'id,name,parents,owners,permissions'
       });
-      debugInfo.push('🔍 폴더 직접 검색 결과: ' + JSON.stringify(directFolder));
       
       // 폴더 소유자 정보 확인
       if (directFolder.owners && directFolder.owners.length > 0) {
-        debugInfo.push('🔍 폴더 소유자: ' + directFolder.owners[0].displayName + ' (' + directFolder.owners[0].emailAddress + ')');
       }
       
       // 폴더 권한 정보 확인
       if (directFolder.permissions && directFolder.permissions.length > 0) {
-        debugInfo.push('🔍 폴더 권한 수: ' + directFolder.permissions.length);
         directFolder.permissions.forEach((perm, index) => {
-          debugInfo.push(`🔍 권한 ${index + 1}: ${perm.role} - ${perm.emailAddress || perm.displayName || 'Unknown'}`);
         });
       }
     } catch (directError) {
-      debugInfo.push('❌ 폴더 직접 검색 오류: ' + directError.message);
     }
     
     // 폴더 내의 모든 파일들 먼저 검색해보기
-    debugInfo.push('📄 폴더 내 모든 파일 검색 시작: ' + folder.data.id);
     
     let allFiles;
     try {
       // 방법 1: 기본 쿼리로 검색
       const allFilesQuery = `'${folder.data.id}' in parents and trashed=false`;
-      debugInfo.push('📄 방법 1 - 모든 파일 검색 쿼리: ' + allFilesQuery);
       
       allFiles = Drive.Files.list({
         q: allFilesQuery,
@@ -133,70 +91,56 @@ function getTemplatesFromFolder() {
         orderBy: 'name'
       });
       
-      debugInfo.push('📄 방법 1 - 검색 결과: ' + JSON.stringify(allFiles));
-      debugInfo.push('📄 방법 1 - 검색된 파일 수: ' + (allFiles.files ? allFiles.files.length : 0));
       
       // 방법 2: 쿼리 없이 직접 검색 시도
       if (!allFiles.files || allFiles.files.length === 0) {
-        debugInfo.push('📄 방법 2 - 쿼리 없이 직접 검색 시도');
         try {
           const directFiles = Drive.Files.list({
             fields: 'files(id,name,mimeType,modifiedTime,parents)',
             orderBy: 'name'
           });
           
-          debugInfo.push('📄 방법 2 - 전체 파일 검색 결과: ' + JSON.stringify(directFiles));
           
           // 해당 폴더의 파일들만 필터링
           const filteredFiles = (directFiles.files || []).filter(file => 
             file.parents && file.parents.includes(folder.data.id)
           );
           
-          debugInfo.push('📄 방법 2 - 필터링된 파일 수: ' + filteredFiles.length);
           allFiles = { files: filteredFiles };
         } catch (directSearchError) {
-          debugInfo.push('❌ 방법 2 - 직접 검색 오류: ' + directSearchError.message);
         }
       }
       
       // 각 파일의 상세 정보 로깅
       if (allFiles.files && allFiles.files.length > 0) {
         allFiles.files.forEach((file, index) => {
-          debugInfo.push(`📄 파일 ${index + 1}: ${file.name} (${file.mimeType})`);
         });
       } else {
-        debugInfo.push('❌ 모든 방법으로 파일을 찾을 수 없습니다');
       }
       
     } catch (allFilesError) {
-      debugInfo.push('📄 모든 파일 검색 오류: ' + allFilesError.message);
       return {
         success: false,
         message: '파일 검색 실패: ' + allFilesError.message,
-        debugInfo: debugInfo
       };
     }
     
     // Google Docs 파일만 필터링
-    debugInfo.push('📄 Google Docs 파일 필터링 시작');
-    const googleDocsFiles = allFiles.files ? allFiles.files.filter(file => 
-      file.mimeType === 'application/vnd.google-apps.document'
+    const googleDocsFiles = allFiles.files ? allFiles.files.filter(file =>
+      file.mimeType === 'application/vnd.google-apps.document' ||
+      file.mimeType === 'application/vnd.google-apps.spreadsheet'
     ) : [];
     
-    debugInfo.push('📄 Google Docs 파일 수: ' + googleDocsFiles.length);
     googleDocsFiles.forEach((file, index) => {
-      debugInfo.push(`📄 Google Docs 파일 ${index + 1}: ${file.name}`);
     });
     
     const files = { files: googleDocsFiles };
     
     if (!files.files || files.files.length === 0) {
-      debugInfo.push('📄 템플릿 폴더에 문서가 없습니다');
       return {
         success: true,
         data: [],
         message: '템플릿 폴더에 문서가 없습니다',
-        debugInfo: debugInfo
       };
     }
     
@@ -207,6 +151,7 @@ function getTemplatesFromFolder() {
         id: file.id,
         type: file.id,
         title: file.name,
+        mimeType: file.mimeType,
         description: p.description || file.description || '템플릿 파일',
         tag: p.tag || '기본',
         fullTitle: file.name,
@@ -215,22 +160,17 @@ function getTemplatesFromFolder() {
       };
     });
     
-    debugInfo.push('📄 템플릿 목록 가져오기 성공: ' + templates.length + '개');
-    debugInfo.push('📄 템플릿 목록: ' + JSON.stringify(templates));
     
     return {
       success: true,
       data: templates,
       message: `${templates.length}개의 템플릿을 찾았습니다`,
-      debugInfo: debugInfo
     };
     
   } catch (error) {
-    debugInfo.push('❌ 템플릿 목록 가져오기 오류: ' + error.message);
     return {
       success: false,
       message: '템플릿 목록을 가져오는 중 오류가 발생했습니다: ' + error.message,
-      debugInfo: debugInfo
     };
   }
 }
@@ -325,38 +265,38 @@ function uploadSharedTemplate(req) {
             // 업로드 후 시트 보호를 복원할 수 없음
             // 하지만 Google Sheets가 자동으로 보존한 보호 정보를 확인
             if (protections.length === 0) {
-              console.warn('⚠️ 시트 보호가 없는 것으로 확인됨:', sheet.getName());
-              console.warn('⚠️ Excel 파일 변환 시 시트 보호가 자동으로 보존되지 않았을 수 있습니다.');
+              logWarn_('DocumentTemplates', '시트 보호가 없는 것으로 확인됨:', sheet.getName());
+              logWarn_('DocumentTemplates', 'Excel 파일 변환 시 시트 보호가 자동으로 보존되지 않았을 수 있습니다.');
               // 원본 Excel 파일의 보호 정보를 직접 읽을 수 없으므로,
               // 사용자가 수동으로 보호를 설정해야 할 수 있음
             } else {
-              console.log('✅ 시트 보호 확인됨:', sheet.getName(), protections.length, '개');
+              logDebug_('DocumentTemplates', '시트 보호 확인됨:', sheet.getName(), protections.length, '개');
               // 기존 보호 정보 확인 및 유지
               for (var j = 0; j < protections.length; j++) {
                 var protection = protections[j];
-                console.log('  - 보호 범위:', protection.getRange() ? protection.getRange().getA1Notation() : '전체 시트');
-                console.log('  - 설명:', protection.getDescription());
-                console.log('  - 편집자 수:', protection.getEditors().length);
+                logDebug_('DocumentTemplates', '- 보호 범위:', protection.getRange() ? protection.getRange().getA1Notation() : '전체 시트');
+                logDebug_('DocumentTemplates', '- 설명:', protection.getDescription());
+                logDebug_('DocumentTemplates', '- 편집자 수:', protection.getEditors().length);
                 
                 // 시트 보호가 있는 경우, 보호 설정 유지
                 // 보호가 자동으로 해제되지 않도록 확인
                 try {
                   // 보호가 해제되었는지 확인하고, 필요시 재설정
                   if (!protection.canEdit()) {
-                    console.log('  - 시트 보호가 활성화되어 있습니다.');
+                    logDebug_('DocumentTemplates', '- 시트 보호가 활성화되어 있습니다.');
                   }
                 } catch (checkError) {
-                  console.warn('  - 시트 보호 상태 확인 중 오류:', checkError);
+                  logWarn_('DocumentTemplates', '- 시트 보호 상태 확인 중 오류:', checkError);
                 }
               }
             }
           } catch (protectError) {
-            console.warn('시트 보호 확인 중 오류 발생 (계속 진행):', protectError);
+            logWarn_('DocumentTemplates', '시트 보호 확인 중 오류 발생 (계속 진행):', protectError);
           }
         }
       } catch (e) {
         // 컬럼 너비 및 시트 보호 설정 실패해도 계속 진행
-        console.warn('스프레드시트 설정 중 오류 발생 (계속 진행):', e);
+        logWarn_('DocumentTemplates', '스프레드시트 설정 중 오류 발생 (계속 진행):', e);
       }
     }
 
@@ -385,7 +325,6 @@ function updateSharedTemplateMeta(req) {
     }
     // 관리자 검증 (요청에서 이메일 가져오기, 없으면 Session 사용)
     var editorEmail = req.editorEmail || (req.meta && req.meta.creatorEmail) || Session.getActiveUser().getEmail();
-    console.log('👤 기본 템플릿 수정 요청자 이메일:', editorEmail);
     var status = checkUserStatus(editorEmail);
     if (!status.success || !status.data || !status.data.user || status.data.user.is_admin !== 'O') {
       return { success: false, message: '관리자만 메타데이터를 수정할 수 있습니다.' };
@@ -400,7 +339,7 @@ function updateSharedTemplateMeta(req) {
     if (req.meta && req.meta.title !== undefined) {
       var newFileName = sanitize(req.meta.title);
       fileUpdate.name = newFileName;
-      console.log('📝 파일명 업데이트:', newFileName);
+      logDebug_('DocumentTemplates', '파일명 업데이트:', newFileName);
     }
     
     // 메타데이터 업데이트
@@ -420,12 +359,11 @@ function updateSharedTemplateMeta(req) {
     // 파일 업데이트 실행
     if (Object.keys(fileUpdate).length > 0) {
       Drive.Files.update(fileUpdate, req.fileId);
-      console.log('✅ 기본 템플릿 업데이트 완료:', req.fileId);
     }
     
     return { success: true };
   } catch (e) {
-    console.error('❌ 기본 템플릿 업데이트 오류:', e);
+    logError_('DocumentTemplates', '기본 템플릿 업데이트 오류:', e);
     return { success: false, message: '메타데이터 업데이트 실패: ' + e.message };
   }
 }
@@ -441,7 +379,6 @@ function deleteSharedTemplate(req) {
     
     // 관리자 검증 (요청에서 이메일 가져오기, 없으면 Session 사용)
     var userEmail = req.userEmail || Session.getActiveUser().getEmail();
-    console.log('👤 기본 템플릿 삭제 요청자 이메일:', userEmail);
     var status = checkUserStatus(userEmail);
     if (!status.success || !status.data || !status.data.user || status.data.user.is_admin !== 'O') {
       return { success: false, message: '관리자만 템플릿을 삭제할 수 있습니다.' };
@@ -453,7 +390,7 @@ function deleteSharedTemplate(req) {
       if (!file) {
         return { success: false, message: '템플릿을 찾을 수 없습니다.' };
       }
-      console.log('📄 삭제할 템플릿:', file.name);
+      logDebug_('DocumentTemplates', '삭제할 템플릿:', file.name);
       
       // "빈 문서" 템플릿은 삭제 불가
       if (file.name === '빈 문서' || file.name.trim() === '빈 문서') {
@@ -465,11 +402,10 @@ function deleteSharedTemplate(req) {
     
     // 파일 삭제
     Drive.Files.remove(req.fileId);
-    console.log('✅ 기본 템플릿 삭제 완료:', req.fileId);
     
     return { success: true, message: '기본 템플릿이 삭제되었습니다.' };
   } catch (e) {
-    console.error('❌ 기본 템플릿 삭제 오류:', e);
+    logError_('DocumentTemplates', '기본 템플릿 삭제 오류:', e);
     return { success: false, message: '템플릿 삭제 실패: ' + e.message };
   }
 }
@@ -494,16 +430,13 @@ function getSharedTemplates() {
       templateFolderName
     ];
 
-    console.log('📂 getSharedTemplates - possiblePaths:', JSON.stringify(possiblePaths));
-
     var folderRes = null;
     var usedPath = null;
     for (var i = 0; i < possiblePaths.length; i++) {
       var path = possiblePaths[i];
       if (!path) continue;
-      console.log('📂 getSharedTemplates - try path:', path);
+      logDebug_('DocumentTemplates', 'getSharedTemplates - try path:', path);
       var res = findOrCreateFolder(path);
-      console.log('📂 getSharedTemplates - result for', path, ':', JSON.stringify(res && res.debug ? res.debug : res));
       if (res && res.success && res.data && res.data.id) {
         folderRes = res;
         usedPath = path;
@@ -512,71 +445,40 @@ function getSharedTemplates() {
     }
 
     if (!folderRes || !folderRes.success || !folderRes.data || !folderRes.data.id) {
-      console.warn('⚠️ getSharedTemplates - 모든 경로에서 양식 폴더를 찾을 수 없습니다.');
+      logWarn_('DocumentTemplates', 'getSharedTemplates - 모든 경로에서 양식 폴더를 찾을 수 없습니다.');
       return { success: false, message: '양식 폴더를 찾을 수 없습니다.' };
     }
-
-    console.log('✅ getSharedTemplates - using folderPath:', usedPath, 'id:', folderRes.data.id);
     
     // 메타데이터(properties) 포함하여 API 호출 (Drive API v2 호환)
-    var files;
+    var fileList = [];
     var maxRetries = 3;
     var retryCount = 0;
     
     while (retryCount < maxRetries) {
       try {
-        // Drive API v2에서는 fields 파라미터 없이 모든 필드를 가져온 후 필요한 것만 사용
-        // 또는 올바른 형식으로 fields 사용
-        files = Drive.Files.list({
-          q: '\'' + folderRes.data.id + '\' in parents and trashed=false',
-          maxResults: 1000 // 최대 결과 수 제한
-        });
-        
-        // 각 파일의 properties를 별도로 가져오기 (v2에서는 list에서 properties를 직접 가져올 수 없을 수 있음)
-        // properties를 가져온 후 각 파일 객체에 확실하게 합치기
-        var fileArray = files.items || files.files || [];
-        
-        for (var i = 0; i < fileArray.length; i++) {
-          try {
-            // properties만 가져오기 위해 fields 지정
-            var fileDetail = Drive.Files.get(fileArray[i].id, { fields: 'properties' });
-            
-            if (fileDetail && fileDetail.properties) {
-              // properties 객체를 직접 할당 (확실하게)
-              fileArray[i].properties = fileDetail.properties;
-            } else {
-              // properties가 없으면 빈 배열로 초기화
-              fileArray[i].properties = [];
-            }
-            
-            // API 제한 방지를 위해 잠시 대기
-            if (i % 10 === 0 && i > 0) {
-              Utilities.sleep(100);
-            }
-          } catch (getError) {
-            // 에러 발생 시에도 빈 배열로 초기화하여 계속 진행
-            fileArray[i].properties = [];
-            console.warn('파일 상세 정보 가져오기 실패:', fileArray[i].id, getError.message);
-          }
-        }
-        
-        // properties를 가져온 후 files 객체에 다시 할당 (확실하게)
-        if (files.items) {
-          files.items = fileArray;
-        } else if (files.files) {
-          files.files = fileArray;
-        }
+        fileList = [];
+        var pageToken = null;
+        do {
+          var files = Drive.Files.list({
+            q: '\'' + folderRes.data.id + '\' in parents and trashed=false',
+            pageSize: 1000,
+            pageToken: pageToken || undefined,
+            fields: 'nextPageToken,files(id,name,mimeType,modifiedTime,createdTime,owners(displayName,emailAddress),description,properties)'
+          });
+          fileList = fileList.concat(files.files || []);
+          pageToken = files.nextPageToken;
+        } while (pageToken);
         
         break; // 성공하면 루프 종료
       } catch (listError) {
         retryCount++;
-        console.warn('📄 공유 템플릿 목록 조회 재시도 ' + retryCount + '/' + maxRetries + ':', listError.message);
+        logWarn_('DocumentTemplates', '공유 템플릿 목록 조회 재시도 ' + retryCount + '/' + maxRetries + ':', listError.message);
         
         // 사용량 제한 오류인지 확인
         if (listError.message && (listError.message.indexOf('429') !== -1 || 
             listError.message.indexOf('quota') !== -1 || 
             listError.message.indexOf('rate limit') !== -1)) {
-          console.warn('⚠️ API 사용량 제한 감지. 잠시 대기 후 재시도합니다.');
+          logWarn_('DocumentTemplates', 'API 사용량 제한 감지. 잠시 대기 후 재시도합니다.');
           Utilities.sleep(Math.pow(2, retryCount) * 2000); // 지수적 백오프 (2초, 4초, 8초)
           continue;
         }
@@ -589,10 +491,6 @@ function getSharedTemplates() {
         Utilities.sleep(Math.pow(2, retryCount) * 1000);
       }
     }
-    
-    // 문서와 스프레드시트 모두 포함 (v2: files.items, v3: files.files 모두 지원)
-    // properties를 가져온 후 fileList 생성 (properties가 포함된 상태)
-    var fileList = files.items || files.files || [];
     
     var items = fileList.filter(function(f){ 
       return f.mimeType === 'application/vnd.google-apps.document' || 
@@ -662,15 +560,13 @@ function getSharedTemplates() {
       };
     });
     
-    console.log('✅ 공유 템플릿 조회 성공:', items.length, '개');
-    
     // 응답에 모든 메타데이터가 포함된 템플릿 목록 리턴
     return { 
       success: true, 
       data: items 
     };
   } catch (e) {
-    console.error('❌ 공유 템플릿 조회 오류:', e);
+    logError_('DocumentTemplates', '공유 템플릿 조회 오류:', e);
     return { success: false, message: '공유 템플릿 조회 실패: ' + e.message };
   }
 }
@@ -679,7 +575,6 @@ function getSharedTemplates() {
  * 특정 폴더 ID로 직접 테스트
  */
 function testSpecificFolder() {
-  console.log('🔍 특정 폴더 ID 테스트 시작');
   
   try {
     // Drive API 확인
@@ -697,18 +592,8 @@ function testSpecificFolder() {
     
     // 실제 폴더 구조를 단계별로 찾기
     // 1단계: 루트에서 루트 폴더 찾기 (하위 호환성을 위해 underscore 버전도 확인)
-    let hotPotatoFolderId = null;
-    const rootFolders = Drive.Files.list({
-      q: "'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
-      fields: 'files(id,name)'
-    });
-    
-    for (const folder of rootFolders.files || []) {
-      if (folder.name === rootFolderName || folder.name === rootFolderName.replace(' ', '_')) {
-        hotPotatoFolderId = folder.id;
-        break;
-      }
-    }
+    // hp_member 기준으로 감지한 프로젝트 루트
+    const hotPotatoFolderId = getProjectRootFolderId_();
     
     if (!hotPotatoFolderId) {
       return {
@@ -764,18 +649,15 @@ function testSpecificFolder() {
     
     const testFolderId = templateFolderId;
     
-    console.log('🔍 테스트 폴더 ID:', testFolderId);
+    logDebug_('DocumentTemplates', '테스트 폴더 ID:', testFolderId);
     
     // 폴더 정보 가져오기 (권한 정보 포함)
     const folder = Drive.Files.get(testFolderId, {
       fields: 'id,name,parents,owners,permissions'
     });
     
-    console.log('🔍 폴더 정보:', folder);
-    
     // 폴더 소유자 정보 확인
     if (folder.owners && folder.owners.length > 0) {
-      console.log('🔍 폴더 소유자:', folder.owners[0].displayName, folder.owners[0].emailAddress);
     }
     
     // 폴더 내 파일 검색 (여러 방법 시도)
@@ -787,11 +669,11 @@ function testSpecificFolder() {
         fields: 'files(id,name,mimeType)'
       });
       
-      console.log('🔍 방법 1 - 폴더 내 파일들:', files);
+      logDebug_('DocumentTemplates', '방법 1 - 폴더 내 파일들:', files);
       
       // 방법 2: 쿼리 없이 전체 검색 후 필터링
       if (!files.files || files.files.length === 0) {
-        console.log('🔍 방법 2 - 전체 파일 검색 시도');
+        logDebug_('DocumentTemplates', '방법 2 - 전체 파일 검색 시도');
         const allFiles = Drive.Files.list({
           fields: 'files(id,name,mimeType,parents)'
         });
@@ -801,10 +683,9 @@ function testSpecificFolder() {
         );
         
         files = { files: filteredFiles };
-        console.log('🔍 방법 2 - 필터링된 파일들:', files);
       }
     } catch (fileSearchError) {
-      console.error('🔍 파일 검색 오류:', fileSearchError);
+      logError_('DocumentTemplates', '파일 검색 오류:', fileSearchError);
       files = { files: [] };
     }
     
@@ -824,7 +705,7 @@ function testSpecificFolder() {
     };
     
   } catch (error) {
-    console.error('🔍 특정 폴더 테스트 오류:', error);
+    logError_('DocumentTemplates', '특정 폴더 테스트 오류:', error);
     return {
       success: false,
       message: '특정 폴더 테스트 실패: ' + error.message
@@ -836,7 +717,6 @@ function testSpecificFolder() {
  * 템플릿 폴더 디버깅 테스트
  */
 function testTemplateFolderDebug() {
-  console.log('🔍 템플릿 폴더 디버깅 테스트 시작');
   
   try {
     // Drive API 확인
@@ -848,13 +728,11 @@ function testTemplateFolderDebug() {
     }
     
     // 루트 폴더에서 모든 폴더 검색
-    console.log('🔍 루트 폴더에서 모든 폴더 검색');
+    logDebug_('DocumentTemplates', '루트 폴더에서 모든 폴더 검색');
     const rootFolders = Drive.Files.list({
       q: "'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
       fields: 'files(id,name)'
     });
-    
-    console.log('🔍 루트 폴더 검색 결과:', rootFolders);
     
     const result = {
       success: true,
@@ -865,12 +743,10 @@ function testTemplateFolderDebug() {
         ...(rootFolders.files || []).map(f => `- ${f.name} (${f.id})`)
       ]
     };
-    
-    console.log('🔍 디버깅 테스트 결과:', result);
     return result;
     
   } catch (error) {
-    console.error('🔍 디버깅 테스트 오류:', error);
+    logError_('DocumentTemplates', '디버깅 테스트 오류:', error);
     return {
       success: false,
       message: '디버깅 테스트 실패: ' + error.message
@@ -882,7 +758,6 @@ function testTemplateFolderDebug() {
  * 공유 템플릿 조회 함수 테스트
  */
 function testGetSharedTemplates() {
-  console.log('🧪 공유 템플릿 조회 테스트 시작');
   
   try {
     // Drive API 확인
@@ -893,26 +768,19 @@ function testGetSharedTemplates() {
       };
     }
     
-    console.log('✅ Drive API 사용 가능');
+    logDebug_('DocumentTemplates', 'Drive API 사용 가능');
     
     // getSharedTemplates 함수 실행
     const result = getSharedTemplates();
     
-    console.log('🧪 공유 템플릿 조회 테스트 결과:');
-    console.log('- 성공 여부:', result.success);
-    console.log('- 메시지:', result.message);
-    console.log('- 템플릿 개수:', result.data ? result.data.length : 0);
-    
     if (result.data && result.data.length > 0) {
-      console.log('\n📄 첫 번째 템플릿 정보:');
       const firstTemplate = result.data[0];
-      console.log('- ID:', firstTemplate.id);
-      console.log('- 제목:', firstTemplate.title);
-      console.log('- 설명:', firstTemplate.description);
-      console.log('- 태그:', firstTemplate.tag);
-      console.log('- 생성자 이메일:', firstTemplate.creatorEmail);
-      console.log('- MIME 타입:', firstTemplate.mimeType);
-      console.log('- 소유자:', firstTemplate.owner);
+      logDebug_('DocumentTemplates', '- ID:', firstTemplate.id);
+      logDebug_('DocumentTemplates', '- 제목:', firstTemplate.title);
+      logDebug_('DocumentTemplates', '- 설명:', firstTemplate.description);
+      logDebug_('DocumentTemplates', '- 태그:', firstTemplate.tag);
+      logDebug_('DocumentTemplates', '- MIME 타입:', firstTemplate.mimeType);
+      logDebug_('DocumentTemplates', '- 소유자:', firstTemplate.owner);
     }
     
     return {
@@ -924,7 +792,7 @@ function testGetSharedTemplates() {
     };
     
   } catch (error) {
-    console.error('🧪 공유 템플릿 조회 테스트 오류:', error);
+    logError_('DocumentTemplates', '공유 템플릿 조회 테스트 오류:', error);
     return {
       success: false,
       message: '테스트 실패: ' + error.message,
@@ -947,4 +815,117 @@ function getDocumentTemplatesInfo() {
     ],
     dependencies: ['CONFIG.gs']
   };
+}
+
+// 내보내기 형식: Google 문서 → docx, Google 스프레드시트 → xlsx
+const TEMPLATE_EXPORT_TYPES_ = {
+  'application/vnd.google-apps.document': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.google-apps.spreadsheet': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+};
+
+/**
+ * 공유 양식(문서·스프레드시트)을 Office 형식(base64)으로 내보낸다.
+ * 사용자 드라이브 권한(drive.file)으로는 배포자 소유 양식을 복사할 수 없어서,
+ * 프론트가 이 내용을 받아 사용자 개인 폴더에 Google 파일로 변환해 올린다.
+ * 프로젝트 루트 아래 파일만 허용한다.
+ * @param {Object} req - { templateId }
+ */
+function exportTemplateFile(req) {
+  try {
+    const templateId = req && req.templateId;
+    if (!templateId) return { success: false, message: '양식 ID가 필요합니다.' };
+
+    const rootId = getProjectRootFolderId_();
+    const file = DriveApp.getFileById(templateId);
+    if (!rootId || !isUnderRootFolder_(file, rootId, {})) {
+      return { success: false, message: '내보낼 수 없는 파일입니다.' };
+    }
+    const exportType = TEMPLATE_EXPORT_TYPES_[file.getMimeType()];
+    if (!exportType) {
+      return { success: false, message: 'Google 문서나 스프레드시트 양식만 내보낼 수 있습니다.' };
+    }
+
+    const response = UrlFetchApp.fetch(
+      'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(templateId) +
+        '/export?mimeType=' + encodeURIComponent(exportType),
+      { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true }
+    );
+    if (response.getResponseCode() !== 200) {
+      return { success: false, message: '양식 내보내기 실패 (' + response.getResponseCode() + ')' };
+    }
+    return {
+      success: true,
+      data: {
+        name: file.getName(),
+        sourceMimeType: file.getMimeType(),
+        exportMimeType: exportType,
+        fileData: Utilities.base64Encode(response.getBlob().getBytes())
+      }
+    };
+  } catch (error) {
+    logError_('DocumentTemplates', '양식 내보내기 오류:', error);
+    return { success: false, message: '양식 내보내기 중 오류가 발생했습니다: ' + error.message };
+  }
+}
+
+/** Return preview data only for spreadsheets stored directly in shared_forms. */
+function getTemplateSheetPreview(req) {
+  try {
+    const templateId = req && req.templateId;
+    if (!templateId) return { success: false, message: '템플릿 ID가 필요합니다.' };
+
+    const folderResult = findOrCreateFolder(getTemplateFolderPath());
+    if (!folderResult || !folderResult.success || !folderResult.data || !folderResult.data.id) {
+      return { success: false, message: '공유 양식 폴더를 찾을 수 없습니다.' };
+    }
+
+    const file = DriveApp.getFileById(templateId);
+    const parentIds = [];
+    const parents = file.getParents();
+    while (parents.hasNext()) parentIds.push(parents.next().getId());
+    if (parentIds.indexOf(folderResult.data.id) === -1 ||
+        file.getMimeType() !== MimeType.GOOGLE_SHEETS) {
+      return { success: false, message: '공유 양식 폴더의 스프레드시트만 미리 볼 수 있습니다.' };
+    }
+
+    const spreadsheet = SpreadsheetApp.openById(templateId);
+    const sheets = spreadsheet.getSheets();
+    const result = { success: true, data: { sheets: sheets.map(sheet => ({ properties: { title: sheet.getName(), sheetId: sheet.getSheetId() } })) } };
+    if (!req.sheetName) return result;
+
+    const sheet = sheets.find(item => item.getName() === req.sheetName);
+    if (!sheet) return { success: false, message: '지정한 시트를 찾을 수 없습니다.' };
+    const range = sheet.getRange(1, 1, Math.max(1, Math.min(1000, sheet.getLastRow())), Math.max(1, Math.min(702, sheet.getLastColumn())));
+    const values = range.getValues();
+    const displayValues = range.getDisplayValues();
+    const rowData = values.map((row, rowIndex) => ({ values: row.map((value, columnIndex) => {
+      const effectiveValue = {};
+      if (value instanceof Date) {
+        effectiveValue.numberValue = value.getTime() / 86400000 + 25569;
+      } else if (typeof value === 'number') {
+        effectiveValue.numberValue = value;
+      } else if (typeof value === 'boolean') {
+        effectiveValue.boolValue = value;
+      } else if (value !== '' && value != null) {
+        effectiveValue.stringValue = String(value);
+      }
+      return { effectiveValue: effectiveValue, formattedValue: displayValues[rowIndex][columnIndex] };
+    }) }));
+    const merges = range.getMergedRanges().map(merged => ({
+      sheetId: sheet.getSheetId(),
+      startRowIndex: merged.getRow() - 1,
+      endRowIndex: merged.getLastRow(),
+      startColumnIndex: merged.getColumn() - 1,
+      endColumnIndex: merged.getLastColumn()
+    }));
+    result.data.sheets = [{
+      properties: { title: sheet.getName(), sheetId: sheet.getSheetId() },
+      merges: merges,
+      data: [{ rowData: rowData }]
+    }];
+    return result;
+  } catch (error) {
+    logError_('DocumentTemplates', '공유 양식 미리보기 오류:', error);
+    return { success: false, message: '공유 양식 미리보기를 불러오지 못했습니다: ' + error.message };
+  }
 }

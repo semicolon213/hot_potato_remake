@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HP ERP 쉬운 설치</title>
+  <style>
+    body{font:16px system-ui;max-width:720px;margin:48px auto;padding:0 20px;color:#222}button{padding:12px 18px;font:inherit;cursor:pointer}button:disabled{cursor:wait}li{margin:10px 0}.ok{color:#087b35}.error{color:#b42318}code{overflow-wrap:anywhere}
+  </style>
+</head>
+<body>
+  <h1>HP ERP 쉬운 설치</h1>
+  <p>Google 계정으로 로그인하면 전용 Apps Script 백엔드를 만듭니다.</p>
+  <button id="login">Google로 로그인하고 설치</button>
+  <ol id="steps">
+    <li>Google 로그인 대기</li><li>프로젝트 생성 대기</li><li>코드 업로드 대기</li><li>배포 대기</li>
+  </ol>
+  <p id="result" role="status"></p>
+  <p><a href="https://script.google.com/home/usersettings" target="_blank" rel="noreferrer">Apps Script API 설정 열기</a></p>
+  <script src="config.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

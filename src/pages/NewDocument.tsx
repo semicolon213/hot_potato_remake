@@ -1,10 +1,12 @@
+import { findPersonalTemplateFolder } from '../utils/database/personalConfigManager';
+import { logger } from '../utils/logger';
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useTemplateUI, defaultTemplates, defaultTemplateTags } from "../hooks/features/templates/useTemplateUI";
 import type { Template } from "../hooks/features/templates/useTemplateUI";
 import { ENV_CONFIG } from "../config/environment";
 import { apiClient } from "../utils/api/apiClient";
 import { useNotification } from "../hooks/ui/useNotification";
-import { NotificationModal, ConfirmModal } from "../components/ui/NotificationModal";
+import { NotificationModal } from "../components/ui/NotificationModal";
 import type { TagImpactCheckResponse, DeleteTagResponse, CreateDocumentResponse, TemplateInfo } from "../types/api/apiResponses";
 import { 
     addTag as addPersonalTag,
@@ -41,6 +43,8 @@ import {
   } from "../components/features/templates";
   import { SortableTemplateCard } from "../components/features/templates/SortableTemplateCard";
   import StudentDetailModal from "../components/ui/StudentDetailModal";
+const log = logger.scope('pages/NewDocument');
+
 
 interface TemplatePageProps {
   onPageChange: (pageName: string) => void;
@@ -75,12 +79,9 @@ function NewDocument({
     // 알림 모달 훅
     const {
         notification,
-        confirm,
         showNotification,
         hideNotification,
-        showConfirm,
-        hideConfirm,
-        handleConfirm
+        showConfirm
     } = useNotification();
     
     // 기본 태그 추가 핸들러 (관리자 전용)
@@ -104,7 +105,7 @@ function NewDocument({
                     showNotification('기본 태그 추가에 실패했습니다: ' + (response.message || '알 수 없는 오류'), 'error');
                 }
             } catch (error) {
-                console.error('Error adding static tag:', error);
+                log.error('Error adding static tag:', error);
                 showNotification('기본 태그 추가 중 오류가 발생했습니다.', 'error');
             }
         } else if (staticTags.includes(newTag)) {
@@ -192,7 +193,7 @@ function NewDocument({
                 showNotification('기본 태그 수정에 실패했습니다: ' + (response.message || '알 수 없는 오류'), 'error');
             }
         } catch (error) {
-            console.error('Error updating static tag:', error);
+            log.error('Error updating static tag:', error);
             showNotification('기본 태그 수정 중 오류가 발생했습니다.', 'error');
         }
     };
@@ -309,7 +310,7 @@ function NewDocument({
                 );
             }
         } catch (error) {
-            console.error('Error deleting static tag:', error);
+            log.error('Error deleting static tag:', error);
             showNotification('기본 태그 삭제 중 오류가 발생했습니다.', 'error');
         }
     };
@@ -324,11 +325,11 @@ function NewDocument({
                     const updatedTags = await fetchPersonalTags();
                     setTags(updatedTags);
                 } else {
-                    console.log('태그 추가에 실패했습니다.');
+                    log.error('태그 추가에 실패했습니다.');
                 }
             } catch (error) {
-                console.error('Error saving tag:', error);
-                console.log('태그 저장 중 오류가 발생했습니다.');
+                log.error('Error saving tag:', error);
+                log.error('태그 저장 중 오류가 발생했습니다.');
             }
         }
     };
@@ -360,7 +361,7 @@ function NewDocument({
                 { type: 'warning' }
             );
         } catch (error) {
-            console.error('Error deleting tag:', error);
+            log.error('Error deleting tag:', error);
             showNotification('태그 삭제 중 오류가 발생했습니다.', 'error');
         }
     };
@@ -410,7 +411,7 @@ function NewDocument({
                 showNotification('태그 수정에 실패했습니다.', 'error');
             }
         } catch (error) {
-            console.error('Error updating tag:', error);
+            log.error('Error updating tag:', error);
             showNotification('태그 수정 중 오류가 발생했습니다.', 'error');
         }
     };
@@ -443,7 +444,7 @@ function NewDocument({
                 showNotification('기본 템플릿 삭제에 실패했습니다: ' + (response.message || '알 수 없는 오류'), 'error');
             }
         } catch (error) {
-            console.error('Error deleting default template:', error);
+            log.error('Error deleting default template:', error);
             showNotification('기본 템플릿 삭제 중 오류가 발생했습니다.', 'error');
         }
     };
@@ -468,7 +469,7 @@ function NewDocument({
             
             showNotification('개인 템플릿이 삭제되었습니다.', 'success');
         } catch (error) {
-            console.error('Error deleting personal template:', error);
+            log.error('Error deleting personal template:', error);
             showNotification('개인 템플릿 삭제 중 오류가 발생했습니다.', 'error');
         }
     };
@@ -515,6 +516,7 @@ function NewDocument({
     
     // 실제 문서 생성 함수
     const createDocument = async () => {
+        if (isCreating) return;
         if (!selectedTemplate || !documentTitle.trim()) return;
 
         setIsCreating(true);
@@ -531,7 +533,7 @@ function NewDocument({
         try {
             if (permissionType === 'private') {
                 // 나만 보기: 프론트엔드에서 직접 Google Drive API 사용
-                console.log('📄 개인 드라이브에 문서 생성:', selectedTemplate);
+                log.debug('개인 드라이브에 문서 생성:', selectedTemplate);
                 
                 try {
                     // copyGoogleDocument 함수 import (내부에서 Google API 초기화 처리)
@@ -542,9 +544,7 @@ function NewDocument({
                     const templateDocumentId = selectedTemplate.documentId || (selectedTemplate.type && selectedTemplate.type.length > 20 ? selectedTemplate.type : null);
                     
                     if (templateDocumentId) {
-                        // 템플릿 복사 (기본 템플릿 또는 개인 템플릿)
-                        console.log('📄 템플릿 복사 시작:', { templateDocumentId, documentTitle, tag: selectedTemplate.tag });
-                        const copyResult = await copyGoogleDocument(templateDocumentId, documentTitle, selectedTemplate.tag);
+                        const copyResult = await copyGoogleDocument(templateDocumentId, documentTitle);
                         
                         if (copyResult && copyResult.webViewLink) {
                             window.open(copyResult.webViewLink, '_blank');
@@ -557,30 +557,24 @@ function NewDocument({
                         }
                     } else {
                         // 빈 문서 생성 (documentId가 없는 경우)
-                        console.log('📄 빈 문서 생성 (documentId 없음)');
-                        // Google Docs의 새 문서 생성 URL을 사용
-                        const newDocUrl = 'https://docs.google.com/document/create';
-                        window.open(newDocUrl, '_blank');
+                        log.debug('빈 문서 생성 (documentId 없음)');
+                        // 개인 문서 폴더에 입력한 제목으로 빈 문서를 만든다 (docs.google.com/document/create는 제목·폴더 없이 드라이브 최상위에 만들어짐)
+                        const { createBlankGoogleDocument } = await import('../utils/google/googleSheetUtils');
+                        const blankDoc = await createBlankGoogleDocument(documentTitle);
+                        window.open(blankDoc.webViewLink, '_blank');
                         showNotification('새 문서가 생성되었습니다!', 'success');
                         closePermissionModal();
                         setIsCreating(false);
                         return;
                     }
                 } catch (error) {
-                    console.error('📄 개인 문서 생성 오류:', error);
+                    log.error('개인 문서 생성 오류:', error);
                     const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
                     showNotification(`문서 생성 중 오류가 발생했습니다: ${errorMessage}`, 'error');
                     setIsCreating(false);
                     return;
                 }
             }
-
-            // 권한 부여 방식
-            console.log('📄 권한 부여 문서 생성:', {
-                selectedTemplate,
-                selectedGroups,
-                individualEmails
-            });
 
             // 선택된 그룹들의 이메일 수집
             const groupEmails = selectedGroups.map(group => ENV_CONFIG.GROUP_EMAILS[group]).filter(Boolean); // ENV v2: VITE_GROUP_EMAIL 기반
@@ -591,27 +585,10 @@ function NewDocument({
                 creatorEmail, // 생성자 이메일 명시적으로 포함
                 ...groupEmails.filter(email => email && email.trim() !== ''), // 그룹 이메일
                 ...validIndividualEmails // 개별 이메일
-            ].filter((email, index, arr) => arr.indexOf(email) === index); // 중복 제거
-            
-            console.log('📄 권한 설정 상세 정보:', {
-                creatorEmail,
-                groupEmails,
-                individualEmails,
-                allEditors: allEditors,
-                editorsCount: allEditors.length
-            });
+            ].filter((email, index, arr) => arr.indexOf(email) === index);
 
             // 기본 템플릿도 documentId를 가질 수 있음 (동적 템플릿의 경우)
             const templateDocumentId = selectedTemplate.documentId || (selectedTemplate.type && selectedTemplate.type.length > 20 ? selectedTemplate.type : null);
-            
-            console.log('선택된 템플릿 정보:', {
-                title: selectedTemplate.title,
-                documentId: selectedTemplate.documentId,
-                type: selectedTemplate.type,
-                templateDocumentId: templateDocumentId,
-                templateType: templateDocumentId || selectedTemplate.type,
-                tag: selectedTemplate.tag
-            });
             
             const documentData = {
                 title: documentTitle, // 사용자가 입력한 제목 사용
@@ -622,39 +599,24 @@ function NewDocument({
                 tag: selectedTemplate.tag // 태그 추가
             };
             
-            console.log('📄 API로 전송할 데이터:', documentData);
-            
             const result = await apiClient.createDocument(documentData);
 
             if (result.success) {
-                console.log('📄 문서 생성 성공:', result);
                 
                 // 디버그 정보 표시
                 if (result.debug) {
-                    console.log('🔍 디버그 정보:', result.debug);
-                    console.log('📋 요청된 편집자:', result.debug.requestedEditors);
-                    console.log('🔐 권한 설정 성공:', result.debug.permissionSuccess);
-                    console.log('📝 권한 설정 메시지:', result.debug.permissionMessage);
-                    console.log('✅ 권한 부여된 사용자:', result.debug.grantedUsers);
-                    console.log('👥 현재 편집자 목록:', result.debug.currentEditors);
-                    
-                    // 메타데이터 디버깅 정보
-                    console.log('📄 메타데이터 상태:', result.debug.metadataStatus);
-                    console.log('📄 메타데이터 에러:', result.debug.metadataError);
-                    console.log('📄 전달된 태그:', result.debug.tag);
-                    console.log('📄 생성자 이메일:', result.debug.creatorEmail);
-                    console.log('📄 문서 ID:', result.debug.documentId);
-                    console.log('📄 실제 저장된 메타데이터:', result.debug.verifiedProperties);
+      // Intentionally ignored.
+
                 }
                 
                 // 권한 설정 결과 확인
                 if (result.permissionResult) {
-                    console.log('🔐 권한 설정 결과:', result.permissionResult);
                     if (result.permissionResult.successCount > 0) {
-                        console.log(`✅ ${result.permissionResult.successCount}명에게 권한 부여 완료`);
+      // Intentionally ignored.
+
                     }
                     if (result.permissionResult.failCount > 0) {
-                        console.warn(`⚠️ ${result.permissionResult.failCount}명 권한 부여 실패`);
+                        log.warn('일부 사용자 권한 설정 실패:', result.permissionResult.failCount);
                     }
                 }
                 
@@ -670,19 +632,20 @@ function NewDocument({
                 // 메타데이터 상태 알림
                 if (result.debug) {
                     if (result.debug.metadataStatus === 'success') {
-                        console.log('✅ 메타데이터 저장 성공');
+      // Intentionally ignored.
+
                     } else if (result.debug.metadataStatus === 'failed') {
-                        console.warn('⚠️ 메타데이터 저장 실패:', result.debug.metadataError);
+                        log.warn('메타데이터 저장 실패');
                         showNotification(`문서는 생성되었지만 메타데이터 저장에 실패했습니다: ${result.debug.metadataError}`, 'warning');
                     }
                 }
             } else {
-                console.error('📄 문서 생성 실패:', result);
+                log.error('문서 생성 실패');
                 showNotification('문서 생성에 실패했습니다: ' + result.message, 'error');
                 setIsCreating(false);
             }
         } catch (error) {
-            console.error('📄 문서 생성 오류:', error);
+            log.error('문서 생성 오류:', error);
             showNotification('문서 생성 중 오류가 발생했습니다.', 'error');
             setIsCreating(false);
         }
@@ -717,7 +680,7 @@ function NewDocument({
     // 시트 템플릿 제거로 인해 드래그 앤 드롭 비활성화
     const handleCustomDragEnd = (event: DragEndEvent) => {
         // 개인 템플릿은 드래그 앤 드롭 비활성화
-        console.log('개인 템플릿은 드래그 앤 드롭을 지원하지 않습니다.');
+        log.debug('개인 템플릿은 드래그 앤 드롭을 지원하지 않습니다.');
     };
 
     // + 새 문서 모달 상태 추가 (3개 필드)
@@ -757,7 +720,7 @@ function NewDocument({
         }
 
         setUploadedFile(file);
-        console.log('📁 파일 업로드:', file.name, file.type);
+        log.debug('파일 업로드:', file.name, file.type);
     };
 
     // 새 템플릿 생성 (파일 업로드 또는 새로 만들기)
@@ -790,7 +753,7 @@ function NewDocument({
             showNotification('템플릿이 성공적으로 생성되었습니다!', 'success');
             
         } catch (error) {
-            console.error('❌ 템플릿 생성 오류:', error);
+            log.error('템플릿 생성 오류:', error);
             showNotification('템플릿 생성 중 오류가 발생했습니다.', 'error');
         } finally {
             setIsCreatingTemplate(false);
@@ -800,7 +763,6 @@ function NewDocument({
     // 파일을 Google Drive에 업로드
     const handleFileUploadToDrive = async (file: File, templateData: TemplateData) => {
         try {
-            console.log('📁 파일을 Google Drive에 업로드 중...');
             
             // 파일명은 원본 그대로 사용 (사용자가 자유롭게 변경 가능)
             const fileName = templateData.title;
@@ -831,7 +793,6 @@ function NewDocument({
             }
 
             const result = await response.json();
-            console.log('✅ 파일 업로드 완료:', result);
             
             // 업로드된 파일에 메타데이터 추가
             try {
@@ -856,7 +817,6 @@ function NewDocument({
                 });
                 
                 if (metadataResponse.ok) {
-                    console.log('✅ 메타데이터 추가 완료');
                     
                     // 메타데이터 저장 확인
                     const verifyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${result.id}?fields=properties`, {
@@ -866,18 +826,17 @@ function NewDocument({
                     });
                     
                     if (verifyResponse.ok) {
-                        const verifyData = await verifyResponse.json();
-                        console.log('✅ 메타데이터 확인:', verifyData.properties);
+                        await verifyResponse.json();
                     }
                 } else {
-                    console.warn('⚠️ 메타데이터 추가 실패:', await metadataResponse.text());
+                    log.warn('메타데이터 추가 실패');
                 }
             } catch (metadataError) {
-                console.warn('⚠️ 메타데이터 추가 오류:', metadataError);
+                log.warn('메타데이터 추가 오류:', metadataError);
             }
             
         } catch (error) {
-            console.error('❌ 파일 업로드 오류:', error);
+            log.error('파일 업로드 오류:', error);
             throw error;
         }
     };
@@ -885,7 +844,6 @@ function NewDocument({
     // 새 문서 생성
     const handleCreateNewDocument = async (templateData: TemplateData) => {
         try {
-            console.log('📄 새 문서 생성 중...', documentType);
             
             // 파일명은 원본 제목 그대로 사용 (사용자가 자유롭게 변경 가능)
             const fileName = templateData.title;
@@ -930,15 +888,13 @@ function NewDocument({
                         removeParents: 'root'
                     });
                 }
-
-                console.log('✅ 새 문서 생성 완료:', documentId);
                 
                 // 생성된 문서에 메타데이터 추가
                 try {
                     const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
                     const creatorEmail = userInfo.email || '';
                     
-                    const metadataResult = await gapi.client.drive.files.update({
+                    await gapi.client.drive.files.update({
                         fileId: documentId,
                         resource: {
                             properties: {
@@ -951,17 +907,14 @@ function NewDocument({
                         }
                     });
                     
-                    console.log('✅ 메타데이터 추가 완료:', metadataResult);
-                    
                     // 메타데이터 저장 확인
-                    const verifyResult = await gapi.client.drive.files.get({
+                    await gapi.client.drive.files.get({
                         fileId: documentId,
                         fields: 'properties'
                     });
-                    console.log('✅ 메타데이터 확인:', verifyResult.result.properties);
                     
                 } catch (metadataError) {
-                    console.warn('⚠️ 메타데이터 추가 실패:', metadataError);
+                    log.warn('메타데이터 추가 실패:', metadataError);
                 }
                 
                 // 생성된 문서 바로 열기
@@ -976,104 +929,11 @@ function NewDocument({
             }
             
         } catch (error) {
-            console.error('❌ 새 문서 생성 오류:', error);
+            log.error('새 문서 생성 오류:', error);
             throw error;
         }
     };
 
-    // 개인 템플릿 폴더 찾기 함수
-    const findPersonalTemplateFolder = async (): Promise<string | null> => {
-        try {
-            console.log('🔍 개인 템플릿 폴더 찾기/생성 시작');
-
-            const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(ROOT) 기반
-            const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(DOCUMENT) 기반
-            const personalTemplateFolderName = ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_TEMP) 기반
-
-            // 1단계: 루트에서 루트 폴더 찾기 또는 생성
-            let hotPotatoResponse = await gapi.client.drive.files.list({
-                q: `'root' in parents and name='${rootFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-                fields: 'files(id,name)',
-                spaces: 'drive',
-                orderBy: 'name'
-            });
-
-            let hotPotatoFolder;
-            if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-                console.log(`📁 ${rootFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-                const createResponse = await gapi.client.drive.files.create({
-                    resource: {
-                        name: rootFolderName,
-                        mimeType: 'application/vnd.google-apps.folder',
-                        parents: ['root']
-                    },
-                    fields: 'id,name'
-                });
-                hotPotatoFolder = { id: createResponse.result.id, name: createResponse.result.name };
-                console.log(`✅ ${rootFolderName} 폴더 생성 완료:`, hotPotatoFolder.id);
-            } else {
-                hotPotatoFolder = hotPotatoResponse.result.files[0];
-                console.log(`✅ ${rootFolderName} 폴더 찾음:`, hotPotatoFolder.id);
-            }
-
-            // 2단계: 루트 폴더에서 문서 폴더 찾기 또는 생성
-            let documentResponse = await gapi.client.drive.files.list({
-                q: `'${hotPotatoFolder.id}' in parents and name='${documentFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-                fields: 'files(id,name)',
-                spaces: 'drive',
-                orderBy: 'name'
-            });
-
-            let documentFolder;
-            if (!documentResponse.result.files || documentResponse.result.files.length === 0) {
-                console.log(`📁 ${documentFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-                const createResponse = await gapi.client.drive.files.create({
-                    resource: {
-                        name: documentFolderName,
-                        mimeType: 'application/vnd.google-apps.folder',
-                        parents: [hotPotatoFolder.id]
-                    },
-                    fields: 'id,name'
-                });
-                documentFolder = { id: createResponse.result.id, name: createResponse.result.name };
-                console.log(`✅ ${documentFolderName} 폴더 생성 완료:`, documentFolder.id);
-            } else {
-                documentFolder = documentResponse.result.files[0];
-                console.log(`✅ ${documentFolderName} 폴더 찾음:`, documentFolder.id);
-            }
-
-            // 3단계: 문서 폴더에서 개인 양식 폴더 찾기 또는 생성
-            let personalTemplateResponse = await gapi.client.drive.files.list({
-                q: `'${documentFolder.id}' in parents and name='${personalTemplateFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-                fields: 'files(id,name)',
-                spaces: 'drive',
-                orderBy: 'name'
-            });
-
-            let personalTemplateFolder;
-            if (!personalTemplateResponse.result.files || personalTemplateResponse.result.files.length === 0) {
-                console.log(`📁 ${personalTemplateFolderName} 폴더를 찾을 수 없습니다. 생성합니다.`);
-                const createResponse = await gapi.client.drive.files.create({
-                    resource: {
-                        name: personalTemplateFolderName,
-                        mimeType: 'application/vnd.google-apps.folder',
-                        parents: [documentFolder.id]
-                    },
-                    fields: 'id,name'
-                });
-                personalTemplateFolder = { id: createResponse.result.id, name: createResponse.result.name };
-                console.log(`✅ ${personalTemplateFolderName} 폴더 생성 완료:`, personalTemplateFolder.id);
-            } else {
-                personalTemplateFolder = personalTemplateResponse.result.files[0];
-                console.log(`✅ ${personalTemplateFolderName} 폴더 찾음:`, personalTemplateFolder.id);
-            }
-
-            return personalTemplateFolder.id;
-        } catch (error) {
-            console.error('❌ 개인 템플릿 폴더 찾기/생성 오류:', error);
-            return null;
-        }
-    };
 
     // 모달 취소 처리
     const handleNewDocCancel = () => {
@@ -1091,6 +951,7 @@ function NewDocument({
     // 관리자 전용: 기본(공유) 템플릿 업로드 모달
     const [showSharedUploadModal, setShowSharedUploadModal] = useState(false);
     const [sharedUploadFile, setSharedUploadFile] = useState<File | null>(null);
+    const [isUploadingSharedTemplate, setIsUploadingSharedTemplate] = useState(false);
     const [sharedMeta, setSharedMeta] = useState({ title: '', description: '', tag: '' });
     const handleSharedFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
       const f = e.target.files?.[0] || null;
@@ -1121,7 +982,6 @@ function NewDocument({
     
     // 개인 템플릿 수정 함수
     const handleEditPersonalTemplate = (template: Template) => {
-        console.log('📝 개인 템플릿 수정 시작:', template);
         setEditingTemplate(template);
         setOriginalTemplate(template);
         setShowEditDocModal(true);
@@ -1134,7 +994,6 @@ function NewDocument({
         description: string;
     }) => {
         try {
-            console.log('📝 개인 템플릿 정보 수정:', { templateId, updatedData });
             
             // Google Drive API를 사용하여 파일명 변경
             const newFileName = `${updatedData.fileType} / ${updatedData.name} / ${updatedData.description}`;
@@ -1146,13 +1005,11 @@ function NewDocument({
                 }
             });
             
-            console.log('✅ 개인 템플릿 정보 수정 완료');
-            
             // 개인 템플릿 목록 다시 로드
             // useTemplateUI 훅에서 자동으로 로드되므로 별도 처리 불필요
             
         } catch (error) {
-            console.error('❌ 개인 템플릿 정보 수정 오류:', error);
+            log.error('개인 템플릿 정보 수정 오류:', error);
             throw error;
         }
     };
@@ -1160,7 +1017,7 @@ function NewDocument({
     // 개인 템플릿 내용 수정 (Google Docs/Sheets 열기)
     const handleEditPersonalTemplateContent = (templateId: string) => {
         try {
-            console.log('📝 개인 템플릿 내용 수정:', templateId);
+            log.debug('개인 템플릿 내용 수정:', templateId);
             
             // Google Drive에서 파일 정보 가져오기
             gapi.client.drive.files.get({
@@ -1175,7 +1032,7 @@ function NewDocument({
             });
             
         } catch (error) {
-            console.error('❌ 개인 템플릿 내용 수정 오류:', error);
+            log.error('개인 템플릿 내용 수정 오류:', error);
             showNotification('문서를 열 수 없습니다.', 'error');
         }
     };
@@ -1242,7 +1099,7 @@ function NewDocument({
                             showNotification('수정 실패: ' + (res.message || '알 수 없는 오류'), 'error');
                         }
                     } catch (e) {
-                        console.error('기본 템플릿 수정 오류:', e);
+                        log.error('기본 템플릿 수정 오류:', e);
                         showNotification('수정 중 오류가 발생했습니다.', 'error');
                     }
                 } else {
@@ -1289,15 +1146,14 @@ function NewDocument({
 
     // 파일명 입력 모달 함수들 (useTemplateUI 호출 이후에 정의)
     const openFileNameModal = useCallback((template: Template) => {
-        console.log('📝 파일명 모달 열기:', template);
+        log.debug('파일명 모달 열기:', template);
         if (!template) {
-            console.error('❌ 템플릿이 없습니다!');
+            log.error('템플릿이 없습니다!');
             return;
         }
         setSelectedTemplate(template);
         setDocumentTitle("");
         setShowFileNameModal(true);
-        console.log('📝 모달 상태 설정 완료:', { showFileNameModal: true, selectedTemplate: template });
     }, [setSelectedTemplate]);
     
     const closeFileNameModal = useCallback(() => {
@@ -1308,7 +1164,6 @@ function NewDocument({
     
     // 모달 상태 디버깅
     useEffect(() => {
-        console.log('📝 모달 상태:', { showFileNameModal, selectedTemplate: selectedTemplate?.title });
     }, [showFileNameModal, selectedTemplate]);
 
     // 기본 태그 로드 (Apps Script에서)
@@ -1316,17 +1171,15 @@ function NewDocument({
         const loadStaticTags = async () => {
             setIsLoadingStaticTags(true);
             try {
-                console.log('🏷️ 기본 태그 로드 시작...');
                 const response = await apiClient.getStaticTags();
                 if (response.success && response.data) {
                     setStaticTags(response.data);
-                    console.log('✅ 기본 태그 로드 완료:', response.data.length, '개');
                 } else {
-                    console.warn('⚠️ 기본 태그 로드 실패:', response.message);
+                    log.warn('기본 태그 로드 실패');
                     setStaticTags([]);
                 }
             } catch (error) {
-                console.error('❌ 기본 태그 로드 오류:', error);
+                log.error('기본 태그 로드 오류:', error);
                 setStaticTags([]);
             } finally {
                 setIsLoadingStaticTags(false);
@@ -1394,18 +1247,19 @@ function NewDocument({
                 
                 const result = await togglePersonalTemplateFavorite(personalTemplateData);
                 if (result.success) {
-                    console.log('✅ 개인 템플릿 즐겨찾기 업데이트 성공');
+      // Intentionally ignored.
+
                 } else {
-                    console.error('❌ 개인 템플릿 즐겨찾기 업데이트 실패:', result.error);
+                    log.error('개인 템플릿 즐겨찾기 업데이트 실패');
                     showNotification('즐겨찾기 업데이트에 실패했습니다: ' + result.error, 'error');
                 }
             } catch (error) {
-                console.error('❌ 개인 템플릿 즐겨찾기 토글 오류:', error);
+                log.error('개인 템플릿 즐겨찾기 토글 오류:', error);
                 showNotification('즐겨찾기 업데이트 중 오류가 발생했습니다.', 'error');
             }
         } else {
             // 기본 템플릿은 즐겨찾기 기능 비활성화
-            console.log('기본 템플릿은 즐겨찾기 기능을 지원하지 않습니다.');
+            log.debug('기본 템플릿은 즐겨찾기 기능을 지원하지 않습니다.');
         }
     }, [togglePersonalTemplateFavorite]);
 
@@ -1413,23 +1267,19 @@ function NewDocument({
         // 템플릿 객체가 직접 전달된 경우
         if (typeOrTemplate && typeof typeOrTemplate === 'object' && !Array.isArray(typeOrTemplate) && 'title' in typeOrTemplate) {
             const template = typeOrTemplate as Template;
-            console.log('📄 템플릿 객체 직접 전달:', template);
+            log.debug('템플릿 객체 직접 전달:', template);
             openFileNameModal(template);
             return;
         }
         
         // 문자열로 전달된 경우 (기존 방식)
         const type = typeOrTemplate as string;
-        console.log('📄 템플릿 사용 클릭:', { type, title, personalTemplates: personalTemplates.length, defaultTemplateItems: defaultTemplateItems.length, allDefaultTemplates: allDefaultTemplates.length });
-        console.log('📄 개인 템플릿 목록:', personalTemplates.map(t => ({ title: t.title, type: t.type })));
-        console.log('📄 기본 템플릿 목록:', defaultTemplateItems.map(t => ({ title: t.title, type: t.type })));
-        console.log('📄 전체 기본 템플릿 목록:', allDefaultTemplates.map(t => ({ title: t.title, type: t.type })));
         
         // 개인 템플릿의 경우 documentId를 찾아서 전달
         let template = personalTemplates.find(t => t.title === title || t.type === type);
         
         if (template) {
-            console.log('📄 개인 템플릿 사용:', template);
+            log.debug('개인 템플릿 사용:', template);
             openFileNameModal(template);
             return;
         }
@@ -1438,7 +1288,7 @@ function NewDocument({
         template = defaultTemplateItems.find(t => t.type === type || t.title === title);
         
         if (template) {
-            console.log('📄 기본 템플릿 사용 (defaultTemplateItems):', template);
+            log.debug('기본 템플릿 사용 (defaultTemplateItems):', template);
             openFileNameModal(template);
             return;
         }
@@ -1447,12 +1297,12 @@ function NewDocument({
         template = allDefaultTemplates.find(t => t.type === type || t.title === title);
         
         if (template) {
-            console.log('📄 기본 템플릿 사용 (allDefaultTemplates):', template);
+            log.debug('기본 템플릿 사용 (allDefaultTemplates):', template);
             openFileNameModal(template);
             return;
         }
         
-        console.warn('⚠️ 템플릿을 찾을 수 없습니다:', { type, title });
+        log.warn('템플릿을 찾을 수 없습니다:', { type, title });
         showNotification(`템플릿을 찾을 수 없습니다.\n타입: ${type}\n제목: ${title}`, 'error');
     }, [personalTemplates, defaultTemplateItems, allDefaultTemplates, openFileNameModal]);
 
@@ -2036,18 +1886,23 @@ function NewDocument({
                     </div>
                   </div>
                   <div className="document-modal-actions">
-                    <button type="button" className="action-btn cancel-btn" onClick={resetSharedUpload}><span>취소</span></button>
-                    <button type="button" className="action-btn save-btn" disabled={!sharedUploadFile || !sharedMeta.title || !sharedMeta.tag} onClick={async ()=>{
-                      if(!sharedUploadFile) return; 
-                      const res = await uploadSharedTemplate(sharedUploadFile, { ...sharedMeta, creatorEmail: userInfo.email });
-                      if(res.success){
-                        showNotification('업로드 완료', 'success');
-                        resetSharedUpload();
-                      } else {
-                        showNotification('업로드 실패: ' + (res.message||'알 수 없는 오류'), 'error');
+                    <button type="button" className="action-btn cancel-btn" disabled={isUploadingSharedTemplate} onClick={resetSharedUpload}><span>취소</span></button>
+                    <button type="button" className="action-btn save-btn" disabled={isUploadingSharedTemplate || !sharedUploadFile || !sharedMeta.title || !sharedMeta.tag} onClick={async ()=>{
+                      if(!sharedUploadFile || isUploadingSharedTemplate) return;
+                      setIsUploadingSharedTemplate(true);
+                      try {
+                        const res = await uploadSharedTemplate(sharedUploadFile, { ...sharedMeta, creatorEmail: userInfo.email });
+                        if(res.success){
+                          showNotification('업로드 완료', 'success');
+                          resetSharedUpload();
+                        } else {
+                          showNotification('업로드 실패: ' + (res.message||'알 수 없는 오류'), 'error');
+                        }
+                      } finally {
+                        setIsUploadingSharedTemplate(false);
                       }
                     }}>
-                      <span>업로드</span>
+                      <span>{isUploadingSharedTemplate ? '업로드 중...' : '업로드'}</span>
                     </button>
                   </div>
                 </div>
@@ -2267,18 +2122,6 @@ function NewDocument({
                 duration={notification.duration}
             />
 
-            {/* 확인 모달 */}
-            <ConfirmModal
-                isOpen={confirm.isOpen}
-                message={confirm.message}
-                title={confirm.title}
-                confirmText={confirm.confirmText}
-                cancelText={confirm.cancelText}
-                type={confirm.type}
-                onConfirm={handleConfirm}
-                onCancel={hideConfirm}
-                onCancelAction={confirm.onCancelAction}
-            />
         </div>
     );
 }

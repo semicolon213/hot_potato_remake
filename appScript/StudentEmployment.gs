@@ -70,7 +70,7 @@ function validateStudentForEmployment(spreadsheetId, std_num, name, phone) {
     }
     return { success: false, message: '해당 학번의 학생을 찾을 수 없습니다.' };
   } catch (error) {
-    console.error('validateStudentForEmployment 오류:', error);
+    logError_('StudentEmployment', 'validateStudentForEmployment 오류:', error);
     return { success: false, message: '확인 중 오류가 발생했습니다: ' + error.message };
   }
 }
@@ -103,7 +103,7 @@ function getEmploymentByStdNum(spreadsheetId, std_num) {
     }
     return { success: true, data: null };
   } catch (error) {
-    console.error('getEmploymentByStdNum 오류:', error);
+    logError_('StudentEmployment', 'getEmploymentByStdNum 오류:', error);
     return { success: false, data: null, message: error.message };
   }
 }
@@ -142,7 +142,7 @@ function saveEmployment(spreadsheetId, payload) {
     sheet.appendRow([std_num, isMajor, fieldNum, comName, occCategory, question]);
     return { success: true, message: '취업 정보가 등록되었습니다.' };
   } catch (error) {
-    console.error('saveEmployment 오류:', error);
+    logError_('StudentEmployment', 'saveEmployment 오류:', error);
     return { success: false, message: '저장 중 오류: ' + error.message };
   }
 }
@@ -169,7 +169,7 @@ function updateEmploymentAfter(spreadsheetId, std_num, payload) {
     }
     return { success: false, message: '해당 학번의 취업 정보를 찾을 수 없습니다.' };
   } catch (error) {
-    console.error('updateEmploymentAfter 오류:', error);
+    logError_('StudentEmployment', 'updateEmploymentAfter 오류:', error);
     return { success: false, message: '수정 중 오류: ' + error.message };
   }
 }
@@ -192,7 +192,7 @@ function getFieldList(spreadsheetId) {
     }
     return { success: true, data: list };
   } catch (error) {
-    console.error('getFieldList 오류:', error);
+    logError_('StudentEmployment', 'getFieldList 오류:', error);
     return { success: false, data: [], message: error.message };
   }
 }

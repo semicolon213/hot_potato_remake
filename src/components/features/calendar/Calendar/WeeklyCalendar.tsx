@@ -1,7 +1,10 @@
+import { logger } from '../../../../utils/logger';
 import React, { useEffect, useMemo } from 'react';
 import useCalendarContext, { type Event } from '../../../../hooks/features/calendar/useCalendarContext.ts';
 import './WeeklyCalendar.css';
 import { RRule } from 'rrule';
+const log = logger.scope('components/features/calendar/Calendar/WeeklyCalendar');
+
 
 interface WeeklyCalendarProps {
     selectedWeek: number;
@@ -160,7 +163,7 @@ const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({ selectedWeek, onAddEven
                         allEvents.push(newEvent);
                     });
                 } catch (e) {
-                    console.error("Error parsing RRULE string:", event.rrule, e);
+                    log.error("Error parsing RRULE string:", event.rrule, e);
                     allEvents.push(event);
                 }
             } else {

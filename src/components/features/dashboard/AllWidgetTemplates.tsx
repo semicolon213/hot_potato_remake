@@ -1,5 +1,11 @@
+import { logger } from '../../../utils/logger';
 import React from 'react';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+
+const GraduationTrendChart = React.lazy(() => import('./WidgetCharts').then(module => ({ default: module.GraduationTrendChart })));
+const StudentDistributionCharts = React.lazy(() => import('./WidgetCharts').then(module => ({ default: module.StudentDistributionCharts })));
+const AccountingPieChart = React.lazy(() => import('./WidgetCharts').then(module => ({ default: module.AccountingPieChart })));
+const IncomeExpenseBarChart = React.lazy(() => import('./WidgetCharts').then(module => ({ default: module.IncomeExpenseBarChart })));
+const chartFallback = <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>그래프를 로딩하는 중...</div>;
 
 /**
  * 과제 목록을 표시하는 위젯 컴포넌트입니다.
@@ -183,17 +189,9 @@ export const GraduationTrendWidget = ({
   }
   return (
     <div className="widget-content" style={{ height: 220 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={items}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="label" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="grads" name="졸업생" fill="#8884d8" />
-          <Bar dataKey="employed" name="취업" fill="#82ca9d" />
-        </BarChart>
-      </ResponsiveContainer>
+      <React.Suspense fallback={chartFallback}>
+        <GraduationTrendChart items={items} />
+      </React.Suspense>
     </div>
   );
 };
@@ -232,35 +230,11 @@ export const StudentDistributionWidget = ({
   gradeData: { grade: string; count: number }[];
   stateData: { state: string; count: number }[];
 }) => {
-  const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7f50', '#a4de6c'];
-
   return (
     <div className="widget-content" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ height: 160 }}>
-        <div style={{ fontSize: 12, marginBottom: 4 }}>학년 분포</div>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={gradeData} dataKey="count" nameKey="grade" outerRadius={60} label>
-              {gradeData.map((entry, index) => (
-                <Cell key={entry.grade} fill={colors[index % colors.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-      <div style={{ height: 160 }}>
-        <div style={{ fontSize: 12, marginBottom: 4 }}>상태 분포</div>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={stateData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="state" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="count" fill="#82ca9d" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <React.Suspense fallback={chartFallback}>
+        <StudentDistributionCharts gradeData={gradeData} stateData={stateData} />
+      </React.Suspense>
     </div>
   );
 };
@@ -530,6 +504,8 @@ export const StatusListComponent = ({ items, onButtonClick }: { items: { name: s
 );
 
 import { getScheduleEvents } from '../../../utils/database/personalConfigManager';
+const log = logger.scope('components/features/dashboard/AllWidgetTemplates');
+
 
 
 /**
@@ -556,7 +532,7 @@ export const TimetableWidget: React.FC = () => {
                 
                 setItems(formattedItems);
             } catch (error) {
-                console.error("Failed to fetch timetable for widget:", error);
+                log.error("Failed to fetch timetable for widget:", error);
                 // 에러 발생 시 빈 배열로 설정하거나 에러 메시지를 표시할 수 있습니다.
                 setItems([]);
             } finally {
@@ -634,7 +610,6 @@ export const WeatherWidget = ({ today, forecast }: {
  * @param {{ category: string; amount: number }[]} props.data - 그래프에 표시할 데이터 배열
  */
 export const PieChartComponent = ({ data, onButtonClick, spreadsheetId }: { data: { category: string; amount: number }[], onButtonClick?: () => void, spreadsheetId?: string }) => {
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF1919'];
   const [isMounted, setIsMounted] = React.useState(false);
 
   // 컨테이너 크기 감지를 위한 ref
@@ -699,27 +674,9 @@ export const PieChartComponent = ({ data, onButtonClick, spreadsheetId }: { data
       }}
     >
       {isMounted ? (
-        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-              outerRadius={80}
-              fill="#8884d8"
-              dataKey="amount"
-              nameKey="category"
-            >
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip formatter={(value: number) => `${value.toLocaleString()}원`} />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
+        <React.Suspense fallback={chartFallback}>
+          <AccountingPieChart data={data} />
+        </React.Suspense>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>
           그래프를 로딩하는 중...
@@ -1302,10 +1259,9 @@ export const AccountingStatsComponent = ({ items, onButtonClick, spreadsheetId, 
           const summary = await getAccountingCategorySummary(spreadsheetId);
           if (summary && summary.length > 0) {
             setLoadedRawData(summary);
-            console.log('📊 rawData 재로드 완료:', summary.length, '개 카테고리');
           }
         } catch (error) {
-          console.error('❌ rawData 재로드 실패:', error);
+          log.error('rawData 재로드 실패:', error);
         }
       };
       loadRawData();
@@ -1339,15 +1295,9 @@ export const AccountingStatsComponent = ({ items, onButtonClick, spreadsheetId, 
     // rawData에서 직접 계산
     totalIncome = dataToUse.reduce((sum, item) => sum + (Number(item.income) || 0), 0);
     totalExpense = dataToUse.reduce((sum, item) => sum + (Number(item.expense) || 0), 0);
-    console.log('📊 통합 보기 계산 (rawData 사용):', { 
-      totalIncome, 
-      totalExpense, 
-      rawDataLength: dataToUse.length,
-      rawDataSample: dataToUse.slice(0, 2)
-    });
   } else {
     // rawData가 없으면 경고 로그
-    console.warn('⚠️ rawData가 없습니다. rawData:', dataToUse, 'items:', items?.slice(0, 2), 'spreadsheetId:', spreadsheetId);
+    log.warn('rawData가 없습니다. rawData');
   }
   
   const totalBalance = totalIncome - totalExpense;
@@ -1457,53 +1407,9 @@ export const AccountingStatsComponent = ({ items, onButtonClick, spreadsheetId, 
               style={{ width: '100%', height: '220px', minHeight: '220px', position: 'relative', marginTop: '-4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
             >
               {isChartMounted ? (
-                <ResponsiveContainer width="100%" height="100%" minHeight={220}>
-                  <BarChart 
-                  data={dataToUse?.map(item => ({
-                    name: item.category,
-                    수입: item.income,
-                    지출: item.expense
-                  })) || []} 
-                  margin={{ top: 5, right: 10, left: 0, bottom: 40 }}
-                  barCategoryGap="20%"
-                  barGap={4}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis 
-                    dataKey="name" 
-                    angle={-45} 
-                    textAnchor="end" 
-                    height={60}
-                    tick={{ fontSize: 9 }}
-                    interval={0}
-                    width={60}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 9 }}
-                    width={45}
-                    tickFormatter={(value) => {
-                      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                      if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-                      return value.toString();
-                    }}
-                  />
-                  <Tooltip 
-                    formatter={(value: number) => `${value.toLocaleString()}원`}
-                    contentStyle={{ 
-                      fontSize: '10px', 
-                      padding: '5px 6px',
-                      borderRadius: '4px',
-                      border: '1px solid #e5e7eb'
-                    }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ fontSize: '10px', paddingTop: '6px' }}
-                    iconSize={8}
-                  />
-                  <Bar dataKey="수입" fill="#10b981" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="지출" fill="#ef4444" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <React.Suspense fallback={chartFallback}>
+                  <IncomeExpenseBarChart data={dataToUse || []} />
+                </React.Suspense>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>
                   그래프를 로딩하는 중...

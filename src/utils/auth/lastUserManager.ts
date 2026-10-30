@@ -1,3 +1,6 @@
+import { logger } from '../logger';
+
+const log = logger.scope('utils/auth/lastUserManager');
 /**
  * @file lastUserManager.ts
  * @brief 로그인 사용자 목록 관리 유틸리티
@@ -52,7 +55,7 @@ export const lastUserManager = {
       
       localStorage.setItem(LAST_USERS_KEY, JSON.stringify(limitedUsers));
     } catch (error) {
-      console.error('사용자 목록 저장 실패:', error);
+      log.error('사용자 목록 저장 실패:', error);
     }
   },
 
@@ -88,7 +91,7 @@ export const lastUserManager = {
       const filteredUsers = users.filter(u => u.email !== email);
       localStorage.setItem(LAST_USERS_KEY, JSON.stringify(filteredUsers));
     } catch (error) {
-      console.error('사용자 제거 실패:', error);
+      log.error('사용자 제거 실패:', error);
     }
   },
 

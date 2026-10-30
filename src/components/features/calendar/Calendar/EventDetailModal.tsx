@@ -4,6 +4,7 @@ import './EventDetailModal.css';
 import { type Event } from '../../../../hooks/features/calendar/useCalendarContext';
 import { BiTrashAlt, BiX, BiEditAlt, BiDetail, BiGroup, BiCalendar, BiChevronUp } from 'react-icons/bi';
 import useCalendarContext from '../../../../hooks/features/calendar/useCalendarContext';
+import { useNotification } from '../../../../hooks/ui/useNotification';
 
 interface EventDetailModalProps {
     event: Event;
@@ -15,6 +16,7 @@ interface EventDetailModalProps {
 
 const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClose, onDelete, onEdit, position: positionFromProp }) => {
     const { students, staff, user } = useCalendarContext();
+    const { confirmAsync } = useNotification();
     const [isAttendeesExpanded, setIsAttendeesExpanded] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [position, setPosition] = useState(positionFromProp || { top: window.innerHeight / 2, left: window.innerWidth / 2 });
@@ -71,8 +73,8 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClose, onD
         return null;
     }
 
-    const handleDelete = () => {
-        if (window.confirm(`'${event.title}' 일정을 삭제하시겠습니까?`)) {
+    const handleDelete = async () => {
+        if (await confirmAsync(`'${event.title}' 일정을 삭제하시겠습니까?`, { type: 'danger' })) {
             onDelete(event.id);
         }
     };

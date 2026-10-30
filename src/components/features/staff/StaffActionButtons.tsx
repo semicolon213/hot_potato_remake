@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file StaffActionButtons.tsx
  * @brief 교직원 액션 버튼 컴포넌트
@@ -8,6 +9,8 @@
 
 import React, { useRef } from 'react';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+const log = logger.scope('components/features/staff/StaffActionButtons');
+
 
 interface StaffActionButtonsProps {
   onExportCSV: () => void;
@@ -38,7 +41,7 @@ const StaffActionButtons: React.FC<StaffActionButtonsProps> = ({
           fileInputRef.current.value = '';
         }
       } catch (error) {
-        console.error('파일 업로드 실패:', error);
+        log.error('파일 업로드 실패:', error);
         notifyGlobal('파일 업로드에 실패했습니다.', 'error');
       }
     }

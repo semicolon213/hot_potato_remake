@@ -47,20 +47,23 @@ function getEvidenceFolderNameFromParams_(params) {
  * @param {Object} params - getLedgerList 는 {};
  * @returns {GoogleAppsScript.Drive.Folder|null}
  */
-function findEvidenceSubFolderInLedger_(ledgerFolder, params) {
+function findEvidenceSubFolderInLedger_(ledgerFolder, params, knownSubfolders) {
   var primary = getEvidenceFolderNameFromParams_(params || {});
   var tryNames = [primary];
   if (tryNames.indexOf('증빙') === -1) tryNames.push('증빙');
   if (tryNames.indexOf('evidence') === -1) tryNames.push('evidence');
-  var subs = [];
-  var it = ledgerFolder.getFolders();
-  while (it.hasNext()) {
-    subs.push(it.next());
+  var subs = knownSubfolders || [];
+  if (!knownSubfolders) {
+    var it = ledgerFolder.getFolders();
+    while (it.hasNext()) {
+      subs.push(it.next());
+    }
   }
   for (var i = 0; i < tryNames.length; i++) {
     var want = tryNames[i];
     for (var j = 0; j < subs.length; j++) {
-      if (subs[j].getName() === want) return subs[j];
+      var subName = typeof subs[j].getName === 'function' ? subs[j].getName() : subs[j].name;
+      if (subName === want) return subs[j];
     }
   }
   return null;
@@ -79,23 +82,55 @@ function isLikelyMisplacedEvidenceRootFolder_(folderName) {
 
 // ===== 회계 폴더 초기화 =====
 
+var accountingFolderIdMemo_ = null;
+var ACCOUNTING_FOLDER_CACHE_PREFIX_ = 'accountingFolderId:';
+
+function accountingFolderCacheKey_(rootFolderId) {
+  return ACCOUNTING_FOLDER_CACHE_PREFIX_ + rootFolderId;
+}
+
 /**
  * 회계 폴더 초기화 (없으면 생성)
  * @returns {string} 회계 폴더 ID
  */
 function initializeAccountingFolder() {
+  if (accountingFolderIdMemo_) return accountingFolderIdMemo_;
+
   try {
-    console.log('📁 회계 폴더 초기화 시작');
-    
+    const cache = CacheService.getScriptCache();
+
     // 루트 폴더 찾기 (스크립트 속성 또는 기본값)
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
     const accountingFolderName = PropertiesService.getScriptProperties().getProperty('ACCOUNT_FOLDER_NAME') || 'account';
-    
-    const rootFolders = DriveApp.getFoldersByName(rootFolderName);
-    if (!rootFolders.hasNext()) {
-      throw new Error('루트 폴더를 찾을 수 없습니다: ' + rootFolderName);
+
+    let rootFolder = null;
+    const rootFolderId = getProjectRootFolderId_();
+    if (rootFolderId) {
+      try {
+        rootFolder = DriveApp.getFolderById(rootFolderId);
+      } catch (error) {
+        logWarn_('AccountingManagement', '캐시된 루트 폴더를 열 수 없어 이름으로 다시 찾습니다:', error.message);
+      }
     }
-    const rootFolder = rootFolders.next();
+    if (!rootFolder) {
+      const rootFolders = DriveApp.getFoldersByName(rootFolderName);
+      if (!rootFolders.hasNext()) {
+        throw new Error('루트 폴더를 찾을 수 없습니다: ' + rootFolderName);
+      }
+      rootFolder = rootFolders.next();
+    }
+
+    const cacheKey = accountingFolderCacheKey_(rootFolder.getId());
+    const cachedId = cache.get(cacheKey);
+    if (cachedId) {
+      try {
+        DriveApp.getFolderById(cachedId).getName();
+        accountingFolderIdMemo_ = cachedId;
+        return accountingFolderIdMemo_;
+      } catch (error) {
+        cache.remove(cacheKey);
+      }
+    }
     
     // 회계 폴더 찾기 또는 생성
     let accountingFolder;
@@ -103,16 +138,18 @@ function initializeAccountingFolder() {
     
     if (folders.hasNext()) {
       accountingFolder = folders.next();
-      console.log('✅ 기존 회계 폴더 발견:', accountingFolder.getId());
+      logDebug_('AccountingManagement', '기존 회계 폴더 발견:', accountingFolder.getId());
     } else {
       accountingFolder = rootFolder.createFolder(accountingFolderName);
-      console.log('✅ 새 회계 폴더 생성:', accountingFolder.getId());
+      logDebug_('AccountingManagement', '새 회계 폴더 생성:', accountingFolder.getId());
     }
     
-    return accountingFolder.getId();
+    accountingFolderIdMemo_ = accountingFolder.getId();
+    cache.put(cacheKey, accountingFolderIdMemo_, 6 * 60 * 60);
+    return accountingFolderIdMemo_;
     
   } catch (error) {
-    console.error('❌ 회계 폴더 초기화 오류:', error);
+    logError_('AccountingManagement', '회계 폴더 초기화 오류:', error);
     throw new Error('회계 폴더 초기화 중 오류가 발생했습니다: ' + error.message);
   }
 }
@@ -130,25 +167,11 @@ function convertRoleCodesToGroupEmails(roleCodes) {
     
     // CONFIG.gs의 getGroupEmailByRole 함수 사용
     return roleCodes
-      .map(role => {
-        if (typeof getGroupEmailByRole === 'function') {
-          return getGroupEmailByRole(role);
-        } else {
-          // 직접 매핑 (CONFIG.gs 함수가 없는 경우)
-          const roleToEmail = {
-            'student': 'student_hp@googlegroups.com',
-            'std_council': 'std_council_hp@googlegroups.com',
-            'supp': 'hp_supp@googlegroups.com',
-            'professor': 'professor_hp@googlegroups.com',
-            'ad_professor': 'ad_professor_hp@googlegroups.com'
-          };
-          return roleToEmail[role] || null;
-        }
-      })
+      .map(role => getGroupEmailByRole(role))
       .filter(email => email && email.trim() !== '');
       
   } catch (error) {
-    console.error('❌ 역할 코드 변환 오류:', error);
+    logError_('AccountingManagement', '역할 코드 변환 오류:', error);
     return [];
   }
 }
@@ -179,7 +202,7 @@ function setLedgerFolderPermissions(params) {
     const failedUsers = [];
     
     // 현재 권한 확인 (Drive API 사용)
-    const permissions = Drive.Permissions.list(folderId);
+    const permissions = { items: listPermissions_(folderId) };
     const beforePermissions = permissions.items || [];
     
     // 개인 사용자 권한 부여 (Drive API - 메일 알림 없음)
@@ -188,27 +211,20 @@ function setLedgerFolderPermissions(params) {
         // 이미 권한이 있는지 확인
         const hasPermission = beforePermissions.some(p => p.emailAddress === userEmail && p.role === 'writer');
         if (hasPermission) {
-          console.log('✅ 이미 권한이 있는 사용자:', userEmail);
           successCount++;
           grantedUsers.push(userEmail);
           continue;
         }
         
         // 편집 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'user',
-          value: userEmail,
-          sendNotificationEmails: false
-        }, folderId);
-        console.log('✅ 폴더 편집 권한 부여 완료 (메일 알림 없음):', userEmail);
+        grantPermission_(folderId, 'user', userEmail, 'writer');
         successCount++;
         grantedUsers.push(userEmail);
         
         Utilities.sleep(100); // API 제한 방지
         
       } catch (error) {
-        console.error('❌ 사용자 권한 부여 실패:', userEmail, error.message);
+        logError_('AccountingManagement', '사용자 권한 부여 실패:', error.message);
         failCount++;
         failedUsers.push(userEmail);
       }
@@ -218,20 +234,14 @@ function setLedgerFolderPermissions(params) {
     for (const groupEmail of groups) {
       try {
         // 그룹에 편집 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'group',
-          value: groupEmail,
-          sendNotificationEmails: false
-        }, folderId);
-        console.log('✅ 폴더 그룹 권한 부여 완료 (메일 알림 없음):', groupEmail);
+        grantPermission_(folderId, 'group', groupEmail, 'writer');
         successCount++;
         grantedUsers.push(groupEmail);
         
         Utilities.sleep(100);
         
       } catch (error) {
-        console.error('❌ 그룹 권한 부여 실패:', groupEmail, error.message);
+        logError_('AccountingManagement', '그룹 권한 부여 실패:', error.message);
         failCount++;
         failedUsers.push(groupEmail);
       }
@@ -246,7 +256,7 @@ function setLedgerFolderPermissions(params) {
     };
     
   } catch (error) {
-    console.error('❌ 폴더 권한 설정 오류:', error);
+    logError_('AccountingManagement', '폴더 권한 설정 오류:', error);
     return {
       success: false,
       message: '폴더 권한 설정 중 오류가 발생했습니다: ' + error.message
@@ -278,7 +288,7 @@ function setLedgerFilePermissions(params) {
     const failedUsers = [];
     
     // 현재 권한 확인 (Drive API 사용)
-    const permissions = Drive.Permissions.list(fileId);
+    const permissions = { items: listPermissions_(fileId) };
     const beforePermissions = permissions.items || [];
     
     // 개인 사용자 권한 부여 (Drive API - 메일 알림 없음)
@@ -286,27 +296,20 @@ function setLedgerFilePermissions(params) {
       try {
         const hasPermission = beforePermissions.some(p => p.emailAddress === userEmail && p.role === 'writer');
         if (hasPermission) {
-          console.log('✅ 이미 권한이 있는 사용자:', userEmail);
           successCount++;
           grantedUsers.push(userEmail);
           continue;
         }
         
         // 편집 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'user',
-          value: userEmail,
-          sendNotificationEmails: false
-        }, fileId);
-        console.log('✅ 스프레드시트 편집 권한 부여 완료 (메일 알림 없음):', userEmail);
+        grantPermission_(fileId, 'user', userEmail, 'writer');
         successCount++;
         grantedUsers.push(userEmail);
         
         Utilities.sleep(100);
         
       } catch (error) {
-        console.error('❌ 사용자 권한 부여 실패:', userEmail, error.message);
+        logError_('AccountingManagement', '사용자 권한 부여 실패:', error.message);
         failCount++;
         failedUsers.push(userEmail);
       }
@@ -316,20 +319,14 @@ function setLedgerFilePermissions(params) {
     for (const groupEmail of groups) {
       try {
         // 그룹에 편집 권한 부여 (메일 알림 없이)
-        Drive.Permissions.insert({
-          role: 'writer',
-          type: 'group',
-          value: groupEmail,
-          sendNotificationEmails: false
-        }, fileId);
-        console.log('✅ 스프레드시트 그룹 권한 부여 완료 (메일 알림 없음):', groupEmail);
+        grantPermission_(fileId, 'group', groupEmail, 'writer');
         successCount++;
         grantedUsers.push(groupEmail);
         
         Utilities.sleep(100);
         
       } catch (error) {
-        console.error('❌ 그룹 권한 부여 실패:', groupEmail, error.message);
+        logError_('AccountingManagement', '그룹 권한 부여 실패:', error.message);
         failCount++;
         failedUsers.push(groupEmail);
       }
@@ -344,7 +341,7 @@ function setLedgerFilePermissions(params) {
     };
     
   } catch (error) {
-    console.error('❌ 스프레드시트 권한 설정 오류:', error);
+    logError_('AccountingManagement', '스프레드시트 권한 설정 오류:', error);
     return {
       success: false,
       message: '스프레드시트 권한 설정 중 오류가 발생했습니다: ' + error.message
@@ -375,7 +372,6 @@ function setEvidenceFolderPermissions(params) {
  */
 function createAccountingSheets(spreadsheet) {
   try {
-    console.log('📊 회계 시트 생성 시작');
     
     // 기본 시트 삭제 (필요시)
     const sheets = spreadsheet.getSheets();
@@ -420,10 +416,8 @@ function createAccountingSheets(spreadsheet) {
       spreadsheet.deleteSheet(defaultSheet);
     }
     
-    console.log('✅ 시트 생성 완료');
-    
   } catch (error) {
-    console.error('❌ 시트 생성 오류:', error);
+    logError_('AccountingManagement', '시트 생성 오류:', error);
     throw error;
   }
 }
@@ -437,9 +431,8 @@ function setSheetHeaders(sheet, headers) {
     headerRange.setValues([headers]);
     headerRange.setFontWeight('bold');
     headerRange.setBackground('#f0f0f0');
-    console.log('✅ 헤더 설정 완료:', headers);
   } catch (error) {
-    console.error('❌ 헤더 설정 오류:', error);
+    logError_('AccountingManagement', '헤더 설정 오류:', error);
     throw error;
   }
 }
@@ -463,7 +456,6 @@ function setSheetHeaders(sheet, headers) {
  */
 function createLedgerStructure(params) {
   try {
-    console.log('📁 장부 구조 생성 시작:', params);
     
     const {
       ledgerName,
@@ -483,7 +475,7 @@ function createLedgerStructure(params) {
     // 2. 장부 폴더 생성
     const ledgerFolder = accountingFolder.createFolder(ledgerName);
     const ledgerFolderId = ledgerFolder.getId();
-    console.log('✅ 장부 폴더 생성:', ledgerFolderId);
+    logDebug_('AccountingManagement', '장부 폴더 생성:', ledgerFolderId);
     
     // 3. 스프레드시트 생성
     const spreadsheet = SpreadsheetApp.create(`${ledgerName}_장부`);
@@ -523,21 +515,16 @@ function createLedgerStructure(params) {
           createdDate,
           'TRUE' // is_active
         ]);
-        
-        console.log('✅ 통장 정보 추가:', accountId, accountName);
       }
     }
     
-    console.log('✅ 스프레드시트 생성:', spreadsheetId);
+    logDebug_('AccountingManagement', '스프레드시트 생성:', spreadsheetId);
     
     // 4. 증빙 폴더 생성 (프론트 evidenceFolderName / 스크립트 속성 EVIDENCE_FOLDER_NAME)
     const evidenceFolderLabel = getEvidenceFolderNameFromParams_(params);
-    console.log('📌 증빙 폴더 적용 이름:', evidenceFolderLabel,
-      '| 요청 evidenceFolderName:', params.evidenceFolderName,
-      '| 스크립트속성 EVIDENCE_FOLDER_NAME:', PropertiesService.getScriptProperties().getProperty('EVIDENCE_FOLDER_NAME'));
     const evidenceFolder = ledgerFolder.createFolder(evidenceFolderLabel);
     const evidenceFolderId = evidenceFolder.getId();
-    console.log('✅ 증빙 폴더 생성:', evidenceFolderLabel, evidenceFolderId);
+    logDebug_('AccountingManagement', '증빙 폴더 생성:', evidenceFolderLabel, evidenceFolderId);
     
     // 5. 권한 설정
     // 접근 권한 대상: 생성자 + 주관리인 + 별도 관리인 + 지정된 사용자
@@ -552,12 +539,6 @@ function createLedgerStructure(params) {
     
     // 역할 코드를 그룹 이메일로 변환
     const groupEmails = convertRoleCodesToGroupEmails(accessGroups);
-    
-    console.log('🔐 권한 설정 대상:', {
-      users: allAccessUsers,
-      groups: groupEmails,
-      roleCodes: accessGroups
-    });
     
     // 장부 폴더 권한 설정
     const folderPermissionResult = setLedgerFolderPermissions({
@@ -580,17 +561,6 @@ function createLedgerStructure(params) {
       groups: groupEmails
     });
     
-    console.log('✅ 장부 생성 완료:', {
-      ledgerFolderId,
-      spreadsheetId,
-      evidenceFolderId,
-      permissions: {
-        folder: folderPermissionResult,
-        spreadsheet: spreadsheetPermissionResult,
-        evidence: evidencePermissionResult
-      }
-    });
-    
     return {
       success: true,
       message: '장부가 성공적으로 생성되었습니다.',
@@ -608,7 +578,7 @@ function createLedgerStructure(params) {
     };
     
   } catch (error) {
-    console.error('❌ 장부 생성 오류:', error);
+    logError_('AccountingManagement', '장부 생성 오류:', error);
     return {
       success: false,
       message: '장부 생성 중 오류가 발생했습니다: ' + error.message
@@ -622,57 +592,75 @@ function createLedgerStructure(params) {
  * 장부 목록 조회
  * @returns {Array<Object>} 장부 목록
  */
-function getLedgerList() {
+/**
+ * 장부 목록. req.userEmail이 있으면 그 사용자가 접근 대상으로 지정된 장부만 돌려준다.
+ * (요청자 정보가 없으면 전체 — 편집기 실행·관리 함수용)
+ */
+function getLedgerList(req) {
   try {
-    console.log('📋 장부 목록 조회 시작');
-    
     const accountingFolderId = initializeAccountingFolder();
-    const accountingFolder = DriveApp.getFolderById(accountingFolderId);
-    
-    const ledgers = [];
-    const folders = accountingFolder.getFolders();
-    
-    while (folders.hasNext()) {
-      const folder = folders.next();
-      const folderName = folder.getName();
-      
-      // 증빙 전용 이름으로 잘못 만든 최상위 폴더는 제외
-      if (isLikelyMisplacedEvidenceRootFolder_(folderName)) {
-        continue;
-      }
-      
-      // 스프레드시트 찾기 (파일명이 [장부이름]_장부 형식)
-      const files = folder.getFiles();
-      let spreadsheetId = null;
-      
-      while (files.hasNext()) {
-        const file = files.next();
-        const fileName = file.getName();
-        // Google Sheets 파일인지 확인
-        if (file.getMimeType() === 'application/vnd.google-apps.spreadsheet') {
-          spreadsheetId = file.getId();
-          break;
-        }
-      }
-      
-      // 증빙 폴더 찾기 (환경/레거시 이름 호환)
-      const evidenceSub = findEvidenceSubFolderInLedger_(folder, {});
-      const evidenceFolderId = evidenceSub ? evidenceSub.getId() : null;
-      
-      ledgers.push({
-        folderId: folder.getId(),
-        folderName: folderName,
-        spreadsheetId: spreadsheetId || '',
-        evidenceFolderId: evidenceFolderId || '',
-        createdDate: folder.getDateCreated().toISOString()
+    const folderResponse = Drive.Files.list({
+      q: "'" + accountingFolderId + "' in parents and trashed=false and mimeType='application/vnd.google-apps.folder'",
+      pageSize: 1000,
+      fields: 'files(id,name,createdTime,parents)'
+    });
+    const ledgerFolders = folderResponse.files || [];
+    const visibleLedgerFolders = ledgerFolders.filter(function(folder) {
+      return !isLikelyMisplacedEvidenceRootFolder_(folder.name);
+    });
+
+    const childrenByParent = {};
+    const parentChunkSize = 50;
+    for (let offset = 0; offset < visibleLedgerFolders.length; offset += parentChunkSize) {
+      const chunk = visibleLedgerFolders.slice(offset, offset + parentChunkSize);
+      const parentQuery = chunk.map(function(folder) {
+        return "'" + folder.id + "' in parents";
+      }).join(' or ');
+      if (!parentQuery) continue;
+
+      const childResponse = Drive.Files.list({
+        q: '(' + parentQuery + ") and trashed=false and (mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.folder')",
+        pageSize: 1000,
+        fields: 'files(id,name,mimeType,parents)'
+      });
+      (childResponse.files || []).forEach(function(file) {
+        (file.parents || []).forEach(function(parentId) {
+          if (!childrenByParent[parentId]) childrenByParent[parentId] = [];
+          childrenByParent[parentId].push(file);
+        });
       });
     }
-    
-    console.log('✅ 장부 목록 조회 완료:', ledgers.length, '개');
-    return ledgers;
-    
+
+    const ledgers = visibleLedgerFolders.map(function(folder) {
+      const folderName = folder.name;
+      const children = childrenByParent[folder.id] || [];
+      const spreadsheet = children.find(function(file) {
+        return file.mimeType === 'application/vnd.google-apps.spreadsheet';
+      });
+      const subfolders = children.filter(function(file) {
+        return file.mimeType === 'application/vnd.google-apps.folder';
+      });
+      const evidenceSub = findEvidenceSubFolderInLedger_(null, {}, subfolders);
+      const evidenceFolderId = evidenceSub ? evidenceSub.id : null;
+      
+      return {
+        folderId: folder.id,
+        folderName: folderName,
+        spreadsheetId: spreadsheet ? spreadsheet.id : '',
+        evidenceFolderId: evidenceFolderId || '',
+        createdDate: folder.createdTime || ''
+      };
+    });
+
+    const userEmail = req && req.userEmail ? String(req.userEmail).toLowerCase() : '';
+    if (!userEmail) return ledgers;
+    const groupEmail = String(getGroupEmailByRole(req.userType) || '').toLowerCase();
+    return ledgers.filter(function(ledger) {
+      return isLedgerAccessibleBy_(ledger.spreadsheetId, userEmail, groupEmail);
+    });
+
   } catch (error) {
-    console.error('❌ 장부 목록 조회 오류:', error);
+    logError_('AccountingManagement', '장부 목록 조회 오류:', error);
     return [];
   }
 }
@@ -697,7 +685,7 @@ function getLedgerSpreadsheetId(folderId) {
     return null;
     
   } catch (error) {
-    console.error('❌ 스프레드시트 ID 조회 오류:', error);
+    logError_('AccountingManagement', '스프레드시트 ID 조회 오류:', error);
     return null;
   }
 }
@@ -717,8 +705,6 @@ function updateAccountSubManagers(req) {
         message: '스프레드시트 ID와 통장 ID가 필요합니다.'
       };
     }
-    
-    console.log('👥 서브 관리자 목록 업데이트 시작:', { spreadsheetId, accountId, subManagerEmails });
     
     const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
     const accountSheet = spreadsheet.getSheetByName('통장');
@@ -770,8 +756,6 @@ function updateAccountSubManagers(req) {
     const subManagerIdsJson = JSON.stringify(subManagerEmails || []);
     accountSheet.getRange(rowIndex, subManagerIdsIndex + 1).setValue(subManagerIdsJson);
     
-    console.log('✅ 서브 관리자 목록 업데이트 완료:', accountId);
-    
     return {
       success: true,
       message: '서브 관리자 목록이 성공적으로 업데이트되었습니다.',
@@ -782,7 +766,7 @@ function updateAccountSubManagers(req) {
     };
     
   } catch (error) {
-    console.error('❌ 서브 관리자 목록 업데이트 오류:', error);
+    logError_('AccountingManagement', '서브 관리자 목록 업데이트 오류:', error);
     return {
       success: false,
       message: '서브 관리자 목록 업데이트 중 오류가 발생했습니다: ' + error.message
@@ -797,7 +781,6 @@ function updateAccountSubManagers(req) {
  */
 function getAccountingCategories(spreadsheetId) {
   try {
-    console.log('📊 장부 카테고리 조회 시작:', spreadsheetId);
     
     if (!spreadsheetId) {
       throw new Error('스프레드시트 ID가 필요합니다');
@@ -807,19 +790,19 @@ function getAccountingCategories(spreadsheetId) {
     const sheets = spreadsheet.getSheets();
     
     if (sheets.length === 0) {
-      console.warn('시트가 없습니다.');
+      logWarn_('AccountingManagement', '시트가 없습니다.');
       return [];
     }
     
     // 첫 번째 시트 사용
     const sheet = sheets[0];
     const sheetName = sheet.getName();
-    console.log('시트 이름:', sheetName);
+    logDebug_('AccountingManagement', '시트 이름:', sheetName);
     
     // 데이터 범위 가져오기 (A열에서 카테고리 찾기)
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) {
-      console.warn('데이터가 없습니다.');
+      logWarn_('AccountingManagement', '데이터가 없습니다.');
       return [];
     }
     
@@ -840,7 +823,7 @@ function getAccountingCategories(spreadsheetId) {
     // 카테고리 열을 찾지 못한 경우 A열 사용
     if (categoryColumnIndex === -1) {
       categoryColumnIndex = 1;
-      console.log('카테고리 열을 찾지 못했습니다. A열을 사용합니다.');
+      logDebug_('AccountingManagement', '카테고리 열을 찾지 못했습니다. A열을 사용합니다.');
     }
     
     // 카테고리 데이터 가져오기 (2행부터, 헤더 제외)
@@ -858,13 +841,131 @@ function getAccountingCategories(spreadsheetId) {
         categories.push(category);
       }
     }
-    
-    console.log('✅ 장부 카테고리 조회 완료:', categories.length, '개');
     return categories;
     
   } catch (error) {
-    console.error('❌ 장부 카테고리 조회 오류:', error);
+    logError_('AccountingManagement', '장부 카테고리 조회 오류:', error);
     return [];
   }
 }
 
+
+/**
+ * 통장 시트에 저장된 접근 대상(생성자, 주·별도 관리인, 지정 사용자, 지정 그룹스)에 사용자가 포함되는지
+ */
+function isLedgerAccessibleBy_(spreadsheetId, userEmail, groupEmail) {
+  if (!spreadsheetId) return false;
+  try {
+    const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName('통장');
+    if (!sheet) return false;
+    const values = sheet.getDataRange().getValues();
+    const header = values[0];
+    const col = function(name) { return header.indexOf(name); };
+    const parse = function(row, name) {
+      try { return JSON.parse(row[col(name)] || '[]'); } catch (e) { return []; }
+    };
+    return values.slice(1).some(function(row) {
+      const users = [row[col('main_manager_id')], row[col('created_by')]]
+        .concat(parse(row, 'sub_manager_ids'), parse(row, 'access_user_emails'))
+        .map(function(v) { return String(v || '').toLowerCase(); });
+      const groups = parse(row, 'access_group_emails').map(function(v) { return String(v || '').toLowerCase(); });
+      return users.indexOf(userEmail) !== -1 || (!!groupEmail && groups.indexOf(groupEmail) !== -1);
+    });
+  } catch (error) {
+    logWarn_('AccountingManagement', '장부 접근 대상 확인 실패:', spreadsheetId, error.message);
+    return false;
+  }
+}
+
+// ===== 기존 장부 권한 재적용 (편집기에서 실행) =====
+
+// 예전 기본값으로 저장된 그룹스 주소 → 그룹스 역할 키
+const LEGACY_GROUP_EMAIL_ROLES_ = {
+  'hp_supp@googlegroups.com': 'supp',
+  'ad_professor_hp@googlegroups.com': 'ad_professor'
+};
+
+/**
+ * 모든 장부의 통장 시트에 저장된 접근 대상(관리인, 그룹스, 사용자)으로 장부 폴더·스프레드시트·증빙 폴더 권한을 다시 부여한다.
+ * 예전 기본값으로 저장된 그룹스 주소는 현재 GROUP_EMAIL_JSON 주소로 바꾸고 시트 값도 고친다.
+ * 이미 있는 권한은 건너뛴다.
+ */
+function applyLedgerSharing() {
+  const list = getLedgerList() || [];
+  const lines = [];
+
+  list.forEach(function(ledger) {
+    if (!ledger.spreadsheetId) return;
+    const sheet = SpreadsheetApp.openById(ledger.spreadsheetId).getSheetByName('통장');
+    if (!sheet) {
+      lines.push(ledger.folderName + ' | 통장 시트 없음');
+      return;
+    }
+
+    const values = sheet.getDataRange().getValues();
+    const header = values[0];
+    const col = function(name) { return header.indexOf(name); };
+    const users = [];
+    const groups = [];
+
+    values.slice(1).forEach(function(row, i) {
+      const parse = function(name) {
+        try { return JSON.parse(row[col(name)] || '[]'); } catch (e) { return []; }
+      };
+      const fixedGroups = parse('access_group_emails').map(function(email) {
+        const role = LEGACY_GROUP_EMAIL_ROLES_[String(email).toLowerCase()];
+        return role ? getGroupEmailByRole(role) : email;
+      }).filter(Boolean);
+      if (JSON.stringify(fixedGroups) !== JSON.stringify(parse('access_group_emails'))) {
+        sheet.getRange(i + 2, col('access_group_emails') + 1).setValue(JSON.stringify(fixedGroups));
+      }
+      groups.push.apply(groups, fixedGroups);
+      users.push(row[col('main_manager_id')], row[col('created_by')]);
+      users.push.apply(users, parse('sub_manager_ids'));
+      users.push.apply(users, parse('access_user_emails'));
+    });
+
+    const unique = function(arr) {
+      return arr.filter(function(v, i) { return v && String(v).indexOf('@') > 0 && arr.indexOf(v) === i; });
+    };
+    const params = { users: unique(users), groups: unique(groups) };
+    const targets = [
+      ['폴더', setLedgerFolderPermissions, { folderId: ledger.folderId }],
+      ['시트', setLedgerFilePermissions, { fileId: ledger.spreadsheetId }],
+      ['증빙', setEvidenceFolderPermissions, { folderId: ledger.evidenceFolderId }]
+    ];
+    targets.forEach(function(t) {
+      if (!t[2].folderId && !t[2].fileId) return;
+      const result = t[1](Object.assign({}, t[2], params));
+      lines.push(ledger.folderName + ' | ' + t[0] + ' | ' + (result.message || ('성공 ' + result.successCount + ', 실패 ' + result.failCount + (result.failedUsers && result.failedUsers.length ? ' (' + JSON.stringify(result.failedUsers) + ')' : ''))));
+    });
+    lines.push(ledger.folderName + ' | 그룹스: ' + params.groups.join(', '));
+  });
+
+  console.log('장부 권한 재적용 결과:\n' + lines.join('\n'));
+  return lines;
+}
+
+/**
+ * 증빙 파일 업로드 (프론트가 base64로 보낸 파일을 장부 증빙 폴더에 저장)
+ * 사용자 드라이브 권한(drive.file)으로는 공유 증빙 폴더에 직접 올릴 수 없어서 서버가 대신 올린다.
+ * 회계 폴더 아래 폴더만 허용한다.
+ * @param {Object} req - { evidenceFolderId, fileName, mimeType, fileData(base64) }
+ */
+function uploadEvidenceFile(req) {
+  try {
+    if (!req.evidenceFolderId || !req.fileName || !req.fileData) {
+      return { success: false, message: '증빙 폴더, 파일 이름, 내용이 필요합니다.' };
+    }
+    const folder = DriveApp.getFolderById(req.evidenceFolderId);
+    if (!isFolderUnderRoot_(folder, initializeAccountingFolder(), {}, 0)) {
+      return { success: false, message: '증빙 폴더가 아닙니다.' };
+    }
+    const blob = Utilities.newBlob(Utilities.base64Decode(req.fileData), req.mimeType || 'application/octet-stream', req.fileName);
+    const file = folder.createFile(blob);
+    return { success: true, data: { fileId: file.getId(), fileName: file.getName() } };
+  } catch (error) {
+    logError_('AccountingManagement', '증빙 파일 업로드 오류:', error);
+    return { success: false, message: '증빙 파일 업로드 중 오류가 발생했습니다: ' + error.message };
+  }
+}

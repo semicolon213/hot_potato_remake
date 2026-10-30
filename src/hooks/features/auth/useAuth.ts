@@ -1,9 +1,12 @@
+import { logger } from '../../../utils/logger';
 import { useState, useEffect } from 'react';
 import { registerUser, verifyAdminKey } from '../../../utils/api/authApi';
 import { tokenManager } from '../../../utils/auth/tokenManager';
 import { lastUserManager } from '../../../utils/auth/lastUserManager';
 import { ENV_CONFIG } from '../../../config/environment';
 import { apiClient } from '../../../utils/api/apiClient';
+const log = logger.scope('hooks/features/auth/useAuth');
+
 
 // 타입 정의
 interface User {
@@ -69,16 +72,14 @@ interface RegistrationResponse {
 // API 함수 - apiClient 사용 (환경에 따라 올바른 URL 사용)
 const checkUserStatus = async (email: string): Promise<LoginResponse> => {
   try {
-    console.log('사용자 상태 확인 요청:', email);
 
     // apiClient를 사용하여 환경에 맞는 URL 자동 선택 (개발: /api, 프로덕션: 직접 URL)
     const data = await apiClient.checkApprovalStatus(email);
 
-    console.log('사용자 등록 상태 확인 응답:', data);
-
     // 디버그 정보 출력
     if (data.debug) {
-      console.log('🔍 App Script 디버그 정보:', data.debug);
+      // Intentionally ignored.
+
     }
 
     // 응답 구조 변환 (UserManagement.gs의 응답을 LoginResponse 형식으로)
@@ -124,7 +125,7 @@ const checkUserStatus = async (email: string): Promise<LoginResponse> => {
       debug: (data as unknown as Record<string, unknown>).debug
     } as LoginResponse;
   } catch (error) {
-    console.error('사용자 상태 확인 실패:', error);
+    log.error('사용자 상태 확인 실패:', error);
     return {
       success: false,
       isRegistered: false,
@@ -162,9 +163,7 @@ export const useAuth = (onLogin: (user: User) => void) => {
       'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/calendar.readonly',
       'https://www.googleapis.com/auth/spreadsheets',
-      'https://www.googleapis.com/auth/gmail.compose',
-      'https://www.googleapis.com/auth/drive',
-      'https://www.googleapis.com/auth/documents',
+      'https://www.googleapis.com/auth/drive.file',
       'profile',
       'email'
     ].join(' ');
@@ -237,15 +236,13 @@ export const useAuth = (onLogin: (user: User) => void) => {
       const userInfo = await response.json();
       const { email, name, picture } = userInfo;
 
-      console.log('Google 로그인 성공:', { email, name });
-
       // 마지막 로그인 사용자 정보 저장
       lastUserManager.save({ email, name, picture });
 
       // 사용자 등록 상태 확인
       await checkUserRegistrationStatus(email, name, accessToken);
     } catch (error) {
-      console.error('Google 로그인 실패:', error);
+      log.error('Google 로그인 실패:', error);
       setLoginState(prev => ({
         ...prev,
         isLoading: false,
@@ -284,13 +281,12 @@ export const useAuth = (onLogin: (user: User) => void) => {
   const checkUserRegistrationStatus = async (email: string, name: string, accessToken: string) => {
     try {
       const result = await checkUserStatus(email);
-      console.log('사용자 등록 상태 확인 응답:', result);
 
       if (result.success && result.isRegistered) {
         // 등록된 사용자 - 승인 상태 확인
         if (result.isApproved) {
           // 이미 승인된 회원 - 바로 메인 화면으로 (알림 없이)
-          console.log('이미 승인된 회원 - 메인 화면으로 이동');
+          log.debug('이미 승인된 회원 - 메인 화면으로 이동');
           onLogin({
             email: email,
             name: name,
@@ -303,7 +299,7 @@ export const useAuth = (onLogin: (user: User) => void) => {
           });
         } else {
           // 승인 대기 중 - 승인 대기 화면으로
-          console.log('승인 대기 중인 사용자');
+          log.debug('승인 대기 중인 사용자');
           onLogin({
             email: email,
             name: name,
@@ -314,9 +310,6 @@ export const useAuth = (onLogin: (user: User) => void) => {
           });
         }
       } else {
-        // 새로운 사용자 또는 가입 승인 요청 미제출(user_type/Approval 비어 있음) - 회원가입 화면 표시
-        // 학번/교번, 이름은 관리자가 시트에 미리 입력한 값으로 채움(있을 경우 읽기 전용)
-        console.log('가입 승인 요청 화면 표시 (회원가입 폼)');
         const sheetName = result.nameFromSheet ?? '';
         const sheetStudentId = result.studentId ?? '';
         setFormData(prev => ({
@@ -334,7 +327,7 @@ export const useAuth = (onLogin: (user: User) => void) => {
         }));
       }
     } catch (error) {
-      console.error('사용자 등록 상태 확인 실패:', error);
+      log.error('사용자 등록 상태 확인 실패:', error);
       setLoginState(prev => ({
         ...prev,
         error: '사용자 상태 확인 중 오류가 발생했습니다.',
@@ -369,8 +362,8 @@ export const useAuth = (onLogin: (user: User) => void) => {
       } else {
         setLoginState(prev => ({ ...prev, error: result.error || '관리자 키 인증에 실패했습니다.' }));
       }
-    } catch (error) {
-      console.error('관리자 키 인증 실패:', error);
+    } catch {
+      log.error('관리자 키 인증 실패');
       setLoginState(prev => ({ ...prev, error: '관리자 키 인증 중 오류가 발생했습니다.' }));
     } finally {
       setLoginState(prev => ({ ...prev, isLoading: false }));
@@ -415,7 +408,8 @@ export const useAuth = (onLogin: (user: User) => void) => {
 
       // 디버그 정보 출력
       if (result.debug) {
-        console.log('🔍 App Script 디버그 정보:', result.debug);
+      // Intentionally ignored.
+
       }
 
       if (result.success) {
@@ -427,13 +421,8 @@ export const useAuth = (onLogin: (user: User) => void) => {
           isApproved: false
         });
       } else {
-        console.error('회원가입 실패 응답:', result);
-        console.error('상세 오류 정보:', {
-          message: result.message,
-          error: result.error,
-          debug: result.debug,
-          stack: result.debug?.stack
-        });
+        log.error('회원가입 실패 응답');
+        log.error('상세 오류 정보');
 
         // 더 자세한 오류 메시지 표시
         let errorMessage = '회원가입에 실패했습니다.';
@@ -446,7 +435,7 @@ export const useAuth = (onLogin: (user: User) => void) => {
         setLoginState(prev => ({ ...prev, error: errorMessage }));
       }
     } catch (error) {
-      console.error('회원가입 실패:', error);
+      log.error('회원가입 실패:', error);
       setLoginState(prev => ({ ...prev, error: '회원가입 중 오류가 발생했습니다.' }));
     } finally {
       setLoginState(prev => ({ ...prev, isLoading: false }));
@@ -509,7 +498,7 @@ export const useAuth = (onLogin: (user: User) => void) => {
           return;
         }
       } catch (error) {
-        console.error('마지막 사용자 로그인 실패:', error);
+        log.error('마지막 사용자 로그인 실패:', error);
         setLoginState(prev => ({ ...prev, isLoading: false }));
         // 에러 발생 시 마지막 사용자용 Google 로그인으로 진행
         googleLogin(lastUser.email);

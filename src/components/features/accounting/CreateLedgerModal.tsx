@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file CreateLedgerModal.tsx
  * @brief 장부 생성 모달
@@ -13,6 +14,8 @@ import { UserMultiSelect } from './UserMultiSelect';
 import type { CreateLedgerRequest } from '../../../types/features/accounting';
 import type { UsersListResponse } from '../../../types/api/apiResponses';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/CreateLedgerModal');
+
 
 interface CreateLedgerModalProps {
   isOpen: boolean;
@@ -77,12 +80,13 @@ export const CreateLedgerModal: React.FC<CreateLedgerModalProps> = ({
         setUsers(userList);
       }
     } catch (err) {
-      console.error('❌ 사용자 목록 로드 오류:', err);
+      log.error('사용자 목록 로드 오류:', err);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setError(null);
 
     if (!ledgerName.trim()) {
@@ -161,7 +165,7 @@ export const CreateLedgerModal: React.FC<CreateLedgerModalProps> = ({
       setAccessGroups([]);
 
     } catch (err: unknown) {
-      console.error('❌ 장부 생성 오류:', err);
+      log.error('장부 생성 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '장부 생성에 실패했습니다.';
       setError(errorMessage);
     } finally {

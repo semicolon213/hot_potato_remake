@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file LedgerEntryList.tsx
  * @brief 장부 항목 목록 컴포넌트
@@ -13,7 +14,10 @@ import TableColumnFilter, { type SortDirection, type FilterOption } from '../../
 import { FaDownload, FaPlus, FaFilter, FaTimes, FaEdit, FaTrash, FaPaperclip } from 'react-icons/fa';
 import type { LedgerEntry, LedgerEntryFilter, Account, Category, CreateLedgerEntryRequest, UpdateLedgerEntryRequest } from '../../../types/features/accounting';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
+import { useNotification } from '../../../hooks/ui/useNotification';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/LedgerEntryList');
+
 
 interface LedgerEntryListProps {
   spreadsheetId: string;
@@ -50,6 +54,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   onAddingNewChange,
   onControlsRender
 }) => {
+  const { confirmAsync } = useNotification();
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -75,6 +80,8 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   const [newEntryEvidenceFile, setNewEntryEvidenceFile] = useState<File | null>(null);
   const [editingEntryEvidenceFile, setEditingEntryEvidenceFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>(accountId || '');
   const [currentPage, setCurrentPage] = useState<{ [monthKey: string]: number }>({});
@@ -94,20 +101,19 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; entry: LedgerEntry | null; isEmpty: boolean } | null>(null);
   
   // loadEntries를 useCallback으로 먼저 정의
-  const loadEntries = useCallback(async (accountId?: string): Promise<LedgerEntry[] | undefined> => {
+  const loadEntries = useCallback(async (accountId?: string, showLoading = true): Promise<LedgerEntry[] | undefined> => {
     // accountId 파라미터가 있으면 사용, 없으면 selectedAccountId 사용
     const targetAccountId = accountId || selectedAccountId;
     
     if (!targetAccountId) {
-      console.warn('⚠️ 통장 ID가 없어 장부 항목을 로드할 수 없습니다.');
+      log.warn('통장 ID가 없어 장부 항목을 로드할 수 없습니다.');
       return;
     }
 
-    setIsLoading(true);
+    if (showLoading) setIsLoading(true);
     setError(null);
 
     try {
-      console.log('📋 장부 항목 로드:', { spreadsheetId, targetAccountId });
       
       // 모든 항목을 로드 (클라이언트 사이드 필터링 사용)
       const entriesData = await getLedgerEntries(
@@ -115,18 +121,17 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
         targetAccountId,
         {} as LedgerEntryFilter
       );
-      console.log('✅ 장부 항목 로드 완료:', entriesData.length, '개');
       setEntries(entriesData);
       if (onEntriesChange) {
         onEntriesChange(entriesData);
       }
       return entriesData;
     } catch (err) {
-      console.error('❌ 장부 항목 조회 오류:', err);
+      log.error('장부 항목 조회 오류:', err);
       setError('장부 항목을 불러오는데 실패했습니다.');
       return;
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   }, [spreadsheetId, selectedAccountId, onEntriesChange]);
 
@@ -169,32 +174,29 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
 
   const loadData = async () => {
     try {
-      console.log('📋 통장 및 카테고리 로드 시작:', spreadsheetId);
       const [accountsData, categoriesData] = await Promise.all([
         getAccounts(spreadsheetId),
         getCategories(spreadsheetId)
       ]);
-      console.log('✅ 통장 목록:', accountsData);
-      console.log('✅ 카테고리 목록:', categoriesData);
       
       setAccounts(accountsData);
       setCategories(categoriesData);
 
       if (accountsData.length > 0) {
         const firstAccountId = accountsData[0].accountId;
-        console.log('🔍 첫 번째 통장 ID:', firstAccountId);
+        log.debug('첫 번째 통장 ID:', firstAccountId);
         if (!selectedAccountId || selectedAccountId !== firstAccountId) {
-          console.log('✅ 통장 ID 설정:', firstAccountId);
+          log.debug('통장 ID 설정:', firstAccountId);
           setSelectedAccountId(firstAccountId);
           // 통장 ID가 설정되면 자동으로 장부 항목 로드
           loadEntries(firstAccountId);
         }
       } else {
-        console.warn('⚠️ 통장이 없습니다.');
+        log.warn('통장이 없습니다.');
         setError('통장 정보를 찾을 수 없습니다.');
       }
     } catch (err) {
-      console.error('❌ 데이터 로드 오류:', err);
+      log.error('데이터 로드 오류:', err);
       setError('데이터를 불러오는데 실패했습니다.');
     }
   };
@@ -233,6 +235,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   };
 
   const handleSaveAdd = async () => {
+    if (isSaving || deletingEntryId) return;
     if (!selectedAccountId) {
       setError('통장 정보를 찾을 수 없습니다.');
       return;
@@ -249,7 +252,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
     }
 
     try {
-      setIsLoading(true);
+      setIsSaving(true);
       setError(null);
 
       const userInfo = typeof window !== 'undefined'
@@ -283,17 +286,17 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
         source: ''
       });
       setNewEntryEvidenceFile(null);
-      const updatedEntries = await loadEntries();
+      const updatedEntries = await loadEntries(undefined, false);
       if (updatedEntries && onEntriesChange) {
         onEntriesChange(updatedEntries);
       }
       await loadData();
     } catch (err: unknown) {
-      console.error('❌ 장부 항목 추가 오류:', err);
+      log.error('장부 항목 추가 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '장부 항목 추가에 실패했습니다.';
       setError(errorMessage);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -347,6 +350,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
   };
 
   const handleSaveEdit = async () => {
+    if (isSaving || deletingEntryId) return;
     if (!editingEntry || !editingEntryId || !selectedAccountId) {
       return;
     }
@@ -362,7 +366,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
     }
 
     try {
-      setIsLoading(true);
+      setIsSaving(true);
       setError(null);
 
       const updateData: UpdateLedgerEntryRequest = {
@@ -380,46 +384,43 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       
       setEditingEntryId(null);
       setEditingEntry(null);
-      const updatedEntries = await loadEntries();
+      const updatedEntries = await loadEntries(undefined, false);
       if (updatedEntries && onEntriesChange) {
         onEntriesChange(updatedEntries);
       }
       await loadData();
     } catch (err: unknown) {
-      console.error('❌ 장부 항목 수정 오류:', err);
+      log.error('장부 항목 수정 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '장부 항목 수정에 실패했습니다.';
       setError(errorMessage);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async (entry: LedgerEntry) => {
-    if (!window.confirm('정말로 이 장부 항목을 삭제하시겠습니까?')) {
-      setContextMenu(null); // 컨텍스트 메뉴 닫기
-      return;
-    }
-
-    if (!selectedAccountId) {
-      notifyGlobal('통장 정보를 찾을 수 없습니다.', 'error');
-      return;
-    }
+    if (isSaving || deletingEntryId) return;
+    setDeletingEntryId(entry.entryId);
 
     try {
-      setIsLoading(true);
+      if (!(await confirmAsync('정말로 이 장부 항목을 삭제하시겠습니까?', { type: 'danger' }))) return;
+      if (!selectedAccountId) {
+        notifyGlobal('통장 정보를 찾을 수 없습니다.', 'error');
+        return;
+      }
       await deleteLedgerEntry(spreadsheetId, entry.entryId, selectedAccountId);
-      const updatedEntries = await loadEntries();
+      const updatedEntries = await loadEntries(undefined, false);
       if (updatedEntries && onEntriesChange) {
         onEntriesChange(updatedEntries);
       }
       await loadData(); // 잔액 업데이트를 위해
     } catch (err: unknown) {
-      console.error('❌ 장부 항목 삭제 오류:', err);
+      log.error('장부 항목 삭제 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '장부 항목 삭제에 실패했습니다.';
       setError(errorMessage);
       notifyGlobal('장부 항목 삭제에 실패했습니다: ' + errorMessage, 'error');
     } finally {
-      setIsLoading(false);
+      setDeletingEntryId(null);
     }
   };
 
@@ -463,7 +464,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
     
     // 유효한 날짜인지 확인
     if (isNaN(date.getTime())) {
-      console.warn('⚠️ 유효하지 않은 날짜:', dateString);
+      log.warn('유효하지 않은 날짜:', dateString);
       return '';
     }
     
@@ -598,7 +599,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
       const monthKey = formatMonthKey(entry.date);
       // 빈 monthKey는 무시
       if (!monthKey) {
-        console.warn('⚠️ 월별 그룹화 실패 - 유효하지 않은 날짜:', entry.date);
+        log.warn('월별 그룹화 실패 - 유효하지 않은 날짜:', entry.date);
         return acc;
       }
       if (!acc[monthKey]) {
@@ -1231,14 +1232,14 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
                               <button
                                 onClick={handleSaveAdd}
                                 className="btn-save action-btn"
-                                disabled={isLoading}
+                                disabled={isSaving}
                               >
-                                저장
+                                {isSaving ? '저장 중...' : '저장'}
                               </button>
                               <button
                                 onClick={handleCancelAdd}
                                 className="btn-cancel action-btn"
-                                disabled={isLoading}
+                                disabled={isSaving}
                               >
                                 취소
                               </button>
@@ -1449,14 +1450,14 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
                                   <button
                                     onClick={handleSaveEdit}
                                     className="btn-save action-btn"
-                                    disabled={isLoading}
+                                    disabled={isSaving}
                                   >
-                                    저장
+                                    {isSaving ? '저장 중...' : '저장'}
                                   </button>
                                   <button
                                     onClick={handleCancelEdit}
                                     className="btn-cancel action-btn"
-                                    disabled={isLoading}
+                                    disabled={isSaving}
                                   >
                                     취소
                                   </button>
@@ -1668,6 +1669,7 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
               <>
                 <button
                   className="context-menu-item"
+                  disabled={isSaving || Boolean(deletingEntryId)}
                   onClick={() => {
                     if (contextMenu.entry) {
                       handleStartEdit(contextMenu.entry);
@@ -1679,15 +1681,16 @@ export const LedgerEntryList: React.FC<LedgerEntryListProps> = ({
                 </button>
                 <button
                   className="context-menu-item"
-                  onClick={() => {
+                  disabled={isSaving || Boolean(deletingEntryId)}
+                  onClick={async () => {
                     if (contextMenu.entry) {
-                      handleDelete(contextMenu.entry);
+                      await handleDelete(contextMenu.entry);
                     }
                     handleCloseContextMenu();
                   }}
                 >
                   <FaTrash />
-                  <span>삭제</span>
+                  <span>{deletingEntryId === contextMenu.entry?.entryId ? '삭제 중...' : '삭제'}</span>
                 </button>
               </>
             )}

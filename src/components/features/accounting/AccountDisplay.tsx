@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file AccountDisplay.tsx
  * @brief 통장 정보 표시 컴포넌트
@@ -14,6 +15,8 @@ import type { Account } from '../../../types/features/accounting';
 import type { UserNameResponse, UsersListResponse } from '../../../types/api/apiResponses';
 import { notifyGlobal } from '../../../utils/ui/globalNotification';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/AccountDisplay');
+
 
 interface AccountDisplayProps {
   spreadsheetId: string;
@@ -63,7 +66,7 @@ export const AccountDisplay: React.FC<AccountDisplayProps> = ({
         setError('통장 정보를 찾을 수 없습니다.');
       }
     } catch (err) {
-      console.error('❌ 통장 정보 조회 오류:', err);
+      log.error('통장 정보 조회 오류:', err);
       setError('통장 정보를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
@@ -125,7 +128,7 @@ export const AccountDisplay: React.FC<AccountDisplayProps> = ({
         }
       }
     } catch (err) {
-      console.error('❌ 관리인 이름 조회 오류:', err);
+      log.error('관리인 이름 조회 오류:', err);
       // 오류 시 이메일 그대로 표시
       if (accountData.mainManagerId) {
         setMainManagerName(accountData.mainManagerId);
@@ -153,7 +156,7 @@ export const AccountDisplay: React.FC<AccountDisplayProps> = ({
         setUsers(userList);
       }
     } catch (err) {
-      console.error('❌ 사용자 목록 로드 오류:', err);
+      log.error('사용자 목록 로드 오류:', err);
     }
   };
 
@@ -189,7 +192,7 @@ export const AccountDisplay: React.FC<AccountDisplayProps> = ({
       setIsEditModalOpen(false);
       notifyGlobal('서브 관리자 목록이 성공적으로 업데이트되었습니다.', 'success');
     } catch (err: unknown) {
-      console.error('❌ 서브 관리자 업데이트 오류:', err);
+      log.error('서브 관리자 업데이트 오류:', err);
       const errorMessage = err instanceof Error ? err.message : '서브 관리자 목록 업데이트에 실패했습니다.';
       notifyGlobal(errorMessage, 'error');
     } finally {

@@ -1,0 +1,53 @@
+name: Electron 설치 파일 만들기
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "릴리스 태그 (예: v1.0.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      HP_ERP_SITE_URL: ${{ vars.HP_ERP_SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 기관 사이트 주소 포함
+        shell: bash
+        run: node -e "const fs=require('fs');const u=new URL(process.env.HP_ERP_SITE_URL);if(!['http:','https:'].includes(u.protocol))throw Error('HP_ERP_SITE_URL must be http(s)');fs.writeFileSync('electron/site-url.json',JSON.stringify({siteUrl:u.href}))"
+      - run: npm run electron:dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ runner.os }}
+          path: |
+            dist-electron/*.exe
+            dist-electron/*.dmg
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          path: installers
+          merge-multiple: true
+      - name: GitHub Release 게시
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: gh release create "$TAG" installers/* --repo "$GITHUB_REPOSITORY" --generate-notes

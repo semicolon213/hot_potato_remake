@@ -9,7 +9,7 @@
 /**
  * 스크립트 속성만 초기화 (폴더/시트 생성 없이)
  * 기존 값이 있으면 유지, 없으면 기본값 설정.
- * ROOT_FOLDER_ID, SPREADSHEET_ID는 initializeSystem 실행 시에만 설정됨.
+ * ROOT_FOLDER_ID, SPREADSHEET_ID는 initializeSystem 실행 때 실제 루트 폴더와 hp_member로 맞춰짐.
  */
 function setupScriptPropertiesOnly() {
   return setScriptProperties(null, null);
@@ -21,7 +21,7 @@ function setupScriptPropertiesOnly() {
  */
 function initializeSystem() {
   try {
-    console.log('🚀 시스템 초기 세팅 시작');
+    logInfo_('InitialSetup', '시스템 초기 세팅 시작');
     
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
     const results = {
@@ -37,7 +37,7 @@ function initializeSystem() {
       throw new Error('루트 폴더를 찾거나 생성할 수 없습니다.');
     }
     results.folders.push({ name: rootFolderName, id: rootFolder.getId() });
-    console.log('✅ 루트 폴더 확인:', rootFolder.getId());
+    logInfo_('InitialSetup', '루트 폴더 확인:', rootFolder.getId());
     
     // 2. 폴더 구조 생성
     const folderStructure = createFolderStructure(rootFolder);
@@ -50,17 +50,22 @@ function initializeSystem() {
     // 4. 스크립트 속성 설정 (루트 폴더 ID, hp_member ID 전달)
     const propertiesResult = setScriptProperties(rootFolder.getId(), spreadsheetResults);
     results.properties = propertiesResult;
+
+    // 5. 역할 폴더를 해당 역할과 상위 역할 그룹스에 공유
+    results.sharing = shareRoleFolders(folderStructure);
     
     // 에러가 있으면 success를 false로 설정
     if (results.errors.length > 0) {
       results.success = false;
     }
+
+    clearSpreadsheetIdCache();
     
-    console.log('✅ 시스템 초기 세팅 완료');
+    logInfo_('InitialSetup', '시스템 초기 세팅 완료');
     return results;
     
   } catch (error) {
-    console.error('❌ 시스템 초기 세팅 오류:', error);
+    logError_('InitialSetup', '시스템 초기 세팅 오류:', error);
     return {
       success: false,
       message: '시스템 초기 세팅 중 오류가 발생했습니다: ' + error.message,
@@ -73,18 +78,109 @@ function initializeSystem() {
  * 루트 폴더 찾기 또는 생성
  * @returns {Object} 루트 폴더 객체
  */
+/**
+ * 역할 폴더 공유 대상 (학생 < 학생회 < 조교 ≈ 겸임교수 ≈ 교수)
+ * 각 폴더는 그 역할과 상위 역할 그룹스에 편집 권한으로 공유한다.
+ * 키는 폴더 이름, 값은 CONFIG의 그룹스 역할 키(getGroupEmailByRole)
+ */
+const ROLE_FOLDER_GROUPS_ = {
+  student: ['student', 'std_council', 'supp', 'ad_professor', 'professor'],
+  std_council: ['std_council', 'supp', 'ad_professor', 'professor'],
+  assistant: ['supp', 'ad_professor', 'professor'],
+  adj_professor: ['supp', 'ad_professor', 'professor'],
+  professor: ['supp', 'ad_professor', 'professor']
+};
+
+/**
+ * 역할 폴더에 그룹스 편집 권한 부여. 이미 있는 권한은 건너뛰어 다시 실행해도 중복되지 않는다.
+ * @param {Array} folderStructure - createFolderStructure 결과
+ * @returns {Array} 폴더별 부여 결과
+ */
+function shareRoleFolders(folderStructure) {
+  const results = [];
+  folderStructure.forEach(function(folder) {
+    const roles = ROLE_FOLDER_GROUPS_[folder.name];
+    if (!roles || folder.path.split('/').length !== 2) return;
+
+    const existing = listPermissions_(folder.id).map(function(p) {
+      return String(p.emailAddress || '').toLowerCase();
+    });
+    roles.forEach(function(role) {
+      const email = getGroupEmailByRole(role);
+      if (!email) {
+        results.push({ folder: folder.name, role: role, status: 'no_group_email' });
+        return;
+      }
+      if (existing.indexOf(email.toLowerCase()) !== -1) {
+        results.push({ folder: folder.name, email: email, status: 'exists' });
+        return;
+      }
+      try {
+        grantPermission_(folder.id, 'group', email, 'writer');
+        results.push({ folder: folder.name, email: email, status: 'granted' });
+      } catch (error) {
+        logError_('InitialSetup', '역할 폴더 공유 실패:', folder.name, email, error);
+        results.push({ folder: folder.name, email: email, status: 'failed', message: error.message });
+      }
+    });
+  });
+  return results;
+}
+
+/**
+ * 이미 설치된 환경에서 역할 폴더 공유만 다시 적용 (편집기에서 실행)
+ */
+function applyRoleFolderSharing() {
+  // 루트는 hp_member 부모 폴더로 자동 감지하고(캐시를 비워 새로 감지), 폴더를 새로 만들지 않는다.
+  clearSpreadsheetIdCache();
+  const rootId = getProjectRootFolderId_();
+  if (!rootId) throw new Error('루트 폴더를 찾을 수 없습니다. hp_member 위치를 확인하세요.');
+  const root = DriveApp.getFolderById(rootId);
+  const folders = [];
+  Object.keys(ROLE_FOLDER_GROUPS_).forEach(function(name) {
+    const found = root.getFoldersByName(name);
+    if (found.hasNext()) {
+      folders.push({ name: name, id: found.next().getId(), path: root.getName() + '/' + name });
+    } else {
+      console.warn('역할 폴더 없음: ' + name);
+    }
+  });
+  console.log('루트 폴더: ' + root.getName() + ' (' + rootId + ')');
+  const results = shareRoleFolders(folders);
+  // 편집기에서 직접 실행하는 함수라 로그 수준과 무관하게 결과를 출력한다.
+  console.log('역할 폴더 공유 결과:\n' + results.map(function(r) {
+    return [r.folder, r.email || r.role, r.status, r.message || ''].join(' | ');
+  }).join('\n'));
+  return results;
+}
+
+/**
+ * 이 스크립트가 붙어 있는 스프레드시트 (독립 스크립트면 null)
+ */
+function getBoundSpreadsheet_() {
+  try {
+    return SpreadsheetApp.getActiveSpreadsheet();
+  } catch (error) {
+    return null;
+  }
+}
+
 function getOrCreateRootFolder() {
   try {
+    // 이미 설치된 환경이면 hp_member 부모 폴더(없으면 ROOT_FOLDER_ID)를 그대로 쓴다.
+    const existingRootId = getProjectRootFolderId_();
+    if (existingRootId) return DriveApp.getFolderById(existingRootId);
+
+    // 처음 설치: 내 드라이브 최상위에서만 루트 폴더를 찾거나 만들고, 스크립트가 붙은 hp_member를 그 안으로 옮긴다.
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
-    const folders = DriveApp.getFoldersByName(rootFolderName);
-    
-    if (folders.hasNext()) {
-      return folders.next();
-    } else {
-      return DriveApp.createFolder(rootFolderName);
-    }
+    const folders = DriveApp.getRootFolder().getFoldersByName(rootFolderName);
+    const rootFolder = folders.hasNext() ? folders.next() : DriveApp.createFolder(rootFolderName);
+    const bound = getBoundSpreadsheet_();
+    if (bound) DriveApp.getFileById(bound.getId()).moveTo(rootFolder);
+    clearSpreadsheetIdCache();
+    return rootFolder;
   } catch (error) {
-    console.error('❌ 루트 폴더 생성 오류:', error);
+    logError_('InitialSetup', '루트 폴더 생성 오류:', error);
     throw error;
   }
 }
@@ -130,9 +226,9 @@ function createFolderStructure(rootFolder) {
       const folder = getOrCreateFolder(rootFolder, folderName);
       createdFolders[folderName] = folder;
       folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/${folderName}` });
-      console.log(`✅ 폴더 생성: ${folderName}`);
+      logInfo_('InitialSetup', `폴더 생성: ${folderName}`);
     } catch (error) {
-      console.error(`❌ 폴더 생성 실패: ${folderName}`, error);
+      logError_('InitialSetup', `폴더 생성 실패: ${folderName}`, error);
     }
   });
   
@@ -142,9 +238,9 @@ function createFolderStructure(rootFolder) {
       try {
         const folder = getOrCreateFolder(createdFolders['document'], folderName);
         folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/document/${folderName}` });
-        console.log(`✅ 폴더 생성: document/${folderName}`);
+        logInfo_('InitialSetup', `폴더 생성: document/${folderName}`);
       } catch (error) {
-        console.error(`❌ 폴더 생성 실패: document/${folderName}`, error);
+        logError_('InitialSetup', `폴더 생성 실패: document/${folderName}`, error);
       }
     });
   }
@@ -155,9 +251,9 @@ function createFolderStructure(rootFolder) {
       try {
         const folder = getOrCreateFolder(createdFolders['notice'], folderName);
         folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/notice/${folderName}` });
-        console.log(`✅ 폴더 생성: notice/${folderName}`);
+        logInfo_('InitialSetup', `폴더 생성: notice/${folderName}`);
       } catch (error) {
-        console.error(`❌ 폴더 생성 실패: notice/${folderName}`, error);
+        logError_('InitialSetup', `폴더 생성 실패: notice/${folderName}`, error);
       }
     });
   }
@@ -168,9 +264,9 @@ function createFolderStructure(rootFolder) {
       try {
         const folder = getOrCreateFolder(createdFolders['workflow'], folderName);
         folders.push({ name: folderName, id: folder.getId(), path: `${rootFolderName}/workflow/${folderName}` });
-        console.log(`✅ 폴더 생성: workflow/${folderName}`);
+        logInfo_('InitialSetup', `폴더 생성: workflow/${folderName}`);
       } catch (error) {
-        console.error(`❌ 폴더 생성 실패: workflow/${folderName}`, error);
+        logError_('InitialSetup', `폴더 생성 실패: workflow/${folderName}`, error);
       }
     });
   }
@@ -220,12 +316,19 @@ function createSpreadsheets(rootFolder, folderStructure) {
   
   rootSpreadsheets.forEach(config => {
     try {
+      // 스크립트가 붙은 스프레드시트가 있으면 그것을 hp_member로 쓴다 (같은 이름을 하나 더 만들지 않음).
+      const bound = config.name === 'hp_member' ? getBoundSpreadsheet_() : null;
+      if (bound) {
+        config.sheetConfigs.forEach(sheetConfig => ensureSheetWithHeaders(bound, sheetConfig.name, sheetConfig.headers));
+        results.push({ name: config.name, id: bound.getId(), created: false });
+        return;
+      }
       const result = createSpreadsheetInFolder(rootFolder, config.name, config.sheetConfigs);
       if (result) {
         results.push(result);
       }
     } catch (error) {
-      console.error(`❌ 스프레드시트 생성 실패: ${config.name}`, error);
+      logError_('InitialSetup', `스프레드시트 생성 실패: ${config.name}`, error);
     }
   });
   
@@ -239,7 +342,7 @@ function createSpreadsheets(rootFolder, folderStructure) {
       );
       if (result) results.push(result);
     } catch (error) {
-      console.error('❌ 스프레드시트 생성 실패: notice', error);
+      logError_('InitialSetup', '스프레드시트 생성 실패: notice', error);
     }
   }
   
@@ -253,7 +356,7 @@ function createSpreadsheets(rootFolder, folderStructure) {
       );
       if (result) results.push(result);
     } catch (error) {
-      console.error('❌ 스프레드시트 생성 실패: workflow', error);
+      logError_('InitialSetup', '스프레드시트 생성 실패: workflow', error);
     }
   }
   
@@ -267,7 +370,7 @@ function createSpreadsheets(rootFolder, folderStructure) {
       );
       if (result) results.push(result);
     } catch (error) {
-      console.error('❌ 스프레드시트 생성 실패: static_tag', error);
+      logError_('InitialSetup', '스프레드시트 생성 실패: static_tag', error);
     }
   }
   
@@ -289,10 +392,10 @@ function createSpreadsheets(rootFolder, folderStructure) {
         const result = createSpreadsheetInFolder(folder, config.name, config.sheetConfigs);
         if (result) results.push(result);
       } else {
-        console.warn(`⚠️ 폴더를 찾을 수 없음: ${config.folderPath}`);
+        logWarn_('InitialSetup', `폴더를 찾을 수 없음: ${config.folderPath}`);
       }
     } catch (error) {
-      console.error(`❌ 스프레드시트 생성 실패: ${config.name}`, error);
+      logError_('InitialSetup', `스프레드시트 생성 실패: ${config.name}`, error);
     }
   });
   
@@ -312,7 +415,7 @@ function createSpreadsheetInFolder(folder, spreadsheetName, sheetConfigs) {
   if (files.hasNext()) {
     const existingFile = files.next();
     if (existingFile.getMimeType() === MimeType.GOOGLE_SHEETS) {
-      console.log(`📊 스프레드시트 이미 존재: ${spreadsheetName}`);
+      logInfo_('InitialSetup', `스프레드시트 이미 존재: ${spreadsheetName}`);
       const spreadsheet = SpreadsheetApp.openById(existingFile.getId());
       // 시트 확인 및 생성
       sheetConfigs.forEach(config => {
@@ -323,7 +426,7 @@ function createSpreadsheetInFolder(folder, spreadsheetName, sheetConfigs) {
   }
   
   // 새 스프레드시트 생성
-  console.log(`📊 스프레드시트 생성 시작: ${spreadsheetName}`);
+  logInfo_('InitialSetup', `스프레드시트 생성 시작: ${spreadsheetName}`);
   const spreadsheet = SpreadsheetApp.create(spreadsheetName);
   const spreadsheetId = spreadsheet.getId();
   const spreadsheetFile = DriveApp.getFileById(spreadsheetId);
@@ -347,7 +450,7 @@ function createSpreadsheetInFolder(folder, spreadsheetName, sheetConfigs) {
     }
   }
   
-  console.log(`✅ 스프레드시트 생성 완료: ${spreadsheetName}`);
+  logInfo_('InitialSetup', `스프레드시트 생성 완료: ${spreadsheetName}`);
   return { name: spreadsheetName, id: spreadsheetId, created: true };
 }
 
@@ -361,10 +464,10 @@ function ensureSheetWithHeaders(spreadsheet, sheetName, headers) {
   let sheet = spreadsheet.getSheetByName(sheetName);
   
   if (!sheet) {
-    console.log(`📄 시트 생성: ${sheetName}`);
+    logInfo_('InitialSetup', `시트 생성: ${sheetName}`);
     sheet = spreadsheet.insertSheet(sheetName);
   } else {
-    console.log(`📄 시트 확인: ${sheetName}`);
+    logInfo_('InitialSetup', `시트 확인: ${sheetName}`);
   }
   
   // 헤더 설정
@@ -389,9 +492,9 @@ function ensureSheetWithHeaders(spreadsheet, sheetName, headers) {
       headerRange.setValues([headers]);
       headerRange.setFontWeight('bold');
       sheet.setFrozenRows(1);
-      console.log(`✅ 헤더 설정 완료: ${sheetName}`);
+      logInfo_('InitialSetup', `헤더 설정 완료: ${sheetName}`);
     } else {
-      console.log(`✅ 헤더 이미 설정됨: ${sheetName}`);
+      logInfo_('InitialSetup', `헤더 이미 설정됨: ${sheetName}`);
     }
   }
 }
@@ -662,11 +765,11 @@ function getSharedDocumentFolderName() {
   if (!folderName) {
     const shardValue = properties.getProperty('SHARD_DOCUMENT_FOLDER_NAME');
     if (shardValue) {
-      console.log('🔧 오타 수정: SHARD_DOCUMENT_FOLDER_NAME -> SHARED_DOCUMENT_FOLDER_NAME');
+      logInfo_('InitialSetup', '오타 수정: SHARD_DOCUMENT_FOLDER_NAME -> SHARED_DOCUMENT_FOLDER_NAME');
       properties.setProperty('SHARED_DOCUMENT_FOLDER_NAME', shardValue);
       properties.deleteProperty('SHARD_DOCUMENT_FOLDER_NAME');
       folderName = shardValue;
-      console.log(`✅ 오타 수정 완료: SHARED_DOCUMENT_FOLDER_NAME = ${shardValue}`);
+      logInfo_('InitialSetup', `오타 수정 완료: SHARED_DOCUMENT_FOLDER_NAME = ${shardValue}`);
     }
   }
   
@@ -681,16 +784,16 @@ function getSharedDocumentFolderName() {
  */
 function setScriptProperties(rootFolderId, spreadsheetResults) {
   try {
-    console.log('⚙️ 스크립트 속성 설정 시작');
+    logInfo_('InitialSetup', '스크립트 속성 설정 시작');
     const properties = PropertiesService.getScriptProperties();
     
     // 오타 수정: SHARD_DOCUMENT_FOLDER_NAME -> SHARED_DOCUMENT_FOLDER_NAME (먼저 실행)
     const shardValue = properties.getProperty('SHARD_DOCUMENT_FOLDER_NAME');
     if (shardValue) {
-      console.log('🔧 오타 수정: SHARD_DOCUMENT_FOLDER_NAME -> SHARED_DOCUMENT_FOLDER_NAME');
+      logInfo_('InitialSetup', '오타 수정: SHARD_DOCUMENT_FOLDER_NAME -> SHARED_DOCUMENT_FOLDER_NAME');
       properties.setProperty('SHARED_DOCUMENT_FOLDER_NAME', shardValue);
       properties.deleteProperty('SHARD_DOCUMENT_FOLDER_NAME');
-      console.log(`✅ 오타 수정 완료: SHARED_DOCUMENT_FOLDER_NAME = ${shardValue}`);
+      logInfo_('InitialSetup', `오타 수정 완료: SHARED_DOCUMENT_FOLDER_NAME = ${shardValue}`);
     }
     
     const propertiesToSet = {
@@ -722,7 +825,7 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
       // 워크플로우 설정
       'WORKFLOW_SPREADSHEET_NAME': 'workflow',
       
-      // 그룹스 워크스페이스 자동 멤버 추가용 (.env VITE_GROUP_EMAIL과 동일 JSON)
+      // 그룹스 이메일 (기관마다 다름. 프론트 VITE_GROUP_EMAIL과 같은 값으로 맞춘다)
       'GROUP_EMAIL_JSON': '{"STUDENT":"student_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","ADJ_PROFESSOR":"adj_professor_hp@googlegroups.com","ASSISTANT":"assistant_hp@googlegroups.com"}'
     };
     
@@ -734,37 +837,31 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
       if (!existingValue) {
         properties.setProperty(key, value);
         setProperties[key] = value;
-        console.log('✅ 스크립트 속성 설정: ' + key + ' = ' + value);
+        logInfo_('InitialSetup', '스크립트 속성 설정:', key);
       } else {
-        console.log('ℹ️ 스크립트 속성 이미 존재: ' + key + ' = ' + existingValue);
+        logInfo_('InitialSetup', '스크립트 속성 이미 존재:', key);
         setProperties[key] = existingValue;
       }
     }
     
-    // ROOT_FOLDER_ID 설정 (SpreadsheetUtils에서 루트 폴더 탐색용)
-    if (rootFolderId) {
-      const existingRootId = properties.getProperty('ROOT_FOLDER_ID');
-      if (!existingRootId) {
-        properties.setProperty('ROOT_FOLDER_ID', rootFolderId);
-        setProperties['ROOT_FOLDER_ID'] = rootFolderId;
-        console.log('✅ ROOT_FOLDER_ID 설정: ' + rootFolderId);
+    // ROOT_FOLDER_ID, SPREADSHEET_ID는 이번 실행에서 실제로 쓴 루트 폴더와 hp_member로 항상 맞춘다.
+    // (예전 설치에서 남은 값이 그대로 남아 다른 폴더를 가리키는 일을 막는다)
+    const linkProperty = function(key, value) {
+      const previous = properties.getProperty(key);
+      if (previous !== value) {
+        properties.setProperty(key, value);
+        if (previous) logWarn_('InitialSetup', key + ' 갱신:', previous, '->', value);
       }
-    }
+      setProperties[key] = value;
+    };
+    if (rootFolderId) linkProperty('ROOT_FOLDER_ID', rootFolderId);
+    const hpMember = Array.isArray(spreadsheetResults)
+      ? spreadsheetResults.find(function(r) { return r.name === 'hp_member'; })
+      : null;
+    if (hpMember && hpMember.id) linkProperty('SPREADSHEET_ID', hpMember.id);
+    clearSpreadsheetIdCache();
     
-    // SPREADSHEET_ID 설정 (hp_member - getHpMemberSpreadsheet에서 사용)
-    if (spreadsheetResults && Array.isArray(spreadsheetResults)) {
-      const hpMember = spreadsheetResults.find(function(r) { return r.name === 'hp_member'; });
-      if (hpMember && hpMember.id) {
-        const existingSpreadsheetId = properties.getProperty('SPREADSHEET_ID');
-        if (!existingSpreadsheetId) {
-          properties.setProperty('SPREADSHEET_ID', hpMember.id);
-          setProperties['SPREADSHEET_ID'] = hpMember.id;
-          console.log('✅ SPREADSHEET_ID (hp_member) 설정: ' + hpMember.id);
-        }
-      }
-    }
-    
-    console.log('✅ 스크립트 속성 설정 완료');
+    logInfo_('InitialSetup', '스크립트 속성 설정 완료');
     return {
       success: true,
       set: setProperties,
@@ -772,7 +869,7 @@ function setScriptProperties(rootFolderId, spreadsheetResults) {
     };
     
   } catch (error) {
-    console.error('❌ 스크립트 속성 설정 오류:', error);
+    logError_('InitialSetup', '스크립트 속성 설정 오류:', error);
     return {
       success: false,
       message: '스크립트 속성 설정 중 오류가 발생했습니다: ' + error.message

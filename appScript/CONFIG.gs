@@ -121,18 +121,6 @@
     'testAllAppScript'
     ];
 
-    // ===== 로깅 설정 =====
-    // 로그 레벨
-    const LOG_LEVELS = {
-    INFO: 'INFO',
-    WARNING: 'WARNING',
-    ERROR: 'ERROR',
-    DEBUG: 'DEBUG'
-    };
-
-    // 로그 출력 여부
-    const ENABLE_LOGGING = true;
-
     // ===== 성능 설정 =====
     // 캐시 만료 시간 (분)
     const CACHE_EXPIRY_MINUTES = 1; // 1분으로 단축하여 실시간성 향상
@@ -166,8 +154,6 @@
         'user_sheet_columns': USER_SHEET_COLUMNS,
         'user_sheet_headers': USER_SHEET_HEADERS,
         'supported_actions': SUPPORTED_ACTIONS,
-        'log_levels': LOG_LEVELS,
-        'enable_logging': ENABLE_LOGGING,
         // 'cache_expiry_minutes': CACHE_EXPIRY_MINUTES, // 캐시 사용 안함
         'batch_size': BATCH_SIZE,
         'max_retry_attempts': MAX_RETRY_ATTEMPTS,
@@ -181,7 +167,7 @@
     function setSpreadsheetId(id) {
     if (id && typeof id === 'string' && id.trim()) {
         PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', id.trim());
-        console.log('스프레드시트 ID가 스크립트 속성에 설정되었습니다:', id.trim());
+        logDebug_('CONFIG', '스프레드시트 ID가 스크립트 속성에 설정되었습니다:', id.trim());
         return true;
     }
     return false;
@@ -220,40 +206,33 @@
 
     // 설정 초기화
     function initializeConfig() {
-    console.log('=== 설정 초기화 시작 ===');
     
     const validation = validateConfig();
     if (!validation.isValid) {
-        console.error('설정 검증 실패:', validation.errors);
+        logError_('CONFIG', '설정 검증 실패:', validation.errors);
         return false;
     }
-    
-    console.log('설정 검증 성공');
-    console.log('스프레드시트 ID:', getSpreadsheetId());
-    console.log('암호화 방법 수:', ENCRYPTION_METHODS.length);
-    console.log('레이어 설정:', LAYER_CONFIG);
+    logDebug_('CONFIG', '스프레드시트 ID:', getSpreadsheetId());
+    logDebug_('CONFIG', '암호화 방법 수:', ENCRYPTION_METHODS.length);
+    logDebug_('CONFIG', '레이어 설정:', LAYER_CONFIG);
     
     return true;
     }
 
     // 설정 정보 출력
     function printConfig() {
-    console.log('=== 현재 설정 ===');
-    console.log('스프레드시트 ID:', getSpreadsheetId());
-    console.log('시트 이름:', SHEET_NAMES);
-    console.log('암호화 방법:', ENCRYPTION_METHODS);
-    console.log('레이어 설정:', LAYER_CONFIG);
-    console.log('KST 오프셋:', KST_OFFSET);
-    console.log('키 만료 시간:', KEY_EXPIRY_HOURS, '시간');
-    console.log('이메일 암호화 사용:', USE_EMAIL_ENCRYPTION);
-    console.log('승인 상태:', APPROVAL_STATUS);
-    console.log('관리자 상태:', ADMIN_STATUS);
-    console.log('지원 액션:', SUPPORTED_ACTIONS);
-    console.log('로깅 활성화:', ENABLE_LOGGING);
-    console.log('캐시 만료 시간:', CACHE_EXPIRY_MINUTES, '분');
-    console.log('배치 크기:', BATCH_SIZE);
-    console.log('최대 재시도:', MAX_RETRY_ATTEMPTS);
-    console.log('타임아웃:', TIMEOUT_MS, 'ms');
+    logDebug_('CONFIG', '스프레드시트 ID:', getSpreadsheetId());
+    logDebug_('CONFIG', '시트 이름:', SHEET_NAMES);
+    logDebug_('CONFIG', '암호화 방법:', ENCRYPTION_METHODS);
+    logDebug_('CONFIG', '레이어 설정:', LAYER_CONFIG);
+    logDebug_('CONFIG', 'KST 오프셋:', KST_OFFSET);
+    logDebug_('CONFIG', '승인 상태:', APPROVAL_STATUS);
+    logDebug_('CONFIG', '관리자 상태:', ADMIN_STATUS);
+    logDebug_('CONFIG', '지원 액션:', SUPPORTED_ACTIONS);
+    logDebug_('CONFIG', '캐시 만료 시간:', CACHE_EXPIRY_MINUTES, '분');
+    logDebug_('CONFIG', '배치 크기:', BATCH_SIZE);
+    logDebug_('CONFIG', '최대 재시도:', MAX_RETRY_ATTEMPTS);
+    logDebug_('CONFIG', '타임아웃:', TIMEOUT_MS, 'ms');
     }
 
     // 환경별 설정
@@ -289,10 +268,10 @@
     const validEnvironments = ['development', 'staging', 'production'];
     if (validEnvironments.includes(env)) {
         PropertiesService.getScriptProperties().setProperty('ENVIRONMENT', env);
-        console.log('환경이 설정되었습니다:', env);
+        logDebug_('CONFIG', '환경이 설정되었습니다:', env);
         return true;
     }
-    console.error('유효하지 않은 환경:', env);
+    logError_('CONFIG', '유효하지 않은 환경:', env);
     return false;
     }
 
@@ -303,11 +282,11 @@
     const validMethods = getConfig('encryption_methods');
     if (validMethods && validMethods.includes(method)) {
         PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_METHOD', method);
-        console.log('이메일 암호화 방법이 설정되었습니다:', method);
+        emailEncryptionConfigMemo_ = null;
         return true;
     }
-    console.error('유효하지 않은 암호화 방법:', method);
-    console.log('사용 가능한 방법들:', validMethods);
+    logError_('CONFIG', '유효하지 않은 암호화 방법');
+    logDebug_('CONFIG', '사용 가능한 방법들:', validMethods);
     return false;
     }
 
@@ -315,10 +294,10 @@
     function setEmailEncryptionLayers(layers) {
     if (layers && layers >= 1 && layers <= 5) {
         PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_LAYERS', layers.toString());
-        console.log('이메일 암호화 레이어 수가 설정되었습니다:', layers);
+        emailEncryptionConfigMemo_ = null;
         return true;
     }
-    console.error('유효하지 않은 레이어 수:', layers, '(1-5 범위)');
+    logError_('CONFIG', '유효하지 않은 레이어 수:', layers, '(1-5 범위)');
     return false;
     }
 
@@ -329,32 +308,36 @@
         const invalidMethods = methods.filter(method => !validMethods.includes(method));
         if (invalidMethods.length === 0) {
         PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_LAYER_METHODS', JSON.stringify(methods));
-        console.log('이메일 암호화 레이어 방법들이 설정되었습니다:', methods);
+        emailEncryptionConfigMemo_ = null;
         return true;
         } else {
-        console.error('유효하지 않은 암호화 방법들:', invalidMethods);
-        console.log('사용 가능한 방법들:', validMethods);
+        logError_('CONFIG', '유효하지 않은 암호화 방법들');
+        logDebug_('CONFIG', '사용 가능한 방법들:', validMethods);
         return false;
         }
     }
-    console.error('유효하지 않은 방법 배열:', methods);
+    logError_('CONFIG', '유효하지 않은 방법 배열:', methods);
     return false;
     }
 
     // 현재 이메일 암호화 설정 가져오기
     function getCurrentEmailEncryptionConfig() {
-    const storedMethod = PropertiesService.getScriptProperties().getProperty('EMAIL_ENCRYPTION_METHOD');
-    const storedLayers = PropertiesService.getScriptProperties().getProperty('EMAIL_ENCRYPTION_LAYERS');
-    const storedLayerMethods = PropertiesService.getScriptProperties().getProperty('EMAIL_ENCRYPTION_LAYER_METHODS');
+    if (emailEncryptionConfigMemo_) return emailEncryptionConfigMemo_;
+
+    const properties = PropertiesService.getScriptProperties().getProperties();
+    const storedMethod = properties.EMAIL_ENCRYPTION_METHOD;
+    const storedLayers = properties.EMAIL_ENCRYPTION_LAYERS;
+    const storedLayerMethods = properties.EMAIL_ENCRYPTION_LAYER_METHODS;
     
     const defaultConfig = getConfig('email_encryption_config');
     
-    return {
+    emailEncryptionConfigMemo_ = {
         method: storedMethod || defaultConfig.METHOD,
         layers: storedLayers ? parseInt(storedLayers) : defaultConfig.LAYERS,
         layerMethods: storedLayerMethods ? JSON.parse(storedLayerMethods) : defaultConfig.LAYER_METHODS,
         identificationPatterns: defaultConfig.IDENTIFICATION_PATTERNS
     };
+    return emailEncryptionConfigMemo_;
     }
 
     // 이메일 암호화 설정 초기화
@@ -369,19 +352,14 @@
     PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_METHOD', defaultConfig.METHOD);
     PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_LAYERS', defaultConfig.LAYERS.toString());
     PropertiesService.getScriptProperties().setProperty('EMAIL_ENCRYPTION_LAYER_METHODS', JSON.stringify(defaultConfig.LAYER_METHODS));
+    emailEncryptionConfigMemo_ = null;
     
     // 초기화 후 검증
     const validation = validateEmailEncryptionConfig();
     if (!validation.isValid) {
-      console.error('초기화 후 검증 실패:', validation.errors);
-      // 검증 실패해도 초기화는 성공으로 간주 (기본값으로 설정됨)
-      console.log('기본값으로 초기화 완료');
+      logError_('CONFIG', '초기화 후 검증 실패:', validation.errors);
       return true;
     }
-    
-    console.log('초기화 후 검증 성공');
-    
-    console.log('이메일 암호화 설정이 초기화되었습니다');
     return true;
     }
 
@@ -601,7 +579,7 @@
             }
             return Object.keys(result).length > 0 ? result : null;
         } catch (e) {
-            console.warn('GROUP_EMAIL_JSON 파싱 실패:', e);
+            logWarn_('CONFIG', 'GROUP_EMAIL_JSON 파싱 실패');
             return null;
         }
     }
@@ -628,3 +606,5 @@
     function getGroupNameByRole(role) {
         return GROUP_ROLE_MAPPING[role]?.name || '알 수 없는 그룹스';
     }
+var emailEncryptionConfigMemo_ = null;
+

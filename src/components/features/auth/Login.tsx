@@ -357,17 +357,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               >
                 취업관리 (로그인 없이 입력)
               </button>
-              <div className="login-legal-links" role="navigation" aria-label="약관">
-                <a className="login-legal-link" href="/privacy.html">
-                  개인정보처리방침
-                </a>
-                <span className="login-legal-sep" aria-hidden>
-                  ·
-                </span>
-                <a className="login-legal-link" href="/terms.html">
-                  이용약관
-                </a>
-              </div>
+              <p className="login-service-intro">
+                학과 공지, 학사 일정, 문서와 결재, 회계 장부, 구성원 정보를 한곳에서 관리하는 학과 업무 서비스입니다.
+                Google 계정으로 로그인하면 학과가 공유한 스프레드시트와 캘린더를 이 화면에서 바로 사용할 수 있습니다.
+              </p>
+              <nav className="login-policy-links">
+                <a href="/about.html">서비스 소개</a>
+                <a href="/privacy.html">개인정보처리방침</a>
+                <a href="/terms.html">이용약관</a>
+              </nav>
             </div>
           ) : loginState.showRegistrationForm ? (
           <div className="signup-section">

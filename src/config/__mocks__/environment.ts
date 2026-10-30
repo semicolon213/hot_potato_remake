@@ -1,3 +1,6 @@
+import { logger } from '../../utils/logger';
+
+const log = logger.scope('config/__mocks__/environment');
 /**
  * @file environment.ts (Mock)
  * @brief Jest 테스트 환경용 환경변수 모킹 파일
@@ -60,6 +63,6 @@ export const ENV_CONFIG = {
 } as const;
 
 export const validateEnvironmentVariables = (): boolean => {
-  console.log('✅ 모든 필수 환경변수가 설정되었습니다. (Mock)');
+  log.debug('모든 필수 환경변수가 설정되었습니다. (Mock)');
   return true;
 };

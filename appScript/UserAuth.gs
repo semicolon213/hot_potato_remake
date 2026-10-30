@@ -13,7 +13,6 @@
  */
 function getUserNameByEmail(email) {
   try {
-    console.log('👤 이메일로 사용자 이름 조회 시작:', email);
     
     if (!email) {
       return {
@@ -38,7 +37,6 @@ function getUserNameByEmail(email) {
     const data = getSheetData(spreadsheetId, sheetName, 'A:G');  // G열까지 포함
     
     if (!data || data.length <= 1) {
-      console.log('👤 사용자 데이터가 없습니다.');
       return {
         success: true,
         name: email,  // 이름을 찾을 수 없으면 이메일 반환
@@ -47,7 +45,7 @@ function getUserNameByEmail(email) {
     }
     
     const header = data[0];
-    console.log('👤 스프레드시트 헤더:', header);
+    logDebug_('UserAuth', '스프레드시트 헤더:', header);
     
     const users = data.slice(1).map(row => {
       const user = {};
@@ -57,19 +55,14 @@ function getUserNameByEmail(email) {
       return user;
     });
     
-    console.log('👤 전체 사용자 수:', users.length);
-    console.log('👤 첫 번째 사용자 샘플:', users[0]);
+    logDebug_('UserAuth', '전체 사용자 수:', users.length);
     
     // 암호화된 이메일로 비교 (신규 다중레이어 + 기존 Base64 호환)
     const encryptedVariants = getEncryptedEmailsForLookup(email);
-    console.log('👤 원본 이메일:', email);
-    console.log('👤 암호화 변형:', encryptedVariants.length);
     
     const user = users.find(u => encryptedVariants.includes(u.google_member));
     
     if (!user) {
-      console.log('👤 해당 이메일의 사용자를 찾을 수 없습니다.');
-      console.log('👤 사용 가능한 google_member 값들:', users.map(u => u.google_member).slice(0, 3));
       return {
         success: true,
         name: email,  // 사용자를 찾을 수 없으면 이메일 반환
@@ -80,8 +73,6 @@ function getUserNameByEmail(email) {
     // 사용자 이름 반환 (name_member 컬럼 사용)
     const userName = user.name_member || user.name || user.Name || user.username || user.Username || email;
     
-    console.log('👤 사용자 이름 조회 성공:', email, '->', userName);
-    
     return {
       success: true,
       name: userName,
@@ -90,7 +81,7 @@ function getUserNameByEmail(email) {
     };
     
   } catch (error) {
-    console.error('👤 사용자 이름 조회 오류:', error);
+    logError_('UserAuth', '사용자 이름 조회 오류:', error);
     return {
       success: false,
       message: '사용자 이름 조회 중 오류가 발생했습니다: ' + error.message,
@@ -106,7 +97,6 @@ function getUserNameByEmail(email) {
  */
 function checkUserStatus(email) {
   try {
-    console.log('👤 사용자 상태 확인 시작:', email);
     
     if (!email) {
       return {
@@ -202,7 +192,7 @@ function checkUserStatus(email) {
     };
     
   } catch (error) {
-    console.error('👤 사용자 상태 확인 오류:', error);
+    logError_('UserAuth', '사용자 상태 확인 오류:', error);
     return {
       success: false,
       message: '사용자 상태 확인 중 오류가 발생했습니다: ' + error.message
@@ -245,7 +235,7 @@ function getCurrentAdminKey() {
       }
     }
   } catch (configError) {
-    console.warn('⚠️ getConfig(admin_key) 조회 실패:', configError);
+    logWarn_('UserAuth', 'getConfig(admin_key) 조회 실패');
   }
 
   // 2) admin_keys 시트 fallback
@@ -264,7 +254,7 @@ function getCurrentAdminKey() {
     const value = sheet.getRange('A2').getValue();
     return value ? String(value).trim() : '';
   } catch (sheetError) {
-    console.warn('⚠️ admin_keys 시트 조회 실패:', sheetError);
+    logWarn_('UserAuth', 'admin_keys 시트 조회 실패');
     return '';
   }
 }
@@ -328,7 +318,7 @@ function getCurrentAdminKeyForUse() {
 
     return { plainKey: decryptedKey, rawKey: keyFromSheet, layersUsed: layerArray.join(', ') };
   } catch (error) {
-    console.warn('⚠️ 관리자 키 복호화 조회 실패:', error);
+    logWarn_('UserAuth', '관리자 키 복호화 조회 실패');
     return { plainKey: '', rawKey: rawKey, layersUsed: '' };
   }
 }
@@ -340,7 +330,6 @@ function getCurrentAdminKeyForUse() {
  */
 function verifyAdminKey(adminKey) {
   try {
-    console.log('🔐 관리자 키 검증 시작');
     
     if (!adminKey) {
       return {
@@ -367,7 +356,7 @@ function verifyAdminKey(adminKey) {
     }
     
   } catch (error) {
-    console.error('🔐 관리자 키 검증 오류:', error);
+    logError_('UserAuth', '관리자 키 검증 오류');
     return {
       success: false,
       message: '관리자 키 검증 중 오류가 발생했습니다: ' + error.message
@@ -382,7 +371,6 @@ function verifyAdminKey(adminKey) {
  */
 function sendAdminKeyEmail(userEmail) {
   try {
-    console.log('📧 관리자 키 이메일 전송 시작:', userEmail);
     
     if (!userEmail) {
       return {
@@ -421,14 +409,13 @@ Hot Potato 시스템
     
     try {
       GmailApp.sendEmail(userEmail, subject, body);
-      console.log('📧 관리자 키 이메일 전송 완료');
       
       return {
         success: true,
         message: '관리자 키가 이메일로 전송되었습니다.'
       };
     } catch (emailError) {
-      console.error('📧 이메일 전송 오류:', emailError);
+      logError_('UserAuth', '이메일 전송 오류');
       return {
         success: false,
         message: '이메일 전송에 실패했습니다: ' + emailError.message
@@ -436,7 +423,7 @@ Hot Potato 시스템
     }
     
   } catch (error) {
-    console.error('📧 관리자 키 이메일 전송 오류:', error);
+    logError_('UserAuth', '관리자 키 이메일 전송 오류');
     return {
       success: false,
       message: '관리자 키 이메일 전송 중 오류가 발생했습니다: ' + error.message
@@ -452,7 +439,6 @@ Hot Potato 시스템
  */
 function validateUserSession(email, sessionToken) {
   try {
-    console.log('🔐 사용자 세션 검증 시작:', email);
     
     if (!email || !sessionToken) {
       return {
@@ -477,7 +463,7 @@ function validateUserSession(email, sessionToken) {
     }
     
   } catch (error) {
-    console.error('🔐 사용자 세션 검증 오류:', error);
+    logError_('UserAuth', '사용자 세션 검증 오류:', error);
     return {
       success: false,
       message: '세션 검증 중 오류가 발생했습니다: ' + error.message
@@ -499,7 +485,7 @@ function generateSessionToken(email) {
     // Base64 인코딩
     return Utilities.base64Encode(token);
   } catch (error) {
-    console.error('세션 토큰 생성 오류:', error);
+    logError_('UserAuth', '세션 토큰 생성 오류');
     return '';
   }
 }
@@ -512,7 +498,6 @@ function generateSessionToken(email) {
  */
 function checkUserPermission(email, requiredRole) {
   try {
-    console.log('🔐 사용자 권한 확인 시작:', email, requiredRole);
     
     if (!email || !requiredRole) {
       return {
@@ -545,7 +530,7 @@ function checkUserPermission(email, requiredRole) {
     };
     
   } catch (error) {
-    console.error('🔐 사용자 권한 확인 오류:', error);
+    logError_('UserAuth', '사용자 권한 확인 오류:', error);
     return {
       success: false,
       message: '권한 확인 중 오류가 발생했습니다: ' + error.message

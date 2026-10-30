@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import React, { useState, useEffect } from "react";
 import "../styles/pages/Dashboard.css";
 import WidgetGrid from "../components/features/dashboard/WidgetGrid";
@@ -5,6 +6,8 @@ import AddWidgetModal from "../components/features/dashboard/AddWidgetModal";
 import SheetSelectionModal from "../components/ui/SheetSelectionModal";
 import type { User } from '../../types/app';
 import { useWidgetManagement } from "../hooks/features/dashboard/useWidgetManagement";
+const log = logger.scope('pages/Dashboard');
+
 
 interface DashboardProps {
   user: User | null;
@@ -41,8 +44,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   } = useWidgetManagement(hotPotatoDBSpreadsheetId, user);
 
   useEffect(() => {
-    console.log("Dashboard 컴포넌트가 마운트되었습니다.");
-    console.log("현재 위젯 개수:", widgets.length);
+    log.debug("Dashboard 컴포넌트가 마운트되었습니다.");
+    log.debug("현재 위젯 개수:", widgets.length);
     
     if (widgets.length > 0 || !hotPotatoDBSpreadsheetId) {
       const timer = setTimeout(() => {

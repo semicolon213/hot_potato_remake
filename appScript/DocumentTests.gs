@@ -10,7 +10,6 @@
  * 문서 생성 테스트
  */
 function testDocumentCreation() {
-  console.log('🧪 문서 생성 테스트 시작');
   
   const testReq = {
     title: '테스트 문서',
@@ -21,7 +20,6 @@ function testDocumentCreation() {
   };
   
   const result = DocumentCreation.handleCreateDocument(testReq);
-  console.log('🧪 문서 생성 테스트 결과:', result);
   
   return result;
 }
@@ -30,10 +28,8 @@ function testDocumentCreation() {
  * 폴더 생성 테스트
  */
 function testFolderCreation() {
-  console.log('🧪 폴더 생성 테스트 시작');
   
   const folder = DocumentFolder.findOrCreateFolder('hot_potato_remake/document');
-  console.log('🧪 폴더 생성 테스트 결과:', folder);
   
   return folder;
 }
@@ -42,7 +38,6 @@ function testFolderCreation() {
  * 빈 문서 템플릿 테스트
  */
 function testEmptyDocumentTemplate() {
-  console.log('🧪 빈 문서 템플릿 테스트 시작');
   
   const testReq = {
     title: '테스트 빈 문서',
@@ -53,7 +48,6 @@ function testEmptyDocumentTemplate() {
   };
   
   const result = DocumentCreation.handleCreateDocument(testReq);
-  console.log('🧪 빈 문서 템플릿 테스트 결과:', result);
   
   return result;
 }
@@ -62,7 +56,6 @@ function testEmptyDocumentTemplate() {
  * 기본 템플릿 테스트
  */
 function testDefaultTemplate() {
-  console.log('🧪 기본 템플릿 테스트 시작');
   
   const testReq = {
     title: '테스트 회의록',
@@ -73,7 +66,6 @@ function testDefaultTemplate() {
   };
   
   const result = DocumentCreation.handleCreateDocument(testReq);
-  console.log('🧪 기본 템플릿 테스트 결과:', result);
   
   return result;
 }
@@ -82,12 +74,11 @@ function testDefaultTemplate() {
  * Drive API 연결 테스트
  */
 function testDriveApiConnection() {
-  console.log('🔧 Drive API 연결 테스트 시작');
   
   try {
     // Drive API 사용 가능 여부 확인
     if (typeof Drive === 'undefined') {
-      console.error('❌ Drive API가 정의되지 않았습니다');
+      logError_('DocumentTests', 'Drive API가 정의되지 않았습니다');
       return {
         success: false,
         message: 'Drive API가 활성화되지 않았습니다. Google Apps Script에서 Drive API를 활성화해주세요.',
@@ -95,19 +86,17 @@ function testDriveApiConnection() {
       };
     }
     
-    console.log('✅ Drive API 사용 가능');
+    logDebug_('DocumentTests', 'Drive API 사용 가능');
     
     // 간단한 API 호출 테스트
     const testQuery = "mimeType='application/vnd.google-apps.folder' and trashed=false";
-    console.log('🔧 테스트 쿼리:', testQuery);
+    logDebug_('DocumentTests', '테스트 쿼리:', testQuery);
     
     const result = Drive.Files.list({
       q: testQuery,
       fields: 'files(id,name)',
       maxResults: 1
     });
-    
-    console.log('✅ Drive API 호출 성공:', result);
     
     return {
       success: true,
@@ -117,7 +106,7 @@ function testDriveApiConnection() {
     };
     
   } catch (error) {
-    console.error('❌ Drive API 테스트 실패:', error);
+    logError_('DocumentTests', 'Drive API 테스트 실패:', error);
     return {
       success: false,
       message: 'Drive API 테스트 실패: ' + error.message,
@@ -131,7 +120,6 @@ function testDriveApiConnection() {
  * 문서 권한 테스트
  */
 function testDocumentPermissions() {
-  console.log('🧪 문서 권한 테스트 시작');
   
   try {
     // 테스트 문서 생성
@@ -156,7 +144,7 @@ function testDocumentPermissions() {
     try {
       Drive.Files.remove(documentId);
     } catch (deleteError) {
-      console.warn('테스트 문서 삭제 실패:', deleteError);
+      logWarn_('DocumentTests', '테스트 문서 삭제 실패:', deleteError);
     }
     
     return {
@@ -167,7 +155,7 @@ function testDocumentPermissions() {
     };
     
   } catch (error) {
-    console.error('🧪 문서 권한 테스트 오류:', error);
+    logError_('DocumentTests', '문서 권한 테스트 오류:', error);
     return {
       success: false,
       message: '문서 권한 테스트 실패: ' + error.message
@@ -179,7 +167,6 @@ function testDocumentPermissions() {
  * 스프레드시트 연동 테스트
  */
 function testSpreadsheetIntegration() {
-  console.log('🧪 스프레드시트 연동 테스트 시작');
   
   try {
     // 테스트 문서 생성
@@ -211,7 +198,7 @@ function testSpreadsheetIntegration() {
     try {
       Drive.Files.remove(documentId);
     } catch (deleteError) {
-      console.warn('테스트 문서 삭제 실패:', deleteError);
+      logWarn_('DocumentTests', '테스트 문서 삭제 실패:', deleteError);
     }
     
     return {
@@ -222,7 +209,7 @@ function testSpreadsheetIntegration() {
     };
     
   } catch (error) {
-    console.error('🧪 스프레드시트 연동 테스트 오류:', error);
+    logError_('DocumentTests', '스프레드시트 연동 테스트 오류:', error);
     return {
       success: false,
       message: '스프레드시트 연동 테스트 실패: ' + error.message
@@ -234,7 +221,6 @@ function testSpreadsheetIntegration() {
  * 전체 통합 테스트
  */
 function testFullIntegration() {
-  console.log('🧪 전체 통합 테스트 시작');
   
   const results = {
     driveApi: testDriveApiConnection(),
@@ -245,8 +231,6 @@ function testFullIntegration() {
   };
   
   const allSuccess = Object.values(results).every(result => result.success);
-  
-  console.log('🧪 전체 통합 테스트 결과:', results);
   
   return {
     success: allSuccess,

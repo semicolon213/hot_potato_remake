@@ -191,6 +191,12 @@ npm run dev:web        # http://localhost:5173
 - 로컬 개발: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)
 - 백엔드부터 새로 세팅하기(Google Cloud, Apps Script, 초기 세팅, Netlify): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
+### 쉬운 설치 (브랜치 `feature/easy-setup`)
+
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/semicolon213/hot_potato_remake)
+
+버튼을 눌러 저장소를 복제하고 `VITE_APP_SCRIPT_URL`, `VITE_GOOGLE_CLIENT_ID`, 기관별 `VITE_GROUP_EMAIL`을 입력하면 웹 앱을 배포할 수 있습니다. Apps Script 백엔드를 먼저 만들려면 [`install/index.html`](./install/index.html)을 정적 서버에서 열고, `install/config.js`에 설치용 OAuth 클라이언트 ID를 설정하세요. 배포 후 사이트의 `/setup`에서 연결 상태를 확인합니다. 설계는 [docs/EASY_SETUP_DESIGN.md](docs/EASY_SETUP_DESIGN.md)에 있습니다.
+
 ## 아쉬운 점과 앞으로 할 것
 
 - **KPI 기준값이 없습니다.** 아날로그 방식이라 도입 전 수치가 없어서, 결재 처리 시간·증빙 첨부율 같은 지표를 시스템 로그로 측정하고 첫 학기 값을 기준으로 삼기로 했습니다.

@@ -1,3 +1,5 @@
+import { toCalendarRole } from '../../../../utils/helpers/calendarRole';
+import { logger } from '../../../../utils/logger';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import useCalendarContext, { type Event } from '../../../../hooks/features/calendar/useCalendarContext.ts';
@@ -9,6 +11,8 @@ import CustomDatePicker from './CustomDatePicker';
 import CustomTimePicker from './CustomTimePicker';
 import { apiClient } from '../../../../utils/api/apiClient';
 import type { UsersListResponse } from '../../../../types/api/apiResponses';
+const log = logger.scope('components/features/calendar/Calendar/AddEventModal');
+
 
 interface AddEventModalProps {
   onClose: () => void;
@@ -130,7 +134,7 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, eventToEdit }) =
                 until: ruleOptions.until ? ruleOptions.until.toISOString().split('T')[0] : '',
             });
         } catch (e) {
-            console.error("Error parsing rrule string on edit: ", e);
+            log.error("Error parsing rrule string on edit: ", e);
             setRecurrenceFreq('NONE');
         }
       } else {
@@ -263,14 +267,14 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, eventToEdit }) =
               .map(u => ({
                 no_member: u.no_member || u.studentId || '',
                 name: u.name || u.name_member || '',
-                userType: u.userType || u.user_type || 'student',
+                userType: toCalendarRole(u.userType || u.user_type || 'student'),
                 email: u.email || ''
               }))
               .filter(m => m.no_member && m.name);
             setAllMembers(members);
           }
         } catch (error) {
-          console.error('회원 목록 로드 오류:', error);
+          log.error('회원 목록 로드 오류:', error);
         } finally {
           setIsLoadingAttendees(false);
         }
@@ -415,7 +419,7 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, eventToEdit }) =
     });
     
     const hasGroups = selectedGroups.length > 0;
-    const hasOtherGroups = selectedGroups.some(g => g !== user?.userType);
+    const hasOtherGroups = selectedGroups.some(g => g !== toCalendarRole(user?.userType));
     
     if ((selectedAttendees.length === 0 && !hasGroups) || (!hasOtherAttendees && !hasOtherGroups)) {
       setSaveTarget('google');
@@ -468,7 +472,7 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, eventToEdit }) =
           
           // 본인이 그룹에도 개별 참석자에도 없으면 자동으로 추가
           if (user && currentUserMemberId) {
-            const isInGroup = selectedGroups.includes(user.userType);
+            const isInGroup = selectedGroups.includes(toCalendarRole(user.userType));
             const isInAttendees = selectedAttendees.some(a => {
               const memberId = 'no_student' in a ? a.no_student : a.no;
               return memberId === currentUserMemberId;
@@ -1083,7 +1087,7 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, eventToEdit }) =
                         ADprofessor: '겸임교원',
                         professor: '교수'
                       };
-                      const isCurrentUserGroup = user?.userType === groupType;
+                      const isCurrentUserGroup = toCalendarRole(user?.userType) === groupType;
                       return (
                         <div key={`group-${groupType}`} className="attendee-tag group-tag">
                           <span className="attendee-name">
@@ -1126,7 +1130,7 @@ const AddEventModal: React.FC<AddEventModalProps> = ({ onClose, eventToEdit }) =
                     professor: '교수'
                   };
                   const isSelected = selectedGroups.includes(groupType);
-                  const isCurrentUserGroup = user?.userType === groupType;
+                  const isCurrentUserGroup = toCalendarRole(user?.userType) === groupType;
                   return (
                     <button
                       key={groupType}

@@ -11,13 +11,12 @@
  */
 function getStaticTags(req) {
   try {
-    console.log('🏷️ 기본 태그 목록 조회 시작');
     
     // 스크립트 속성에서 설정 가져오기
     const spreadsheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SPREADSHEET_NAME') || 'static_tag';
     const sheetName = PropertiesService.getScriptProperties().getProperty('STATIC_TAG_SHEET_NAME') || '시트1';
     
-    console.log('📊 기본 태그 스프레드시트:', spreadsheetName, '시트:', sheetName);
+    logDebug_('StaticTagManager', '기본 태그 스프레드시트:', spreadsheetName, '시트:', sheetName);
     
     // 스프레드시트 ID 찾기
     const spreadsheetId = getSheetIdByName(spreadsheetName);
@@ -29,7 +28,7 @@ function getStaticTags(req) {
       };
     }
     
-    console.log('📊 스프레드시트 ID:', spreadsheetId);
+    logDebug_('StaticTagManager', '스프레드시트 ID:', spreadsheetId);
     
     // 시트 열기
     const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
@@ -45,11 +44,11 @@ function getStaticTags(req) {
     
     // 태그 데이터 읽기 (A열에서, 헤더 제외)
     const lastRow = sheet.getLastRow();
-    console.log('📊 시트 마지막 행:', lastRow);
+    logDebug_('StaticTagManager', '시트 마지막 행:', lastRow);
     
     if (lastRow <= 1) {
       // 헤더만 있거나 빈 시트
-      console.log('⚠️ 헤더만 있거나 빈 시트입니다.');
+      logDebug_('StaticTagManager', '헤더만 있거나 빈 시트입니다.');
       return {
         success: true,
         data: []
@@ -59,17 +58,14 @@ function getStaticTags(req) {
     // 데이터 행이 있는 경우에만 범위 읽기
     const dataRowCount = lastRow - 1;
     if (dataRowCount <= 0) {
-      console.log('⚠️ 데이터 행이 없습니다.');
       return {
         success: true,
         data: []
       };
     }
-    
-    console.log('📊 읽을 데이터 행 개수:', dataRowCount);
     const tagRange = sheet.getRange(2, 1, dataRowCount, 1); // A2부터 마지막 행까지
     const tagValues = tagRange.getValues();
-    console.log('📊 읽은 태그 값들:', tagValues);
+    logDebug_('StaticTagManager', '읽은 태그 값들:', tagValues);
     
     // 빈 셀 제거하고 태그 배열 생성
     const tags = tagValues
@@ -80,15 +76,13 @@ function getStaticTags(req) {
         return tag !== null && tag !== '';
       });
     
-    console.log('🏷️ 기본 태그 조회 완료:', tags.length, '개', tags);
-    
     return {
       success: true,
       data: tags
     };
     
   } catch (error) {
-    console.error('🏷️ 기본 태그 조회 오류:', error);
+    logError_('StaticTagManager', '기본 태그 조회 오류:', error);
     return {
       success: false,
       message: '기본 태그 조회 중 오류가 발생했습니다: ' + error.message,
@@ -104,11 +98,9 @@ function getStaticTags(req) {
  */
 function addStaticTag(req) {
   try {
-    console.log('🏷️ 기본 태그 추가 시작:', req);
     
     // 관리자 확인 (요청에서 이메일 가져오기, 없으면 Session 사용)
     const userEmail = req.userEmail || Session.getActiveUser().getEmail();
-    console.log('👤 사용자 이메일:', userEmail);
     const status = checkUserStatus(userEmail);
     if (!status.success || !status.data || !status.data.user || status.data.user.is_admin !== 'O') {
       return {
@@ -176,15 +168,13 @@ function addStaticTag(req) {
     // 태그 추가 (appendRow 사용이 더 안전)
     sheet.appendRow([newTag]);
     
-    console.log('🏷️ 기본 태그 추가 완료:', newTag);
-    
     return {
       success: true,
       message: '기본 태그가 추가되었습니다.'
     };
     
   } catch (error) {
-    console.error('🏷️ 기본 태그 추가 오류:', error);
+    logError_('StaticTagManager', '기본 태그 추가 오류:', error);
     return {
       success: false,
       message: '기본 태그 추가 중 오류가 발생했습니다: ' + error.message
@@ -199,11 +189,9 @@ function addStaticTag(req) {
  */
 function updateStaticTag(req) {
   try {
-    console.log('🏷️ 기본 태그 수정 시작:', req);
     
     // 관리자 확인 (요청에서 이메일 가져오기, 없으면 Session 사용)
     const userEmail = req.userEmail || Session.getActiveUser().getEmail();
-    console.log('👤 사용자 이메일:', userEmail);
     const status = checkUserStatus(userEmail);
     if (!status.success || !status.data || !status.data.user || status.data.user.is_admin !== 'O') {
       return {
@@ -306,7 +294,7 @@ function updateStaticTag(req) {
       affectedSharedTemplates = findSharedTemplatesByTag(oldTag);
       affectedPersonalTemplates = findPersonalTemplatesByTag(oldTag);
     } catch (error) {
-      console.warn('⚠️ 영향 받는 템플릿 확인 중 오류:', error.message);
+      logWarn_('StaticTagManager', '영향 받는 템플릿 확인 중 오류:', error.message);
     }
     
     // 확인 플래그가 없으면 영향 받는 템플릿 목록만 반환
@@ -324,13 +312,11 @@ function updateStaticTag(req) {
     // 태그 수정
     sheet.getRange(foundRow, 1).setValue(newTag);
     
-    console.log('🏷️ 기본 태그 수정 완료:', oldTag, '->', newTag);
-    
     // 공유 템플릿 폴더에서 해당 태그를 사용하는 템플릿들의 메타데이터 업데이트
     try {
       updateSharedTemplatesByTag(oldTag, newTag);
     } catch (templateError) {
-      console.warn('⚠️ 공유 템플릿 메타데이터 업데이트 중 오류 (태그 수정은 완료):', templateError.message);
+      logWarn_('StaticTagManager', '공유 템플릿 메타데이터 업데이트 중 오류 (태그 수정은 완료):', templateError.message);
       // 태그 수정은 성공했으므로 경고만 출력
     }
     
@@ -338,7 +324,7 @@ function updateStaticTag(req) {
     try {
       updatePersonalTemplatesByTag(oldTag, newTag);
     } catch (templateError) {
-      console.warn('⚠️ 개인 템플릿 메타데이터 업데이트 중 오류 (태그 수정은 완료):', templateError.message);
+      logWarn_('StaticTagManager', '개인 템플릿 메타데이터 업데이트 중 오류 (태그 수정은 완료):', templateError.message);
       // 태그 수정은 성공했으므로 경고만 출력
     }
     
@@ -352,7 +338,7 @@ function updateStaticTag(req) {
     };
     
   } catch (error) {
-    console.error('🏷️ 기본 태그 수정 오류:', error);
+    logError_('StaticTagManager', '기본 태그 수정 오류:', error);
     return {
       success: false,
       message: '기본 태그 수정 중 오류가 발생했습니다: ' + error.message
@@ -367,11 +353,9 @@ function updateStaticTag(req) {
  */
 function deleteStaticTag(req) {
   try {
-    console.log('🏷️ 기본 태그 삭제 시작:', req);
     
     // 관리자 확인 (요청에서 이메일 가져오기, 없으면 Session 사용)
     const userEmail = req.userEmail || Session.getActiveUser().getEmail();
-    console.log('👤 사용자 이메일:', userEmail);
     const status = checkUserStatus(userEmail);
     if (!status.success || !status.data || !status.data.user || status.data.user.is_admin !== 'O') {
       return {
@@ -455,7 +439,7 @@ function deleteStaticTag(req) {
       affectedSharedTemplates = findSharedTemplatesByTag(tagToDelete);
       affectedPersonalTemplates = findPersonalTemplatesByTag(tagToDelete);
     } catch (error) {
-      console.warn('⚠️ 영향 받는 템플릿 확인 중 오류:', error.message);
+      logWarn_('StaticTagManager', '영향 받는 템플릿 확인 중 오류:', error.message);
     }
     
     // 확인 플래그가 없으면 영향 받는 템플릿 목록만 반환
@@ -480,15 +464,14 @@ function deleteStaticTag(req) {
         affectedSharedTemplates.forEach(function(template) {
           try {
             Drive.Files.remove(template.id);
-            console.log('🗑️ 공유 템플릿 삭제 완료:', template.name);
           } catch (error) {
-            console.error('❌ 공유 템플릿 삭제 실패:', template.name, error.message);
+            logError_('StaticTagManager', '공유 템플릿 삭제 실패:', template.name, error.message);
           }
         });
       } else {
         // 개인 템플릿만 "기본"으로 변경하고 공유 템플릿은 그대로 둠
-        console.warn('⚠️ 삭제된 태그를 사용하는 공유 템플릿이 있습니다:', affectedSharedTemplates.length, '개');
-        console.warn('⚠️ 해당 템플릿들의 태그 메타데이터를 확인하세요.');
+        logWarn_('StaticTagManager', '삭제된 태그를 사용하는 공유 템플릿이 있습니다:', affectedSharedTemplates.length, '개');
+        logWarn_('StaticTagManager', '해당 템플릿들의 태그 메타데이터를 확인하세요.');
       }
     }
     
@@ -499,9 +482,8 @@ function deleteStaticTag(req) {
         affectedPersonalTemplates.forEach(function(template) {
           try {
             Drive.Files.remove(template.id);
-            console.log('🗑️ 개인 템플릿 삭제 완료:', template.name);
           } catch (error) {
-            console.error('❌ 개인 템플릿 삭제 실패:', template.name, error.message);
+            logError_('StaticTagManager', '개인 템플릿 삭제 실패:', template.name, error.message);
           }
         });
       } else {
@@ -512,8 +494,6 @@ function deleteStaticTag(req) {
     
     // 행 삭제
     sheet.deleteRow(foundRow);
-    
-    console.log('🏷️ 기본 태그 삭제 완료:', tagToDelete);
     
     return {
       success: true,
@@ -526,7 +506,7 @@ function deleteStaticTag(req) {
     };
     
   } catch (error) {
-    console.error('🏷️ 기본 태그 삭제 오류:', error);
+    logError_('StaticTagManager', '기본 태그 삭제 오류:', error);
     return {
       success: false,
       message: '기본 태그 삭제 중 오류가 발생했습니다: ' + error.message
@@ -544,7 +524,7 @@ function findSharedTemplatesByTag(tag) {
     var folderPath = getTemplateFolderPath();
     var folderRes = findOrCreateFolder(folderPath);
     if (!folderRes || !folderRes.success || !folderRes.data || !folderRes.data.id) {
-      console.warn('⚠️ 양식 폴더를 찾을 수 없습니다.');
+      logWarn_('StaticTagManager', '양식 폴더를 찾을 수 없습니다.');
       return [];
     }
     
@@ -568,7 +548,7 @@ function findSharedTemplatesByTag(tag) {
     
     return matchingTemplates;
   } catch (error) {
-    console.error('❌ 공유 템플릿 태그 검색 오류:', error);
+    logError_('StaticTagManager', '공유 템플릿 태그 검색 오류:', error);
     return [];
   }
 }
@@ -588,7 +568,7 @@ function findPersonalTemplatesByTag(tag) {
     
     var folderRes = findOrCreateFolder(folderPath);
     if (!folderRes || !folderRes.success || !folderRes.data || !folderRes.data.id) {
-      console.warn('⚠️ 개인 양식 폴더를 찾을 수 없습니다.');
+      logWarn_('StaticTagManager', '개인 양식 폴더를 찾을 수 없습니다.');
       return [];
     }
     
@@ -612,7 +592,7 @@ function findPersonalTemplatesByTag(tag) {
     
     return matchingTemplates;
   } catch (error) {
-    console.error('❌ 개인 템플릿 태그 검색 오류:', error);
+    logError_('StaticTagManager', '개인 템플릿 태그 검색 오류:', error);
     return [];
   }
 }
@@ -625,16 +605,15 @@ function findPersonalTemplatesByTag(tag) {
  */
 function updatePersonalTemplatesByTag(oldTag, newTag) {
   try {
-    console.log('📝 기본 태그 수정으로 인한 개인 템플릿 메타데이터 업데이트:', oldTag, '->', newTag);
     
     var affectedTemplates = findPersonalTemplatesByTag(oldTag);
     
     if (affectedTemplates.length === 0) {
-      console.log('📝 업데이트할 개인 템플릿이 없습니다.');
+      logDebug_('StaticTagManager', '업데이트할 개인 템플릿이 없습니다.');
       return true;
     }
     
-    console.log('📝 업데이트할 개인 템플릿 수:', affectedTemplates.length);
+    logDebug_('StaticTagManager', '업데이트할 개인 템플릿 수:', affectedTemplates.length);
     
     // 각 템플릿의 메타데이터 업데이트
     var successCount = 0;
@@ -649,17 +628,14 @@ function updatePersonalTemplatesByTag(oldTag, newTag) {
         }, template.id);
         
         successCount++;
-        console.log('✅ 개인 템플릿 메타데이터 업데이트 완료:', template.name);
       } catch (error) {
         failCount++;
-        console.error('❌ 개인 템플릿 메타데이터 업데이트 실패:', template.name, error.message);
+        logError_('StaticTagManager', '개인 템플릿 메타데이터 업데이트 실패:', template.name, error.message);
       }
     });
-    
-    console.log('📝 개인 템플릿 업데이트 완료:', successCount, '성공,', failCount, '실패');
     return failCount === 0;
   } catch (error) {
-    console.error('❌ 개인 템플릿 메타데이터 업데이트 오류:', error);
+    logError_('StaticTagManager', '개인 템플릿 메타데이터 업데이트 오류:', error);
     return false;
   }
 }
@@ -672,16 +648,15 @@ function updatePersonalTemplatesByTag(oldTag, newTag) {
  */
 function updateSharedTemplatesByTag(oldTag, newTag) {
   try {
-    console.log('📝 기본 태그 수정으로 인한 공유 템플릿 메타데이터 업데이트:', oldTag, '->', newTag);
     
     var affectedTemplates = findSharedTemplatesByTag(oldTag);
     
     if (affectedTemplates.length === 0) {
-      console.log('📝 업데이트할 공유 템플릿이 없습니다.');
+      logDebug_('StaticTagManager', '업데이트할 공유 템플릿이 없습니다.');
       return true;
     }
     
-    console.log('📝 업데이트할 공유 템플릿 수:', affectedTemplates.length);
+    logDebug_('StaticTagManager', '업데이트할 공유 템플릿 수:', affectedTemplates.length);
     
     // 각 템플릿의 메타데이터 업데이트
     var successCount = 0;
@@ -702,18 +677,15 @@ function updateSharedTemplatesByTag(oldTag, newTag) {
         
         Drive.Files.update({ properties: updatedProps }, template.id);
         successCount++;
-        console.log('✅ 공유 템플릿 메타데이터 업데이트 완료:', template.name, '(태그: ' + oldTag + ' -> ' + newTag + ')');
       } catch (fileError) {
         failCount++;
-        console.error('❌ 공유 템플릿 메타데이터 업데이트 실패:', template.name, fileError.message);
+        logError_('StaticTagManager', '공유 템플릿 메타데이터 업데이트 실패:', template.name, fileError.message);
       }
     });
-    
-    console.log('📝 공유 템플릿 메타데이터 업데이트 완료:', successCount, '개 성공,', failCount, '개 실패');
     return failCount === 0;
     
   } catch (error) {
-    console.error('❌ 공유 템플릿 메타데이터 업데이트 오류:', error);
+    logError_('StaticTagManager', '공유 템플릿 메타데이터 업데이트 오류:', error);
     return false;
   }
 }

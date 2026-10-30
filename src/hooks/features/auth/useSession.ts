@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file useSession.ts
  * @brief 세션 관리 훅
@@ -5,6 +6,8 @@
  */
 
 import { useEffect, useRef } from 'react';
+const log = logger.scope('hooks/features/auth/useSession');
+
 
 /**
  * @brief 세션 타임아웃 설정 (30분)
@@ -50,7 +53,7 @@ export const useSession = (
 
         // 타임아웃 시간이 지났으면 로그아웃
         if (timeSinceLastActivity >= SESSION_TIMEOUT) {
-          console.log('⏰ 세션 타임아웃 - 자동 로그아웃');
+          log.debug('세션 타임아웃 - 자동 로그아웃');
           onTimeout();
         }
       }, SESSION_TIMEOUT);

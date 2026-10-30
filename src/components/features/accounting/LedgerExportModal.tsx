@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * @file LedgerExportModal.tsx
  * @brief 장부 내보내기 모달 컴포넌트
@@ -13,7 +14,11 @@ import type { Template } from '../../../hooks/features/templates/useTemplateUI';
 import { initializeGoogleAPIOnce, findPersonalDocumentFolder } from '../../../utils/google/googleSheetUtils';
 import type { GridRange, RowData, CellData, BatchUpdateData } from '../../../types/googleSheets';
 import { tokenManager } from '../../../utils/auth/tokenManager';
+import { apiClient } from '../../../utils/api/apiClient';
+import { invalidateDocumentsCache } from '../../../utils/helpers/loadDocumentsFromDrive';
 import './accounting.css';
+const log = logger.scope('components/features/accounting/LedgerExportModal');
+
 
 interface LedgerExportModalProps {
   isOpen: boolean;
@@ -119,14 +124,14 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [evidenceInfo, setEvidenceInfo] = useState<Array<{ entryId: string; description: string; fileName: string; fileId: string }>>([]);
-  interface CellData {
+  interface PreviewTableCellData {
     value: string | number | boolean | null;
     formattedValue?: string;
     backgroundColor?: string;
     textColor?: string;
     border?: { style?: string; width?: number; color?: string };
   }
-  const [sheetData, setSheetData] = useState<CellData[][]>([]);
+  const [sheetData, setSheetData] = useState<PreviewTableCellData[][]>([]);
   const [sheetHtml, setSheetHtml] = useState<string>('');
   const [mergeMap, setMergeMap] = useState<Map<string, { startRow: number; startCol: number; rowspan: number; colspan: number }>>(new Map());
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
@@ -168,15 +173,16 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         return;
       }
 
-      // Google API 초기화
-      try {
-        await initializeGoogleAPIOnce();
-      } catch (initError: any) {
+      // 공유 템플릿은 Apps Script 경유로 읽어 사용자 토큰 권한에 의존하지 않는다.
+      if (template.isPersonal) {
+        try {
+          await initializeGoogleAPIOnce();
+        } catch (initError: any) {
         // idpiframe_initialization_failed 에러인 경우 특별 처리 (이미 초기화되었을 수 있음)
         if (initError?.error === 'idpiframe_initialization_failed' || 
             initError?.result?.error?.error === 'idpiframe_initialization_failed' ||
             (initError && typeof initError === 'object' && 'error' in initError && initError.error === 'idpiframe_initialization_failed')) {
-          console.warn('⚠️ idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
+          log.warn('idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
           // gapi가 이미 로드되어 있는지 확인
           if (!window.gapi?.client?.sheets) {
             throw new Error('Google Sheets API가 초기화되지 않았습니다.');
@@ -184,32 +190,31 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         } else {
           throw initError;
         }
-      }
-      const gapi = window.gapi;
-      if (!gapi?.client?.sheets) {
-        throw new Error('Google Sheets API가 초기화되지 않았습니다.');
+        }
+        const gapi = window.gapi;
+        if (!gapi?.client?.sheets) throw new Error('Google Sheets API가 초기화되지 않았습니다.');
       }
 
       setSelectedTemplate(template);
       setTemplateSpreadsheetId(template.documentId);
 
-      // 시트 목록 가져오기
-      const spreadsheetResponse = await (gapi.client as any).sheets.spreadsheets.get({
-        spreadsheetId: template.documentId,
-        fields: 'sheets.properties(title,sheetId)'
-      });
-
-      const sheets = spreadsheetResponse.result.sheets || [];
-      const sheetNamesList = sheets.map((s: { properties: { title?: string } }) => s.properties.title || '');
+      const sheetResult = template.isPersonal
+        ? await (async () => {
+            const response = await (window.gapi!.client as any).sheets.spreadsheets.get({ spreadsheetId: template.documentId, fields: 'sheets.properties(title,sheetId)' });
+            return { success: true, message: undefined, data: { sheets: response.result.sheets || [] } };
+          })()
+        : await apiClient.getTemplateSheetPreview(template.documentId);
+      if (!sheetResult.success || !sheetResult.data) throw new Error(sheetResult.message || '시트 목록을 불러오지 못했습니다.');
+      const sheetNamesList = sheetResult.data.sheets.map(s => s.properties.title || '');
       setSheetNames(sheetNamesList);
       
       if (sheetNamesList.length > 0) {
         setSelectedSheet(sheetNamesList[0]);
-        await loadSheetData(template.documentId, sheetNamesList[0]);
+        await loadSheetData(template.documentId, sheetNamesList[0], template.isPersonal === true);
       }
 
     } catch (err: unknown) {
-      console.error('템플릿 파일 선택 오류:', err);
+      log.error('템플릿 파일 선택 오류:', err);
       
       // 에러 메시지 추출
       let errorMessage = '템플릿에서 양식을 불러올 수 없습니다.';
@@ -248,8 +253,31 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
     }
   };
 
-  const loadSheetData = async (spreadsheetId: string, sheetName: string) => {
+  const loadSheetData = async (spreadsheetId: string, sheetName: string, personal = selectedTemplate?.isPersonal === true) => {
     try {
+      let merges: GridRange[] = [];
+      let rowData: RowData[] = [];
+      const mergeInfoMap = new Map<string, { startRow: number; startCol: number; rowspan: number; colspan: number }>();
+      if (!personal) {
+        const preview = await apiClient.getTemplateSheetPreview(spreadsheetId, sheetName);
+        if (!preview.success || !preview.data) throw new Error(preview.message || '시트 미리보기를 불러오지 못했습니다.');
+        const sheet = preview.data.sheets[0];
+        if (!sheet) throw new Error(`시트를 찾을 수 없습니다: ${sheetName}`);
+        merges = sheet.merges || [];
+        rowData = sheet.data?.[0]?.rowData || [];
+        merges.forEach((merge) => {
+          const startRow = merge.startRowIndex;
+          const endRow = merge.endRowIndex;
+          const startCol = merge.startColumnIndex;
+          const endCol = merge.endColumnIndex;
+          for (let r = startRow; r < endRow; r++) {
+            for (let c = startCol; c < endCol; c++) {
+              mergeInfoMap.set(`${r}-${c}`, { startRow, startCol, rowspan: endRow - startRow, colspan: endCol - startCol });
+            }
+          }
+        });
+        setMergeMap(mergeInfoMap);
+      } else {
       try {
         await initializeGoogleAPIOnce();
       } catch (initError: any) {
@@ -257,7 +285,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         if (initError?.error === 'idpiframe_initialization_failed' || 
             initError?.result?.error?.error === 'idpiframe_initialization_failed' ||
             (initError && typeof initError === 'object' && 'error' in initError && initError.error === 'idpiframe_initialization_failed')) {
-          console.warn('⚠️ idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
+          log.warn('idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
           // gapi가 이미 로드되어 있는지 확인
           if (!window.gapi?.client?.sheets) {
             throw new Error('Google Sheets API가 초기화되지 않았습니다.');
@@ -283,6 +311,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
       }
 
       const sheetId = sheet.properties.sheetId;
+      void sheetId;
 
       // 병합 정보 가져오기
       const mergeResponse = await (gapi.client as any).sheets.spreadsheets.get({
@@ -291,8 +320,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         fields: 'sheets.merges'
       });
 
-      const merges = mergeResponse.result.sheets?.[0]?.merges || [];
-      const mergeInfoMap = new Map<string, { startRow: number; startCol: number; rowspan: number; colspan: number }>();
+      merges = mergeResponse.result.sheets?.[0]?.merges || [];
       
       merges.forEach((merge: GridRange) => {
         const startRow = merge.startRowIndex || 0;
@@ -327,7 +355,8 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         fields: 'sheets.data.rowData.values(effectiveValue,formattedValue)'
       });
 
-      const rowData = dataResponse.result.sheets?.[0]?.data?.[0]?.rowData || [];
+      rowData = dataResponse.result.sheets?.[0]?.data?.[0]?.rowData || [];
+      }
       
       // 데이터 배열로 변환 (스타일 제거하여 성능 최적화)
       const data: Array<Array<{ value: string | number | boolean | null; formattedValue?: string }>> = [];
@@ -492,7 +521,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
       table.appendChild(tbody);
       setSheetHtml(table.outerHTML);
     } catch (err: unknown) {
-      console.error('시트 데이터 로드 오류:', err);
+      log.error('시트 데이터 로드 오류:', err);
       
       // 에러 메시지 추출
       let errorMessage = '시트 데이터를 불러올 수 없습니다.';
@@ -901,7 +930,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
       if (initError?.error === 'idpiframe_initialization_failed' || 
           initError?.result?.error?.error === 'idpiframe_initialization_failed' ||
           (initError && typeof initError === 'object' && 'error' in initError && initError.error === 'idpiframe_initialization_failed')) {
-        console.warn('⚠️ idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
+        log.warn('idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
         // gapi가 이미 로드되어 있는지 확인
         if (!window.gapi?.client?.sheets) {
           throw new Error('Google Sheets API가 초기화되지 않았습니다.');
@@ -1486,12 +1515,6 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
 
     // 배치 업데이트 실행
     if (data.length > 0) {
-      console.log('📊 장부 내보내기 데이터:', {
-        총항목수: entriesToWrite.length,
-        활성화된매핑: enabledMappings.map(m => m.field),
-        작성할데이터수: data.length,
-        데이터범위: data.map(d => d.range)
-      });
       
       await (gapi.client as any).sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: spreadsheetId,
@@ -1500,14 +1523,13 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
           data: data
         }
       });
-      
-      console.log('✅ 장부 내보내기 완료');
     } else {
-      console.warn('⚠️ 작성할 데이터가 없습니다.');
+      log.warn('작성할 데이터가 없습니다.');
     }
   };
 
   const handleExport = async () => {
+    if (isProcessing) return;
     if (!templateSpreadsheetId || !selectedSheet) {
       setError('템플릿과 시트를 선택해주세요.');
       return;
@@ -1530,7 +1552,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         if (initError?.error === 'idpiframe_initialization_failed' || 
             initError?.result?.error?.error === 'idpiframe_initialization_failed' ||
             (initError && typeof initError === 'object' && 'error' in initError && initError.error === 'idpiframe_initialization_failed')) {
-          console.warn('⚠️ idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
+          log.warn('idpiframe 초기화 실패 - 이미 초기화되었을 수 있습니다. 계속 진행합니다.');
           // gapi가 이미 로드되어 있는지 확인
           if (!window.gapi?.client?.sheets) {
             throw new Error('Google Sheets API가 초기화되지 않았습니다.');
@@ -1578,7 +1600,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         throw new Error('개인 문서 폴더를 찾을 수 없습니다. 폴더가 생성되어 있는지 확인해주세요.');
       }
 
-      console.log('📁 개인 문서 폴더 찾음:', personalDocumentFolderId);
+      log.debug('개인 문서 폴더 찾음:', personalDocumentFolderId);
 
       // 템플릿 복사 (개인 문서 폴더에 생성)
       const copyResponse = await fetch(
@@ -1596,14 +1618,23 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         }
       );
 
-      if (!copyResponse.ok) {
+      let copiedSpreadsheet: { id: string };
+      if (copyResponse.ok) {
+        copiedSpreadsheet = await copyResponse.json();
+      } else if (copyResponse.status === 403 || copyResponse.status === 404) {
+        // drive.file 범위에서는 공유 템플릿을 직접 복사할 수 없어 서버가 xlsx로 내보낸 것을 변환해 올린다
+        const { importTemplateCopy } = await import('../../../utils/google/googleSheetUtils');
+        copiedSpreadsheet = await importTemplateCopy(
+          templateSpreadsheetId,
+          `장부_내보내기_${new Date().toISOString().split('T')[0]}`,
+          personalDocumentFolderId,
+          token.access_token
+        );
+      } else {
         throw new Error(`템플릿 복사 실패: ${copyResponse.status} ${copyResponse.statusText}`);
       }
-
-      const copiedSpreadsheet = await copyResponse.json();
       const newSpreadsheetId = copiedSpreadsheet.id;
-      
-      console.log('✅ 템플릿 복사 완료 (개인 문서 폴더):', newSpreadsheetId);
+      await invalidateDocumentsCache();
 
       // 템플릿 복사 시 컬럼 너비가 자동으로 복사되므로
       // 추가 작업은 불필요합니다
@@ -1714,11 +1745,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
           : `장부_내보내기_월별_${new Date().toISOString().split('T')[0]}.xlsx`;
         link.download = fileName;
         link.click();
-
-        // 복사본은 개인 문서 폴더에 저장되어 있으므로 삭제하지 않음
-        // 사용자가 나중에 Google Sheets에서 직접 확인하거나 수정할 수 있도록 보존
-        console.log('✅ Excel 파일 다운로드 완료. 복사본은 개인 문서 폴더에 저장되어 있습니다:', newSpreadsheetId);
-        console.log('📁 Google Sheets에서 확인:', `https://docs.google.com/spreadsheets/d/${newSpreadsheetId}/edit`);
+        log.debug('Google Sheets에서 확인:', `https://docs.google.com/spreadsheets/d/${newSpreadsheetId}/edit`);
 
         onClose();
       } catch (err) {
@@ -1728,11 +1755,13 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token.access_token}` }
           });
-        } catch {}
+        } catch {
+      // Intentionally ignored.
+}
         throw err;
       }
     } catch (err: unknown) {
-      console.error('내보내기 오류:', err);
+      log.error('내보내기 오류:', err);
       
       // 에러 메시지 추출
       let errorMessage = '내보내기 중 오류가 발생했습니다.';

@@ -1,3 +1,5 @@
+import { getSheetData, append, update, deleteRow } from '../google/sheetsClient';
+import { logger } from '../logger';
 /**
  * @file papyrusManager.ts
  * @brief Papyrus DB 관리 유틸리티
@@ -6,8 +8,6 @@
  * @date 2024
  */
 
-import {getSheetData, append, update} from 'papyrus-db';
-import {deleteRow} from 'papyrus-db/dist/sheets/delete';
 import {ENV_CONFIG} from '../../config/environment';
 import {apiClient} from '../api/apiClient';
 import {tokenManager} from '../auth/tokenManager';
@@ -26,17 +26,23 @@ const updateRow = async (spreadsheetId: string, sheetName: string, key: string, 
     await update(spreadsheetId, sheetName, key, data);
 };
 
-// papyrus-db에 Google API 인증 설정
-const setupPapyrusAuth = () => {
-    if (window.gapi && window.gapi.client) {
-        // papyrus-db가 gapi.client를 사용하도록 설정
-        window.papyrusAuth = {
-            client: window.gapi.client
-        };
-    }
-};
 import type {Post, Event, DateRange, CustomPeriod, Student, Staff} from '../../types/app';
 import type {Template} from '../../hooks/features/templates/useTemplateUI';
+const log = logger.scope('utils/database/papyrusManager');
+
+const inFlight = new Map<string, Promise<unknown>>();
+
+const dedupe = <T>(key: string, task: () => Promise<T>): Promise<T> => {
+    const existing = inFlight.get(key) as Promise<T> | undefined;
+    if (existing) return existing;
+
+    const promise = task().finally(() => {
+        if (inFlight.get(key) === promise) inFlight.delete(key);
+    });
+    inFlight.set(key, promise);
+    return promise;
+};
+
 
 // 스프레드시트 ID들을 저장할 변수들
 let hotPotatoDBSpreadsheetId: string | null = null;
@@ -49,7 +55,7 @@ let calendarStudentSpreadsheetId: string | null = null;
 let studentSpreadsheetId: string | null = null;
 let staffSpreadsheetId: string | null = null;
 let accountingFolderId: string | null = null;
-let announcementAttachmentFolderId: string | null = null;
+let hasInitializedSpreadsheetIds = false;
 
 /**
  * @brief 스프레드시트 ID 전역 변수 초기화
@@ -71,7 +77,7 @@ export const clearSpreadsheetIds = (): void => {
     studentSpreadsheetId = null;
     staffSpreadsheetId = null;
     accountingFolderId = null;
-    console.log('🧹 스프레드시트 ID 전역 변수 초기화 완료');
+    hasInitializedSpreadsheetIds = false;
 };
 
 /** 초기화 시 조회해 둔 공지 스프레드시트 ID (관리자 패널·직접 API 호출용) */
@@ -91,104 +97,13 @@ export const getNoticeSpreadsheetApiFields = (spreadsheetIdOverride?: string | n
     };
 };
 
-/**
- * @brief 드라이브 루트에 있는 프로젝트 루트 폴더 ID 조회
- * @returns {Promise<string | null>} 루트 폴더 ID 또는 null
- */
-const getProjectRootFolderId = async (): Promise<string | null> => {
-    if (!window.gapi?.client) return null;
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME || 'hot_potato_remake';
-    const safeName = rootFolderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    const response = await window.gapi.client.drive.files.list({
-        q: `'root' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name)'
-    });
-    if (response.result.files && response.result.files.length > 0) {
-        return response.result.files[0].id;
-    }
-    return null;
-};
-
-/**
- * @brief 스프레드시트 ID 찾기 함수 (드라이브 루트의 프로젝트 루트 폴더 하위에서만 검색)
- * @param {string} name - 찾을 스프레드시트의 이름
- * @returns {Promise<string | null>} 스프레드시트 ID 또는 null
- */
 export const findSpreadsheetById = async (name: string): Promise<string | null> => {
+    // 공유 루트는 사용자 드라이브 범위(drive.file)로는 검색되지 않으므로 Apps Script가 찾아 준다.
     try {
-        if (!window.gapi || !window.gapi.client) {
-            console.warn(`Google API가 초기화되지 않았습니다. 스프레드시트 '${name}' 검색을 건너뜁니다.`);
-            return null;
-        }
-
-        const token = tokenManager.get();
-        if (!token) {
-            console.warn(`Google API 인증 토큰이 없거나 만료되었습니다. 스프레드시트 '${name}' 검색을 건너뜁니다.`);
-            return null;
-        }
-
-        try {
-            window.gapi.client.setToken({ access_token: token });
-        } catch (tokenError) {
-            console.warn(`토큰 설정 실패:`, tokenError);
-        }
-
-        let attempts = 0;
-        const maxAttempts = 3;
-
-        while (attempts < maxAttempts) {
-            try {
-                console.log(`스프레드시트 '${name}' 검색 중 (프로젝트 루트 폴더 하위)... (시도 ${attempts + 1}/${maxAttempts})`);
-
-                const rootFolderId = await getProjectRootFolderId();
-                if (!rootFolderId) {
-                    console.warn(`❌ 프로젝트 루트 폴더('${ENV_CONFIG.ROOT_FOLDER_NAME || 'hot_potato_remake'}')를 드라이브 루트에서 찾을 수 없습니다.`);
-                    return null;
-                }
-
-                const safeName = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                const response = await window.gapi.client.drive.files.list({
-                    q: `'${rootFolderId}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
-                    fields: 'files(id, name)'
-                });
-
-                if (response.result.files && response.result.files.length > 0) {
-                    const fileId = response.result.files[0].id;
-                    return fileId;
-                }
-
-                // 루트 폴더 직하위에 없으면 하위 폴더들에서 재귀 검색 (SpreadsheetUtils 동작과 동일)
-                const folderResponse = await window.gapi.client.drive.files.list({
-                    q: `'${rootFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-                    fields: 'files(id, name)'
-                });
-                const subFolders = folderResponse.result.files || [];
-                for (const folder of subFolders) {
-                    const subResponse = await window.gapi.client.drive.files.list({
-                        q: `'${folder.id}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
-                        fields: 'files(id, name)'
-                    });
-                    if (subResponse.result.files && subResponse.result.files.length > 0) {
-                        return subResponse.result.files[0].id;
-                    }
-                }
-
-                console.warn(`❌ 프로젝트 루트 폴더 하위에서 이름이 '${name}'인 스프레드시트를 찾을 수 없습니다.`);
-                return null;
-            } catch (apiError) {
-                attempts++;
-                console.error(`API 호출 실패 (${attempts}/${maxAttempts}):`, apiError);
-                if (attempts >= maxAttempts) {
-                    console.error(`❌ 스프레드시트 '${name}' 검색 실패:`, apiError);
-                    return null;
-                }
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-        }
-
-        return null;
+        const response = await apiClient.getSpreadsheetIds([name]);
+        return response.success ? response.data?.[name] || null : null;
     } catch (error) {
-        console.warn(`Error searching for ${name} spreadsheet:`, error);
+        log.warn(`스프레드시트 '${name}' ID 조회 실패:`, error);
         return null;
     }
 };
@@ -212,14 +127,27 @@ export const initializeSpreadsheetIds = async (): Promise<{
     staffSpreadsheetId: string | null;
     accountingFolderId: string | null;
 }> => {
+    if (hasInitializedSpreadsheetIds) {
+        return {
+            announcementSpreadsheetId,
+            calendarProfessorSpreadsheetId,
+            calendarCouncilSpreadsheetId,
+            calendarADProfessorSpreadsheetId,
+            calendarSuppSpreadsheetId,
+            calendarStudentSpreadsheetId,
+            hotPotatoDBSpreadsheetId,
+            studentSpreadsheetId,
+            staffSpreadsheetId,
+            accountingFolderId
+        };
+    }
+
     // 이미 초기화 중이면 기존 Promise 반환
     if (isInitializing && initializationPromise) {
-        console.log('📊 스프레드시트 ID 초기화가 이미 진행 중입니다. 기존 요청을 재사용합니다.');
         return initializationPromise;
     }
 
     isInitializing = true;
-    console.log('📊 스프레드시트 ID 초기화 시작 (Apps Script 방식)...');
 
     initializationPromise = (async () => {
         try {
@@ -235,16 +163,23 @@ export const initializeSpreadsheetIds = async (): Promise<{
             ENV_CONFIG.STAFF_SPREADSHEET_NAME
         ];
 
-        console.log('📋 조회할 스프레드시트 이름들:', spreadsheetNames);
+        log.debug('조회할 스프레드시트 이름들:', spreadsheetNames);
 
-        // Apps Script에 일괄 조회 요청
-        const response = await apiClient.getSpreadsheetIds(spreadsheetNames);
+        // 서로 독립적인 초기 조회를 동시에 시작
+        const [response, personalConfigId, accountingFolderResponse] = await Promise.all([
+            apiClient.getSpreadsheetIds(spreadsheetNames),
+            import('./personalConfigManager')
+                .then(({initializePersonalConfigFile}) => initializePersonalConfigFile())
+                .catch(() => null),
+            apiClient.request<{ accountingFolderId: string }>('getAccountingFolderId', {})
+                .catch(() => ({success: false} as const))
+        ]);
+        const accountingId = accountingFolderResponse.success && accountingFolderResponse.data?.accountingFolderId
+            ? accountingFolderResponse.data.accountingFolderId
+            : null;
 
         if (!response.success || !response.data) {
-            console.error('❌ 스프레드시트 ID 조회 실패:', response.message || '알 수 없는 오류');
-            // 개인 설정 파일은 별도로 초기화 시도
-            const {findPersonalConfigFile} = await import('./personalConfigManager');
-            const personalConfigId = await findPersonalConfigFile().catch(() => null);
+            log.error('스프레드시트 ID 조회 실패');
 
             return {
                 announcementSpreadsheetId: null,
@@ -256,7 +191,7 @@ export const initializeSpreadsheetIds = async (): Promise<{
                 hotPotatoDBSpreadsheetId: personalConfigId, // 개인 설정 파일 ID
                 studentSpreadsheetId: null,
                 staffSpreadsheetId: null,
-                accountingFolderId: null
+                accountingFolderId: accountingId
             };
         }
 
@@ -264,7 +199,7 @@ export const initializeSpreadsheetIds = async (): Promise<{
 
         // 찾지 못한 스프레드시트가 있으면 경고
         if (response.notFound && response.notFound.length > 0) {
-            console.warn('⚠️ 찾지 못한 스프레드시트:', response.notFound);
+            log.warn('찾지 못한 스프레드시트');
         }
 
         // 결과 매핑 (user_setting은 개인 설정 파일로 별도 초기화, ENV v2 키 기준)
@@ -277,18 +212,6 @@ export const initializeSpreadsheetIds = async (): Promise<{
         const studentId = ids[ENV_CONFIG.STUDENT_SPREADSHEET_NAME] || null;
         const staffId = ids[ENV_CONFIG.STAFF_SPREADSHEET_NAME] || null;
 
-        // 개인 설정 파일 ID와 회계 폴더 ID 병렬 조회 (서로 독립)
-        const [personalConfigId, accountingFolderResponse] = await Promise.all([
-          (async () => {
-            const { findPersonalConfigFile } = await import('./personalConfigManager');
-            return findPersonalConfigFile();
-          })(),
-          apiClient.request('getAccountingFolderId', {})
-        ]);
-        const accountingId = accountingFolderResponse.success && accountingFolderResponse.data?.accountingFolderId
-            ? accountingFolderResponse.data.accountingFolderId
-            : null;
-
         // 전역 변수 업데이트
         announcementSpreadsheetId = announcementId;
         calendarProfessorSpreadsheetId = calendarProfessorId;
@@ -300,19 +223,18 @@ export const initializeSpreadsheetIds = async (): Promise<{
         studentSpreadsheetId = studentId;
         staffSpreadsheetId = staffId;
         accountingFolderId = accountingId;
-
-        console.log('✅ 스프레드시트 ID 초기화 완료:', {
-            announcement: !!announcementId,
-            calendarProfessor: !!calendarProfessorId,
-            calendarCouncil: !!calendarCouncilId,
-            calendarADProfessor: !!calendarADProfessorId,
-            calendarSupp: !!calendarSuppId,
-            calendarStudent: !!calendarStudentId,
-            hotPotatoDB: !!personalConfigId,
-            student: !!studentId,
-            staff: !!staffId,
-            accountingFolder: !!accountingId
-        });
+        hasInitializedSpreadsheetIds = [
+            announcementId,
+            calendarProfessorId,
+            calendarCouncilId,
+            calendarADProfessorId,
+            calendarSuppId,
+            calendarStudentId,
+            personalConfigId,
+            studentId,
+            staffId,
+            accountingId
+        ].every(Boolean);
 
         return {
             announcementSpreadsheetId: announcementId,
@@ -327,11 +249,11 @@ export const initializeSpreadsheetIds = async (): Promise<{
             accountingFolderId: accountingId
         };
     } catch (error) {
-        console.error('❌ 스프레드시트 ID 초기화 중 오류:', error);
-        console.warn('⚠️ 일부 기능이 제한될 수 있습니다.');
+        log.error('스프레드시트 ID 초기화 중 오류:', error);
+        log.warn('일부 기능이 제한될 수 있습니다.');
         // 개인 설정 파일은 별도로 초기화 시도
-        const {findPersonalConfigFile} = await import('./personalConfigManager');
-        const personalConfigId = await findPersonalConfigFile().catch(() => null);
+        const {initializePersonalConfigFile} = await import('./personalConfigManager');
+        const personalConfigId = await initializePersonalConfigFile().catch(() => null);
 
         // 회계 폴더 ID는 에러 시에도 null로 반환
         return {
@@ -363,12 +285,12 @@ export const fetchAnnouncements = async (
 ): Promise<Post[]> => {
     try {
         if (!announcementSpreadsheetId) {
-            console.warn('Announcement spreadsheet ID not found');
+            log.debug('공지 스프레드시트 ID 준비 전이라 건너뜁니다.');
             return [];
         }
 
         if (!userId || !userType) {
-            console.warn('User ID or User Type not provided');
+            log.warn('User ID or User Type not provided');
             return [];
         }
 
@@ -378,11 +300,9 @@ export const fetchAnnouncements = async (
                 await cm.invalidate('announcements:getAnnouncements:*');
                 await cm.invalidate('announcements:fetchAnnouncements:*');
             } catch (e) {
-                console.warn('공지 목록 캐시 무효화 실패 (계속 진행):', e);
+                log.warn('공지 목록 캐시 무효화 실패 (계속 진행):', e);
             }
         }
-
-        console.log(`Fetching announcements via Apps Script API for user: ${userId}, type: ${userType}`);
         
         const response = await apiClient.request('getAnnouncements', {
             ...getNoticeSpreadsheetApiFields(),
@@ -391,7 +311,7 @@ export const fetchAnnouncements = async (
         });
 
         if (!response.success) {
-            console.warn('Failed to fetch announcements:', response.message);
+            log.warn('Failed to fetch announcements');
             return [];
         }
 
@@ -418,134 +338,37 @@ export const fetchAnnouncements = async (
             };
         });
 
-        console.log(`Loaded ${announcements.length} announcements`);
+        log.debug(`Loaded ${announcements.length} announcements`);
         return announcements;
     } catch (error) {
-        console.error('Error fetching announcements:', error);
+        log.error('Error fetching announcements:', error);
         return [];
     }
 };
 
-// [MERGE] File 1의 dataURLtoBlob 헬퍼 함수
-const dataURLtoBlob = (dataurl: string) => {
-    const arr = dataurl.split(',');
-    const mime = arr[0].match(/:(.*?);/)?.[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], {type: mime});
-};
+const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024; // 프록시 요청 본문 한도(약 6MB)를 base64 증가분까지 고려한 값
 
-const escapeDriveQueryValue = (value: string): string => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+});
 
-const findOrCreateFolderByName = async (folderName: string, parentFolderId: string): Promise<string> => {
-    const safeName = escapeDriveQueryValue(folderName);
-    const existing = await window.gapi.client.drive.files.list({
-        q: `'${parentFolderId}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name)',
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true
-    });
-
-    const existingId = existing.result.files?.[0]?.id;
-    if (existingId) return existingId;
-
-    const created = await window.gapi.client.drive.files.create({
-        resource: {
-            name: folderName,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [parentFolderId]
-        },
-        fields: 'id',
-        supportsAllDrives: true
-    });
-
-    const createdId = created.result.id;
-    if (!createdId) {
-        throw new Error(`폴더 생성에 실패했습니다: ${folderName}`);
-    }
-    return createdId;
-};
-
-const getAnnouncementAttachmentFolderId = async (): Promise<string> => {
-    if (announcementAttachmentFolderId) return announcementAttachmentFolderId;
-
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME || 'hot_potato_remake';
-    const noticeParentFolderName = ENV_CONFIG.NOTICE_ATTACH_PARENT_FOLDER_NAME || 'notice';
-    const attachFolderName = ENV_CONFIG.NOTICE_ATTACH_FOLDER_NAME || 'attached_file';
-
-    // 1) 프로젝트 루트는 드라이브 루트에서 검색 (없으면 생성)
-    const rootSafeName = escapeDriveQueryValue(rootFolderName);
-    const rootSearch = await window.gapi.client.drive.files.list({
-        q: `'root' in parents and name='${rootSafeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name)',
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true
-    });
-
-    let rootFolderId = rootSearch.result.files?.[0]?.id;
-    if (!rootFolderId) {
-        rootFolderId = await findOrCreateFolderByName(rootFolderName, 'root');
-    }
-
-    // 2) ROOT/NOTICE_PARENT/NOTICE_ATTACH (InitialSetup의 notice/attached_file과 동일)
-    const noticeParentId = await findOrCreateFolderByName(noticeParentFolderName, rootFolderId);
-    const attachFolderId = await findOrCreateFolderByName(attachFolderName, noticeParentId);
-
-    announcementAttachmentFolderId = attachFolderId;
-    return attachFolderId;
-};
-
-// [MERGE] File 2의 uploadFileToDrive 헬퍼 함수
+// 첨부파일은 Apps Script가 공유 루트의 notice/attached_file에 저장한다 (사용자 드라이브 권한과 무관)
 const uploadFileToDrive = async (file: File): Promise<{ name: string, url: string }> => {
-    const token = tokenManager.get();
-    if (!token) {
-        throw new Error('Google Access Token not found or expired');
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+        throw new Error(`첨부파일은 4MB 이하만 올릴 수 있습니다: ${file.name}`);
     }
-
-    const folderId = await getAnnouncementAttachmentFolderId();
-
-    const fileMetadata = {
-        name: file.name,
-        parents: [folderId]
-    };
-
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(fileMetadata)], {type: 'application/json'}));
-    form.append('file', file);
-
-    const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: new Headers({'Authorization': 'Bearer ' + token}),
-        body: form,
+    const response = await apiClient.uploadNoticeAttachment({
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        fileData: await fileToBase64(file)
     });
-
-    const uploadedFile = await uploadResponse.json();
-
-    if (uploadedFile.id) {
-        const fileId = uploadedFile.id;
-
-        await window.gapi.client.drive.permissions.create({
-            fileId: fileId,
-            resource: {
-                role: 'reader',
-                type: 'anyone'
-            }
-        });
-
-        const fileInfo = await window.gapi.client.drive.files.get({
-            fileId: fileId,
-            fields: 'webViewLink'
-        });
-
-        return {name: file.name, url: fileInfo.result.webViewLink};
-    } else {
-        console.error('File upload failed:', uploadedFile);
-        throw new Error('File upload failed');
+    if (!response.success || !response.data) {
+        throw new Error(response.message || `첨부파일 업로드 실패: ${file.name}`);
     }
+    return { name: response.data.name, url: response.data.url };
 };
 
 // 공지사항 작성 (앱스크립트 API 사용)
@@ -569,7 +392,6 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
             throw new Error('Writer email is required');
         }
 
-        setupPapyrusAuth();
         const token = tokenManager.get();
         if (!token) {
             throw new Error('Google Access Token not found or expired');
@@ -577,84 +399,13 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
         
         try {
             window.gapi.client.setToken({access_token: token});
-        } catch (tokenError) {
-            console.error('Failed to set GAPI token:', tokenError);
+        } catch {
+            log.error('Failed to set GAPI token');
             throw new Error('Failed to set GAPI token');
         }
 
-        let processedContent = postData.content;
-
-        // Base64 이미지 처리 (프론트엔드에서 처리)
-        const imgRegex = /<img src="(data:image\/[^;]+;base64,[^"]+)"[^>]*>/g;
-        let match;
-        const uploadPromises = [];
-
-        while ((match = imgRegex.exec(postData.content)) !== null) {
-            const fullImgTag = match[0]; // The entire <img ...> tag
-            const base64Src = match[1]; // The base64 data URL
-            const blob = dataURLtoBlob(base64Src);
-            const folderId = await getAnnouncementAttachmentFolderId();
-
-            const fileMetadata = {
-                name: `announcement-image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                parents: [folderId]
-            };
-
-            const form = new FormData();
-            form.append('metadata', new Blob([JSON.stringify(fileMetadata)], {type: 'application/json'}));
-            form.append('file', blob);
-
-            const uploadPromise = fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                method: 'POST',
-                headers: new Headers({'Authorization': 'Bearer ' + token}),
-                body: form,
-            })
-                .then(response => response.json())
-                .then(async uploadedFile => {
-                    if (uploadedFile.id) {
-                        const fileId = uploadedFile.id;
-                        // Make the file publicly readable
-                        await window.gapi.client.drive.permissions.create({
-                            fileId: fileId,
-                            resource: {
-                                role: 'reader',
-                                type: 'anyone'
-                            }
-                        });
-
-                        // Get the thumbnailLink for a potentially better-performing URL
-                        const fileInfo = await window.gapi.client.drive.files.get({
-                            fileId: fileId,
-                            fields: 'thumbnailLink, webContentLink'
-                        });
-                        
-                        // Prioritize thumbnailLink, fallback to webContentLink
-                        const permanentUrl = fileInfo.result.thumbnailLink || fileInfo.result.webContentLink;
-
-                        if (permanentUrl) {
-                            // The thumbnailLink might be sized, remove the sizing parameter for flexibility
-                            const baseUrl = permanentUrl.split('=s')[0];
-                            return { oldTag: fullImgTag, newUrl: baseUrl };
-                        } else {
-                            console.error('webContentLink and thumbnailLink not found for file:', fileId);
-                            return { oldTag: fullImgTag, newUrl: null };
-                        }
-                    } else {
-                        console.error('File upload failed:', uploadedFile);
-                        return { oldTag: fullImgTag, newUrl: null };
-                    }
-                });
-            uploadPromises.push(uploadPromise);
-        }
-
-        const uploadedImages = await Promise.all(uploadPromises);
-        uploadedImages.forEach(image => {
-            if (image.newUrl) {
-                // Replace the entire old <img> tag with a new one that only has the src
-                const newImgTag = `<img src="${image.newUrl}">`;
-                processedContent = processedContent.replace(image.oldTag, newImgTag);
-            }
-        });
+        // 본문의 base64 이미지는 Apps Script(processAndUploadImages_)가 업로드하고 링크로 바꾼다.
+        const processedContent = postData.content;
 
         // 첨부파일 업로드 (프론트엔드에서 처리)
         let fileInfos: { name: string, url: string }[] = [];
@@ -710,7 +461,7 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
                 return [newPost, ...cachedData];
             });
         } catch (optimisticError) {
-            console.warn('⚠️ 낙관적 업데이트 실패 (계속 진행):', optimisticError);
+            log.warn('낙관적 업데이트 실패 (계속 진행):', optimisticError);
         }
 
         // 앱스크립트 API 호출
@@ -744,8 +495,6 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
             throw new Error(response.message || '공지사항 작성에 실패했습니다.');
         }
 
-        console.log('공지사항이 성공적으로 저장되었습니다.');
-
         // 고정 공지 요청 (isPinned가 true이고 fix_notice가 '-'가 아닌 경우)
         if (postData.isPinned && response.data?.announcementId) {
             await apiClient.request('requestPinnedAnnouncement', {
@@ -756,7 +505,7 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
         }
 
     } catch (error) {
-        console.error('Error saving announcement:', error);
+        log.error('Error saving announcement:', error);
         throw error;
     }
 };
@@ -768,7 +517,7 @@ export const requestPinnedAnnouncementApproval = async (postData: { title: strin
 export const incrementViewCount = async (announcementId: string): Promise<void> => {
     try {
         if (!announcementSpreadsheetId) {
-            console.warn('Announcement spreadsheet ID not found');
+            log.debug('공지 스프레드시트 ID 준비 전이라 건너뜁니다.');
             return;
         }
 
@@ -778,12 +527,12 @@ export const incrementViewCount = async (announcementId: string): Promise<void> 
         });
 
         if (!response.success) {
-            console.warn('Failed to increment view count:', response.message);
+            log.warn('Failed to increment view count');
         } else {
-            console.log(`View count for announcement ${announcementId} updated`);
+            log.debug(`View count for announcement ${announcementId} updated`);
         }
     } catch (error) {
-        console.error('Error incrementing view count:', error);
+        log.error('Error incrementing view count:', error);
         // 조회수 증가는 중요하지 않으므로 에러를 throw하지 않음
     }
 };
@@ -805,7 +554,6 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
             throw new Error('User ID is required');
         }
 
-        setupPapyrusAuth();
         const token = tokenManager.get();
         if (!token) {
             throw new Error('Google Access Token not found or expired');
@@ -813,8 +561,8 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
         
         try {
             window.gapi.client.setToken({access_token: token});
-        } catch (tokenError) {
-            console.error('Failed to set GAPI token:', tokenError);
+        } catch {
+            log.error('Failed to set GAPI token');
             throw new Error('Failed to set GAPI token');
         }
 
@@ -874,7 +622,7 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
                 });
             });
         } catch (optimisticError) {
-            console.warn('⚠️ 낙관적 업데이트 실패 (계속 진행):', optimisticError);
+            log.warn('낙관적 업데이트 실패 (계속 진행):', optimisticError);
         }
 
         // 5. 앱스크립트 API 호출
@@ -907,7 +655,7 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
                     userId: userId
                 });
             } catch (error) {
-                console.error('고정 공지 요청 오류:', error);
+                log.error('고정 공지 요청 오류:', error);
                 // 고정 공지 요청 실패해도 수정은 성공한 것으로 처리
             }
         }
@@ -920,9 +668,9 @@ export const updateAnnouncement = async (announcementId: string, userId: string,
             throw new Error(response.message || '공지사항 수정에 실패했습니다.');
         }
 
-        console.log('Announcement updated successfully');
+        log.debug('Announcement updated successfully');
     } catch (error) {
-        console.error('Error updating announcement:', error);
+        log.error('Error updating announcement:', error);
         throw error;
     }
 };
@@ -957,7 +705,7 @@ export const deleteAnnouncement = async (spreadsheetId: string, announcementId: 
                 return cachedData.filter((post) => String(post.id) !== idNorm);
             });
         } catch (optimisticError) {
-            console.warn('⚠️ 낙관적 업데이트 실패 (계속 진행):', optimisticError);
+            log.warn('낙관적 업데이트 실패 (계속 진행):', optimisticError);
         }
 
         // API 호출
@@ -984,9 +732,9 @@ export const deleteAnnouncement = async (spreadsheetId: string, announcementId: 
             throw new Error(response.message || '공지사항 삭제에 실패했습니다.');
         }
 
-        console.log(`Announcement with ID ${announcementId} deleted successfully.`);
+        log.debug(`Announcement with ID ${announcementId} deleted successfully.`);
     } catch (error) {
-        console.error('Error deleting announcement:', error);
+        log.error('Error deleting announcement:', error);
         throw error;
     }
 };
@@ -1012,43 +760,54 @@ export const updateTemplate = async (
 export const updateTemplateFavorite = async (_rowIndex: number, _favoriteStatus: string | undefined): Promise<void> => {};
 
 // 캘린더 관련 함수들
+// 역할 위계: 학생 < 학생회 < 조교 ≈ 겸임교수 ≈ 교수. 상위 역할만 하위 역할 폴더의 시트를 읽을 수 있다.
+export const STAFF_ROLES = ['supp', 'professor', 'ad_professor', 'staff'];
+
+const getStoredUserType = (): string => {
+    try {
+        return JSON.parse(localStorage.getItem('user') || '{}').userType || '';
+    } catch {
+        return '';
+    }
+};
+
 export const fetchCalendarEvents = async (): Promise<Event[]> => {
     const cacheManager = getCacheManager();
     const action = 'fetchCalendarEvents';
     const category = getActionCategory(action);
     const cacheKey = generateCacheKey(category, action, {});
     
-    // 캐시에서 먼저 확인
-    const cachedData = await cacheManager.get<Event[]>(cacheKey);
-    if (cachedData) {
-        console.log('📅 캐시에서 캘린더 이벤트 로드:', cachedData.length, '개');
-        return cachedData;
-    }
+    return dedupe(cacheKey, async () => {
+        const cachedData = await cacheManager.get<Event[]>(cacheKey);
+        if (cachedData) {
+            log.debug('캐시에서 캘린더 이벤트 로드:', cachedData.length, '개');
+            return cachedData;
+        }
 
-    const allCalendarIds = [
-        calendarProfessorSpreadsheetId,
-        calendarStudentSpreadsheetId,
-        calendarCouncilSpreadsheetId,
-        calendarADProfessorSpreadsheetId,
-        calendarSuppSpreadsheetId
-    ].filter((id): id is string => !!id); // Filter out null/undefined IDs and assert type
+        const userType = getStoredUserType();
+        const readableCalendarIds = userType === 'student'
+            ? [calendarStudentSpreadsheetId]
+            : userType === 'std_council'
+                ? [calendarStudentSpreadsheetId, calendarCouncilSpreadsheetId]
+                : [
+                    calendarProfessorSpreadsheetId,
+                    calendarStudentSpreadsheetId,
+                    calendarCouncilSpreadsheetId,
+                    calendarADProfessorSpreadsheetId,
+                    calendarSuppSpreadsheetId
+                ];
+        const allCalendarIds = readableCalendarIds.filter((id): id is string => !!id);
 
-    if (allCalendarIds.length === 0) {
-        console.log('No calendar spreadsheet IDs are available.');
-        return [];
-    }
+        if (allCalendarIds.length === 0) return [];
 
-    try {
-        console.log('📅 캘린더 이벤트 로드 시작 (캐시 미스)...');
         const allEvents: Event[] = [];
-        
-        for (const spreadsheetId of allCalendarIds) {
-            try {
-                console.log(`Fetching calendar events from spreadsheet: ${spreadsheetId}`);
+
+        const results = await Promise.allSettled(allCalendarIds.map(async spreadsheetId => {
+                log.debug(`Fetching calendar events from spreadsheet: ${spreadsheetId}`);
                 const data = await getSheetData(spreadsheetId, ENV_CONFIG.CALENDAR_SHEET_NAME); // ENV v2: DEFAULT_SHEET_NAME 기반 캘린더 시트명
 
                 if (data && data.values && data.values.length > 1) {
-                    const events = data.values.slice(1).map((row: string[], index: number) => ({
+                    return data.values.slice(1).map((row: string[], index: number) => ({
                         id: `${spreadsheetId}-${row[0] || index}`,
                         title: row[1] || '',
                         startDate: row[2] || '',
@@ -1061,31 +820,34 @@ export const fetchCalendarEvents = async (): Promise<Event[]> => {
                         rrule: row[9] || '',
                         attendees: row[10] || '',
                     }));
-                    allEvents.push(...events);
                 }
-            } catch (error: any) {
+                return [];
+        }));
+
+        results.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+                allEvents.push(...result.value);
+            } else {
+                const spreadsheetId = allCalendarIds[index];
+                const error = result.reason;
                 // 403 오류는 권한 문제이므로 경고만 출력하고 계속 진행
                 if (error?.status === 403 || error?.code === 403) {
-                    console.warn(`⚠️ 스프레드시트 ${spreadsheetId}에 접근 권한이 없습니다.`);
+                    log.warn(`스프레드시트 ${spreadsheetId}에 접근 권한이 없습니다.`);
                 } else {
-                    console.error(`Error fetching events from spreadsheet ${spreadsheetId}:`, error);
+                    log.error(`Error fetching events from spreadsheet ${spreadsheetId}:`, error);
                 }
-                // Continue to next spreadsheet even if one fails
             }
-        }
-
-        console.log('📅 전체 캘린더 이벤트 로드 완료:', allEvents.length, '개');
+        });
         
         // 캐시에 저장
         const ttl = getCacheTTL(action);
         await cacheManager.set(cacheKey, allEvents, ttl);
-        console.log('📅 캘린더 이벤트 캐시 저장 완료 (TTL:', ttl / 1000 / 60, '분)');
         
         return allEvents;
-    } catch (error) {
-        console.error('Error fetching calendar events from Google Sheets:', error);
+    }).catch(error => {
+        log.error('Error fetching calendar events from Google Sheets:', error);
         return [];
-    }
+    });
 };
 
 export const addCalendarEvent = async (spreadsheetId: string, eventData: Omit<Event, 'id'>, userType: string): Promise<void> => {
@@ -1134,13 +896,12 @@ export const addCalendarEvent = async (spreadsheetId: string, eventData: Omit<Ev
                 return [...cachedData, newEvent];
             });
         } catch (optimisticError) {
-            console.warn('⚠️ 낙관적 업데이트 실패 (계속 진행):', optimisticError);
+            log.warn('낙관적 업데이트 실패 (계속 진행):', optimisticError);
         }
 
         // API 호출
         try {
             await append(spreadsheetId, ENV_CONFIG.CALENDAR_SHEET_NAME, [newEventForSheet]);
-            console.log('일정이 성공적으로 추가되었습니다.');
         } catch (apiError) {
             // API 실패 시 롤백
             if (rollback) {
@@ -1154,10 +915,10 @@ export const addCalendarEvent = async (spreadsheetId: string, eventData: Omit<Ev
             const dataSyncService = getDataSyncService();
             await dataSyncService.invalidateAndRefresh(cacheKeys);
         } catch (cacheError) {
-            console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
         }
     } catch (error) {
-        console.error('Error saving calendar event to Google Sheet:', error);
+        log.error('Error saving calendar event to Google Sheet:', error);
         throw error;
     }
 };
@@ -1221,13 +982,12 @@ export const updateCalendarEvent = async (spreadsheetId: string, eventId: string
                 });
             });
         } catch (optimisticError) {
-            console.warn('⚠️ 낙관적 업데이트 실패 (계속 진행):', optimisticError);
+            log.warn('낙관적 업데이트 실패 (계속 진행):', optimisticError);
         }
 
         // API 호출
         try {
             await update(spreadsheetId, ENV_CONFIG.CALENDAR_SHEET_NAME, `A${rowIndex + 1}:K${rowIndex + 1}`, [newRowData]);
-            console.log('일정이 성공적으로 업데이트되었습니다.');
         } catch (apiError) {
             // API 실패 시 롤백
             if (rollback) {
@@ -1241,10 +1001,10 @@ export const updateCalendarEvent = async (spreadsheetId: string, eventId: string
             const dataSyncService = getDataSyncService();
             await dataSyncService.invalidateAndRefresh(cacheKeys);
         } catch (cacheError) {
-            console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
         }
     } catch (error) {
-        console.error('Error updating calendar event in Google Sheet:', error);
+        log.error('Error updating calendar event in Google Sheet:', error);
         throw error;
     }
 };
@@ -1284,14 +1044,13 @@ export const deleteCalendarEvent = async (spreadsheetId: string, eventId: string
             return cachedData.filter(event => event.id !== eventId);
         });
     } catch (optimisticError) {
-        console.warn('⚠️ 낙관적 업데이트 실패 (계속 진행):', optimisticError);
+        log.warn('낙관적 업데이트 실패 (계속 진행):', optimisticError);
     }
 
     // API 호출
     try {
         const sheetId = 0; // Assuming the first sheet
         await deleteRow(spreadsheetId, sheetId, rowIndex);
-        console.log('일정이 성공적으로 삭제되었습니다.');
     } catch (apiError) {
         // API 실패 시 롤백
         if (rollback) {
@@ -1305,10 +1064,10 @@ export const deleteCalendarEvent = async (spreadsheetId: string, eventId: string
         const dataSyncService = getDataSyncService();
         await dataSyncService.invalidateAndRefresh(cacheKeys);
     } catch (cacheError) {
-        console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+        log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
     }
   } catch (error) {
-    console.error('Error deleting calendar event from Google Sheet:', error);
+    log.error('Error deleting calendar event from Google Sheet:', error);
     throw error;
   }
 };
@@ -1326,10 +1085,10 @@ export const invalidateStudentsFetchCache = async (spreadsheetId: string): Promi
             await cacheManager.invalidate(key);
         }
         getDataSyncService().invalidateAndRefresh(keys).catch((err) => {
-            console.warn('⚠️ 학생 목록 백그라운드 갱신 실패:', err);
+            log.warn('학생 목록 백그라운드 갱신 실패:', err);
         });
     } catch (e) {
-        console.warn('⚠️ 학생 목록 캐시 무효화 실패 (계속 진행):', e);
+        log.warn('학생 목록 캐시 무효화 실패 (계속 진행):', e);
     }
 };
 
@@ -1340,25 +1099,19 @@ export const fetchStudents = async (spreadsheetId?: string): Promise<Student[]> 
     const targetSpreadsheetId = spreadsheetId || studentSpreadsheetId;
     const cacheKey = generateCacheKey(category, action, { spreadsheetId: targetSpreadsheetId });
     
-    // 캐시에서 먼저 확인
-    const cachedData = await cacheManager.get<Student[]>(cacheKey);
-    if (cachedData) {
-        console.log('👥 캐시에서 학생 목록 로드 (복호화 완료):', cachedData.length, '명');
-        return cachedData;
-    }
+    return dedupe(cacheKey, async () => {
+      const cachedData = await cacheManager.get<Student[]>(cacheKey);
+      if (cachedData) return cachedData;
 
-    try {
+      try {
         if (!targetSpreadsheetId) {
-            console.warn('Student spreadsheet ID not found');
+            log.warn('Student spreadsheet ID not found');
             return [];
         }
-
-        console.log(`👥 학생 목록 로드 시작 (캐시 미스): ${targetSpreadsheetId}, sheet: ${ENV_CONFIG.STUDENT_SHEET_NAME}`);
-        const data = await getSheetData(targetSpreadsheetId, ENV_CONFIG.STUDENT_SHEET_NAME); // ENV v2: INFO_SHEET_NAME 기반 학생 시트명
-        console.log('Students data received:', data);
+        const data = await getSheetData(targetSpreadsheetId, ENV_CONFIG.STUDENT_SHEET_NAME);
 
         if (!data || !data.values || data.values.length <= 1) {
-            console.log('No students data or insufficient rows');
+            log.debug('No students data or insufficient rows');
             return [];
         }
 
@@ -1376,8 +1129,6 @@ export const fetchStudents = async (spreadsheetId?: string): Promise<Student[]> 
             grad_term: row[9] || '', // 졸업 회차 (J열, 전기/후기)
             advanced: row[10] || '', // 진학 여부 (K열, O면 진학)
         }));
-
-        console.log(`👥 학생 목록 파싱 완료: ${rawStudents.length}명, 일괄 복호화 시작...`);
         
         // 일괄 복호화 (1회 API 호출)
         const encryptedPhones = rawStudents.map((s) => s.phone_num || '');
@@ -1386,19 +1137,17 @@ export const fetchStudents = async (spreadsheetId?: string): Promise<Student[]> 
             ...student,
             phone_num: decryptedPhones[i] ?? student.phone_num
         }));
-
-        console.log(`👥 학생 목록 복호화 완료: ${decryptedStudents.length}명 (1회 일괄 호출)`);
         
         // 복호화된 데이터를 캐시에 저장
         const ttl = getCacheTTL(action);
         await cacheManager.set(cacheKey, decryptedStudents, ttl);
-        console.log('👥 학생 목록 캐시 저장 완료 (복호화된 데이터, TTL:', ttl / 1000 / 60, '분)');
         
         return decryptedStudents;
-    } catch (error) {
-        console.error('Error fetching students from Google Sheet:', error);
-        return [];
-    }
+      } catch (error) {
+          log.error('Error fetching students from Google Sheet:', error);
+          return [];
+      }
+    });
 };
 
 export const deleteStudent = async (spreadsheetId: string, studentNo: string): Promise<void> => {
@@ -1408,7 +1157,6 @@ export const deleteStudent = async (spreadsheetId: string, studentNo: string): P
             throw new Error('Student spreadsheet ID not found');
         }
 
-        setupPapyrusAuth();
 
         const sheetName = ENV_CONFIG.STUDENT_SHEET_NAME; // ENV v2: INFO_SHEET_NAME 기반 학생 시트명
 
@@ -1440,16 +1188,16 @@ export const deleteStudent = async (spreadsheetId: string, studentNo: string): P
 
         await deleteRow(targetSpreadsheetId, sheetId, rowIndex);
 
-        console.log(`Student with number ${studentNo} deleted successfully.`);
+        log.debug(`Student with number ${studentNo} deleted successfully.`);
 
         try {
             await invalidateStudentsFetchCache(targetSpreadsheetId);
         } catch (cacheError) {
-            console.warn('⚠️ 학생 삭제 후 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('학생 삭제 후 캐시 무효화 실패 (계속 진행):', cacheError);
         }
 
     } catch (error) {
-        console.error('Error deleting student:', error);
+        log.error('Error deleting student:', error);
         throw error;
     }
 };
@@ -1470,7 +1218,6 @@ export const updateStudent = async (
             throw new Error('Student spreadsheet ID not found');
         }
 
-        setupPapyrusAuth();
 
         const sheetName = ENV_CONFIG.STUDENT_SHEET_NAME;
         const data = await getSheetData(effectiveSpreadsheetId, sheetName);
@@ -1537,61 +1284,20 @@ export const updateStudent = async (
             ];
             await dataSyncService.invalidateAndRefresh(cacheKeys);
         } catch (cacheError) {
-            console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
         }
     } catch (error) {
-        console.error('Error updating student:', error);
+        log.error('Error updating student:', error);
         throw error;
     }
 };
 
+// 교직원 목록은 교직원 스프레드시트의 info 시트를 읽는 fetchStaffFromPapyrus와 같은 결과를 쓴다.
 export const fetchStaff = async (): Promise<Staff[]> => {
-    const cacheManager = getCacheManager();
-    const action = 'fetchStaff';
-    const category = getActionCategory(action);
-    const cacheKey = generateCacheKey(category, action, {});
-    
-    // 캐시에서 먼저 확인
-    const cachedData = await cacheManager.get<Staff[]>(cacheKey);
-    if (cachedData) {
-        console.log('👨‍💼 캐시에서 교직원 목록 로드:', cachedData.length, '명');
-        return cachedData;
-    }
-
     try {
-        if (!studentSpreadsheetId) {
-            console.warn('Student spreadsheet ID not found');
-            return [];
-        }
-
-        console.log('👨‍💼 교직원 목록 로드 시작 (캐시 미스)...');
-        const data = await getSheetData(studentSpreadsheetId, ENV_CONFIG.STUDENT_SHEET_NAME);
-
-        if (!data || !data.values || data.values.length <= 1) {
-            return [];
-        }
-
-        const staff = data.values.slice(1).map((row: string[]) => ({
-            no: row[0] || '',
-            pos: row[1] || '',
-            name: row[2] || '',
-            tel: row[3] || '',
-            phone: row[4] || '',
-            email: row[5] || '',
-            date: row[6] || '',
-            note: row[7] || '',
-        }));
-
-        console.log(`👨‍💼 교직원 목록 로드 완료: ${staff.length}명`);
-        
-        // 캐시에 저장
-        const ttl = getCacheTTL(action);
-        await cacheManager.set(cacheKey, staff, ttl);
-        console.log('👨‍💼 교직원 목록 캐시 저장 완료 (TTL:', ttl / 1000 / 60, '분)');
-        
-        return staff;
+        return await fetchStaffFromPapyrus(staffSpreadsheetId || "");
     } catch (error) {
-        console.error('Error fetching staff from Google Sheet:', error);
+        log.error("Error fetching staff:", error);
         return [];
     }
 };
@@ -1602,33 +1308,28 @@ export const fetchAttendees = async (): Promise<{ students: Student[], staff: St
     const category = getActionCategory(action);
     const cacheKey = generateCacheKey(category, action, {});
     
-    // 캐시에서 먼저 확인
-    const cachedData = await cacheManager.get<{ students: Student[], staff: Staff[] }>(cacheKey);
-    if (cachedData) {
-        console.log('👥 캐시에서 참석자 목록 로드:', cachedData.students.length, '명 학생,', cachedData.staff.length, '명 교직원');
-        return cachedData;
-    }
+    return dedupe(cacheKey, async () => {
+      const cachedData = await cacheManager.get<{ students: Student[], staff: Staff[] }>(cacheKey);
+      if (cachedData) return cachedData;
 
-    try {
-        console.log('👥 참석자 목록 로드 시작 (캐시 미스)...');
+      try {
         const [students, staff] = await Promise.all([
             fetchStudents(),
             fetchStaffFromPapyrus(staffSpreadsheetId || '')
         ]);
         
         const result = {students, staff};
-        console.log('👥 참석자 목록 로드 완료:', students.length, '명 학생,', staff.length, '명 교직원');
         
         // 캐시에 저장
         const ttl = getCacheTTL(action);
         await cacheManager.set(cacheKey, result, ttl);
-        console.log('👥 참석자 목록 캐시 저장 완료 (TTL:', ttl / 1000 / 60, '분)');
         
         return result;
-    } catch (error) {
-        console.error('Error fetching attendees:', error);
-        return {students: [], staff: []};
-    }
+      } catch (error) {
+          log.error('Error fetching attendees:', error);
+          return {students: [], staff: []};
+      }
+    });
 };
 
 // 학생 이슈 타입 정의
@@ -1651,17 +1352,15 @@ export const fetchStudentIssues = async (studentNo: string): Promise<StudentIssu
     // 캐시에서 먼저 확인
     const cachedData = await cacheManager.get<StudentIssue[]>(cacheKey);
     if (cachedData) {
-        console.log('📋 캐시에서 학생 이슈 로드:', cachedData.length, '개');
+        log.debug('캐시에서 학생 이슈 로드:', cachedData.length, '개');
         return cachedData;
     }
 
     try {
         if (!studentSpreadsheetId) {
-            console.warn('Student spreadsheet ID not found');
+            log.warn('Student spreadsheet ID not found');
             return [];
         }
-
-        console.log(`📋 학생 이슈 로드 시작 (캐시 미스): ${studentNo}`);
         const data = await getSheetData(studentSpreadsheetId, ENV_CONFIG.STUDENT_ISSUE_SHEET_NAME); // ENV v2: ISSUE_SHEET_NAME 기반 학생 이슈 시트명
 
         if (!data || !data.values || data.values.length <= 1) {
@@ -1678,17 +1377,14 @@ export const fetchStudentIssues = async (studentNo: string): Promise<StudentIssu
                 level_issue: row[3] || '',
                 content_issue: row[4] || ''
             }));
-
-        console.log(`📋 학생 이슈 로드 완료: ${issues.length}개`);
         
         // 캐시에 저장
         const ttl = getCacheTTL(action);
         await cacheManager.set(cacheKey, issues, ttl);
-        console.log('📋 학생 이슈 캐시 저장 완료 (TTL:', ttl / 1000 / 60, '분)');
         
         return issues;
     } catch (error) {
-        console.error('Error fetching student issues:', error);
+        log.error('Error fetching student issues:', error);
         return [];
     }
 };
@@ -1717,7 +1413,7 @@ export const addStudentIssue = async (
         ];
 
         await append(spreadsheetId, ENV_CONFIG.STUDENT_ISSUE_SHEET_NAME, [data]);
-        console.log('Student issue added successfully');
+        log.debug('Student issue added successfully');
         
         // 캐시 무효화 및 백그라운드 갱신
         try {
@@ -1728,10 +1424,10 @@ export const addStudentIssue = async (
             ];
             await dataSyncService.invalidateAndRefresh(cacheKeys);
         } catch (cacheError) {
-            console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
         }
     } catch (error) {
-        console.error('Error adding student issue:', error);
+        log.error('Error adding student issue:', error);
         throw error;
     }
 };
@@ -1821,7 +1517,6 @@ export const saveAcademicScheduleToSheet = async (scheduleData: {
     });
 
     try {
-        console.log('학사일정 이벤트 저장 시작:', eventsToSave.length, '개');
 
         // Get current data to check for existing events
         const sheetData = await getSheetData(calendarSpreadsheetId, ENV_CONFIG.CALENDAR_SHEET_NAME);
@@ -1850,7 +1545,7 @@ export const saveAcademicScheduleToSheet = async (scheduleData: {
 
         // 행을 삭제하는 대신 내용을 지워서 삭제 효과를 냄
         if (rowsToDelete.length > 0) {
-            console.log(`Clearing ${rowsToDelete.length} academic schedule event rows that no longer exist.`);
+            log.debug(`Clearing ${rowsToDelete.length} academic schedule event rows that no longer exist.`);
             for (const rowIndex of rowsToDelete) {
                 const range = `${ENV_CONFIG.CALENDAR_SHEET_NAME}!A${rowIndex}:K${rowIndex}`;
                 await window.gapi.client.sheets.spreadsheets.values.clear({
@@ -1886,10 +1581,8 @@ export const saveAcademicScheduleToSheet = async (scheduleData: {
                 await append(calendarSpreadsheetId, ENV_CONFIG.CALENDAR_SHEET_NAME, [rowData]);
             }
         }
-
-        console.log('학사일정이 성공적으로 저장되었습니다.');
     } catch (error) {
-        console.error('Error saving academic schedule to Papyrus DB:', error);
+        log.error('Error saving academic schedule to Papyrus DB:', error);
         throw error;
     }
 };
@@ -1898,9 +1591,9 @@ export const saveAcademicScheduleToSheet = async (scheduleData: {
 export const addTag = async (newTag: string): Promise<void> => {
     try {
         // papyrus-db에서는 태그를 별도 테이블로 관리하지 않으므로 스킵
-        console.log('태그 추가 기능은 현재 지원되지 않습니다:', newTag);
+        log.debug('태그 추가 기능은 현재 지원되지 않습니다:', newTag);
     } catch (error) {
-        console.error('Error saving tag to Papyrus DB:', error);
+        log.error('Error saving tag to Papyrus DB:', error);
         throw error;
     }
 };
@@ -1908,9 +1601,9 @@ export const addTag = async (newTag: string): Promise<void> => {
 export const deleteTag = async (tagToDelete: string): Promise<void> => {
     try {
         // papyrus-db에서는 태그를 별도 테이블로 관리하지 않으므로 스킵
-        console.log('태그 삭제 기능은 현재 지원되지 않습니다:', tagToDelete);
+        log.debug('태그 삭제 기능은 현재 지원되지 않습니다:', tagToDelete);
     } catch (error) {
-        console.error('Error deleting tag from Papyrus DB:', error);
+        log.error('Error deleting tag from Papyrus DB:', error);
         throw error;
     }
 };
@@ -1918,9 +1611,9 @@ export const deleteTag = async (tagToDelete: string): Promise<void> => {
 export const updateTag = async (oldTag: string, newTag: string): Promise<void> => {
     try {
         // papyrus-db에서는 태그를 별도 테이블로 관리하지 않으므로 스킵
-        console.log('태그 업데이트 기능은 현재 지원되지 않습니다:', oldTag, '->', newTag);
+        log.debug('태그 업데이트 기능은 현재 지원되지 않습니다:', oldTag, '->', newTag);
     } catch (error) {
-        console.error('Error updating tag in Papyrus DB:', error);
+        log.error('Error updating tag in Papyrus DB:', error);
         throw error;
     }
 };
@@ -1953,8 +1646,8 @@ const decryptValue = async (encryptedValue: string): Promise<string> => {
       return response.data as string;
     }
     return encryptedValue;
-  } catch (error) {
-    console.warn('복호화 실패:', error);
+  } catch {
+    log.warn('복호화 실패');
     return encryptedValue;
   }
 };
@@ -1982,8 +1675,8 @@ const decryptValuesBatch = async (encryptedValues: string[]): Promise<string[]> 
       }
     }
     return results;
-  } catch (error) {
-    console.warn('일괄 복호화 실패:', error);
+  } catch {
+    log.warn('일괄 복호화 실패');
     return encryptedValues;
   }
 };
@@ -2001,8 +1694,8 @@ const encryptValue = async (plainValue: string): Promise<string> => {
     const response = await apiClient.request<{ success: boolean; data: string }>('encryptEmail', { data: v });
     if (response.success && response.data) return response.data as string;
     return v;
-  } catch (error) {
-    console.warn('암호화 실패:', error);
+  } catch {
+    log.warn('암호화 실패');
     return v;
   }
 };
@@ -2013,15 +1706,11 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
   const category = getActionCategory(action);
   const cacheKey = generateCacheKey(category, action, { spreadsheetId });
   
-  // 캐시에서 먼저 확인
-  const cachedData = await cacheManager.get<Staff[]>(cacheKey);
-  if (cachedData) {
-    console.log('👨‍💼 캐시에서 교직원 목록 로드 (Papyrus, 복호화 완료):', cachedData.length, '명');
-    return cachedData;
-  }
+  return dedupe(cacheKey, async () => {
+    const cachedData = await cacheManager.get<Staff[]>(cacheKey);
+    if (cachedData) return cachedData;
 
-  try {
-    setupPapyrusAuth();
+    try {
 
     if (!staffSpreadsheetId) {
       staffSpreadsheetId = await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
@@ -2030,8 +1719,6 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
     if (!staffSpreadsheetId) {
       throw new Error('교직원 스프레드시트를 찾을 수 없습니다.');
     }
-
-    console.log('👨‍💼 교직원 목록 로드 시작 (Papyrus, 캐시 미스)...');
     const data = await getSheetData(staffSpreadsheetId, ENV_CONFIG.STAFF_INFO_SHEET_NAME); // ENV v2: INFO_SHEET_NAME 기반 교직원 시트명
 
     if (!data || !data.values || data.values.length === 0) {
@@ -2039,10 +1726,10 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
     }
 
     const headers = data.values[0] as string[];
-    console.log('👨‍💼 교직원 스프레드시트 헤더:', headers);
+    log.debug('교직원 스프레드시트 헤더:', headers);
     
     // 먼저 암호화된 데이터를 파싱
-    const rawStaffData: Staff[] = data.values.slice(1).map((row: string[], rowIndex: number) => {
+    const rawStaffData: Staff[] = data.values.slice(1).map((row: string[]) => {
       const staff: Partial<Staff> = {};
       headers.forEach((header: string, index: number) => {
         const value = row[index];
@@ -2074,18 +1761,11 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
       
       // 디버깅: 필드가 비어있는 경우 로그 출력
       if (!staff.tel && !staff.phone && !staff.email && staff.name) {
-        console.warn(`⚠️ 교직원 "${staff.name}"의 연락처 정보가 비어있습니다.`, {
-          rowIndex: rowIndex + 2, // 실제 스프레드시트 행 번호 (헤더 + 1)
-          headers,
-          row,
-          staff
-        });
+        log.warn(`교직원 "${staff.name}"의 연락처 정보가 비어있습니다.`);
       }
       
       return staff as Staff;
     });
-
-    console.log(`👨‍💼 교직원 목록 파싱 완료: ${rawStaffData.length}명, 일괄 복호화 시작...`);
     
     // 일괄 복호화 (1회 API 호출) - tel, phone, email 순으로 평탄화
     const encryptedStaffValues = rawStaffData.flatMap((s) => [s.tel || '', s.phone || '', s.email || '']);
@@ -2099,19 +1779,17 @@ export const fetchStaffFromPapyrus = async (spreadsheetId: string): Promise<Staf
         email: decryptedStaffValues[base + 2] ?? staff.email
       };
     });
-
-    console.log(`👨‍💼 교직원 목록 복호화 완료: ${decryptedStaffData.length}명 (1회 일괄 호출)`);
     
     // 복호화된 데이터를 캐시에 저장
     const ttl = getCacheTTL(action);
     await cacheManager.set(cacheKey, decryptedStaffData, ttl);
-    console.log('👨‍💼 교직원 목록 캐시 저장 완료 (복호화된 데이터, TTL:', ttl / 1000 / 60, '분)');
     
     return decryptedStaffData;
-  } catch (error) {
-    console.error('Error fetching staff from Papyrus DB:', error);
-    throw error;
-  }
+    } catch (error) {
+      log.error('Error fetching staff from Papyrus DB:', error);
+      throw error;
+    }
+  });
 };
 
 /**
@@ -2128,12 +1806,10 @@ export const fetchCommitteeFromPapyrus = async (spreadsheetId: string): Promise<
   // 캐시에서 먼저 확인
   const cachedData = await cacheManager.get<Committee[]>(cacheKey);
   if (cachedData) {
-    console.log('👥 캐시에서 위원회 목록 로드 (복호화 완료):', cachedData.length, '개');
     return cachedData;
   }
 
   try {
-    setupPapyrusAuth();
 
     if (!staffSpreadsheetId) {
       staffSpreadsheetId = await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
@@ -2142,8 +1818,6 @@ export const fetchCommitteeFromPapyrus = async (spreadsheetId: string): Promise<
     if (!staffSpreadsheetId) {
       throw new Error('교직원 스프레드시트를 찾을 수 없습니다.');
     }
-
-    console.log('👥 위원회 목록 로드 시작 (캐시 미스)...');
     const data = await getSheetData(staffSpreadsheetId, ENV_CONFIG.STAFF_COMMITTEE_SHEET_NAME); // ENV v2: COMMITTEE_SHEET_NAME 기반 위원회 시트명
 
     if (!data || !data.values || data.values.length === 0) {
@@ -2151,7 +1825,7 @@ export const fetchCommitteeFromPapyrus = async (spreadsheetId: string): Promise<
     }
 
     const headers = data.values[0] as string[];
-    console.log('👥 위원회 스프레드시트 헤더:', headers);
+    log.debug('위원회 스프레드시트 헤더:', headers);
 
     // 먼저 암호화된 데이터를 파싱 (헤더 정규화로 tel, email 등 매핑 보장)
     const rawCommitteeData: Committee[] = data.values.slice(1).map((row: string[]) => {
@@ -2199,15 +1873,13 @@ export const fetchCommitteeFromPapyrus = async (spreadsheetId: string): Promise<
             parsedCareer = parsed;
           }
         } catch (e) {
-          console.error('경력 정보 파싱 실패:', e);
+          log.error('경력 정보 파싱 실패:', e);
         }
       }
       committee.career = parsedCareer;
 
       return committee as Committee;
     });
-
-    console.log(`👥 위원회 목록 파싱 완료: ${rawCommitteeData.length}개, 일괄 복호화 시작...`);
     
     // 일괄 복호화 (1회 API 호출) - tel, email 순으로 평탄화
     const encryptedCommitteeValues = rawCommitteeData.flatMap((c) => [c.tel || '', c.email || '']);
@@ -2220,17 +1892,14 @@ export const fetchCommitteeFromPapyrus = async (spreadsheetId: string): Promise<
         email: decryptedCommitteeValues[base + 1] ?? committee.email
       };
     });
-
-    console.log(`👥 위원회 목록 복호화 완료: ${decryptedCommitteeData.length}개 (1회 일괄 호출)`);
     
     // 복호화된 데이터를 캐시에 저장
     const ttl = getCacheTTL(action);
     await cacheManager.set(cacheKey, decryptedCommitteeData, ttl);
-    console.log('👥 위원회 목록 캐시 저장 완료 (복호화된 데이터, TTL:', ttl / 1000 / 60, '분)');
     
     return decryptedCommitteeData;
     } catch (error) {
-        console.error('Error fetching committee from Papyrus DB:', error);
+        log.error('Error fetching committee from Papyrus DB:', error);
         throw error;
     }
 };
@@ -2259,7 +1928,6 @@ interface Committee {
  */
 export const addStaff = async (spreadsheetId: string, staff: StaffMember): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         if (!staffSpreadsheetId) {
             staffSpreadsheetId = await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
@@ -2290,10 +1958,10 @@ export const addStaff = async (spreadsheetId: string, staff: StaffMember): Promi
             ];
             await dataSyncService.invalidateAndRefresh(cacheKeys);
         } catch (cacheError) {
-            console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
         }
     } catch (error) {
-        console.error('Error adding staff:', error);
+        log.error('Error adding staff:', error);
         throw error;
     }
 };
@@ -2306,7 +1974,6 @@ export const addStaff = async (spreadsheetId: string, staff: StaffMember): Promi
  */
 export const updateStaff = async (spreadsheetId: string, staffNo: string, staff: StaffMember): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         const effectiveSpreadsheetId = staffSpreadsheetId || await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
         if (!effectiveSpreadsheetId) {
@@ -2357,11 +2024,11 @@ export const updateStaff = async (spreadsheetId: string, staffNo: string, staff:
             ];
             await dataSyncService.invalidateAndRefresh(cacheKeys);
         } catch (cacheError) {
-            console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
         }
 
     } catch (error) {
-        console.error('Error updating staff in papyrusManager:', error);
+        log.error('Error updating staff in papyrusManager:', error);
         // 에러를 다시 던져서 상위 호출자가 처리할 수 있도록 함
         throw error;
     }
@@ -2375,7 +2042,6 @@ export const updateStaff = async (spreadsheetId: string, staffNo: string, staff:
  */
 export const deleteStaff = async (spreadsheetId: string, staffNo: string): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         const effectiveSpreadsheetId = staffSpreadsheetId || await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
         if (!effectiveSpreadsheetId) {
@@ -2407,11 +2073,11 @@ export const deleteStaff = async (spreadsheetId: string, staffNo: string): Promi
             ];
             await dataSyncService.invalidateAndRefresh(cacheKeys);
         } catch (cacheError) {
-            console.warn('⚠️ 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('캐시 무효화 실패 (계속 진행):', cacheError);
         }
 
     } catch (error) {
-        console.error('Error deleting staff:', error);
+        log.error('Error deleting staff:', error);
         throw error;
     }
 };
@@ -2424,7 +2090,6 @@ export const deleteStaff = async (spreadsheetId: string, staffNo: string): Promi
  */
 export const addCommittee = async (spreadsheetId: string, committee: CommitteeType): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         if (!staffSpreadsheetId) {
             staffSpreadsheetId = await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
@@ -2453,10 +2118,10 @@ export const addCommittee = async (spreadsheetId: string, committee: CommitteeTy
         try {
             await getCacheManager().invalidate('staff:fetchCommitteeFromPapyrus:*');
         } catch (cacheError) {
-            console.warn('위원회 목록 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('위원회 목록 캐시 무효화 실패 (계속 진행):', cacheError);
         }
     } catch (error) {
-        console.error('Error adding committee:', error);
+        log.error('Error adding committee:', error);
         throw error;
     }
 };
@@ -2469,7 +2134,6 @@ export const addCommittee = async (spreadsheetId: string, committee: CommitteeTy
  */
 export const updateCommittee = async (spreadsheetId: string, committeeName: string, committee: CommitteeType): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         const effectiveSpreadsheetId = staffSpreadsheetId || await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
         if (!effectiveSpreadsheetId) {
@@ -2519,11 +2183,11 @@ export const updateCommittee = async (spreadsheetId: string, committeeName: stri
         try {
             await getCacheManager().invalidate('staff:fetchCommitteeFromPapyrus:*');
         } catch (cacheError) {
-            console.warn('위원회 목록 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('위원회 목록 캐시 무효화 실패 (계속 진행):', cacheError);
         }
 
     } catch (error) {
-        console.error('Error updating committee in papyrusManager:', error);
+        log.error('Error updating committee in papyrusManager:', error);
         throw error;
     }
 };
@@ -2536,7 +2200,6 @@ export const updateCommittee = async (spreadsheetId: string, committeeName: stri
  */
 export const deleteCommittee = async (spreadsheetId: string, committeeName: string): Promise<void> => {
     try {
-        setupPapyrusAuth();
 
         const effectiveSpreadsheetId = staffSpreadsheetId || await findSpreadsheetById(ENV_CONFIG.STAFF_SPREADSHEET_NAME);
         if (!effectiveSpreadsheetId) {
@@ -2576,11 +2239,11 @@ export const deleteCommittee = async (spreadsheetId: string, committeeName: stri
         try {
             await getCacheManager().invalidate('staff:fetchCommitteeFromPapyrus:*');
         } catch (cacheError) {
-            console.warn('위원회 목록 캐시 무효화 실패 (계속 진행):', cacheError);
+            log.warn('위원회 목록 캐시 무효화 실패 (계속 진행):', cacheError);
         }
 
     } catch (error) {
-        console.error('Error deleting committee:', error);
+        log.error('Error deleting committee:', error);
         throw error;
     }
 };

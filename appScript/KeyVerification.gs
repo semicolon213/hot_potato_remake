@@ -28,15 +28,10 @@ function verifyAdminKey(inputKey) {
     }
     
     const storedKey = data[0][0];
-    const layersUsed = data[0][3]; // D열: layers_used
-    
-    console.log('저장된 키:', storedKey.substring(0, 20) + '...');
-    console.log('입력된 키:', inputKey.substring(0, 20) + '...');
-    console.log('사용된 레이어:', layersUsed);
+    const layersUsed = data[0][3];
     
     // 키 비교
     if (inputKey === storedKey) {
-      console.log('✅ 관리자 키 검증 성공');
       return {
         success: true,
         message: '관리자 키가 유효합니다.',
@@ -44,7 +39,6 @@ function verifyAdminKey(inputKey) {
         layers: layersUsed
       };
     } else {
-      console.log('❌ 관리자 키 검증 실패');
       return {
         success: false,
         message: '유효하지 않은 관리자 키입니다.',
@@ -54,7 +48,7 @@ function verifyAdminKey(inputKey) {
     }
     
   } catch (error) {
-    console.error('관리자 키 검증 오류:', error);
+    logError_('KeyVerification', '관리자 키 검증 오류');
     return {
       success: false,
       message: '관리자 키 검증 중 오류가 발생했습니다: ' + error.message,
@@ -72,7 +66,6 @@ function verifyAdminKey(inputKey) {
  */
 function decryptAndVerifyKey(encryptedKey, layers) {
   try {
-    console.log('🔓 키 복호화 및 검증 시작');
     
     if (!encryptedKey || !layers) {
       return {
@@ -83,7 +76,6 @@ function decryptAndVerifyKey(encryptedKey, layers) {
     
     // 레이어 정보 파싱
     const layerArray = layers.split(',').map(layer => layer.trim());
-    console.log('복호화할 레이어들:', layerArray);
     
     // 역순으로 복호화
     let decryptedKey = encryptedKey;
@@ -91,10 +83,7 @@ function decryptAndVerifyKey(encryptedKey, layers) {
       const layer = layerArray[i];
       const beforeDecrypt = decryptedKey;
       decryptedKey = applyDecryption(decryptedKey, layer, '');
-      console.log(`복호화 ${layerArray.length - i}/${layerArray.length} (${layer}):`, beforeDecrypt.substring(0, 20) + '...', '->', decryptedKey.substring(0, 20) + '...');
     }
-    
-    console.log('최종 복호화된 키:', decryptedKey);
     
     // 키 형식 검증
     const isValidFormat = decryptedKey.startsWith('ADMIN_') && decryptedKey.includes('_');
@@ -107,7 +96,7 @@ function decryptAndVerifyKey(encryptedKey, layers) {
     };
     
   } catch (error) {
-    console.error('키 복호화 및 검증 오류:', error);
+    logError_('KeyVerification', '키 복호화 및 검증 오류');
     return {
       success: false,
       error: error.message,
@@ -124,7 +113,6 @@ function decryptAndVerifyKey(encryptedKey, layers) {
  */
 function analyzeKeyStrength(key, layers) {
   try {
-    console.log('🔍 키 강도 분석 시작');
     
     const analysis = {
       keyLength: key.length,
@@ -161,7 +149,7 @@ function analyzeKeyStrength(key, layers) {
     };
     
   } catch (error) {
-    console.error('키 강도 분석 오류:', error);
+    logError_('KeyVerification', '키 강도 분석 오류');
     return {
       success: false,
       error: error.message
@@ -176,7 +164,6 @@ function analyzeKeyStrength(key, layers) {
  */
 function validateKeyFormat(key) {
   try {
-    console.log('🔍 키 유효성 검사 시작');
     
     if (!key || typeof key !== 'string') {
       return {
@@ -205,7 +192,7 @@ function validateKeyFormat(key) {
     };
     
   } catch (error) {
-    console.error('키 유효성 검사 오류:', error);
+    logError_('KeyVerification', '키 유효성 검사 오류');
     return {
       success: false,
       message: '키 유효성 검사 중 오류가 발생했습니다: ' + error.message
@@ -221,7 +208,6 @@ function validateKeyFormat(key) {
  */
 function compareKeys(key1, key2) {
   try {
-    console.log('🔍 키 비교 시작');
     
     if (!key1 || !key2) {
       return {
@@ -239,7 +225,7 @@ function compareKeys(key1, key2) {
     };
     
   } catch (error) {
-    console.error('키 비교 오류:', error);
+    logError_('KeyVerification', '키 비교 오류');
     return {
       success: false,
       message: '키 비교 중 오류가 발생했습니다: ' + error.message

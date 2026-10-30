@@ -1,3 +1,4 @@
+import { logger } from '../../../utils/logger';
 /**
  * WorkflowResubmitModal.tsx
  * 결재 재제출 모달
@@ -11,6 +12,8 @@ import WorkflowEditor from './WorkflowEditor';
 import type { ReviewLine, PaymentLine, WorkflowLineStep } from '../../../types/documents';
 import type { WorkflowInfoResponse, UsersListResponse } from '../../../types/api/apiResponses';
 import './WorkflowResubmitModal.css';
+const log = logger.scope('components/features/workflow/WorkflowResubmitModal');
+
 
 interface WorkflowResubmitModalProps {
   isOpen: boolean;
@@ -45,7 +48,6 @@ const WorkflowResubmitModal: React.FC<WorkflowResubmitModalProps> = ({
     const loadUsers = async () => {
       try {
         const response = await apiClient.getAllUsers();
-        console.log('📋 사용자 목록 응답:', response);
         
         if (response.success && response.users && Array.isArray(response.users)) {
           const usersResponse = response as UsersListResponse;
@@ -58,12 +60,10 @@ const WorkflowResubmitModal: React.FC<WorkflowResubmitModalProps> = ({
             userType: user.userType || user.user_type || 'student',
             isApproved: user.isApproved || user.Approval === 'O'
           }));
-          
-          console.log('📋 필터링된 사용자 목록:', userList);
           setUsers(userList);
         }
       } catch (error) {
-        console.error('❌ 사용자 목록 로드 오류:', error);
+        log.error('사용자 목록 로드 오류:', error);
       }
     };
     
@@ -195,7 +195,7 @@ const WorkflowResubmitModal: React.FC<WorkflowResubmitModalProps> = ({
         setNotification({ message: response.message || '재제출 처리 중 오류가 발생했습니다.', type: 'error' });
       }
     } catch (error) {
-      console.error('❌ 재제출 오류:', error);
+      log.error('재제출 오류:', error);
       setNotification({ message: '재제출 처리 중 오류가 발생했습니다.', type: 'error' });
     } finally {
       setIsLoading(false);

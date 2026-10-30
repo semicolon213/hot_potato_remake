@@ -8,6 +8,11 @@
   # (Google Client ID, Apps Script URL 등은 클라이언트에 공개되는 값임)
   SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
 
+[template.environment]
+  VITE_APP_SCRIPT_URL = "Apps Script 웹 앱 /exec 주소"
+  VITE_GOOGLE_CLIENT_ID = "웹용 Google OAuth 클라이언트 ID"
+  VITE_GROUP_EMAIL = '{"STUDENT":"student_hp@googlegroups.com","COUNCIL":"std_council_hp@googlegroups.com","PROFESSOR":"professor_hp@googlegroups.com","ADJ_PROFESSOR":"adj_professor_hp@googlegroups.com","ASSISTANT":"assistant_hp@googlegroups.com"}'
+
 # Netlify Functions 설정 (배포 시 Apps Script 프록시)
 [functions]
   directory = "netlify/functions"
@@ -20,6 +25,11 @@
   command = "npm run dev:web"
   port = 8888
   targetPort = 5173
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
 
 # 정책 페이지 짧은 URL (선택)
 [[redirects]]
