@@ -23,21 +23,6 @@ function getTemplatesFromFolder() {
     }
     
     
-    // 먼저 루트 폴더의 모든 폴더 검색
-    try {
-      const rootFolders = Drive.Files.list({
-        q: "'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
-        fields: 'files(id,name)'
-      });
-      
-      
-      if (rootFolders.files && rootFolders.files.length > 0) {
-        rootFolders.files.forEach((folder, index) => {
-        });
-      }
-    } catch (rootError) {
-    }
-    
     // 스크립트 속성에서 폴더 이름 가져오기
     const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
     const documentFolderName = PropertiesService.getScriptProperties().getProperty('DOCUMENT_FOLDER_NAME') || 'document';
@@ -605,18 +590,8 @@ function testSpecificFolder() {
     
     // 실제 폴더 구조를 단계별로 찾기
     // 1단계: 루트에서 루트 폴더 찾기 (하위 호환성을 위해 underscore 버전도 확인)
-    let hotPotatoFolderId = null;
-    const rootFolders = Drive.Files.list({
-      q: "'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
-      fields: 'files(id,name)'
-    });
-    
-    for (const folder of rootFolders.files || []) {
-      if (folder.name === rootFolderName || folder.name === rootFolderName.replace(' ', '_')) {
-        hotPotatoFolderId = folder.id;
-        break;
-      }
-    }
+    // hp_member 기준으로 감지한 프로젝트 루트
+    const hotPotatoFolderId = getProjectRootFolderId_();
     
     if (!hotPotatoFolderId) {
       return {

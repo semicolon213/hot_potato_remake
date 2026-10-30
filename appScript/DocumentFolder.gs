@@ -120,6 +120,13 @@ function findOrCreateFolder(folderPath) {
     
     const pathParts = folderPath.split('/');
     let currentFolderId = 'root';
+    // 경로가 프로젝트 루트 이름으로 시작하면 내 드라이브에서 이름으로 찾지 않고 hp_member 기준으로 감지한 루트에서 시작한다.
+    const rootFolderName = PropertiesService.getScriptProperties().getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
+    const projectRootId = pathParts[0] === rootFolderName ? getProjectRootFolderId_() : null;
+    if (projectRootId) {
+      currentFolderId = projectRootId;
+      pathParts.shift();
+    }
     debug.step = 'path_parsing_complete';
     debug.pathParts = pathParts;
     debug.currentFolderId = currentFolderId;

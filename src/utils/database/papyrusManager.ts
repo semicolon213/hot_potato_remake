@@ -285,7 +285,7 @@ export const fetchAnnouncements = async (
 ): Promise<Post[]> => {
     try {
         if (!announcementSpreadsheetId) {
-            log.warn('Announcement spreadsheet ID not found');
+            log.debug('공지 스프레드시트 ID 준비 전이라 건너뜁니다.');
             return [];
         }
 
@@ -517,7 +517,7 @@ export const requestPinnedAnnouncementApproval = async (postData: { title: strin
 export const incrementViewCount = async (announcementId: string): Promise<void> => {
     try {
         if (!announcementSpreadsheetId) {
-            log.warn('Announcement spreadsheet ID not found');
+            log.debug('공지 스프레드시트 ID 준비 전이라 건너뜁니다.');
             return;
         }
 

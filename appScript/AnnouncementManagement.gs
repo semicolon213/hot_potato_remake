@@ -80,10 +80,9 @@ function getAnnouncementSpreadsheet(spreadsheetName) {
     }
 
     // 2) 프로젝트 루트 하위 notice 폴더에서 첫 번째 스프레드시트 검색 (이름 불일치 fallback)
-    const rootFolderName = props.getProperty('ROOT_FOLDER_NAME') || 'hot_potato_remake';
-    const rootFolders = DriveApp.getFoldersByName(rootFolderName);
-    if (rootFolders.hasNext()) {
-      const rootFolder = rootFolders.next();
+    const rootFolderId = getProjectRootFolderId_();
+    if (rootFolderId) {
+      const rootFolder = DriveApp.getFolderById(rootFolderId);
       const noticeFolderCandidates = ['notice', props.getProperty('NOTICE_FOLDER_NAME') || '']
         .map(v => String(v || '').trim())
         .filter((v, i, arr) => !!v && arr.indexOf(v) === i);
