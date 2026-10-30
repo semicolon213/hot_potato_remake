@@ -41,6 +41,10 @@ Google Workspace 기반 통합 ERP — 문서, 캘린더, 회계, 워크플로�
 
 ## 빠른 시작
 
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/semicolon213/hot_potato_remake)
+
+버튼을 눌러 저장소를 복제하고 `VITE_APP_SCRIPT_URL`, `VITE_GOOGLE_CLIENT_ID`, 기관별 `VITE_GROUP_EMAIL`을 입력하면 웹 앱을 배포할 수 있습니다. Apps Script 백엔드를 먼저 만들려면 [`install/index.html`](./install/index.html)을 정적 서버에서 열고, `install/config.js`에 설치용 OAuth 클라이언트 ID를 설정하세요.
+
 ### 요구 사항
 
 - **Node.js** 22.x 권장  
