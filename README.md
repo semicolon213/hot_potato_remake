@@ -84,9 +84,9 @@
 |---|---|
 | Frontend | React 19, TypeScript 5, Vite 5, Zustand, Tiptap, Recharts, rrule |
 | Backend | Google Apps Script (V8), Netlify Functions (프록시) |
-| 저장소 | Google Sheets(데이터), Google Drive(파일), papyrus-db(Sheets 접근) |
-| 인증 | Google OAuth 2.0 |
-| 연동 | Google Docs·Calendar·Gmail·Groups(Admin SDK) |
+| 저장소 | Google Sheets(데이터), Google Drive(파일), papyrus-db(Sheets 접근. 브랜치 `feature/drive-file-scope`에서 자체 모듈 `sheetsClient`로 교체) |
+| 인증 | Google OAuth 2.0 (브랜치 `feature/drive-file-scope`부터 `drive.file` 등 최소 범위만 요청) |
+| 연동 | Google Docs·Calendar·Gmail·Groups(Admin SDK). Gmail은 Apps Script가 관리자 키 메일을 보낼 때만 씀 |
 | 배포 | Netlify(웹), Electron 38(데스크톱, 선택) |
 | 품질 | Jest, Testing Library, ESLint 9, Prettier |
 
@@ -110,6 +110,8 @@ flowchart LR
   회원·결재·공지처럼 권한 검사나 Drive 조작이 필요한 일은 Apps Script를 거치고, 캘린더·학생 목록·장부처럼 자주 읽는 데이터는 브라우저가 사용자 토큰으로 Sheets를 직접 읽습니다. 직접 읽는 데이터는 Drive 공유 권한으로 접근을 막을 수 있어서 이렇게 나눴고, 그만큼 Apps Script 호출과 대기 시간이 줄었습니다.
 - **장부마다 스프레드시트를 따로 만들었습니다.**
   학생회비 장부와 행사비 장부는 보는 사람이 다릅니다. 장부를 만들 때 전용 폴더·시트·증빙 폴더를 새로 만들고 지정한 사람에게만 공유하면, 별도 권한 시스템 없이 Drive 권한만으로 접근을 나눌 수 있었습니다.
+- **Drive 범위를 `drive.file`로 줄였습니다(브랜치 `feature/drive-file-scope`, develop 병합 전).**
+  전체 Drive 범위(`drive`)는 Google 앱 인증 때 매년 유료 보안 평가가 필요합니다. 브라우저는 이 앱이 만든 파일(개인 폴더 `hot_potato_personal`)만 다루고, 배포자 소유 공유 파일의 업로드·검색·복사는 Apps Script가 맡도록 옮겼습니다. 역할 폴더는 Google 그룹에 공유해서, 파일 접근은 그룹 가입으로 정해집니다([docs/ADR.md](docs/ADR.md) ADR-014).
 
 ## 트러블슈팅
 
@@ -143,8 +145,8 @@ Netlify Function으로 프록시를 두고 다음과 같이 고쳤습니다.
 처음에는 폴더·시트 이름이 코드 곳곳에 하드코딩되어 있었고, 스프레드시트를 **드라이브 전체에서 이름으로** 찾았습니다. 같은 이름의 파일이나 폴더가 다른 곳에 있으면 엉뚱한 파일을 잡을 수 있었고, 다른 환경에 설치하려면 코드를 고쳐야 했습니다.
 
 - 폴더·스프레드시트·시트·그룹 이름을 JSON 환경변수 4개(`VITE_FOLER_NAME` 등)로 모으고, Apps Script 쪽은 스크립트 속성으로 옮겼습니다.
-- 스프레드시트는 **프로젝트 루트 폴더 아래에서만** 찾도록 바꿨습니다. 루트 폴더는 이름이 아니라 설정값(스크립트 속성의 폴더 ID)을 우선해서 정합니다.
-- `initializeSystem()` 한 번으로 폴더 트리, 스프레드시트 11개, 스크립트 속성을 만들게 해서 코드를 고치지 않고 새 환경을 세팅할 수 있게 했습니다.
+- 스프레드시트는 **프로젝트 루트 폴더 아래에서만** 찾도록 바꿨습니다. 루트 폴더는 이름이 아니라 설정값(스크립트 속성의 폴더 ID)을 우선해서 정합니다. 그런데 이 값이 다른 폴더를 가리키면 서버가 엉뚱한 트리를 봤기 때문에, 브랜치 `feature/drive-file-scope`에서는 회원 DB `hp_member`가 있는 폴더를 루트로 보고 폴더 ID는 대체값으로만 씁니다.
+- `initializeSystem()` 한 번으로 폴더 트리, 스프레드시트 11개, 스크립트 속성을 만들게 해서 코드를 고치지 않고 새 환경을 세팅할 수 있게 했습니다. 같은 브랜치부터는 역할 폴더의 그룹 공유까지 처리하고, 루트 폴더 ID와 `hp_member` ID를 실제로 쓴 값으로 다시 씁니다.
 
 환경변수 이름 하나(`FOLER`)에 오타가 있는데, 이미 배포 환경에 값이 들어가 있어 호환성 때문에 그대로 두었습니다.
 
@@ -203,8 +205,8 @@ npm run dev:web        # http://localhost:5173
 - **품질 게이트가 약합니다.** 리메이크 중 CI를 걷어낸 뒤 타입·린트 오류가 쌓였습니다. 테스트 복구 → 오류 정리 → CI 재도입 순서로 되돌릴 계획입니다.
 - **서버 측 권한 검사를 강화해야 합니다.** 지금은 화면 단위 제어와 Drive 공유 권한에 많이 기대고 있습니다. 서버에서 요청자를 직접 확인하는 구조로 바꾸는 것이 가장 먼저 할 일입니다([docs/SECURITY.md](docs/SECURITY.md)).
 - **로그인이 1시간이면 끊깁니다.** 토큰을 갱신할 수 없는 로그인 방식(implicit flow)을 쓰고 있어서, Authorization Code + PKCE로 바꾸려고 합니다.
-- **Sheets는 동시 쓰기에 약합니다.** 동시에 같은 시트에 쓰면 충돌할 수 있습니다. `LockService` 적용과 시트 열 순서 고정이 필요합니다.
-- **알려진 결함이 10건 남아 있습니다.** 검토 단계 반려 오류, 가입 거부 미동작 등 10건을 [docs/STATUS.md](docs/STATUS.md)에서 관리하고 있습니다. 그중 API 재시도 문제는 `feature/loading-performance` 브랜치에서 고쳤고, 아직 병합하지 않았습니다.
+- **Sheets는 동시 쓰기에 약합니다.** 동시에 같은 시트에 쓰면 충돌할 수 있습니다. 공지 등록·결재 상태 변경·학년 갱신에는 `LockService`를 적용했고(브랜치 `feature/drive-file-scope`), 나머지 쓰기와 시트 열 순서 고정이 남았습니다.
+- **알려진 결함이 10건 남아 있습니다.** 검토 단계 반려 오류, 가입 거부 미동작 등 10건을 [docs/STATUS.md](docs/STATUS.md)에서 관리하고 있습니다. 그중 API 재시도 문제는 `feature/loading-performance` 브랜치에서, 캘린더 역할 키 문제는 `feature/drive-file-scope` 브랜치에서 고쳤고, 아직 병합하지 않았습니다.
 
 ## 문서
 

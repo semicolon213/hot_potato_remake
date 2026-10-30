@@ -18,7 +18,7 @@
 
 | 확인 위치 | 볼 것 |
 |---|---|
-| 브라우저 Console | `API 요청 시도`, `API 응답 성공`, 빨간 오류 |
+| 브라우저 Console | `API 요청 시도`, `API 응답 성공`, 빨간 오류. 브랜치 `feature/drive-file-scope` 이후 운영 빌드는 경고·오류만 출력하므로, 자세한 로그가 필요하면 사용자 브라우저에서 `localStorage.setItem('HP_DEBUG','1')` 후 새로고침하고 확인 뒤 지움 |
 | 브라우저 Network | `/.netlify/functions/proxy`의 상태 코드와 응답 본문 |
 | Netlify → Logs → Functions → `proxy` | `APP_SCRIPT_URL 환경변수 누락`, `Apps Script가 JSON이 아닌 응답을 반환했습니다.`, `Apps Script 요청 시간 초과`(브랜치 `feature/loading-performance` 이후). 로그에는 메서드와 `action`만 남습니다 |
 | Apps Script → 실행 | 실패한 `doPost` 실행과 오류 메시지 |
@@ -38,9 +38,11 @@
 | 500 `Apps Script URL이 설정되지 않았습니다.` (배포 직후 모든 API) | Netlify에 `APP_SCRIPT_URL`이 없음. 프록시는 `VITE_APP_SCRIPT_URL`을 대신 읽지 않음 | Netlify 환경변수에 `APP_SCRIPT_URL` 추가 → **Clear cache and deploy** |
 | 504 `Apps Script 응답 시간이 초과되었습니다.` (`retryable:true`) | Apps Script가 약 9초 안에 답하지 못함. 프록시가 Netlify 10초 제한 전에 끊은 것 | 앱이 조회 요청은 자동으로 최대 2회 다시 시도합니다. 계속되면 Apps Script **실행**에서 해당 액션의 실행 시간을 확인. `getSpreadsheetIds`가 느리면 서버 캐시가 비었거나 Drive 검색이 실패해 폴더 탐색으로 넘어간 경우이므로 RB-08 확인. 쓰기 요청은 재시도하지 않으므로 사용자에게 결과를 확인한 뒤 다시 하라고 안내 |
 | 502·504 HTML 오류 페이지 (Netlify 자체 응답) | 브랜치 이전 프록시에서 Apps Script가 10초를 넘김 | 위와 같음. `feature/loading-performance` 병합 후에는 위 504 JSON으로 바뀜 |
+| 403 `Apps Script 요청 실패: HTTP 403`, 웹앱 주소를 직접 열면 "액세스 거부됨" (모든 배포가 동시에) | 배포 계정의 [myaccount.google.com/permissions](https://myaccount.google.com/permissions)에서 Apps Script 프로젝트 권한이 삭제됨 | 배포 계정으로 Apps Script 편집기를 열고 아무 함수나 실행해 권한을 다시 승인. 배포를 새로 만들 필요는 없음 |
 | `Apps Script가 JSON이 아닌 응답을 반환했습니다.` | Apps Script가 HTML(로그인·권한·오류 페이지)을 돌려줌. 배포가 삭제됐거나, 접근 권한이 바뀌었거나, URL이 옛날 배포를 가리킴 | Apps Script **배포 관리**에서 활성 배포 URL을 확인하고 `APP_SCRIPT_URL`과 비교 → 다르면 고치고 재배포 |
 | 502 `Apps Script 연결 중 오류가 발생했습니다.` | 네트워크 또는 Google 측 일시 장애 | 5분 후 재시도. [Google Workspace 상태 대시보드](https://www.google.com/appsstatus) 확인 |
 | 200 + `success:false`, `알 수 없는 액션입니다` | 프론트가 백엔드에 없는 액션을 호출. 프론트만 먼저 배포됐을 가능성 | 백엔드 `clasp push` + 새 버전 배포, 또는 Netlify 이전 배포로 롤백 |
+| 200 + `success:false`, `양식 내보내기` 관련 권한 오류 (나만 보기 문서 만들기, 장부 내보내기만 실패) | 배포자가 `script.external_request`("외부 서비스에 연결")를 승인하지 않음. 브랜치 `feature/drive-file-scope` 이후 | 편집기에서 아무 함수나 실행해 승인 |
 | 200 + `success:false`, 그 외 메시지 | 액션 처리 중 오류 | Apps Script **실행** 로그에서 해당 시각의 오류 확인 → RB-03 또는 개발 담당자 |
 
 **해결되지 않을 때:** 직전 배포를 롤백합니다(Netlify **Publish deploy**, Apps Script 이전 버전). 그래도 안 되면 개발 담당자에게 Console·Network 캡처와 Functions 로그를 전달합니다.
@@ -73,7 +75,7 @@
 **절차:**
 1. Console에서 어떤 스프레드시트 ID를 못 찾았는지 확인합니다(예: `Announcement spreadsheet ID not found` → `notice`).
 2. Drive에서 그 파일이 **정확한 이름**으로, **루트 폴더 아래**에 있는지 확인합니다.
-3. Apps Script 스크립트 속성 `ROOT_FOLDER_ID`가 실제 루트 폴더 ID와 같은지 확인합니다.
+3. Apps Script 스크립트 속성 `ROOT_FOLDER_ID`가 실제 루트 폴더 ID와 같은지 확인합니다. 브랜치 `feature/drive-file-scope` 이후 서버는 `hp_member`의 부모 폴더를 루트로 보고 `ROOT_FOLDER_ID`는 대체값으로만 씁니다. 이때는 `hp_member`가 루트 폴더 바로 아래에 있는지 확인합니다.
 4. 사용자가 그 파일에 접근 권한이 있는지 확인합니다. 캘린더·학생·교직원·장부는 브라우저에서 사용자 권한으로 직접 읽습니다.
 
 **판단·분기:**
@@ -83,7 +85,9 @@
 | 파일이 없음 | Apps Script에서 `initializeSystem` 다시 실행. 있는 파일은 건너뛰고 없는 것만 만듭니다 |
 | 이름이 다름 | 원래 이름으로 되돌리거나, 환경변수(`VITE_SPREADSHEET_NAME`)와 스크립트 속성을 함께 바꾼 뒤 재배포 |
 | 같은 이름 파일이 여러 개 | 하나만 남기고 이동·삭제. 첫 번째로 찾은 파일만 쓰입니다 |
-| 사용자에게 권한이 없음 | 해당 파일·폴더를 사용자 또는 역할 그룹에 공유. 승인 때 그룹 추가가 실패했는지 `group_management_log` 확인 |
+| 사용자에게 권한이 없음 | 사용자가 역할 그룹에 들어 있는지 확인. 승인 때 그룹 추가가 실패했는지 `group_management_log` 확인. 역할 폴더가 그룹에 공유되지 않았으면 편집기에서 `applyRoleFolderSharing` 실행([OPERATOR_MANUAL §3.4](./OPERATOR_MANUAL.md#34-그룹-주소와-역할-폴더-공유)). `user_type`만 바꿔서는 파일 권한이 생기지 않음 |
+| 장부가 목록에 안 보임 | 브랜치 `feature/drive-file-scope` 이후 장부 목록은 접근 대상(만든 사람, 주·부관리인, 접근 사용자, 접근 그룹 구성원)에게만 보임. 대상에 없으면 정상. 대상인데 파일이 안 열리면 편집기에서 `applyLedgerSharing` 실행 |
+| 학생회·겸임교원 그룹 일정이 안 보이거나 엉뚱한 캘린더에 저장됨 | develop의 캘린더 역할 키 불일치(BUG-03). 브랜치 `feature/drive-file-scope`에서 수정 |
 | 진행 표시만 멈추고 오류가 없음 | 헤더 새로고침 버튼 또는 브라우저 새로고침. 계속되면 RB-04 확인 |
 
 **해결되지 않을 때:** Console 전체 로그를 저장해 개발 담당자에게 전달합니다.
@@ -163,7 +167,7 @@
 |---|---|
 | 새 ID로 정상 표시 | 완료 |
 | 여전히 빈 화면, Console에 `spreadsheet ID not found` | 파일 위치·이름 문제. RB-03 |
-| `ROOT_FOLDER_ID`를 바꿨음 | 스크립트 속성을 고친 뒤 1번을 다시 실행. 루트 폴더 캐시도 함께 지워짐 |
+| `ROOT_FOLDER_ID`를 바꿨음 | 스크립트 속성을 고친 뒤 1번을 다시 실행. 루트 폴더 캐시도 함께 지워짐. 브랜치 `feature/drive-file-scope` 이후에는 `hp_member` 부모 폴더가 우선이므로 `hp_member`를 옮긴 경우에도 1번을 실행 |
 
 **해결되지 않을 때:** 브라우저 개발자 도구 → Application → Local Storage에서 `cache_`로 시작하는 항목을 지우고 새로고침합니다. 그래도 안 되면 개발 담당자에게 Console 로그를 전달합니다.
 

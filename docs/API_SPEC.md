@@ -75,7 +75,7 @@ sequenceDiagram
 | `rejectUser` | `studentId` | 가입 거부 (구 스키마 사용, 수정 필요) |
 | `addUsersToSpreadsheet` | `users:[{no_member,name_member}]` | 학번·이름 사전 등록 (중복 건너뜀) |
 | `clearUserCache` | — | 사용자 캐시 삭제 |
-| `sendAdminKeyEmail` | `userEmail` | 관리자 키 안내 메일 발송 |
+| `sendAdminKeyEmail` | `userEmail` | 관리자 키 안내 메일 발송. 브랜치 `feature/drive-file-scope`부터 프론트는 Google 액세스 토큰을 함께 보내지 않음 |
 
 ### 2.2 암호화
 
@@ -89,9 +89,9 @@ sequenceDiagram
 
 | action | 필수 파라미터 | 설명 |
 |---|---|---|
-| `createDocument` | `title, creatorEmail` (+`templateType, editors[]`) | 빈 문서 생성 또는 양식 복사 → 권한 부여 → `shared_documents`로 이동 |
+| `createDocument` | `title, creatorEmail` (+`templateType, editors[]`) | 빈 문서 생성 또는 양식 복사 → 권한 부여 → `shared_documents`로 이동. develop에서는 `Blob is not defined` 오류로 실패하며, 브랜치 `feature/drive-file-scope`에서 Drive 고급 서비스로 바꿔 수정 |
 | `getDocuments` | `role` (+`searchTerm, author, sortBy, page, limit`) | 공유 문서 목록, 페이지네이션 |
-| `deleteDocuments` | `documentIds[], role` | 문서 삭제 (레거시 시트 경로) |
+| `deleteDocuments` | `documentIds[], role` | 문서 삭제 (레거시 시트 경로). 브랜치 `feature/drive-file-scope`부터 옛 문서 목록 시트가 없어도 실패하지 않음 |
 | `uploadSharedDocument` | `fileName, fileContentBase64, meta` | 파일 업로드(Office → Google 형식 변환) |
 | `getTemplates` | — | `shared_forms` 양식 목록 |
 | `getSharedTemplates` | — | 공유 양식 + 메타데이터 |
@@ -102,6 +102,7 @@ sequenceDiagram
 | `addStaticTag` | `tag, userEmail` | 태그 추가 |
 | `updateStaticTag` | `oldTag, newTag, userEmail` (+`confirm`) | `confirm` 없으면 영향받는 양식만 반환, 있으면 실제 수정 |
 | `deleteStaticTag` | `tag, userEmail` (+`confirm, deleteTemplates`) | 2단계 삭제 |
+| `exportTemplateFile` | `templateId` | 브랜치 `feature/drive-file-scope`. 공유 양식을 Office 형식으로 내보냄(Google 문서 → docx, 스프레드시트 → xlsx). 응답 `data: {name, sourceMimeType, exportMimeType, fileData(base64)}`. 프로젝트 루트 아래 파일만 허용. 브라우저가 받은 파일을 Google 형식으로 변환해 사용자 개인 폴더에 올림(나만 보기 문서, 장부 Excel 내보내기). 배포자가 `script.external_request`를 승인해야 동작 |
 | `getSpreadsheetIds` | `spreadsheetNames[]` | 스프레드시트 이름 → ID. 응답 `{success:true, data:{이름: ID 또는 null}, notFound?:[못 찾은 이름]}`. 이름 배열이 비면 `success:false`. 루트 폴더 아래 파일만 찾습니다. 브랜치 `feature/loading-performance`부터 문자열이 아닌 이름은 버리고, Drive 검색 1회 + 서버 캐시 6시간으로 찾습니다([ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)). 클라이언트는 `notFound`가 있거나 `null`이 섞인 응답을 캐시하지 않음 |
 
 ### 2.4 공지사항
@@ -111,8 +112,9 @@ sequenceDiagram
 | action | 필수 파라미터 | 설명 |
 |---|---|---|
 | `getAnnouncements` | `userId, userType` | 공개 범위로 거른 뒤 고정 공지를 먼저 정렬 |
+| `uploadNoticeAttachment` | `fileName, fileData(base64)` (+`mimeType`) | 브랜치 `feature/drive-file-scope`. 첨부 파일을 `notice/attached_file/`에 저장하고 `data: {id, name, url}` 반환. 프론트에서 파일당 4MB 이하로 제한 |
 | `createAnnouncement` | `writerEmail, title, content` (+`accessRights, fileNotice, isPinned`) | 공지 작성, 본문 이미지는 Drive 업로드 후 URL로 치환 |
-| `updateAnnouncement` | `announcementId, userId` | 수정 |
+| `updateAnnouncement` | `announcementId, userId` | 수정. 브랜치 `feature/drive-file-scope`부터 수정할 때도 본문 이미지를 서버가 올림 |
 | `deleteAnnouncement` | `announcementId, userId` | 삭제 |
 | `incrementAnnouncementView` | `announcementId` | 조회수 +1 |
 | `requestPinnedAnnouncement` | `announcementId, userId` | 고정 요청 (`fix_notice='-'`) |
@@ -143,12 +145,13 @@ sequenceDiagram
 
 ### 2.6 회계
 
-장부 **데이터**(입출금, 예산계획)는 프론트가 Sheets API로 직접 읽고 씁니다. Apps Script는 장부 구조 생성과 권한 설정만 맡습니다.
+장부 **데이터**(입출금, 예산계획)는 프론트가 Sheets API로 직접 읽고 씁니다. Apps Script는 장부 구조 생성과 권한 설정을 맡고, 브랜치 `feature/drive-file-scope`부터는 증빙 업로드와 장부 목록도 맡습니다.
 
 | action | 필수 파라미터 | 설명 |
 |---|---|---|
 | `createLedger` | `ledgerName, accountName, creatorEmail, mainManagerEmail` (+`initialBalance, accessUsers[], accessGroups[], subManagerEmails[]`) | 장부 폴더, 스프레드시트, 증빙 폴더 생성 + 공유 |
-| `getLedgerList` | — | 장부 목록 |
+| `getLedgerList` | — | 장부 목록. 브랜치 `feature/drive-file-scope`부터 요청자가 접근 대상(만든 사람, 주·부관리인, 접근 사용자, `access_group_emails`의 역할 그룹 구성원)인 장부만 반환. 장부 정보 화면과 대시보드 장부 위젯도 이 액션을 씀 |
+| `uploadEvidenceFile` | `evidenceFolderId, fileName, fileData(base64)` (+`mimeType`) | 브랜치 `feature/drive-file-scope`. 증빙 파일 업로드. 회계 폴더 아래 폴더만 허용. 응답 `data: {fileId, fileName}`. 프론트에서 파일당 4MB 이하로 제한 |
 | `updateAccountSubManagers` | `spreadsheetId, accountId, subManagerEmails[]` | 부관리인 변경 |
 | `getAccountingFolderId` | — | `account/` 폴더 ID (없으면 생성) |
 | `getAccountingCategories` | `spreadsheetId` | 카테고리 목록 |
@@ -182,8 +185,9 @@ sequenceDiagram
 
 | 기능 | 처리 방식 |
 |---|---|
-| 캘린더, 학생·교직원 목록, 학생 이슈, 장부 데이터, 개인 설정 | 프론트가 `papyrus-db` + Sheets API로 직접 처리 (`src/utils/database/*`) |
+| 캘린더, 학생·교직원 목록, 학생 이슈, 장부 데이터, 개인 설정 | 프론트가 Sheets API로 직접 처리 (`src/utils/database/*`). develop은 `papyrus-db`, 브랜치 `feature/drive-file-scope`는 자체 모듈 `src/utils/google/sheetsClient.ts`를 씀 |
 | 초기 세팅 (`initializeSystem`) | Apps Script 편집기에서 수동 실행 ([OPERATOR_MANUAL.md](./OPERATOR_MANUAL.md)) |
+| 역할 폴더 공유 재적용 (`applyRoleFolderSharing`), 장부 권한 재부여 (`applyLedgerSharing`) | Apps Script 편집기에서 수동 실행. 브랜치 `feature/drive-file-scope` |
 | 관리자 키 일일 갱신 (`handleDailyKeyUpdate`) | 시간 기반 트리거 |
 
 ## 3. 정리가 필요한 부분
@@ -191,6 +195,6 @@ sequenceDiagram
 | 항목 | 내용 |
 |---|---|
 | 프론트에만 남은 액션 | `getAccountingCategorySummary`, `getPendingBudgetPlans`, `setWorkflowLine`, `migrateEmails`, `requestPinnedAnnouncementApproval`, `testEmailEncryption`, `testAllAppScript`는 백엔드 분기가 없어 "알 수 없는 액션"을 받습니다 |
-| 중복 분기 | `Main.gs`에 결재 관련 분기가 두 번 있고, 두 번째 블록은 도달하지 않습니다 |
+| 중복 분기 | `Main.gs`에 결재 관련 분기가 두 번 있고, 두 번째 블록은 도달하지 않습니다. 브랜치 `feature/drive-file-scope`에서 제거(develop 병합 전) |
 | 응답 형식 | 결과 필드 이름이 액션마다 달라 프론트에 분기 코드가 생깁니다. `{success, data, message}`로 통일하는 것이 목표입니다 |
 | `CONFIG.gs`의 `SUPPORTED_ACTIONS` | 실제 디스패치와 맞지 않는 오래된 목록입니다 |

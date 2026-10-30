@@ -1,7 +1,7 @@
 # HP ERP 데이터 모델 (ERD)
 
 > 개발 단계: **③ 설계** · 산출물: ERD, 데이터 저장 구조
-> 기준: `main` 브랜치 코드 (2026-10-27)
+> 기준: `main` 브랜치 코드 (2026-10-27). 브랜치 `feature/drive-file-scope`(develop 병합 전)에서 바뀐 부분은 따로 표시했습니다.
 
 이 시스템은 별도 DB 서버 없이 **Google Sheets를 데이터베이스로** 사용합니다.
 스프레드시트 파일 하나가 "DB", 그 안의 시트(탭) 하나가 "테이블"이고, 1행이 레코드입니다.
@@ -15,16 +15,18 @@
 | `notice` | `ROOT/notice/` | 초기 세팅 | Apps Script | 공지사항 |
 | `workflow` | `ROOT/workflow/` | 초기 세팅 | Apps Script | 결재 문서, 결재 이력, 결재선 템플릿 |
 | `static_tag` | `ROOT/document/` | 초기 세팅 | Apps Script | 공용 문서 태그 |
-| `calendar_*` (5종) | 역할별 폴더 | 초기 세팅 | 프론트 직접(papyrus-db) | 역할별 일정 |
+| `calendar_*` (5종) | 역할별 폴더 | 초기 세팅 | 프론트 직접(`sheetsClient`) | 역할별 일정 |
 | `student` | `ROOT/std_council/` | 초기 세팅 | 프론트 직접 + GAS | 학생 정보, 이슈, 취업 |
 | `staff` | `ROOT/assistant/` | 초기 세팅 | 프론트 직접 | 교직원, 위원회 |
 | `{장부명}_장부` | `ROOT/account/{장부명}/` | GAS `createLedger` | 생성은 GAS, 데이터는 프론트 직접 | 통장, 장부, 예산계획, 카테고리 |
-| `user_setting` | **각 사용자 개인 드라이브** | 프론트 | 프론트 직접 | 즐겨찾기, 개인 태그, 시간표, 대시보드 위젯 |
+| `user_setting` | **각 사용자 내 드라이브의 개인 폴더** | 프론트 | 프론트 직접 | 즐겨찾기, 개인 태그, 시간표, 대시보드 위젯 |
 
 데이터 접근 경로는 두 가지입니다. 이유는 [ADR-003](./ADR.md#adr-003-데이터-접근-경로를-두-갈래로-나눈다)에 있습니다.
 
 1. **Apps Script 경유**: 회원·공지·결재·문서처럼 권한 검사나 Drive 조작이 필요한 데이터
 2. **브라우저에서 Sheets API 직접 호출**: 캘린더·학생·교직원·장부 데이터처럼 조회가 잦고 Drive 공유 권한으로 접근을 통제할 수 있는 데이터
+
+브랜치 `feature/drive-file-scope`에서는 OAuth 범위가 `drive.file`로 줄어 브라우저가 배포자 소유 파일을 Drive API로 찾거나 올릴 수 없습니다. 그래서 공지 첨부·본문 이미지, 증빙 업로드, 스프레드시트 ID 조회, 장부 목록, 공유 양식 내보내기는 Apps Script를 거칩니다. 시트 읽기·쓰기는 `spreadsheets` 범위로 계속 직접 합니다. Sheets 접근 라이브러리 `papyrus-db`는 자체 모듈 `src/utils/google/sheetsClient.ts`로 바뀌었고, 행 추가 때 값을 자동 변환하지 않고 문자열로 씁니다.
 
 ## 2. ERD
 
@@ -232,7 +234,7 @@ erDiagram
     FIELD ||--o{ EMPLOYMENT : "분야"
 ```
 
-`user_setting`(사용자 개인 드라이브)은 다른 엔터티와 관계가 없는 독립 저장소입니다.
+`user_setting`(사용자 개인 폴더)은 다른 엔터티와 관계가 없는 독립 저장소입니다. 프론트는 개인 폴더에서 이름으로 찾고, 없으면 폴더째 새로 만듭니다. 첫 로그인 때 여러 곳에서 동시에 찾아도 한 번만 만듭니다(브랜치 `feature/drive-file-scope`).
 
 | 시트 | 열 | 용도 |
 |---|---|---|
@@ -259,8 +261,14 @@ erDiagram
 
 `initializeSystem()`(`appScript/InitialSetup.gs`)이 만듭니다. 공유 드라이브(Shared Drive)가 아니라 **배포자의 내 드라이브**에 생성됩니다.
 
+브랜치 `feature/drive-file-scope`부터:
+
+- 서버는 `hp_member`의 부모 폴더를 루트로 봅니다(`getProjectRootFolderId_`). `hp_member`가 내 드라이브 최상위에 있으면 루트로 보지 않습니다. 스크립트 속성 `ROOT_FOLDER_ID`는 이 방법으로 찾지 못할 때만 씁니다. 서버의 폴더 경로(`findOrCreateFolder`)도 이 루트에서 시작합니다.
+- `initializeSystem`은 `ROOT_FOLDER_ID`와 `SPREADSHEET_ID`를 실제로 쓴 루트 폴더와 `hp_member`로 항상 다시 씁니다.
+- 역할 폴더(`student`, `std_council`, `assistant`, `adj_professor`, `professor`)는 Google 그룹에 편집 권한으로 공유됩니다. 공통 폴더와 `hp_member`는 공유하지 않습니다. 대상 표는 [DEPLOYMENT.md §3](./DEPLOYMENT.md#3-초기-세팅-drive-폴더시트-생성)에 있습니다.
+
 ```text
-hot_potato_remake/                 ← ROOT (스크립트 속성 ROOT_FOLDER_ID)
+hot_potato_remake/                 ← ROOT (hp_member 부모 폴더, 못 찾으면 ROOT_FOLDER_ID)
 ├── hp_member
 ├── notice/
 │   ├── notice
@@ -287,13 +295,19 @@ hot_potato_remake/                 ← ROOT (스크립트 속성 ROOT_FOLDER_ID)
 
 ### 4.2 사용자 개인 폴더 (각 사용자 드라이브)
 
+브랜치 `feature/drive-file-scope`부터 개인 폴더는 공유 루트(`hot_potato_remake`)와 이름이 다른 `hot_potato_personal`입니다. 이름은 `VITE_FOLER_NAME`의 `PERSONAL` 키로 바꿀 수 있습니다. develop 코드는 `hot_potato_remake`라는 같은 이름을 씁니다.
+
 ```text
-hot_potato_remake/
+hot_potato_personal/               ← 내 드라이브 최상위
 ├── user_setting
 └── document/
-    ├── personal_documents/
+    ├── personal_documents/        ← 나만 보기 문서, 내보낸 장부
     └── personal_forms/
 ```
+
+- 나만 보기 빈 문서는 입력한 제목으로 `personal_documents/`에 바로 만듭니다. 예전에는 `docs.google.com/document/create`를 새 창으로 열었습니다.
+- 공유 양식으로 만드는 나만 보기 문서와 장부 Excel 내보내기는 Apps Script가 원본을 docx·xlsx로 내보내고, 브라우저가 Google 형식으로 변환해 개인 폴더에 올립니다.
+- `drive.file` 범위는 이 앱이 만든 파일만 보므로, 다른 프로젝트나 예전 버전이 만든 개인 폴더는 보이지 않습니다.
 
 ## 5. 식별자 · 저장 규칙
 
@@ -311,5 +325,5 @@ hot_potato_remake/
 | 예산계획 열 순서 | GAS 헤더(15열), 프론트 쓰기(16열), 프론트 읽기 인덱스가 서로 다릅니다 | `AccountingManagement.gs`, `src/utils/database/accountingBudgetManager.ts` |
 | `admin_keys_backup` 헤더 | 초기 세팅 헤더와 실제 백업 코드가 쓰는 열 순서가 다릅니다 | `InitialSetup.gs`, `KeyGeneration.gs` |
 | 카테고리 조회 | `getAccountingCategories`가 `카테고리` 시트가 아니라 첫 시트를 읽습니다 | `AccountingManagement.gs` |
-| 레거시 문서 시트 | `학생_문서관리` 등은 더 이상 생성되지 않지만 일부 조회·삭제 코드가 참조합니다 | `CONFIG.gs`, `DocumentSpreadsheet.gs` |
+| 레거시 문서 시트 | `학생_문서관리` 등은 더 이상 생성되지 않지만 일부 조회·삭제 코드가 참조합니다. develop에서는 이 시트가 없으면 공유 문서 삭제가 실패합니다(브랜치 `feature/drive-file-scope`에서 수정) | `CONFIG.gs`, `DocumentSpreadsheet.gs` |
 | `workflow/attached_file/` | 폴더는 만들지만 사용하는 코드가 없습니다 | `InitialSetup.gs` |
