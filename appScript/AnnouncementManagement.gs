@@ -564,7 +564,7 @@ var NOTICE_ATTACHMENT_MIME_TYPES_ = [
 
 function uploadNoticeAttachment(req) {
   try {
-    if (!req || !req.fileName || !req.fileData || !req.mimeType || !req.userEmail) {
+    if (!req || !req.fileName || !req.fileData || !req.mimeType || !req.verifiedEmail) {
       return { success: false, message: '파일, 형식, 업로더 정보가 필요합니다.' };
     }
     if (NOTICE_ATTACHMENT_MIME_TYPES_.indexOf(String(req.mimeType).toLowerCase()) === -1) {
@@ -578,7 +578,7 @@ function uploadNoticeAttachment(req) {
     if (fileBytes.length > NOTICE_ATTACHMENT_MAX_BYTES_) {
       return { success: false, message: '첨부파일은 4MB 이하만 올릴 수 있습니다.' };
     }
-    const userStatus = checkUserStatus(String(req.userEmail).trim());
+    const userStatus = checkUserStatus(String(req.verifiedEmail).trim());
     if (!userStatus.success || !userStatus.data || userStatus.data.status !== 'approved') {
       return { success: false, message: '승인된 회원만 첨부파일을 올릴 수 있습니다.' };
     }

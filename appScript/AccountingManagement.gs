@@ -647,7 +647,7 @@ function createLedgerStructure(params) {
  * @returns {Array<Object>} 장부 목록
  */
 /**
- * 장부 목록. req.userEmail이 있으면 그 사용자가 접근 대상으로 지정된 장부만 돌려준다.
+ * 장부 목록. req.verifiedEmail 사용자가 접근 대상으로 지정된 장부만 돌려준다.
  * (요청자 정보가 없으면 전체 — 편집기 실행·관리 함수용)
  */
 function getLedgerList(req) {
@@ -706,11 +706,11 @@ function getLedgerList(req) {
       };
     });
 
-    const userEmail = req && req.userEmail ? String(req.userEmail).toLowerCase() : '';
-    if (!userEmail) return ledgers;
+    const verifiedEmail = req && req.verifiedEmail ? String(req.verifiedEmail).toLowerCase() : '';
+    if (!verifiedEmail) return ledgers;
     const groupEmail = String(getGroupEmailByRole(req.userType) || '').toLowerCase();
     return ledgers.filter(function(ledger) {
-      return isLedgerAccessibleBy_(ledger.spreadsheetId, userEmail, groupEmail);
+      return isLedgerAccessibleBy_(ledger.spreadsheetId, verifiedEmail, groupEmail);
     });
 
   } catch (error) {
@@ -907,7 +907,7 @@ function getAccountingCategories(spreadsheetId) {
 /**
  * 통장 시트에 저장된 접근 대상(생성자, 주·별도 관리인, 지정 사용자, 지정 그룹스)에 사용자가 포함되는지
  */
-function isLedgerAccessibleBy_(spreadsheetId, userEmail, groupEmail) {
+function isLedgerAccessibleBy_(spreadsheetId, verifiedEmail, groupEmail) {
   if (!spreadsheetId) return false;
   try {
     const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName('통장');
@@ -923,7 +923,7 @@ function isLedgerAccessibleBy_(spreadsheetId, userEmail, groupEmail) {
         .concat(parse(row, 'sub_manager_ids'), parse(row, 'access_user_emails'))
         .map(function(v) { return String(v || '').toLowerCase(); });
       const groups = parse(row, 'access_group_emails').map(function(v) { return String(v || '').toLowerCase(); });
-      return users.indexOf(userEmail) !== -1 || (!!groupEmail && groups.indexOf(groupEmail) !== -1);
+      return users.indexOf(String(verifiedEmail || '').toLowerCase()) !== -1 || (!!groupEmail && groups.indexOf(groupEmail) !== -1);
     });
   } catch (error) {
     logWarn_('AccountingManagement', '장부 접근 대상 확인 실패:', spreadsheetId, error.message);
@@ -1010,14 +1010,14 @@ var EVIDENCE_FILE_MAX_BYTES_ = 4 * 1024 * 1024;
 
 function uploadEvidenceFile(req) {
   try {
-    if (!req || !req.spreadsheetId || !req.evidenceFolderId || !req.userEmail || !req.fileName || !req.fileData) {
+    if (!req || !req.spreadsheetId || !req.evidenceFolderId || !req.verifiedEmail || !req.fileName || !req.fileData) {
       return { success: false, message: '장부, 증빙 폴더, 업로더, 파일 내용이 필요합니다.' };
     }
-    const userEmail = String(req.userEmail).trim().toLowerCase();
+    const verifiedEmail = String(req.verifiedEmail).trim().toLowerCase();
     const groupEmail = String(getGroupEmailByRole(req.userType) || '').toLowerCase();
-    const ledger = getLedgerList().find(function(item) { return item.spreadsheetId === req.spreadsheetId; });
+    const ledger = getLedgerList(req).find(function(item) { return item.spreadsheetId === req.spreadsheetId; });
     if (!ledger || ledger.evidenceFolderId !== req.evidenceFolderId ||
-        !isLedgerAccessibleBy_(req.spreadsheetId, userEmail, groupEmail)) {
+        !isLedgerAccessibleBy_(req.spreadsheetId, verifiedEmail, groupEmail)) {
       return { success: false, message: '이 장부의 증빙 폴더에 업로드할 권한이 없습니다.' };
     }
     const folder = DriveApp.getFolderById(req.evidenceFolderId);
