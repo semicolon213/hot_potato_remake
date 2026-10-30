@@ -241,7 +241,7 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
 
         // 문서 목록 새로고침
         setIsLoading(true);
-        const allDocs = await loadAllDocuments();
+        const allDocs = await loadAllDocuments(true);
         const convertedDocs: FetchedDocument[] = allDocs.map((doc, index) => ({
           id: doc.id,
           title: doc.title,

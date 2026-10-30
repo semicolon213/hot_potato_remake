@@ -15,6 +15,7 @@ import { initializeGoogleAPIOnce, findPersonalDocumentFolder } from '../../../ut
 import type { GridRange, RowData, CellData, BatchUpdateData } from '../../../types/googleSheets';
 import { tokenManager } from '../../../utils/auth/tokenManager';
 import { apiClient } from '../../../utils/api/apiClient';
+import { invalidateDocumentsCache } from '../../../utils/helpers/loadDocumentsFromDrive';
 import './accounting.css';
 const log = logger.scope('components/features/accounting/LedgerExportModal');
 
@@ -1632,6 +1633,7 @@ export const LedgerExportModal: React.FC<LedgerExportModalProps> = ({
         throw new Error(`템플릿 복사 실패: ${copyResponse.status} ${copyResponse.statusText}`);
       }
       const newSpreadsheetId = copiedSpreadsheet.id;
+      await invalidateDocumentsCache();
 
       // 템플릿 복사 시 컬럼 너비가 자동으로 복사되므로
       // 추가 작업은 불필요합니다

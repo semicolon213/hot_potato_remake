@@ -1062,7 +1062,7 @@ export class ApiClient {
       
       // 사용자 관리
       'approveUserWithGroup': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
-      'rejectUser': () => ['users:getPendingUsers:*'],
+      'rejectUser': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
       'addUsersToSpreadsheet': () => ['users:getAllUsers:*'],
       'requestPinnedAnnouncementApproval': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],
       'requestPinnedAnnouncement': () => ['announcements:getAnnouncements:*', 'announcements:fetchAnnouncements:*'],

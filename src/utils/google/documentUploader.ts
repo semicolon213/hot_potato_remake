@@ -11,6 +11,7 @@ import { apiClient } from '../api/apiClient';
 import { tokenManager } from '../auth/tokenManager';
 import { findPersonalDocumentFolder } from './googleSheetUtils';
 import { ENV_CONFIG } from '../../config/environment';
+import { invalidateDocumentsCache } from '../helpers/loadDocumentsFromDrive';
 const log = logger.scope('utils/google/documentUploader');
 
 
@@ -82,6 +83,7 @@ export const uploadSharedDocument = async (
     });
 
     if (result.success && result.data) {
+      await invalidateDocumentsCache();
       const data = result.data as { id: string; webViewLink?: string };
       return {
         success: true,
@@ -215,6 +217,7 @@ export const uploadPersonalDocument = async (
     } catch (metaError) {
       log.warn('메타데이터 설정 실패 (파일은 업로드됨):', metaError);
     }
+    await invalidateDocumentsCache();
     return {
       success: true,
       documentId: result.id,
