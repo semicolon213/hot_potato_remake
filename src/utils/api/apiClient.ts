@@ -451,7 +451,7 @@ export class ApiClient {
   }
 
   // 공지 첨부파일 업로드 (Apps Script가 첨부 폴더에 저장하고 링크 공개)
-  async uploadNoticeAttachment(params: { fileName: string; mimeType: string; fileData: string }) {
+  async uploadNoticeAttachment(params: { fileName: string; mimeType: string; fileData: string; userEmail: string }) {
     return this.request<{ id: string; name: string; url: string }>('uploadNoticeAttachment', params);
   }
 

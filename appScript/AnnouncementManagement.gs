@@ -550,12 +550,39 @@ function getNoticeAttachFolder_() {
  * 공지 첨부파일 업로드 (프론트가 base64로 보낸 파일을 배포자 드라이브의 첨부 폴더에 저장)
  * @param {Object} req - { fileName, mimeType, fileData(base64) }
  */
+var NOTICE_ATTACHMENT_MAX_BYTES_ = 4 * 1024 * 1024;
+var NOTICE_ATTACHMENT_MIME_TYPES_ = [
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/pdf',
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'application/zip', 'application/x-zip-compressed',
+  'application/x-hwp', 'application/haansofthwp', 'application/vnd.hancom.hwp'
+];
+
 function uploadNoticeAttachment(req) {
   try {
-    if (!req.fileName || !req.fileData) {
-      return { success: false, message: '파일 이름과 내용이 필요합니다.' };
+    if (!req || !req.fileName || !req.fileData || !req.mimeType || !req.userEmail) {
+      return { success: false, message: '파일, 형식, 업로더 정보가 필요합니다.' };
     }
-    const blob = Utilities.newBlob(Utilities.base64Decode(req.fileData), req.mimeType || 'application/octet-stream', req.fileName);
+    if (NOTICE_ATTACHMENT_MIME_TYPES_.indexOf(String(req.mimeType).toLowerCase()) === -1) {
+      return { success: false, message: '지원하지 않는 첨부파일 형식입니다.' };
+    }
+    const maxBase64Length = Math.ceil(NOTICE_ATTACHMENT_MAX_BYTES_ / 3) * 4;
+    if (typeof req.fileData !== 'string' || req.fileData.length > maxBase64Length) {
+      return { success: false, message: '첨부파일은 4MB 이하만 올릴 수 있습니다.' };
+    }
+    const fileBytes = Utilities.base64Decode(req.fileData);
+    if (fileBytes.length > NOTICE_ATTACHMENT_MAX_BYTES_) {
+      return { success: false, message: '첨부파일은 4MB 이하만 올릴 수 있습니다.' };
+    }
+    const userStatus = checkUserStatus(String(req.userEmail).trim());
+    if (!userStatus.success || !userStatus.data || userStatus.data.status !== 'approved') {
+      return { success: false, message: '승인된 회원만 첨부파일을 올릴 수 있습니다.' };
+    }
+    const blob = Utilities.newBlob(fileBytes, req.mimeType, req.fileName);
     const file = getNoticeAttachFolder_().createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return { success: true, data: { id: file.getId(), name: req.fileName, url: file.getUrl() } };

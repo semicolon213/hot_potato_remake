@@ -355,15 +355,36 @@ const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reje
     reader.readAsDataURL(file);
 });
 
+const getNoticeAttachmentMimeType = (file: File): string => {
+    if (file.type && file.type !== 'application/octet-stream') return file.type;
+    const extension = file.name.toLowerCase().split('.').pop();
+    const mimeTypes: Record<string, string> = {
+        doc: 'application/msword',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        xls: 'application/vnd.ms-excel',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        pdf: 'application/pdf',
+        hwp: 'application/x-hwp',
+        zip: 'application/zip',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        gif: 'image/gif',
+        webp: 'image/webp'
+    };
+    return mimeTypes[extension || ''] || file.type;
+};
+
 // 첨부파일은 Apps Script가 공유 루트의 notice/attached_file에 저장한다 (사용자 드라이브 권한과 무관)
-const uploadFileToDrive = async (file: File): Promise<{ name: string, url: string }> => {
+const uploadFileToDrive = async (file: File, userEmail: string): Promise<{ name: string, url: string }> => {
     if (file.size > MAX_ATTACHMENT_BYTES) {
         throw new Error(`첨부파일은 4MB 이하만 올릴 수 있습니다: ${file.name}`);
     }
     const response = await apiClient.uploadNoticeAttachment({
         fileName: file.name,
-        mimeType: file.type || 'application/octet-stream',
-        fileData: await fileToBase64(file)
+        mimeType: getNoticeAttachmentMimeType(file),
+        fileData: await fileToBase64(file),
+        userEmail
     });
     if (!response.success || !response.data) {
         throw new Error(response.message || `첨부파일 업로드 실패: ${file.name}`);
@@ -411,7 +432,7 @@ export const addAnnouncement = async (announcementSpreadsheetId: string, postDat
         let fileInfos: { name: string, url: string }[] = [];
         if (postData.attachments && postData.attachments.length > 0) {
             for (const file of postData.attachments) {
-                const fileInfo = await uploadFileToDrive(file);
+                const fileInfo = await uploadFileToDrive(file, postData.writerEmail);
                 fileInfos.push(fileInfo);
             }
         }
