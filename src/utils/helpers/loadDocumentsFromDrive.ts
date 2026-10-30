@@ -245,6 +245,12 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
  * @param forceRefresh - 캐시를 무시하고 강제로 새로고침할지 여부
  * @returns 문서 목록
  */
+/** 문서를 만들거나 지운 뒤 목록 캐시를 비워 다음 조회에서 바로 보이게 한다 */
+export const invalidateDocumentsCache = async (): Promise<void> => {
+  const action = 'getAllDocuments';
+  await getCacheManager().invalidate(generateCacheKey(getActionCategory(action), action, {}));
+};
+
 export const loadAllDocuments = async (forceRefresh: boolean = false): Promise<DocumentInfo[]> => {
   const cacheManager = getCacheManager();
   const action = 'getAllDocuments';

@@ -399,8 +399,8 @@ const DocumentManagement: React.FC<DocumentManagementProps> = ({ onPageChange, c
       showNotification(`${selectedDocs.length}개의 문서가 삭제되었습니다.`, 'success');
       setSelectedDocs([]);
 
-      // 문서 목록 새로고침
-      const allDocs = await loadAllDocuments();
+      // 문서 목록 새로고침 (삭제 전 목록이 캐시에 남아 있으므로 강제로 다시 읽는다)
+      const allDocs = await loadAllDocuments(true);
       const convertedDocs: FetchedDocument[] = allDocs.map((doc, index) => ({
         id: doc.id,
         title: doc.title,

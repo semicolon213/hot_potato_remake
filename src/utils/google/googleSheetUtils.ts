@@ -693,6 +693,8 @@ export const createBlankGoogleDocument = async (title: string): Promise<{ id: st
     },
     fields: 'id, webViewLink'
   });
+  const { invalidateDocumentsCache } = await import('../helpers/loadDocumentsFromDrive');
+  await invalidateDocumentsCache();
   return response.result as { id: string, webViewLink: string };
 };
 
@@ -773,7 +775,9 @@ export const copyGoogleDocument = async (fileId: string, newTitle: string): Prom
       },
       fields: 'id, webViewLink',
     });
-    
+
+    const { invalidateDocumentsCache } = await import('../helpers/loadDocumentsFromDrive');
+    await invalidateDocumentsCache();
     return response.result;
   } catch (error: any) {
     log.error('Google 문서 복사 오류:', error);
