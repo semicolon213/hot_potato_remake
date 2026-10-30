@@ -1020,8 +1020,9 @@ export class ApiClient {
   private getCacheKeysToInvalidate(action: string, data: any): string[] {
     const cacheKeyMap: Record<string, (data: any) => string[]> = {
       // 문서 관리
-      'createDocument': () => ['documents:getDocuments:*', 'documents:getAllDocuments:{}'],
-      'deleteDocuments': () => ['documents:getDocuments:*', 'documents:getAllDocuments:{}'],
+      'createDocument': () => ['documents:getDocuments:*', 'documents:getAllDocuments:*'],
+      'deleteDocuments': () => ['documents:getDocuments:*', 'documents:getAllDocuments:*'],
+      'uploadSharedDocument': () => ['documents:getDocuments:*', 'documents:getAllDocuments:*'],
       'uploadSharedTemplate': () => ['templates:getTemplates:*', 'templates:getSharedTemplates:*'],
       'updateSharedTemplateMeta': () => ['templates:getSharedTemplates:*'],
       'deleteSharedTemplate': () => ['templates:getSharedTemplates:*'],
@@ -1077,6 +1078,7 @@ export class ApiClient {
       'updateAccountSubManagers': () => ['accounting:getLedgerList:*'],
       
       // 사용자 관리
+      'registerUser': () => ['users:getPendingUsers:*'],
       'approveUserWithGroup': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
       'rejectUser': () => ['users:getAllUsers:*', 'users:getPendingUsers:*'],
       'addUsersToSpreadsheet': () => ['users:getAllUsers:*'],
