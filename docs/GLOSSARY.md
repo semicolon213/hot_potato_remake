@@ -48,12 +48,12 @@
 | 스크립트 속성 | Apps Script의 키-값 설정 저장소 (`PropertiesService`) |
 | action | 프론트가 Apps Script에 보내는 요청 종류. 예: `requestWorkflow` |
 | 프록시 | Netlify Function `proxy.js`. 브라우저 요청을 Apps Script로 대신 전달 |
-| papyrus-db | Google Sheets를 테이블처럼 읽고 쓰는 라이브러리. 브랜치 `feature/drive-file-scope`에서 `sheetsClient`로 교체 |
+| papyrus-db | Google Sheets를 테이블처럼 읽고 쓰는 라이브러리. 2026-10-30 운영 반영분부터 자체 모듈 `sheetsClient`로 교체 |
 | `sheetsClient` | `src/utils/google/sheetsClient.ts`. `window.gapi.client`로 시트를 읽고 쓰는 자체 모듈 (`getSheetData`, `append`, `appendRow`, `update`, `deleteRow`) |
 | `drive.file` | 이 앱이 만들거나 연 파일만 접근하는 Drive 범위. 비민감 범위라 보안 평가(CASA)가 필요 없음 |
 | 프리페치 | 로그인 직후 자주 쓰는 데이터를 미리 받아 캐시에 넣는 것 |
 | TTL | 캐시 유효 시간 |
 | 루트 폴더 | 배포자 Drive의 `hot_potato_remake/`. 모든 공용 데이터가 이 아래에 있음. 서버는 `hp_member`의 부모 폴더를 루트로 봄 |
-| 개인 폴더 | 각 사용자 내 드라이브의 `hot_potato_personal/`. 개인 설정과 개인 문서·양식이 있음 (브랜치 `feature/drive-file-scope`) |
+| 개인 폴더 | 각 사용자 내 드라이브의 `hot_potato_personal/`. 개인 설정과 개인 문서·양식이 있음 |
 | `user_setting` | 사용자마다 개인 폴더에 생기는 설정 스프레드시트 |
 | ENV V2 | 폴더·시트 이름을 JSON 환경변수로 관리하는 현재 설정 방식 |

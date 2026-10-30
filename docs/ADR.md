@@ -19,8 +19,9 @@
 | [ADR-010](#adr-010-라우터-없이-상태-기반으로-화면을-전환한다) | 라우터 없이 상태 기반으로 화면을 전환한다 | 채택 |
 | [ADR-011](#adr-011-electron은-같은-번들을-감싸는-선택-배포로-둔다) | Electron은 같은 번들을 감싸는 선택 배포로 둔다 | 채택 |
 | [ADR-012](#adr-012-ci를-걷어내고-netlify-빌드를-배포-게이트로-쓴다) | CI를 걷어내고 Netlify 빌드를 배포 게이트로 쓴다 | 채택 (재도입 예정) |
-| [ADR-013](#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다) | 스프레드시트 ID를 Drive 검색 1회와 서버 캐시로 찾는다 | 채택 (브랜치 `feature/loading-performance`, develop에 반영, 운영 배포 전) |
-| [ADR-014](#adr-014-drive-범위를-drivefile로-줄이고-공유-파일은-apps-script가-다룬다) | Drive 범위를 `drive.file`로 줄이고 공유 파일은 Apps Script가 다룬다 | 채택 (브랜치 `feature/drive-file-scope`, develop에 반영, 운영 배포 전) |
+| [ADR-013](#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다) | 스프레드시트 ID를 Drive 검색 1회와 서버 캐시로 찾는다 | 채택 (2026-10-30 운영 반영) |
+| [ADR-014](#adr-014-drive-범위를-drivefile로-줄이고-공유-파일은-apps-script가-다룬다) | Drive 범위를 `drive.file`로 줄이고 공유 파일은 Apps Script가 다룬다 | 채택 (2026-10-30 운영 반영) |
+| [ADR-015](#adr-015-apps-script가-액세스-토큰으로-요청자를-확인한다) | Apps Script가 액세스 토큰으로 요청자를 확인한다 | 채택 (2026-10-30 운영 반영) |
 
 ---
 
@@ -53,7 +54,7 @@
 **결정:**
 - **Apps Script 경유:** 회원, 공지, 결재, 공유 문서처럼 배포자 권한으로 처리해야 하거나 여러 사용자가 공유하는 데이터
 - **브라우저 직접(papyrus-db + 사용자 OAuth 토큰):** 캘린더, 학생·교직원, 장부 데이터, 개인 설정처럼 조회가 잦고 **Drive 공유 권한으로 접근을 통제할 수 있는** 데이터
-- 브랜치 `feature/drive-file-scope`에서는 `papyrus-db`를 자체 모듈 `sheetsClient`로 바꾸고, 공유 파일의 Drive 조작(검색, 업로드, 복사)을 Apps Script 쪽으로 옮겼습니다([ADR-014](#adr-014-drive-범위를-drivefile로-줄이고-공유-파일은-apps-script가-다룬다)).
+- 2026-10-30 운영 반영분부터 `papyrus-db`를 자체 모듈 `sheetsClient`로 바꾸고, 공유 파일의 Drive 조작(검색, 업로드, 복사)을 Apps Script 쪽으로 옮겼습니다([ADR-014](#adr-014-drive-범위를-drivefile로-줄이고-공유-파일은-apps-script가-다룬다)).
 
 **결과:**
 - 조회가 많은 화면이 빨라지고 Apps Script 호출이 줄었습니다.
@@ -71,7 +72,7 @@
 - 대가: 요청마다 한 단계를 더 거칩니다. Netlify 대시보드의 환경변수 설정을 빠뜨리면 모든 API가 500을 반환합니다([RUNBOOK.md](./RUNBOOK.md)).
 - 대가: Netlify 동기 함수는 약 10초에서 끊깁니다. Apps Script가 그보다 오래 걸리면 클라이언트는 응답 대신 Netlify 오류를 받습니다. 2026-10-29 측정에서 운영 배포의 `getSpreadsheetIds`가 49.4초 걸려, 사이트를 통한 첫 로딩은 시간 초과와 재시도를 반복했을 것으로 봅니다.
 
-**보완 (브랜치 `feature/loading-performance`, develop에 반영, 운영 배포 전):**
+**보완 (브랜치 `feature/loading-performance`, 2026-10-30 운영 반영):**
 - 프록시가 Apps Script 호출을 약 9초에서 직접 끊고 504 `{success:false, error, retryable:true}`를 돌려줍니다. 클라이언트는 이 응답을 재시도 가능한 오류로 처리합니다.
 - `APP_SCRIPT_URL`만 읽습니다. `VITE_APP_SCRIPT_URL`만 있으면 500입니다.
 - 로그에는 HTTP 메서드와 `action`만 남기고, 요청 본문과 Apps Script URL은 남기지 않습니다.
@@ -92,7 +93,7 @@
 - 같은 데이터를 여러 화면에서 써도 호출은 한 번입니다.
 - 대가: 캐시 무효화 규칙을 액션마다 관리해야 합니다. 캐시가 계정별로 분리되지 않아 로그아웃 시 정리가 필요합니다([STATUS.md](./STATUS.md#4-기술-백로그)).
 
-**보완 (브랜치 `feature/loading-performance`, develop에 반영, 운영 배포 전):**
+**보완 (브랜치 `feature/loading-performance`, 2026-10-30 운영 반영):**
 - 같은 캐시 키의 조회가 진행 중이면 새 호출을 보내지 않고 진행 중인 요청을 함께 씁니다.
 - `getSpreadsheetIds`·`getAccountingFolderId` TTL을 45분에서 6시간으로 늘렸습니다. ID는 세션과 무관하고 거의 바뀌지 않기 때문입니다. 대신 `getSpreadsheetIds` 결과에 빠진 ID(`null`, `notFound`)가 있으면 캐시하지 않고, 캐시에 남아 있던 불완전 결과도 버립니다.
 - 재시도를 줄였습니다(타임아웃 60초·5회 → 시도마다 30초·2회). 쓰기 액션은 재시도하지 않아 중복 쓰기를 막습니다. 429는 예외로 `Retry-After`를 지켜 재시도합니다.
@@ -138,7 +139,7 @@
 **결과:**
 - Drive 공유 권한만으로 장부별 접근을 나눌 수 있습니다.
 - 대가: 장부 목록을 보려면 폴더를 탐색해야 하고, 장부 스키마를 바꾸면 기존 장부 파일을 하나씩 마이그레이션해야 합니다.
-- 브랜치 `feature/drive-file-scope`부터 장부 목록은 Apps Script가 만들고, `통장` 시트에 저장된 접근 대상에게만 보여 줍니다. Drive 공유가 저장된 대상과 어긋나면 `applyLedgerSharing`으로 다시 맞춥니다.
+- 장부 목록은 Apps Script가 만들고, `통장` 시트에 저장된 접근 대상에게만 보여 줍니다. Drive 공유가 저장된 대상과 어긋나면 `applyLedgerSharing`으로 다시 맞춥니다.
 
 ## ADR-010 라우터 없이 상태 기반으로 화면을 전환한다
 
@@ -172,7 +173,7 @@
 
 ## ADR-013 스프레드시트 ID를 Drive 검색 1회와 서버 캐시로 찾는다
 
-> 상태: 채택, 브랜치 `feature/loading-performance`(develop에 반영, 운영 배포 전). 측정은 [TEST_PLAN.md §8](./TEST_PLAN.md#8-로딩-성능-개선-검증-2026-10-29-featureloading-performance).
+> 상태: 채택, 브랜치 `feature/loading-performance`(2026-10-30 운영 반영). 측정은 [TEST_PLAN.md §8](./TEST_PLAN.md#8-로딩-성능-개선-검증-2026-10-29-featureloading-performance).
 
 **상황:** 앱은 로그인 직후 `getSpreadsheetIds`로 스프레드시트 이름 목록을 ID로 바꿔야 다음 단계로 넘어갑니다. 기존 Apps Script는 이름 하나마다 루트 폴더 트리 전체를 재귀 탐색했고(이름 8개면 8번), 결과를 캐시하지 않았습니다. 2026-10-29 운영 배포 @34에서 이 호출 한 번이 49.4초 걸렸고, Netlify 동기 함수 제한(10초)을 크게 넘었습니다.
 
@@ -192,12 +193,12 @@
 
 ## ADR-014 Drive 범위를 drive.file로 줄이고 공유 파일은 Apps Script가 다룬다
 
-> 상태: 채택, 브랜치 `feature/drive-file-scope`(develop에 반영, 운영 배포 전). 인증 절차는 [OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md).
+> 상태: 채택, 브랜치 `feature/drive-file-scope`(2026-10-30 운영 반영). 인증 절차는 [OAUTH_PUBLISHING.md](./OAUTH_PUBLISHING.md).
 
 **상황:** 웹 클라이언트가 `drive`(restricted)와 쓰지 않는 `gmail.compose`(restricted), `documents`를 요청하고 있었습니다. 이대로 OAuth 앱을 게시하려면 restricted 범위 인증과 매년 유료 보안 평가(CASA)가 필요합니다.
 
 **결정:**
-- 웹 클라이언트 범위를 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`로 줄입니다. 관리자 키 메일 요청에서도 액세스 토큰을 보내지 않습니다.
+- 웹 클라이언트 범위를 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`로 줄입니다. 관리자 키 메일 요청에서도 액세스 토큰을 보내지 않습니다. (이 부분은 [ADR-015](#adr-015-apps-script가-액세스-토큰으로-요청자를-확인한다)에서 바뀌어, 지금은 모든 요청에 신원 확인용 토큰을 보냅니다.)
 - `drive.file`로는 배포자 소유 공유 파일이 보이지 않으므로, 공지 첨부·본문 이미지 업로드, 공유 스프레드시트 ID 조회, 증빙 업로드, 장부 목록, 공유 양식 내보내기를 Apps Script(배포자 권한)가 맡습니다.
 - 공유 양식으로 개인 문서를 만들거나 장부를 Excel로 내보낼 때는 Apps Script가 원본을 docx·xlsx로 내보내고(`exportTemplateFile`), 브라우저가 변환 업로드로 사용자 개인 폴더에 저장합니다.
 - 개인 데이터는 공유 루트와 이름이 다른 개인 폴더 `hot_potato_personal/`에 둡니다. 이 폴더와 안의 파일은 앱이 만든 것이므로 `drive.file`로 접근할 수 있습니다.
@@ -207,4 +208,26 @@
 - restricted 범위가 없어져 보안 평가(CASA) 없이 브랜드 인증과 민감한 범위 인증만 받으면 됩니다.
 - 대가: Apps Script 호출이 늘고, 업로드 파일은 base64로 프록시를 거쳐 파일당 4MB로 제한됩니다.
 - 대가: `exportTemplateFile`이 `UrlFetchApp`을 써서 배포자가 `script.external_request`를 한 번 더 승인해야 합니다.
-- 대가: 예전 버전이 사용자 드라이브에 만든 파일은 새 범위에서 보이지 않습니다.
+- 대가: 예전 버전이 사용자 드라이브에 만든 파일은 새 범위에서 보이지 않습니다. `drive.file` 접근은 파일을 만든 앱(OAuth 클라이언트) 기준이라, 2026-10-30에 클라이언트를 운영 계정 소유 프로젝트로 바꾼 뒤에는 이전 클라이언트로 만든 개인 파일도 보이지 않습니다(개인 설정은 새로 만들어짐).
+
+## ADR-015 Apps Script가 액세스 토큰으로 요청자를 확인한다
+
+> 상태: 채택 (2026-10-30 운영 반영). 코드는 `appScript/Authz.gs`, 검증은 [TEST_PLAN.md §9.4](./TEST_PLAN.md#94-develop-qa와-서버-측-인가-검증-2026-10-30).
+
+**상황:** Apps Script 웹앱은 배포 계정 권한으로 누구나 호출할 수 있게 열려 있고, 요청자가 누구인지는 브라우저가 보낸 `userEmail`, `userType` 같은 값에 기대고 있었습니다. 프록시 주소만 알면 다른 사람 이메일을 넣어 관리 기능을 부를 수 있었습니다([SECURITY.md §5](./SECURITY.md#5-개선-계획)의 서버 측 인가 과제).
+
+**결정:**
+- 브라우저는 모든 요청에 현재 Google 액세스 토큰을 `accessToken` 필드로 담습니다(`apiClient`).
+- Apps Script는 `doPost` 맨 앞에서 Google tokeninfo로 토큰을 확인합니다. `aud` 또는 `azp`가 스크립트 속성 `GOOGLE_CLIENT_ID`와 같고, `email_verified`이고, 만료 전이어야 합니다. 확인한 이메일은 토큰 해시를 키로 최대 5분 캐시합니다. 토큰은 저장하거나 로그에 남기지 않습니다.
+- 액션을 세 가지로 나눕니다. 공개(`PUBLIC_ACTIONS_`: 로그인·가입·상태 확인·설치 진단·비로그인 취업 정보 등), 관리자(`ADMIN_ACTIONS_`: 가입 승인·거부, 공유 양식·공용 태그·결재 템플릿 관리, 고정 공지 승인 등), 나머지는 회원입니다.
+- 회원 액션은 확인한 이메일이 `hp_member`에서 승인된 회원이어야 하고, 관리자 액션은 그 회원이 관리자여야 합니다. `userEmail`, `userType`, 관리자 여부는 서버가 `hp_member` 값으로 덮어씁니다.
+- 실패하면 HTTP 200에 `{success:false, message, code}`를 돌려줍니다. `AUTH_REQUIRED`(토큰 없음·확인 실패), `MEMBER_REQUIRED`(승인 회원 아님), `ADMIN_REQUIRED`(관리자 아님).
+- 설치할 때 OAuth 클라이언트 ID를 받아 `GOOGLE_CLIENT_ID`에 저장합니다. `/setup`은 `getSetupStatus`에 사이트의 클라이언트 ID를 보내 일치 여부(`clientIdMatches`)만 받습니다. 서버 값은 응답에 넣지 않습니다.
+
+**결과:**
+- 브라우저가 보낸 신원·역할 값을 믿지 않게 되어, 관리 기능과 회원 기능을 서버에서 막을 수 있습니다.
+- ID 토큰으로 바꾸지 않고 이미 있는 액세스 토큰을 써서 로그인 흐름을 바꾸지 않았습니다.
+- 대가: `GOOGLE_CLIENT_ID`가 비었거나 Netlify의 `VITE_GOOGLE_CLIENT_ID`와 다르면 로그인한 모든 요청이 `AUTH_REQUIRED`로 실패합니다([RUNBOOK.md RB-09](./RUNBOOK.md#rb-09-모든-기능이-로그인-확인이-필요한-요청입니다로-실패함)).
+- 대가: 캐시가 없는 요청마다 tokeninfo 호출과 회원 조회가 더해집니다. 장부 목록 첫 로딩이 약 15초 걸리는 원인 중 하나입니다([STATUS.md](./STATUS.md) 백로그).
+- 대가: 토큰을 Apps Script로 보내므로 개인정보처리방침에 신원 확인 용도로만 쓴다고 밝혔습니다.
+- Drive 공유 권한으로 막는 브라우저 직접 접근(장부, 캘린더, 학생, 개인 설정)은 이 결정과 관계없이 그대로입니다.

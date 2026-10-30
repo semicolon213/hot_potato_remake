@@ -18,9 +18,9 @@
 
 | 확인 위치 | 볼 것 |
 |---|---|
-| 브라우저 Console | `API 요청 시도`, `API 응답 성공`, 빨간 오류. 브랜치 `feature/drive-file-scope` 이후 운영 빌드는 경고·오류만 출력하므로, 자세한 로그가 필요하면 사용자 브라우저에서 `localStorage.setItem('HP_DEBUG','1')` 후 새로고침하고 확인 뒤 지움 |
+| 브라우저 Console | `API 요청 시도`, `API 응답 성공`, 빨간 오류. 운영 빌드는 경고·오류만 출력하므로, 자세한 로그가 필요하면 사용자 브라우저에서 `localStorage.setItem('HP_DEBUG','1')` 후 새로고침하고 확인 뒤 지움 |
 | 브라우저 Network | `/.netlify/functions/proxy`의 상태 코드와 응답 본문 |
-| Netlify → Logs → Functions → `proxy` | `APP_SCRIPT_URL 환경변수 누락`, `Apps Script가 JSON이 아닌 응답을 반환했습니다.`, `Apps Script 요청 시간 초과`(브랜치 `feature/loading-performance` 이후). 로그에는 메서드와 `action`만 남습니다 |
+| Netlify → Logs → Functions → `proxy` | `APP_SCRIPT_URL 환경변수 누락`, `Apps Script가 JSON이 아닌 응답을 반환했습니다.`, `Apps Script 요청 시간 초과`. 로그에는 메서드와 `action`만 남습니다 |
 | Apps Script → 실행 | 실패한 `doPost` 실행과 오류 메시지 |
 
 ## RB-01 모든 기능에서 데이터가 안 불러와짐
@@ -35,14 +35,16 @@
 
 | 응답 | 원인 | 조치 |
 |---|---|---|
-| 500 `Apps Script URL이 설정되지 않았습니다.` (배포 직후 모든 API) | Netlify에 `APP_SCRIPT_URL`이 없음. 프록시는 `VITE_APP_SCRIPT_URL`을 대신 읽지 않음 | Netlify 환경변수에 `APP_SCRIPT_URL` 추가 → **Clear cache and deploy** |
+| 500 `Apps Script URL이 설정되지 않았습니다.` (배포 직후 모든 API) | Netlify에 `APP_SCRIPT_URL`과 `VITE_APP_SCRIPT_URL`이 모두 없음 | Netlify 환경변수에 `APP_SCRIPT_URL` 추가 → **Clear cache and deploy** |
 | 504 `Apps Script 응답 시간이 초과되었습니다.` (`retryable:true`) | Apps Script가 약 9초 안에 답하지 못함. 프록시가 Netlify 10초 제한 전에 끊은 것 | 앱이 조회 요청은 자동으로 최대 2회 다시 시도합니다. 계속되면 Apps Script **실행**에서 해당 액션의 실행 시간을 확인. `getSpreadsheetIds`가 느리면 서버 캐시가 비었거나 Drive 검색이 실패해 폴더 탐색으로 넘어간 경우이므로 RB-08 확인. 쓰기 요청은 재시도하지 않으므로 사용자에게 결과를 확인한 뒤 다시 하라고 안내 |
-| 502·504 HTML 오류 페이지 (Netlify 자체 응답) | 브랜치 이전 프록시에서 Apps Script가 10초를 넘김 | 위와 같음. `feature/loading-performance` 병합 후에는 위 504 JSON으로 바뀜 |
+| 502·504 HTML 오류 페이지 (Netlify 자체 응답) | 프록시 타임아웃 뒤 응답 본문을 읽다가 Netlify 10초 제한에 걸림(드묾) | 위와 같음 |
 | 403 `Apps Script 요청 실패: HTTP 403`, 웹앱 주소를 직접 열면 "액세스 거부됨" (모든 배포가 동시에) | 배포 계정의 [myaccount.google.com/permissions](https://myaccount.google.com/permissions)에서 Apps Script 프로젝트 권한이 삭제됨 | 배포 계정으로 Apps Script 편집기를 열고 아무 함수나 실행해 권한을 다시 승인. 배포를 새로 만들 필요는 없음 |
 | `Apps Script가 JSON이 아닌 응답을 반환했습니다.` | Apps Script가 HTML(로그인·권한·오류 페이지)을 돌려줌. 배포가 삭제됐거나, 접근 권한이 바뀌었거나, URL이 옛날 배포를 가리킴 | Apps Script **배포 관리**에서 활성 배포 URL을 확인하고 `APP_SCRIPT_URL`과 비교 → 다르면 고치고 재배포 |
 | 502 `Apps Script 연결 중 오류가 발생했습니다.` | 네트워크 또는 Google 측 일시 장애 | 5분 후 재시도. [Google Workspace 상태 대시보드](https://www.google.com/appsstatus) 확인 |
+| 200 + `success:false`, `code: AUTH_REQUIRED` ("로그인 확인이 필요한 요청입니다", 로그인한 모든 사용자) | 서버가 요청자 토큰을 확인하지 못함. 대부분 `GOOGLE_CLIENT_ID` 불일치 | RB-09 |
+| 200 + `success:false`, `code: MEMBER_REQUIRED` 또는 `ADMIN_REQUIRED` | 요청자가 승인된 회원이 아니거나 관리자가 아님. 한 사람에게만 나면 정상 거부 | `user` 시트에서 그 사람의 `Approval`, `is_admin` 확인 |
 | 200 + `success:false`, `알 수 없는 액션입니다` | 프론트가 백엔드에 없는 액션을 호출. 프론트만 먼저 배포됐을 가능성 | 백엔드 `clasp push` + 새 버전 배포, 또는 Netlify 이전 배포로 롤백 |
-| 200 + `success:false`, `양식 내보내기` 관련 권한 오류 (나만 보기 문서 만들기, 장부 내보내기만 실패) | 배포자가 `script.external_request`("외부 서비스에 연결")를 승인하지 않음. 브랜치 `feature/drive-file-scope` 이후 | 편집기에서 아무 함수나 실행해 승인 |
+| 200 + `success:false`, `양식 내보내기` 관련 권한 오류 (나만 보기 문서 만들기, 장부 내보내기만 실패) | 배포자가 `script.external_request`("외부 서비스에 연결")를 승인하지 않음 | 편집기에서 아무 함수나 실행해 승인 |
 | 200 + `success:false`, 그 외 메시지 | 액션 처리 중 오류 | Apps Script **실행** 로그에서 해당 시각의 오류 확인 → RB-03 또는 개발 담당자 |
 
 **해결되지 않을 때:** 직전 배포를 롤백합니다(Netlify **Publish deploy**, Apps Script 이전 버전). 그래도 안 되면 개발 담당자에게 Console·Network 캡처와 Functions 로그를 전달합니다.
@@ -75,7 +77,7 @@
 **절차:**
 1. Console에서 어떤 스프레드시트 ID를 못 찾았는지 확인합니다(예: `Announcement spreadsheet ID not found` → `notice`).
 2. Drive에서 그 파일이 **정확한 이름**으로, **루트 폴더 아래**에 있는지 확인합니다.
-3. Apps Script 스크립트 속성 `ROOT_FOLDER_ID`가 실제 루트 폴더 ID와 같은지 확인합니다. 브랜치 `feature/drive-file-scope` 이후 서버는 `hp_member`의 부모 폴더를 루트로 보고 `ROOT_FOLDER_ID`는 대체값으로만 씁니다. 이때는 `hp_member`가 루트 폴더 바로 아래에 있는지 확인합니다.
+3. Apps Script 스크립트 속성 `ROOT_FOLDER_ID`가 실제 루트 폴더 ID와 같은지 확인합니다. 서버는 `hp_member`의 부모 폴더를 루트로 보고 `ROOT_FOLDER_ID`는 대체값으로만 씁니다. 이때는 `hp_member`가 루트 폴더 바로 아래에 있는지 확인합니다.
 4. 사용자가 그 파일에 접근 권한이 있는지 확인합니다. 캘린더·학생·교직원·장부는 브라우저에서 사용자 권한으로 직접 읽습니다.
 
 **판단·분기:**
@@ -86,8 +88,7 @@
 | 이름이 다름 | 원래 이름으로 되돌리거나, 환경변수(`VITE_SPREADSHEET_NAME`)와 스크립트 속성을 함께 바꾼 뒤 재배포 |
 | 같은 이름 파일이 여러 개 | 하나만 남기고 이동·삭제. 첫 번째로 찾은 파일만 쓰입니다 |
 | 사용자에게 권한이 없음 | 사용자가 역할 그룹에 들어 있는지 확인. 승인 때 그룹 추가가 실패했는지 `group_management_log` 확인. 역할 폴더가 그룹에 공유되지 않았으면 편집기에서 `applyRoleFolderSharing` 실행([OPERATOR_MANUAL §3.4](./OPERATOR_MANUAL.md#34-그룹-주소와-역할-폴더-공유)). `user_type`만 바꿔서는 파일 권한이 생기지 않음 |
-| 장부가 목록에 안 보임 | 브랜치 `feature/drive-file-scope` 이후 장부 목록은 접근 대상(만든 사람, 주·부관리인, 접근 사용자, 접근 그룹 구성원)에게만 보임. 대상에 없으면 정상. 대상인데 파일이 안 열리면 편집기에서 `applyLedgerSharing` 실행 |
-| 학생회·겸임교원 그룹 일정이 안 보이거나 엉뚱한 캘린더에 저장됨 | develop의 캘린더 역할 키 불일치(BUG-03). 브랜치 `feature/drive-file-scope`에서 수정 |
+| 장부가 목록에 안 보임 | 장부 목록은 접근 대상(만든 사람, 주·부관리인, 접근 사용자, 접근 그룹 구성원)에게만 보임. 대상에 없으면 정상. 대상인데 파일이 안 열리면 편집기에서 `applyLedgerSharing` 실행 |
 | 진행 표시만 멈추고 오류가 없음 | 헤더 새로고침 버튼 또는 브라우저 새로고침. 계속되면 RB-04 확인 |
 
 **해결되지 않을 때:** Console 전체 로그를 저장해 개발 담당자에게 전달합니다.
@@ -142,7 +143,8 @@
 | 대상 | 롤백 |
 |---|---|
 | 프론트엔드 | Netlify **Deploys** → 직전 정상 배포 → **Publish deploy** |
-| Apps Script | **배포 관리 → 기존 배포 편집 → 버전**에서 직전 버전 선택 → 배포 (URL 유지) |
+| Apps Script | **배포 관리 → 기존 배포 편집 → 버전**에서 직전 버전 선택 → 배포 (URL 유지). 또는 `clasp deploy -i <운영 배포 ID> -V <직전 버전>`. 2026-10-30 반영분(@59)의 직전 버전은 @34 |
+| 코드 | 프론트를 코드째 되돌릴 때는 `main`의 병합 커밋을 revert해 Netlify가 다시 배포하게 함 |
 | 환경변수 | Netlify 환경변수를 이전 값으로 되돌림 → Clear cache and deploy |
 
 **판단·분기:** 프론트와 백엔드를 같이 배포했다면 **둘 다** 이전 버전으로 돌립니다. 한쪽만 돌리면 액션 이름이 어긋날 수 있습니다.
@@ -151,7 +153,7 @@
 
 ## RB-08 시트를 바꾼 뒤 옛 데이터나 빈 화면이 보임
 
-**대상·조건:** 스프레드시트 파일을 새로 만들어 교체했거나, 다른 폴더로 옮겼거나, 이름을 바꾼 뒤 해당 화면이 비어 있거나 예전 파일 내용이 보입니다. 브랜치 `feature/loading-performance` 이후 코드에 해당합니다.
+**대상·조건:** 스프레드시트 파일을 새로 만들어 교체했거나, 다른 폴더로 옮겼거나, 이름을 바꾼 뒤 해당 화면이 비어 있거나 예전 파일 내용이 보입니다.
 
 **원인:** Apps Script가 스프레드시트 ID를 서버 캐시에 6시간, 브라우저가 클라이언트 캐시에 6시간 보관합니다([ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)). 파일이 바뀌어도 그동안은 옛 ID를 씁니다.
 
@@ -159,7 +161,7 @@
 
 **절차:**
 1. 배포 계정으로 Apps Script 편집기를 열고 `SpreadsheetUtils.gs`의 `clearSpreadsheetIdCache`를 실행합니다. 로그에 `스프레드시트 ID 캐시를 비웠습니다.`가 나오면 됩니다.
-2. 사용자에게 헤더의 새로고침 버튼(캐시 초기화)을 누른 뒤 **브라우저를 새로고침(F5)** 하라고 안내합니다. 한 탭 안에서는 ID를 메모리에 기억하므로 새로고침 버튼만으로는 ID를 다시 조회하지 않고, 로그아웃은 캐시를 지우지 않습니다.
+2. 사용자에게 헤더의 새로고침 버튼(캐시 초기화)을 누른 뒤 **브라우저를 새로고침(F5)** 하라고 안내합니다. 한 탭 안에서는 ID를 메모리에 기억하므로 새로고침 버튼만으로는 ID를 다시 조회하지 않습니다. 로그아웃 후 다시 로그인해도 캐시가 지워집니다.
 
 **판단·분기:**
 
@@ -167,11 +169,56 @@
 |---|---|
 | 새 ID로 정상 표시 | 완료 |
 | 여전히 빈 화면, Console에 `spreadsheet ID not found` | 파일 위치·이름 문제. RB-03 |
-| `ROOT_FOLDER_ID`를 바꿨음 | 스크립트 속성을 고친 뒤 1번을 다시 실행. 루트 폴더 캐시도 함께 지워짐. 브랜치 `feature/drive-file-scope` 이후에는 `hp_member` 부모 폴더가 우선이므로 `hp_member`를 옮긴 경우에도 1번을 실행 |
+| `ROOT_FOLDER_ID`를 바꿨음 | 스크립트 속성을 고친 뒤 1번을 다시 실행. 루트 폴더 캐시도 함께 지워짐. `hp_member` 부모 폴더가 우선이므로 `hp_member`를 옮긴 경우에도 1번을 실행 |
 
 **해결되지 않을 때:** 브라우저 개발자 도구 → Application → Local Storage에서 `cache_`로 시작하는 항목을 지우고 새로고침합니다. 그래도 안 되면 개발 담당자에게 Console 로그를 전달합니다.
 
 **완료 확인:** 해당 화면에 새 파일의 데이터가 보입니다.
+
+## RB-09 모든 기능이 "로그인 확인이 필요한 요청입니다"로 실패함
+
+**대상·조건:** 로그인은 되는데 공지·결재·문서 등 Apps Script를 거치는 기능이 모든 사용자에게 실패합니다. proxy 응답은 HTTP 200에 `success:false`, `code: "AUTH_REQUIRED"`입니다. 배포나 OAuth 클라이언트 교체 직후에 자주 생깁니다.
+
+**원인:** Apps Script는 요청마다 사용자 토큰을 Google에 확인하고, 토큰의 클라이언트 ID가 스크립트 속성 `GOOGLE_CLIENT_ID`와 같아야 통과시킵니다([ADR-015](./ADR.md#adr-015-apps-script가-액세스-토큰으로-요청자를-확인한다)). 이 값이 비어 있거나 Netlify의 `VITE_GOOGLE_CLIENT_ID`와 다르면 로그인한 모든 요청이 거부됩니다.
+
+**절차:**
+1. 사이트의 `/setup`을 엽니다. **서버·사이트 클라이언트 ID 일치**가 일치가 아니면 이 항목이 원인입니다.
+2. Netlify **Environment variables**의 `VITE_GOOGLE_CLIENT_ID` 값을 확인합니다.
+3. Apps Script **프로젝트 설정 → 스크립트 속성**의 `GOOGLE_CLIENT_ID`를 같은 값으로 고칩니다. 2026-10-30 기준 운영 값은 `651515712118-v387na0c5qgv7mn174u41u8p151msqal.apps.googleusercontent.com`입니다.
+4. Netlify 값을 바꿨다면 **Clear cache and deploy**로 다시 빌드합니다. 스크립트 속성만 바꿨다면 재배포는 필요 없습니다.
+5. 사용자에게 로그아웃 후 다시 로그인하라고 안내합니다. 확인된 이메일은 서버에 최대 5분 캐시됩니다.
+
+**판단·분기:**
+
+| 확인 결과 | 조치 |
+|---|---|
+| `/setup`에서 일치인데 계속 실패 | Apps Script **실행** 로그에서 `Authz` 경고 확인. "외부 서비스에 연결"(`script.external_request`) 승인이 빠졌으면 tokeninfo 호출이 실패하므로 편집기에서 아무 함수나 실행해 승인 |
+| 한 사람만 실패 | 토큰 만료일 수 있음. 다시 로그인. 계속되면 그 사람의 `Approval`이 `O`인지 확인(이 경우 코드는 `MEMBER_REQUIRED`) |
+| `/setup` 화면에 스타일이 없음 | 알려진 문제로 판단에는 영향 없음([STATUS.md](./STATUS.md)) |
+
+**해결되지 않을 때:** Apps Script를 직전 버전으로 되돌리고(RB-07) 개발 담당자에게 proxy 응답과 실행 로그를 전달합니다.
+
+**완료 확인:** `/setup`에서 일치로 나오고, 로그인 후 공지사항 목록이 보입니다.
+
+## RB-10 예전 공지 첨부가 링크만 있으면 누구나 열림
+
+**대상·조건:** 2026-10-30 이전에 올린 공지 첨부가 "링크가 있는 모든 사용자" 공개로 남아 있거나, 공지 공개 범위와 첨부 권한이 맞지 않습니다.
+
+**원인:** 예전 코드는 첨부를 링크 공개로 올렸습니다. 지금은 공지를 등록·수정할 때 첨부를 공개 범위의 그룹·개인(비어 있으면 역할 그룹 전체)과 작성자에게만 보기 권한으로 공유합니다.
+
+**절차:**
+1. 배포 계정으로 Apps Script 편집기를 열고 `applyNoticeAttachmentSharing`을 실행합니다. 모든 공지의 첨부와 본문 이미지 권한을 공개 범위에 맞춥니다.
+2. 실행 로그에서 건너뛴 파일 목록을 확인합니다. 사용자 소유라 배포 계정이 권한을 바꿀 수 없는 예전 첨부는 건너뛰고 로그에 남깁니다.
+
+**판단·분기:**
+
+| 확인 결과 | 조치 |
+|---|---|
+| 건너뛴 파일 없음 | 완료 |
+| 건너뛴 파일 있음 | 파일 소유자에게 공유 설정을 "제한됨"으로 바꿔 달라고 요청하거나, 배포 계정으로 다시 올려 공지를 수정. 2026-10-30에 건너뛴 예전 스크린샷 4개는 그대로 두기로 결정함 |
+| 개인정보가 담긴 파일이 공개되어 있었음 | 즉시 소유자가 공유 해제하고 "보고·전파"의 개인정보 노출 절차를 따름 |
+
+**완료 확인:** 다른 역할의 계정이나 로그아웃한 브라우저에서 첨부 링크를 열면 "액세스 권한 필요"가 나옵니다.
 
 ## 보고·전파
 

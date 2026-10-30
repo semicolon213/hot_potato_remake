@@ -26,7 +26,7 @@ cp .env.example .env
 
 | 변수 | 필수 | 설명 |
 |---|---|---|
-| `VITE_GOOGLE_CLIENT_ID` | ✅ | Google OAuth 클라이언트 ID |
+| `VITE_GOOGLE_CLIENT_ID` | ✅ | Google OAuth 클라이언트 ID. 연결할 Apps Script의 스크립트 속성 `GOOGLE_CLIENT_ID`와 같아야 함. 다르면 로그인한 모든 요청이 `AUTH_REQUIRED`로 실패 |
 | `VITE_APP_SCRIPT_URL` | ✅ | Apps Script 웹앱 `/exec` URL. 로컬에서는 Vite 프록시(`/api`)가 이 주소로 전달. 백엔드를 바꾸는 중이면 테스트 배포의 `/exec` URL을 넣음([DEPLOYMENT.md §2.3](./DEPLOYMENT.md#23-테스트-배포로-먼저-확인하기)) |
 | `VITE_FOLER_NAME` | — | Drive 폴더 이름 JSON (`ROOT`, `DOCUMENT`, `WORKFLOW`, `ACCOUNT`, `ACCOUNT_EVIDENCE` …). 철자 `FOLER`는 그대로 씀 |
 | `VITE_SPREADSHEET_NAME` | — | 스프레드시트 이름 JSON (`CONFIG`, `NOTICE`, `CALENDAR_*`, `STUDENT`, `STAFF`, `TAG`) |

@@ -1,7 +1,7 @@
 # HP ERP 데이터 모델 (ERD)
 
 > 개발 단계: **③ 설계** · 산출물: ERD, 데이터 저장 구조
-> 기준: `main` 브랜치 코드 (2026-10-27). 브랜치 `feature/drive-file-scope`(develop에 반영, 운영 배포 전)에서 바뀐 부분은 따로 표시했습니다.
+> 기준: `main` 브랜치 코드 (2026-10-30, `c2b8a6c`). drive.file 전환과 서버 측 인가가 운영에 반영된 상태입니다.
 
 이 시스템은 별도 DB 서버 없이 **Google Sheets를 데이터베이스로** 사용합니다.
 스프레드시트 파일 하나가 "DB", 그 안의 시트(탭) 하나가 "테이블"이고, 1행이 레코드입니다.
@@ -26,7 +26,7 @@
 1. **Apps Script 경유**: 회원·공지·결재·문서처럼 권한 검사나 Drive 조작이 필요한 데이터
 2. **브라우저에서 Sheets API 직접 호출**: 캘린더·학생·교직원·장부 데이터처럼 조회가 잦고 Drive 공유 권한으로 접근을 통제할 수 있는 데이터
 
-브랜치 `feature/drive-file-scope`에서는 OAuth 범위가 `drive.file`로 줄어 브라우저가 배포자 소유 파일을 Drive API로 찾거나 올릴 수 없습니다. 그래서 공지 첨부·본문 이미지, 증빙 업로드, 스프레드시트 ID 조회, 장부 목록, 공유 양식 내보내기는 Apps Script를 거칩니다. 시트 읽기·쓰기는 `spreadsheets` 범위로 계속 직접 합니다. Sheets 접근 라이브러리 `papyrus-db`는 자체 모듈 `src/utils/google/sheetsClient.ts`로 바뀌었고, 행 추가 때 값을 자동 변환하지 않고 문자열로 씁니다.
+OAuth 범위가 `drive.file`로 줄어 브라우저가 배포자 소유 파일을 Drive API로 찾거나 올릴 수 없습니다. 그래서 공지 첨부·본문 이미지, 증빙 업로드, 스프레드시트 ID 조회, 장부 목록, 공유 양식 내보내기는 Apps Script를 거칩니다. 시트 읽기·쓰기는 `spreadsheets` 범위로 계속 직접 합니다. Sheets 접근 라이브러리 `papyrus-db`는 자체 모듈 `src/utils/google/sheetsClient.ts`로 바뀌었고, 행 추가 때 값을 자동 변환하지 않고 문자열로 씁니다.
 
 ## 2. ERD
 
@@ -41,7 +41,7 @@ erDiagram
         string user_type "student|std_council|supp|professor|ad_professor"
         string name_member
         string google_member "암호화된 이메일"
-        string Approval "O=승인, X=대기"
+        string Approval "O=승인, X=대기, R=거부(재신청 가능)"
         string is_admin "O/X"
         date approval_date
     }
@@ -234,7 +234,7 @@ erDiagram
     FIELD ||--o{ EMPLOYMENT : "분야"
 ```
 
-`user_setting`(사용자 개인 폴더)은 다른 엔터티와 관계가 없는 독립 저장소입니다. 프론트는 개인 폴더에서 이름으로 찾고, 없으면 폴더째 새로 만듭니다. 첫 로그인 때 여러 곳에서 동시에 찾아도 한 번만 만듭니다(브랜치 `feature/drive-file-scope`).
+`user_setting`(사용자 개인 폴더)은 다른 엔터티와 관계가 없는 독립 저장소입니다. 프론트는 개인 폴더에서 이름으로 찾고, 없으면 폴더째 새로 만듭니다. 첫 로그인 때 여러 곳에서 동시에 찾아도 한 번만 만듭니다.
 
 | 시트 | 열 | 용도 |
 |---|---|---|
@@ -260,8 +260,6 @@ erDiagram
 ### 4.1 조직 공용 폴더 (Apps Script 배포자 드라이브)
 
 `initializeSystem()`(`appScript/InitialSetup.gs`)이 만듭니다. 공유 드라이브(Shared Drive)가 아니라 **배포자의 내 드라이브**에 생성됩니다.
-
-브랜치 `feature/drive-file-scope`부터:
 
 - 서버는 `hp_member`의 부모 폴더를 루트로 봅니다(`getProjectRootFolderId_`). `hp_member`가 내 드라이브 최상위에 있으면 루트로 보지 않습니다. 스크립트 속성 `ROOT_FOLDER_ID`는 이 방법으로 찾지 못할 때만 씁니다. 서버의 폴더 경로(`findOrCreateFolder`)도 이 루트에서 시작합니다.
 - `initializeSystem`은 `ROOT_FOLDER_ID`와 `SPREADSHEET_ID`를 실제로 쓴 루트 폴더와 `hp_member`로 항상 다시 씁니다.
@@ -295,7 +293,7 @@ hot_potato_remake/                 ← ROOT (hp_member 부모 폴더, 못 찾으
 
 ### 4.2 사용자 개인 폴더 (각 사용자 드라이브)
 
-브랜치 `feature/drive-file-scope`부터 개인 폴더는 공유 루트(`hot_potato_remake`)와 이름이 다른 `hot_potato_personal`입니다. 이름은 `VITE_FOLER_NAME`의 `PERSONAL` 키로 바꿀 수 있습니다. develop 코드는 `hot_potato_remake`라는 같은 이름을 씁니다.
+개인 폴더는 공유 루트(`hot_potato_remake`)와 이름이 다른 `hot_potato_personal`입니다. 이름은 `VITE_FOLER_NAME`의 `PERSONAL` 키로 바꿀 수 있습니다. 예전 코드는 `hot_potato_remake`라는 같은 이름을 썼습니다. `drive.file`은 파일을 만든 OAuth 클라이언트 기준으로 보이므로, 2026-10-30 클라이언트 교체 뒤에는 개인 폴더와 설정 파일이 새로 만들어졌습니다.
 
 ```text
 hot_potato_personal/               ← 내 드라이브 최상위
@@ -314,7 +312,7 @@ hot_potato_personal/               ← 내 드라이브 최상위
 - **ID 생성:** `{접두어}_{epoch ms}[_{rand}]` 형식입니다 (`wf_`, `hist_`, `tpl_`, `acc_`, `entry_`, `budget_`). 공지 번호만 기존 최대값 + 1입니다.
 - **개인정보 암호화:** 회원 이메일, 공지 작성자 이메일, 학생 연락처, 교직원 연락처·이메일은 암호화해서 저장합니다. 방식과 한계는 [SECURITY.md](./SECURITY.md)에 정리했습니다.
 - **JSON 열:** 결재선(`review_line`, `payment_line`), 공지 공개 범위(`access_rights`), 첨부(`file_notice`), 통장 권한 목록은 JSON 문자열로 저장합니다.
-- **스프레드시트 ID 해석:** 프론트가 `getSpreadsheetIds` 액션에 이름 배열을 보내면, Apps Script가 ROOT 하위를 재귀 탐색해 **이름이 일치하는 첫 파일**의 ID를 돌려줍니다. 이름이 같은 파일이 둘 이상이면 첫 번째만 씁니다. 브랜치 `feature/loading-performance`(develop에 반영, 운영 배포 전)에서는 Drive 검색 한 번으로 찾고 ROOT 하위 파일만 남기며, 결과를 서버에 6시간 캐시합니다([ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)).
+- **스프레드시트 ID 해석:** 프론트가 `getSpreadsheetIds` 액션에 이름 배열을 보내면, Apps Script가 ROOT 하위를 재귀 탐색해 **이름이 일치하는 첫 파일**의 ID를 돌려줍니다. 이름이 같은 파일이 둘 이상이면 첫 번째만 씁니다. 지금은 Drive 검색 한 번으로 찾고 ROOT 하위이면서 배포 계정 소유인 파일만 남기며, 결과를 서버에 6시간 캐시합니다([ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)).
 
 ## 6. 알려진 불일치 (정리 대상)
 
@@ -325,5 +323,5 @@ hot_potato_personal/               ← 내 드라이브 최상위
 | 예산계획 열 순서 | GAS 헤더(15열), 프론트 쓰기(16열), 프론트 읽기 인덱스가 서로 다릅니다 | `AccountingManagement.gs`, `src/utils/database/accountingBudgetManager.ts` |
 | `admin_keys_backup` 헤더 | 초기 세팅 헤더와 실제 백업 코드가 쓰는 열 순서가 다릅니다 | `InitialSetup.gs`, `KeyGeneration.gs` |
 | 카테고리 조회 | `getAccountingCategories`가 `카테고리` 시트가 아니라 첫 시트를 읽습니다 | `AccountingManagement.gs` |
-| 레거시 문서 시트 | `학생_문서관리` 등은 더 이상 생성되지 않지만 일부 조회·삭제 코드가 참조합니다. develop에서는 이 시트가 없으면 공유 문서 삭제가 실패합니다(브랜치 `feature/drive-file-scope`에서 수정) | `CONFIG.gs`, `DocumentSpreadsheet.gs` |
+| 레거시 문서 시트 | `학생_문서관리` 등은 더 이상 생성되지 않지만 일부 조회·삭제 코드가 참조합니다. 예전에는 이 시트가 없으면 공유 문서 삭제가 실패했습니다(수정됨) | `CONFIG.gs`, `DocumentSpreadsheet.gs` |
 | `workflow/attached_file/` | 폴더는 만들지만 사용하는 코드가 없습니다 | `InitialSetup.gs` |
