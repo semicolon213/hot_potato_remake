@@ -1,1 +1,160 @@
-.setup-diagnostics{max-width:720px;margin:48px auto;padding:24px 20px;background:#fff;color:#1a1a1a;border-radius:12px}.setup-diagnostics ul{list-style:none;padding:0}.setup-diagnostics li{display:flex;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:1px solid #ddd}.setup-diagnostics li span{text-align:right}.setup-ok strong{color:#087b35}.setup-error strong{color:#b42318}.setup-diagnostics button{margin-top:24px;padding:10px 16px}
+/* 로그인 카드(Login.css)를 그대로 쓰고, 점검 목록에 필요한 것만 더한다 */
+
+.setup-card {
+  max-width: 100%;
+  height: auto;
+  min-height: 480px;
+}
+
+.setup-logo {
+  cursor: default;
+}
+
+.setup-logo:hover {
+  transform: none;
+  filter: none;
+}
+
+.setup-card-right {
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+.setup-heading {
+  margin: 0 0 clamp(12px, 1.4vh, 16px);
+  font-size: clamp(20px, 2.3vh, 24px);
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.setup-checks {
+  list-style: none;
+  margin: 0 0 clamp(20px, 2.3vh, 28px);
+  padding: 0;
+}
+
+.setup-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.setup-check:last-child {
+  border-bottom: none;
+}
+
+.setup-check-mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border-radius: 50%;
+}
+
+.setup-check--ok .setup-check-mark {
+  color: var(--white-pure);
+  background: var(--sidebar-primary);
+}
+
+.setup-check--fail .setup-check-mark {
+  color: var(--white-pure);
+  background: var(--error);
+}
+
+.setup-check--pending .setup-check-mark {
+  color: var(--text-light);
+  background: var(--border-light);
+}
+
+.setup-check-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.setup-check-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  border-top-color: var(--text-light);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.setup-check-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.setup-check-text strong {
+  font-size: clamp(14px, 1.62vh, 16px);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-dark);
+}
+
+.setup-check-text span {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-light);
+  overflow-wrap: anywhere;
+}
+
+.setup-check--fail .setup-check-text span {
+  color: #b42318;
+}
+
+.setup-test-btn {
+  margin-top: auto;
+}
+
+.setup-test-btn:focus-visible {
+  outline: 2px solid var(--sidebar-primary);
+  outline-offset: 3px;
+}
+
+.setup-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setup-check-spinner {
+    animation: none;
+  }
+}
+
+/* 로그인 카드는 고정 폭이라 좁은 화면에서는 위아래로 쌓는다 */
+@media (max-width: 760px) {
+  .setup-container {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 16px;
+  }
+
+  .setup-card {
+    width: 100%;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .setup-card .login-card-left,
+  .setup-card .login-card-right {
+    width: 100%;
+  }
+
+  .setup-card .login-logo {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 8px;
+  }
+}
