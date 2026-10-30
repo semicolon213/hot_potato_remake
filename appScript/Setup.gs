@@ -58,3 +58,13 @@ function getSetupDefaults() {
     groupEmails: DEFAULT_GROUP_EMAILS_
   };
 }
+
+function getSetupStatus() {
+  const properties = PropertiesService.getScriptProperties();
+  return {
+    success: true,
+    installed: properties.getProperty('SETUP_DONE') === 'true',
+    spreadsheetReady: Boolean(properties.getProperty('SPREADSHEET_ID')),
+    version: getDeploymentInfo().version
+  };
+}
