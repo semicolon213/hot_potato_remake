@@ -9,7 +9,7 @@
     "dev": "cross-env NODE_OPTIONS=\"--disable-warning=DEP0169\" concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "dev:web": "vite",
     "dev:netlify": "npx netlify dev",
-    "build": "vite build",
+    "build": "npm run bundle:backend && vite build && node scripts/prepare-install.mjs",
     "bundle:backend": "node scripts/bundle-backend.mjs",
     "lint": "eslint .",
     "preview": "vite preview",

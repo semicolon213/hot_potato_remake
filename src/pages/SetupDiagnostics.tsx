@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { ENV_CONFIG } from '../config/environment';
 import { getApiBaseUrl } from '../config/api';
+import '../components/features/auth/Login.css';
 import './SetupDiagnostics.css';
 
 type BackendStatus = {
@@ -11,6 +12,21 @@ type BackendStatus = {
   clientIdMatches: boolean;
   version: string;
 };
+
+type CheckState = 'ok' | 'fail' | 'pending';
+
+const STATE_LABEL: Record<CheckState, string> = { ok: '정상', fail: '조치 필요', pending: '확인 중' };
+
+function StateIcon({ state }: { state: CheckState }) {
+  if (state === 'pending') return <span className="setup-check-spinner" aria-hidden="true" />;
+  return (
+    <svg className="setup-check-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      {state === 'ok'
+        ? <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        : <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />}
+    </svg>
+  );
+}
 
 export default function SetupDiagnostics() {
   const [backend, setBackend] = useState<BackendStatus | null>(null);
@@ -30,22 +46,53 @@ export default function SetupDiagnostics() {
     }).then(setBackend).catch(error => setBackendError(error.message));
   }, []);
 
-  const item = (ok: boolean, label: string, detail: string) => (
-    <li className={ok ? 'setup-ok' : 'setup-error'}><strong>{label}</strong><span>{detail}</span></li>
-  );
+  // 백엔드 응답을 기다리는 동안은 실패가 아니라 확인 중으로 보인다
+  const backendState = (ok: boolean | undefined): CheckState =>
+    backend ? (ok ? 'ok' : 'fail') : backendError ? 'fail' : 'pending';
+
+  const checks: Array<{ label: string; state: CheckState; detail: string; step: number }> = [
+    { label: 'OAuth 클라이언트 ID', state: ENV_CONFIG.GOOGLE_CLIENT_ID ? 'ok' : 'fail', detail: ENV_CONFIG.GOOGLE_CLIENT_ID ? '설정됨' : 'Netlify 환경 변수를 입력하세요.', step: 6 },
+    { label: '백엔드 연결', state: backendState(true), detail: backend ? `연결됨 (v${backend.version})` : backendError || '확인 중…', step: 6 },
+    { label: '백엔드 설치', state: backendState(backend?.installed), detail: !backend ? '백엔드 연결 후 확인합니다.' : backend.installed ? '완료' : '백엔드 주소의 ?page=setup 화면에서 설치하세요.', step: 8 },
+    { label: '회원 시트', state: backendState(backend?.spreadsheetReady), detail: !backend ? '백엔드 연결 후 확인합니다.' : backend.spreadsheetReady ? '찾음' : '백엔드 설치와 SPREADSHEET_ID를 확인하세요.', step: 8 },
+    { label: '서버·사이트 클라이언트 ID 일치', state: backendState(backend?.clientIdMatches), detail: backend?.clientIdMatches ? '일치' : !backend ? '백엔드 연결 후 확인합니다.' : !backend.serverClientIdConfigured ? '백엔드 설치 화면에서 Google OAuth 클라이언트 ID를 설정하세요.' : 'Apps Script의 GOOGLE_CLIENT_ID와 Netlify의 VITE_GOOGLE_CLIENT_ID를 같은 값으로 설정하세요.', step: backend?.serverClientIdConfigured ? 6 : 8 },
+    { label: 'OAuth 자바스크립트 원본', state: oauth === 'ok' ? 'ok' : oauth === 'error' ? 'fail' : 'pending', detail: oauth === 'ok' ? '로그인 성공' : oauth === 'error' ? 'Google Cloud Console의 승인된 자바스크립트 원본을 확인하세요.' : '아래 버튼으로 확인하세요.', step: 4 }
+  ];
 
   return (
-    <main className="setup-diagnostics">
-      <h1>HP ERP 설치 확인</h1>
-      <ul>
-        {item(Boolean(ENV_CONFIG.GOOGLE_CLIENT_ID), 'OAuth 클라이언트 ID', ENV_CONFIG.GOOGLE_CLIENT_ID ? '설정됨' : 'Netlify 환경 변수를 입력하세요.')}
-        {item(Boolean(backend), '백엔드 연결', backend ? `연결됨 (v${backend.version})` : backendError || '확인 중…')}
-        {item(Boolean(backend?.installed), '백엔드 설치', backend?.installed ? '완료' : '백엔드 주소의 ?page=setup 화면에서 설치하세요.')}
-        {item(Boolean(backend?.spreadsheetReady), '회원 시트', backend?.spreadsheetReady ? '찾음' : '백엔드 설치와 SPREADSHEET_ID를 확인하세요.')}
-        {item(Boolean(backend?.clientIdMatches), '서버·사이트 클라이언트 ID 일치', backend?.clientIdMatches ? '일치' : !backend ? '백엔드 연결 후 확인합니다.' : !backend.serverClientIdConfigured ? '백엔드 설치 화면에서 Google OAuth 클라이언트 ID를 설정하세요.' : 'Apps Script의 GOOGLE_CLIENT_ID와 Netlify의 VITE_GOOGLE_CLIENT_ID를 같은 값으로 설정하세요.')}
-        {item(oauth === 'ok', 'OAuth 자바스크립트 원본', oauth === 'ok' ? '로그인 성공' : oauth === 'error' ? 'Google Cloud Console의 승인된 자바스크립트 원본을 확인하세요.' : '아래 버튼으로 확인하세요.')}
-      </ul>
-      <button type="button" disabled={!ENV_CONFIG.GOOGLE_CLIENT_ID} onClick={() => testLogin()}>Google 로그인 테스트</button>
-    </main>
+    <div className="login-page-container">
+      <main className="login-container setup-container">
+        <div className="login-card setup-card">
+          <div className="login-card-left">
+            <div className="login-header-left">
+              <img src="/logo.svg" alt="Hot Potato Logo" className="login-logo setup-logo" />
+              <h1 className="hp-erp-title">HP ERP</h1>
+              <p className="hp-erp-subtitle">설치 확인</p>
+            </div>
+          </div>
+          <div className="login-card-right setup-card-right">
+            <h2 className="setup-heading">설치 상태</h2>
+            <ul className="setup-checks">
+              {checks.map(check => (
+                <li key={check.label} className={`setup-check setup-check--${check.state}`}>
+                  <span className="setup-check-mark" title={STATE_LABEL[check.state]}>
+                    <StateIcon state={check.state} />
+                    <span className="setup-visually-hidden">{STATE_LABEL[check.state]}</span>
+                  </span>
+                  <span className="setup-check-text">
+                    <strong>{check.label}</strong>
+                    <span>{check.detail}</span>
+                    {check.state === 'fail' && <a className="setup-guide-link" href={`/install/#step-${check.step}`}>설치 안내 열기</a>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="google-login-btn setup-test-btn" disabled={!ENV_CONFIG.GOOGLE_CLIENT_ID} onClick={() => testLogin()}>
+              Google 로그인 테스트
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

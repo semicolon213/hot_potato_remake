@@ -15,7 +15,9 @@
 | 매일 (자동) | 관리자 키 갱신 | Apps Script 트리거 |
 | 수시 | 데이터 확인·수정 | Google Drive의 스프레드시트 |
 | 파일 교체·이동 후 | 스프레드시트 ID 캐시 비우기 (`clearSpreadsheetIdCache`) | Apps Script 편집기 (§7) |
-| 그룹 주소 변경·기존 설치 업데이트 후 | 역할 폴더·장부 권한 다시 부여 (`applyRoleFolderSharing`, `applyLedgerSharing`) | Apps Script 편집기 (§3.4, §6) |
+| 그룹 주소 변경·기존 설치 업데이트 후 | 역할 폴더·장부·공지 첨부 권한 다시 부여 (`applyRoleFolderSharing`, `applyLedgerSharing`, `applyNoticeAttachmentSharing`) | Apps Script 편집기 (§3.4, §6, [DEPLOYMENT.md §7](./DEPLOYMENT.md#7-변경-배포)) |
+| OAuth 클라이언트를 바꾼 뒤 | 스크립트 속성 `GOOGLE_CLIENT_ID`와 Netlify `VITE_GOOGLE_CLIENT_ID`를 같은 값으로 맞추고 `/setup`에서 확인 | Apps Script 프로젝트 설정, Netlify (§8) |
+| 공유 로그인 요청을 받은 뒤 | 운영자 OAuth 클라이언트에 기관 원본·리디렉션 URI와 테스트 사용자를 등록 | Google Auth Platform (§2.1) |
 
 ## 2. 최초 세팅
 
@@ -24,6 +26,9 @@
    2. 기관의 Google 그룹 주소가 기본값과 다르면 스크립트 속성 `GROUP_EMAIL_JSON`을 먼저 넣습니다(§3.4).
    3. `initializeSystem`을 실행합니다. 폴더, `hp_member`를 포함한 시트, 스크립트 속성 연결, 역할 폴더 공유까지 한 번에 합니다.
    4. 편집기에서 아무 함수나 실행해 권한을 승인합니다. "외부 서비스에 연결"(`script.external_request`)도 허용합니다.
+   5. 스크립트 속성 `GOOGLE_CLIENT_ID`에 Netlify `VITE_GOOGLE_CLIENT_ID`와 같은 OAuth 클라이언트 ID를 넣습니다. 비어 있거나 다르면 로그인한 모든 요청이 "로그인 확인이 필요한 요청입니다"로 실패합니다.
+
+   설치 화면을 쓰면 더 간단합니다. 편집기에서 `createSetupToken`을 실행해(최초 권한 승인 포함) 로그의 토큰을 받고, 웹앱 주소에 `?page=setup`을 붙여 연 설치 화면에 토큰, 클라이언트 ID, 첫 관리자 이메일, 그룹 주소를 넣습니다. 이 경로는 `GOOGLE_CLIENT_ID` 저장과 첫 관리자 등록(승인·관리자 `O`)까지 하므로 아래 3, 5, 6은 건너뜁니다([DEPLOYMENT.md §3](./DEPLOYMENT.md#3-초기-세팅-drive-폴더시트-생성)).
 
    > 배포 계정의 [myaccount.google.com/permissions](https://myaccount.google.com/permissions)에서 이 Apps Script 프로젝트 권한을 지우면 **모든 웹앱 배포가 403(액세스 거부됨)**을 돌려줍니다. 편집기에서 아무 함수나 실행해 다시 승인해야 풀립니다.
 2. **관리자 키를 처음 만듭니다.** Apps Script 편집기에서 `handleDailyKeyUpdate`를 한 번 직접 실행합니다. 트리거는 다음 날부터 자동으로 돌기 때문입니다.
@@ -32,6 +37,16 @@
 5. 첫 관리자가 앱에 로그인합니다. 가입 폼에서 학번·이름·가입유형을 넣고 **관리자 키**를 입력해 신청합니다.
 6. `user` 시트에서 그 행의 `Approval`을 `O`로, `approval_date`를 오늘 날짜로 바꿉니다. 첫 관리자는 승인해 줄 사람이 없기 때문입니다.
 7. 다시 로그인하면 사이드바에 **관리자** 메뉴가 보입니다.
+
+### 2.1 공유 로그인 등록 요청 처리
+
+설치 마법사의 ‘운영자 클라이언트 사용’ 요청을 받으면 다음 세 가지만 처리합니다.
+
+1. 요청문의 기관 사이트 주소를 확인합니다. 운영자 웹 OAuth 클라이언트의 **승인된 JavaScript 원본**과 **승인된 리디렉션 URI** 양쪽에 끝 슬래시 없이 같은 주소를 추가합니다.
+2. Google Auth Platform의 **Audience**가 Testing이면 요청문의 이메일을 테스트 사용자에 추가합니다. Testing 전체 한도는 클라이언트 전체 100명이며 동의는 7일마다 만료될 수 있습니다.
+3. 기관 담당자에게 등록 완료를 회신하고 `/setup`의 Google 로그인 테스트를 다시 누르게 합니다. Netlify 실제 주소가 요청 주소와 달라졌다면 실제 주소로 1번을 다시 처리합니다.
+
+공유 기관의 Netlify `VITE_GOOGLE_CLIENT_ID`와 Apps Script `GOOGLE_CLIENT_ID`에는 운영자 클라이언트 ID가 들어갑니다. 동의 화면에는 운영자 앱 이름과 운영자 개인정보처리방침이 표시되므로 요청 기관에 미리 알립니다. 설치 안내 사이트가 요청문과 ID를 자동 채우려면 빌드 환경변수 `VITE_GOOGLE_CLIENT_ID`, `VITE_OPERATOR_CONTACT_EMAIL`을 설정합니다.
 
 ## 3. 회원 관리
 
@@ -51,6 +66,7 @@
    - Workspace 관리자 권한이 없어 자동 추가에 실패하면 그룹 관리자에게 안내 메일이 갑니다. 이때는 그룹에 수동으로 추가합니다.
    - 처리 결과는 `hp_member.group_management_log` 시트에 남습니다(`MEMBER_ADDED` 또는 `NOTIFICATION_SENT`).
 4. 사용자는 **로그아웃 후 다시 로그인**해야 승인 상태가 반영됩니다. 승인 대기 화면은 자동으로 새로 고쳐지지 않습니다.
+5. **거부**하면 `user` 시트의 `Approval`이 `R`로 바뀝니다. 거부된 사용자는 다시 가입을 신청할 수 있습니다.
 
 > 승인할 때 고른 그룹 역할은 그룹 가입에만 쓰이고 `user_type` 열은 바꾸지 않습니다. 역할을 바꾸려면 `user` 시트의 `user_type`도 함께 고칩니다.
 
@@ -82,6 +98,8 @@
 | 작업 | 위치 | 비고 |
 |---|---|---|
 | 고정 공지 승인·거절 | 관리자 화면의 고정 공지 승인 목록 | 승인하면 목록 맨 위에 표시 |
+| 공지 첨부 | 공지 작성·수정 화면 | 파일당 4MB 이하, 문서·스프레드시트·PDF·이미지·zip·hwp만. 첨부는 링크 공개가 아니라 공지 공개 범위의 그룹·개인에게만 보기 권한으로 공유됨(공개 범위가 비면 역할 그룹 전체) |
+| 공유 문서 삭제 | 문서관리 화면 | 만든 사람만 삭제할 수 있고, 파일은 휴지통으로 이동 |
 | 공유 양식 업로드·수정·삭제 | 새 문서 화면의 양식 카드 (관리자에게만 편집 버튼 표시) | 파일당 약 12MB 이하 |
 | 공용 태그 관리 | 새 문서 화면의 카테고리(태그) 탭 | 이름을 바꾸거나 지우면 영향받는 양식 목록을 먼저 보여 줌 |
 | 결재선 템플릿 | 결재 요청 창 → 템플릿 | 자주 쓰는 검토선·결재선 저장 |
@@ -108,8 +126,8 @@
 3. 접근 권한은 Drive 공유로 관리됩니다. 사람을 추가하거나 빼려면 장부 폴더의 공유 설정을 바꿉니다.
    - 장부 목록에는 요청한 사람이 **접근 대상으로 지정된 장부만** 나옵니다. 접근 대상은 만든 사람, 주관리인, 부관리인, 접근 사용자, 그리고 `통장` 시트의 `access_group_emails`에 저장된 그룹의 역할 구성원입니다. Drive 공유만 바꾸면 목록에는 반영되지 않습니다.
    - 편집기에서 `applyLedgerSharing`을 실행하면 저장된 접근 대상으로 장부 폴더·시트·증빙 폴더 권한을 다시 부여합니다. 예전 기본값으로 저장된 그룹 주소(`ad_professor_hp@`, `hp_supp@`)도 현재 `GROUP_EMAIL_JSON` 주소로 고칩니다.
-   - 증빙 파일은 Apps Script가 대신 올리며 파일당 4MB 이하입니다. 장부 Excel 내보내기는 서버가 내보낸 파일을 사용자 개인 폴더에 저장합니다.
-4. 예산 계획은 **작성 → 부관리인 검토 → 주관리인 승인 → 집행** 순서로 처리됩니다. 부관리인이 없는 통장은 검토 단계로 넘어가지 못하므로 부관리인을 1명 이상 지정합니다.
+   - 증빙 파일은 Apps Script가 대신 올리며 파일당 4MB 이하입니다. 그 장부의 접근 대상만 그 장부의 증빙 폴더에 올릴 수 있습니다. 장부 Excel 내보내기는 서버가 내보낸 파일을 사용자 개인 폴더에 저장합니다.
+4. 예산 계획은 **작성 → 부관리인 검토 → 주관리인 승인 → 집행** 순서로 처리됩니다. `예산계획` 시트는 헤더 이름으로 읽고 씁니다. 열 순서가 다른 옛 장부는 편집기에서 `migrateBudgetPlanColumns`를 실행해 옮깁니다(백업 시트를 먼저 만듦. 2026-10-30 운영에서 실행 완료).
 
 ## 7. 데이터 직접 수정 시 주의
 
@@ -119,7 +137,7 @@ Google Sheets가 DB이므로 운영자가 시트를 직접 고칠 수 있습니�
 - 이메일·전화번호 열은 **암호화된 값**입니다. 평문으로 덮어쓰지 않습니다.
 - 스프레드시트나 폴더의 **이름을 바꾸지 않습니다.** 앱이 이름으로 파일을 찾습니다. 바꿔야 한다면 환경변수(`VITE_*`)와 스크립트 속성도 함께 바꿉니다.
 - 같은 이름의 파일을 루트 폴더 아래에 두지 않습니다. 첫 번째 파일만 사용됩니다.
-- **스프레드시트 파일을 새 파일로 교체하거나, 다른 폴더로 옮기거나, 이름을 바꾼 뒤에는** Apps Script 편집기에서 `clearSpreadsheetIdCache`를 한 번 실행합니다. 서버가 파일 ID를 6시간 동안 기억하므로, 실행하지 않으면 그동안 옛 파일을 계속 씁니다. 같은 파일 안의 행·값만 고친 경우에는 실행할 필요가 없습니다. 스크립트 속성 `ROOT_FOLDER_ID`를 바꿨을 때도 실행합니다. `initializeSystem`은 끝에서 이 함수를 자동으로 부릅니다. 자세한 절차는 [RUNBOOK.md RB-08](./RUNBOOK.md#rb-08-시트를-바꾼-뒤-옛-데이터나-빈-화면이-보임)에 있습니다. (브랜치 `feature/loading-performance` 병합 후 적용)
+- **스프레드시트 파일을 새 파일로 교체하거나, 다른 폴더로 옮기거나, 이름을 바꾼 뒤에는** Apps Script 편집기에서 `clearSpreadsheetIdCache`를 한 번 실행합니다. 서버가 파일 ID를 6시간 동안 기억하므로, 실행하지 않으면 그동안 옛 파일을 계속 씁니다. 같은 파일 안의 행·값만 고친 경우에는 실행할 필요가 없습니다. 스크립트 속성 `ROOT_FOLDER_ID`를 바꿨을 때도 실행합니다. `initializeSystem`은 끝에서 이 함수를 자동으로 부릅니다. 자세한 절차는 [RUNBOOK.md RB-08](./RUNBOOK.md#rb-08-시트를-바꾼-뒤-옛-데이터나-빈-화면이-보임)에 있습니다.
 - 큰 수정 전에는 **파일 → 사본 만들기**로 백업합니다. Google Sheets의 **버전 기록**으로도 되돌릴 수 있습니다.
 
 ## 8. 설정값 위치
@@ -130,9 +148,11 @@ Google Sheets가 DB이므로 운영자가 시트를 직접 고칠 수 있습니�
 | 역할별 그룹 이메일(서버) | 스크립트 속성 `GROUP_EMAIL_JSON` (키: `STUDENT`, `COUNCIL`, `PROFESSOR`, `ADJ_PROFESSOR`, `ASSISTANT`) |
 | 루트 폴더, 회원 DB | 스크립트 속성 `ROOT_FOLDER_ID`, `SPREADSHEET_ID`. `initializeSystem`이 실제로 쓴 폴더와 `hp_member`로 다시 씀. 서버는 `hp_member`의 부모 폴더를 루트로 보고 `ROOT_FOLDER_ID`는 그 폴더를 찾지 못할 때만 씀 |
 | 서버 로그 수준 | 스크립트 속성 `LOG_LEVEL` |
+| OAuth 클라이언트 ID(서버) | 스크립트 속성 `GOOGLE_CLIENT_ID`. Netlify `VITE_GOOGLE_CLIENT_ID`와 같아야 함 |
+| 설치 상태 | 스크립트 속성 `SETUP_DONE`(설치 화면으로 설치 완료), `SETUP_TOKEN`(설치 전 1회용 토큰, 설치 후 삭제) |
 | 개인 폴더 이름(프론트) | `VITE_FOLER_NAME`의 `PERSONAL` (기본값 `hot_potato_personal`) |
 | 폴더·시트 이름, 그룹 이메일(프론트) | Netlify 환경변수 `VITE_*` |
-| Apps Script 주소 | Netlify 환경변수 `APP_SCRIPT_URL` |
+| Apps Script 주소 | Netlify 환경변수 `APP_SCRIPT_URL` (없으면 `VITE_APP_SCRIPT_URL`) |
 | 졸업 학년 | 앱 학년 관리 화면 (스크립트 속성 `GRADUATION_GRADE_*`에 저장) |
 | 관리자 키 갱신 주기 | Apps Script 트리거 |
 | 브라우저 디버그 로그 | 운영 빌드는 경고·오류만 남김. 브라우저 `localStorage`에 `HP_DEBUG`=`1`을 넣으면 디버그 로그까지 출력 |

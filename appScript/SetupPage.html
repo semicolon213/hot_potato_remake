@@ -14,11 +14,11 @@
   <form id="setup">
     <label for="googleClientId">Google OAuth 클라이언트 ID</label><input id="googleClientId" autocomplete="off" placeholder="...apps.googleusercontent.com" required>
     <label for="root">루트 폴더 이름</label><input id="root" value="hot_potato_remake" required>
-    <label for="student">학생 그룹 이메일</label><input id="student" type="email" required>
-    <label for="council">집행부 그룹 이메일</label><input id="council" type="email" required>
-    <label for="assistant">조교 그룹 이메일</label><input id="assistant" type="email" required>
-    <label for="professor">교수 그룹 이메일</label><input id="professor" type="email" required>
-    <label for="adjProfessor">겸임교원 그룹 이메일</label><input id="adjProfessor" type="email" required>
+    <label for="student">학생 그룹 이메일</label><input id="student" type="email" placeholder="student@googlegroups.com" required>
+    <label for="council">집행부 그룹 이메일</label><input id="council" type="email" placeholder="council@googlegroups.com" required>
+    <label for="assistant">조교 그룹 이메일</label><input id="assistant" type="email" placeholder="assistant@googlegroups.com" required>
+    <label for="professor">교수 그룹 이메일</label><input id="professor" type="email" placeholder="professor@googlegroups.com" required>
+    <label for="adjProfessor">겸임교원 그룹 이메일</label><input id="adjProfessor" type="email" placeholder="adj-professor@googlegroups.com" required>
     <label for="admin">최초 관리자 이메일</label><input id="admin" type="email" required>
     <label for="setupToken">설치 토큰</label><input id="setupToken" type="password" autocomplete="off" required>
     <small>Apps Script 편집기에서 <code>createSetupToken</code>을 실행하고 최초 권한을 승인한 뒤, 실행 로그의 토큰을 복사해 입력하세요.</small>
@@ -28,8 +28,17 @@
   <script>
     const form = document.querySelector('#setup');
     const status = document.querySelector('#status');
-    google.script.run.withSuccessHandler(({installed, groupEmails}) => {
-      student.value=groupEmails.STUDENT;council.value=groupEmails.COUNCIL;assistant.value=groupEmails.ASSISTANT;professor.value=groupEmails.PROFESSOR;adjProfessor.value=groupEmails.ADJ_PROFESSOR;
+    google.script.url.getLocation(location => {
+      const parameters = location.parameter || {};
+      const clientId = String(parameters.clientId || '').trim();
+      if (/\.apps\.googleusercontent\.com$/.test(clientId)) googleClientId.value = clientId;
+      try {
+        const groups = JSON.parse(String(parameters.groups || '{}'));
+        const values = {student:groups.STUDENT,council:groups.COUNCIL,assistant:groups.ASSISTANT,professor:groups.PROFESSOR,adjProfessor:groups.ADJ_PROFESSOR};
+        Object.keys(values).forEach(id => { if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values[id] || '')) document.getElementById(id).value=values[id] });
+      } catch (error) { /* 잘못된 쿼리는 빈 필수 입력으로 남긴다. */ }
+    });
+    google.script.run.withSuccessHandler(({installed}) => {
       if(installed){form.hidden=true;status.textContent='설치가 완료된 백엔드입니다.'}
     }).getSetupDefaults();
     form.addEventListener('submit', event => {

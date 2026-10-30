@@ -31,6 +31,7 @@ function installSystem(config) {
     Object.keys(DEFAULT_GROUP_EMAILS_).forEach(function(role) {
       const email = String((config.groupEmails || {})[role] || '').trim();
       if (!isValidEmail(email)) throw new Error(role + ' 그룹 이메일을 확인하세요.');
+      if (isDefaultGroupEmail_(email)) throw new Error('다른 기관의 그룹 이메일입니다. 기관에서 만든 Google 그룹 주소를 입력하세요.');
       groupEmails[role] = email;
     });
 
@@ -88,9 +89,15 @@ function isSetupDone_(properties) {
 
 function getSetupDefaults() {
   return {
-    installed: isSetupDone_(PropertiesService.getScriptProperties()),
-    groupEmails: DEFAULT_GROUP_EMAILS_
+    installed: isSetupDone_(PropertiesService.getScriptProperties())
   };
+}
+
+function isDefaultGroupEmail_(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  return Object.keys(DEFAULT_GROUP_EMAILS_).some(function(role) {
+    return DEFAULT_GROUP_EMAILS_[role].toLowerCase() === normalized;
+  });
 }
 
 function getSetupStatus(req) {

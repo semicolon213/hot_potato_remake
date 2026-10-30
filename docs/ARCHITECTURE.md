@@ -1,7 +1,7 @@
 # HP ERP 아키텍처
 
 > 개발 단계: **④ 구조 생성**(Component·Deployment) · **③ 설계**(Sequence·Class) · **⑤ 구현**(State) · **⑥ 테스트**(Communication) · **⑦ 문서화**(Package)
-> 기준: `main` 브랜치 코드 (2026-10-27). 브랜치 `feature/drive-file-scope`(develop에 반영, 운영 배포 전)의 변경은 [§9.3](#93-drivefile-범위와-apps-script-경유-브랜치-featuredrive-file-scope)에 모았습니다.
+> 기준: `main` 브랜치 코드 (2026-10-30, `c2b8a6c`). drive.file 전환으로 바뀐 경로는 [§9.3](#93-drivefile-범위와-apps-script-경유-브랜치-featuredrive-file-scope), 서버 측 인가는 [§9.4](#94-서버-측-인가)에 모았습니다.
 
 설계 결정의 **이유**는 [ADR.md](./ADR.md)에, 데이터 구조는 [DATA_MODEL.md](./DATA_MODEL.md)에 있습니다. 이 문서는 시스템이 **어떻게 생겼고 어떻게 움직이는지**를 다룹니다.
 
@@ -28,7 +28,7 @@ flowchart LR
 
 ## 2. Component 다이어그램
 
-모듈 경계와 의존 방향입니다. 프론트엔드에서 백엔드로 가는 길은 **apiClient(Apps Script 경유)**와 **papyrusManager(Sheets 직접)** 두 가지입니다. 브랜치 `feature/drive-file-scope`에서는 `papyrus-db` 라이브러리를 걷어내고 `src/utils/google/sheetsClient.ts`(`getSheetData`, `append`, `appendRow`, `update`, `deleteRow`, `window.gapi.client` 사용)가 Sheets 호출을 맡습니다. `papyrusManager`는 이름은 그대로이고 내부에서 `sheetsClient`를 씁니다.
+모듈 경계와 의존 방향입니다. 프론트엔드에서 백엔드로 가는 길은 **apiClient(Apps Script 경유)**와 **papyrusManager(Sheets 직접)** 두 가지입니다. `papyrus-db` 라이브러리는 걷어냈고, 지금은 `src/utils/google/sheetsClient.ts`(`getSheetData`, `append`, `appendRow`, `update`, `deleteRow`, `window.gapi.client` 사용)가 Sheets 호출을 맡습니다. `papyrusManager`는 이름은 그대로이고 내부에서 `sheetsClient`를 씁니다.
 
 ```mermaid
 flowchart TB
@@ -136,7 +136,7 @@ sequenceDiagram
     G-->>FE: access_token (URL hash)
     FE->>G: userinfo 조회
     G-->>FE: email, name
-    FE->>GAS: checkApprovalStatus(email)
+    FE->>GAS: checkApprovalStatus(email) (공개 액션)
     GAS->>S: 암호화 이메일로 행 검색
     alt 미등록
         GAS-->>FE: not_registered
@@ -146,7 +146,8 @@ sequenceDiagram
         GAS->>S: 학번·이름 일치 행에 기록, Approval=X
         GAS-->>FE: 성공
         FE-->>User: 승인 대기 화면
-        Admin->>GAS: approveUserWithGroup(studentId, groupRole)
+        Admin->>GAS: approveUserWithGroup(studentId, groupRole) + accessToken
+        GAS->>G: tokeninfo로 토큰 확인, hp_member에서 관리자 여부 확인
         GAS->>S: Approval=O, approval_date
         GAS->>GAS: Google 그룹 추가 (실패 시 안내 메일). 역할 폴더 접근은 이 그룹 가입으로 생김
     else 승인 대기
@@ -405,8 +406,8 @@ flowchart TB
 | `services/` | `dataSyncService`: 로그인 후 프리페치, 주기 동기화, 쓰기 후 무효화 |
 | `utils/api/` | `apiClient`: Apps Script 호출 |
 | `utils/database/` | Sheets 직접 접근 (`papyrusManager`, `accountingManager`, `personal*Manager`) |
-| `utils/google/` | `sheetsClient`(Sheets 호출, 브랜치), Drive 폴더·업로드 도우미 |
-| `utils/logger.ts` | 범위별 로거. 개발 빌드는 debug, 운영 빌드는 warn·error만 출력. `localStorage`의 `HP_DEBUG`=`1`이면 debug (브랜치) |
+| `utils/google/` | `sheetsClient`(Sheets 호출), Drive 폴더·업로드 도우미 |
+| `utils/logger.ts` | 범위별 로거. 개발 빌드는 debug, 운영 빌드는 warn·error만 출력. `localStorage`의 `HP_DEBUG`=`1`이면 debug |
 | `utils/cache/` | 2단계 캐시 |
 | `config/` | API 설정, 환경변수(`ENV_CONFIG`) 파싱 |
 
@@ -418,7 +419,8 @@ Apps Script는 모든 파일이 **전역 스코프 하나**를 공유합니다. 
 
 ```mermaid
 flowchart TB
-    MAIN["Main.gs (doPost)"] --> USER["UserAuth · UserRegistration<br/>UserApproval · GroupManagement"]
+    MAIN["Main.gs (doPost)"] --> AUTHZ["Authz<br/>토큰 확인 · 액션 인가"]
+    MAIN --> USER["UserAuth · UserRegistration<br/>UserApproval · GroupManagement"]
     MAIN --> NOTICE["AnnouncementManagement"]
     MAIN --> WORK["DocumentWorkflow · DocumentWorkflowActions<br/>WorkflowTemplateManager"]
     MAIN --> DOCS["DocumentCreation · DocumentTemplates<br/>DocumentSpreadsheet · StaticTagManager"]
@@ -433,9 +435,9 @@ flowchart TB
     KEY --> ECORE
     USER & NOTICE & DOCS & STUD & WSHEET --> SCORE["SpreadsheetCore · SpreadsheetUtils"]
     SCORE --> CONFIG["CONFIG (PropertiesService)"]
-    INIT["InitialSetup<br/>(독립 실행)"]
-    PERM & ACCT & INIT --> SHARE["DriveSharing<br/>Drive v3 권한 도우미 (브랜치)"]
-    NOTICE & WORK & STUD --> LOCK["ScriptLock<br/>LockService (브랜치)"]
+    INIT["InitialSetup · Setup<br/>(편집기 · 설치 화면)"]
+    PERM & ACCT & INIT --> SHARE["DriveSharing<br/>Drive v3 권한 도우미"]
+    NOTICE & WORK & STUD --> LOCK["ScriptLock<br/>LockService"]
 ```
 
 ## 9. 프론트엔드 동작 방식
@@ -469,13 +471,13 @@ Apps Script는 응답이 느리고 호출 할당량이 있어서, **호출 수�
 | 스프레드시트 ID·회계 폴더 ID | 6시간 | 60분 (스프레드시트 ID) |
 | 장부 목록·회계 카테고리 | 45분 | — |
 
-위 표는 브랜치 `feature/loading-performance`(develop에 반영, 운영 배포 전) 기준입니다. `main`에서는 스프레드시트 ID·회계 폴더 ID도 45분입니다. 값은 `src/utils/cache/cacheUtils.ts`의 `CACHE_TTL`, 주기는 `dataSyncService.ts`의 `SYNC_INTERVALS`에 있습니다.
+값은 `src/utils/cache/cacheUtils.ts`의 `CACHE_TTL`, 주기는 `dataSyncService.ts`의 `SYNC_INTERVALS`에 있습니다.
 
 - 캐시 저장소: 메모리 `Map`(LRU 100개) + `localStorage`(`cache_*`, 항목 100KB 미만, 전체 5MB)
 - 429(호출 초과) 응답이 오면 해당 카테고리 동기화를 30~120분 쉽니다.
-- 결재 관리·문서관리 화면에서는 페이지 이름과 `PAGE_CATEGORY_MAP` 키가 달라 페이지 기반 갱신이 일어나지 않습니다(BUG-13, [TEST_PLAN.md §6](./TEST_PLAN.md#6-결함-리포트-테스트코드-점검으로-발견)).
+- 주기 동기화가 끝나면 열려 있는 화면이 데이터를 다시 조회합니다. 예전에는 결재 관리·문서관리 화면이 갱신되지 않았습니다(BUG-13, 해결).
 
-#### 호출 재시도와 타임아웃 (브랜치 `feature/loading-performance`, develop에 반영, 운영 배포 전)
+#### 호출 재시도와 타임아웃
 
 | 구간 | 값 | 동작 |
 |---|---|---|
@@ -486,29 +488,65 @@ Apps Script는 응답이 느리고 호출 할당량이 있어서, **호출 수�
 | Netlify 프록시 | Apps Script 호출 약 9초에서 중단 → 504 `{success:false, retryable:true}` | Netlify 동기 함수의 10초 제한 전에 응답 |
 | Apps Script | 스프레드시트 ID를 `CacheService`에 6시간 보관 | 무효화는 `clearSpreadsheetIdCache()` ([ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)) |
 
-`main`의 `apiClient`는 타임아웃 60초, 최대 5회 재시도이고, 한 번 타임아웃되면 남은 재시도가 즉시 실패합니다(BUG-06).
+예전 `apiClient`는 타임아웃 60초, 최대 5회 재시도였고, 한 번 타임아웃되면 남은 재시도가 즉시 실패했습니다(BUG-06, 해결).
 
-브랜치 `feature/drive-file-scope`에서 로그인 직후 미리 불러오기는 역할이 읽을 수 있는 시트만 읽습니다. 학생 목록은 학생이 아닌 역할만, 교직원·위원회는 조교·교수·겸임교원만 읽습니다. 캘린더는 학생은 학생 캘린더, 학생회는 학생·학생회 캘린더, 교직원은 전체를 읽습니다.
+로그인 직후 미리 불러오기는 역할이 읽을 수 있는 시트만 읽습니다. 학생 목록은 학생이 아닌 역할만, 교직원·위원회는 조교·교수·겸임교원만 읽습니다. 캘린더는 학생은 학생 캘린더, 학생회는 학생·학생회 캘린더, 교직원은 전체를 읽습니다.
 - 오프라인이면 `OfflineBanner`를 띄우고, TTL 안의 캐시로 일부 화면을 보여 줍니다.
 
 ### 9.3 drive.file 범위와 Apps Script 경유 (브랜치 `feature/drive-file-scope`)
 
-develop에 반영, 운영 배포 전입니다. 로그인 때 요청하는 범위는 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`입니다. `drive.file`은 이 앱이 만든 파일만 보므로, 배포자 소유 공유 파일을 다루는 일은 Apps Script가 배포자 권한으로 대신합니다.
+2026-10-30에 운영에 반영했습니다. 로그인 때 요청하는 범위는 `drive.file`, `spreadsheets`, `calendar.events`, `calendar.readonly`, `profile`, `email`입니다. `drive.file`은 이 앱이 만든 파일만 보므로, 배포자 소유 공유 파일을 다루는 일은 Apps Script가 배포자 권한으로 대신합니다.
 
 | 작업 | 경로 | 비고 |
 |---|---|---|
-| 공지 첨부 업로드 | `uploadNoticeAttachment` | base64로 전송, 4MB 이하 |
+| 공지 첨부 업로드 | `uploadNoticeAttachment` | base64로 전송. 승인 회원만, 서버에서 4MB·허용 형식 검사. 공지 등록·수정 때 공개 범위 대상에게 보기 권한으로 공유 |
 | 공지 본문 이미지 | `createAnnouncement`, `updateAnnouncement` 안의 `processAndUploadImages_` | 수정할 때도 처리 |
-| 공유 스프레드시트 ID 조회 | `getSpreadsheetIds` | |
-| 회계 증빙 업로드 | `uploadEvidenceFile` | 회계 폴더 아래 폴더만, 4MB 이하 |
+| 공유 스프레드시트 ID 조회 | `getSpreadsheetIds` | 배포 계정 소유 파일만 |
+| 공유 문서 삭제 | `deleteDocuments` | `shared_documents` 바로 아래 파일 중 만든 사람 본인 것만 휴지통으로 |
+| 회계 증빙 업로드 | `uploadEvidenceFile` | 장부 접근 대상만, 그 장부의 증빙 폴더에만, 서버에서 4MB 검사 |
 | 장부 정보, 대시보드 장부 목록 | `getLedgerList` | 접근 대상으로 지정된 장부만 |
-| 공유 양식으로 나만 보기 문서 만들기, 장부 Excel 내보내기 | `exportTemplateFile` → 브라우저 변환 업로드 | 문서는 docx, 시트는 xlsx로 내보냄. 프로젝트 루트 아래 파일만. 결과는 사용자 개인 폴더에 Google 형식으로 저장 |
+| 공유 양식으로 나만 보기 문서 만들기, 장부 Excel 내보내기 | `exportTemplateFile` → 브라우저 변환 업로드 | 문서는 docx, 시트는 xlsx로 내보냄. `shared_forms` 바로 아래 파일만. 결과는 사용자 개인 폴더에 Google 형식으로 저장 |
 | 시트 읽기·쓰기 | 브라우저 직접 (`sheetsClient`) | `spreadsheets` 범위. 파일 ID는 서버에서 받음 |
 | 개인 설정·개인 문서 | 브라우저 직접 (Drive API) | 내 드라이브 `hot_potato_personal/`. 이 앱이 만든 파일이라 `drive.file`로 보임 |
 
 - `exportTemplateFile`은 `UrlFetchApp`을 쓰므로 배포자가 `script.external_request`를 승인해야 합니다([DEPLOYMENT.md §2.2](./DEPLOYMENT.md#22-웹앱-배포)).
 - 장부 내보내기 창의 양식 미리보기(시트 목록, 병합, 셀 값)는 Apps Script `getTemplateSheetPreview`가 `shared_forms` 안의 스프레드시트만 돌려줍니다.
 - 개인 설정 파일과 폴더는 첫 로그인 때 여러 곳에서 동시에 찾아도 한 번만 만듭니다.
-- 파일 접근은 Google 그룹 가입으로 정해집니다. 역할 폴더는 그룹에 공유되고, 승인 때 사용자를 역할 그룹에 넣습니다. `hp_member`의 `user_type`은 앱 화면과 API에서만 씁니다.
+- 파일 접근은 Google 그룹 가입으로 정해집니다. 역할 폴더는 브라우저가 Sheets API로 직접 쓰므로 그룹에 편집 권한으로 공유되고, 승인 때 사용자를 역할 그룹에 넣습니다. `hp_member`의 `user_type`은 앱 화면과 API에서만 씁니다.
 - 캘린더 역할 키는 `src/utils/helpers/calendarRole.ts`에서 회원 역할과 맞춥니다(`std_council` → `council`, `ad_professor` → `ADprofessor`). 일정은 참석 역할 중 가장 낮은 역할의 캘린더 시트에 저장하고, 화면에는 참석자 기준으로 걸러 보여 줍니다. 이 필터는 화면에서만 적용되므로 캘린더 시트를 읽을 수 있는 사람은 그 시트의 일정을 모두 볼 수 있습니다.
-- Apps Script는 공지 등록, 결재 상태 변경, 학년 갱신을 `LockService`로 감쌉니다(`ScriptLock.gs`). Drive 권한 조회·부여는 `DriveSharing.gs`의 v3 도우미를 씁니다. 서버 로그 수준은 스크립트 속성 `LOG_LEVEL`로 정합니다.
+- Apps Script는 공지 등록, 결재 상태 변경, 학년 갱신·유급 변경을 `LockService`로 감쌉니다(`ScriptLock.gs`). Drive 권한 조회·부여는 `DriveSharing.gs`의 v3 도우미를 씁니다. 서버 로그 수준은 스크립트 속성 `LOG_LEVEL`로 정합니다.
+
+### 9.4 서버 측 인가
+
+2026-10-30에 운영에 반영했습니다. 결정 이유는 [ADR-015](./ADR.md#adr-015-apps-script가-액세스-토큰으로-요청자를-확인한다), 액션 분류는 [API_SPEC.md §1.3](./API_SPEC.md#13-인가)에 있습니다.
+
+```mermaid
+sequenceDiagram
+    participant FE as React (apiClient)
+    participant P as Netlify 프록시
+    participant GAS as Apps Script (doPost)
+    participant T as Google tokeninfo
+    participant M as hp_member.user
+
+    FE->>P: { action, accessToken, ... }
+    P->>GAS: 본문 그대로 전달
+    alt 캐시에 확인한 이메일 없음
+        GAS->>T: access_token 확인
+        T-->>GAS: aud/azp, email, email_verified, expires_in
+        GAS->>GAS: aud/azp = GOOGLE_CLIENT_ID 확인, 이메일 5분 캐시
+    end
+    alt 공개 액션
+        GAS->>GAS: 그대로 처리
+    else 회원·관리자 액션
+        GAS->>M: 승인 여부, user_type, 관리자 여부
+        alt 확인 실패 / 승인 회원 아님 / 관리자 아님
+            GAS-->>FE: success:false, code AUTH_REQUIRED / MEMBER_REQUIRED / ADMIN_REQUIRED
+        else 통과
+            GAS->>GAS: userEmail·userType·isAdmin을 서버 값으로 덮어쓰고 처리
+        end
+    end
+```
+
+- 토큰은 요청자 확인에만 쓰고 저장하거나 로그에 남기지 않습니다. 캐시 키는 클라이언트 ID와 토큰의 SHA-256 해시입니다.
+- 스크립트 속성 `GOOGLE_CLIENT_ID`와 Netlify의 `VITE_GOOGLE_CLIENT_ID`가 다르면 로그인한 모든 요청이 `AUTH_REQUIRED`가 됩니다. `/setup`의 "서버·사이트 클라이언트 ID 일치"로 확인합니다.
+- 브라우저가 Sheets API로 직접 읽고 쓰는 데이터(장부, 캘린더, 학생, 개인 설정)는 이 경로를 거치지 않고, Drive 공유 권한으로 보호됩니다.

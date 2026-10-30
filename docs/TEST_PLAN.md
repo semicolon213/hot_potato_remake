@@ -94,16 +94,16 @@
 
 | ID | 결함 | 영향 | 관련 TC | 상태 |
 |---|---|---|---|---|
-| BUG-01 | 검토 단계 반려 시 서버 오류 (`processReviewAction`에서 선언되지 않은 `paymentLine` 참조) | 검토 반려 불가 | TC-WF-02 | 미해결 |
-| BUG-02 | 가입 거부가 옛 시트 구조(`users`, `student_id`)를 참조 | 가입 거부 불가 | TC-AUTH-04 | 미해결 |
-| BUG-03 | 캘린더 역할 키(`council`, `ADprofessor`)와 실제 값(`std_council`, `ad_professor`) 불일치 | 집행부·겸임교원이 학생 캘린더로 연결됨 | TC-CAL-01 | 미해결 |
-| BUG-04 | 예산계획 시트의 열 순서가 서버 헤더·프론트 쓰기·프론트 읽기마다 다름 | 예산 상태·상세가 잘못 읽힐 수 있음 | TC-ACC-03 | 미해결 |
+| BUG-01 | 검토 단계 반려 시 서버 오류 (`processReviewAction`에서 선언되지 않은 `paymentLine` 참조) | 검토 반려 불가 | TC-WF-02 | 해결 (`bfecfdc`, 2026-10-30 운영 반영) |
+| BUG-02 | 가입 거부가 옛 시트 구조(`users`, `student_id`)를 참조 | 가입 거부 불가 | TC-AUTH-04 | 해결 (`62a5868`, 2026-10-30 운영 반영). 거부하면 `R`로 기록되고 다시 신청할 수 있음 |
+| BUG-03 | 캘린더 역할 키(`council`, `ADprofessor`)와 실제 값(`std_council`, `ad_professor`) 불일치 | 집행부·겸임교원이 학생 캘린더로 연결됨 | TC-CAL-01 | 해결 (브랜치 `feature/drive-file-scope`, 2026-10-30 운영 반영) |
+| BUG-04 | 예산계획 시트의 열 순서가 서버 헤더·프론트 쓰기·프론트 읽기마다 다름 | 예산 상태·상세가 잘못 읽힐 수 있음 | TC-ACC-03 | 해결 (`9b718d6`, 2026-10-30 운영 반영). 열을 헤더 이름으로 읽고 쓰며, 기존 장부는 `migrateBudgetPlanColumns`로 옮김(백업 시트 생성). 부관리인이 없는 통장이 검토로 못 넘어가던 문제도 함께 수정 |
 | BUG-05 | 프론트 결재 상태 타입이 `결제중/결제완료`(오타), 서버는 `결재중/결재완료/결재보류` | 상태별 표시·필터 누락 가능 | TC-WF-01 | 미해결 |
-| BUG-06 | `apiClient` 재시도가 한 번 타임아웃되면 이후 재시도가 모두 즉시 실패하고, 쓰기 요청도 재시도함 | 느린 응답에서 실패, 쓰기 중복 가능 | TC-SYS-04 | 해결 (브랜치 `feature/loading-performance`, develop에 반영, 운영 배포 전, §8) |
+| BUG-06 | `apiClient` 재시도가 한 번 타임아웃되면 이후 재시도가 모두 즉시 실패하고, 쓰기 요청도 재시도함 | 느린 응답에서 실패, 쓰기 중복 가능 | TC-SYS-04 | 해결 (브랜치 `feature/loading-performance`, 2026-10-30 운영 반영, §8) |
 | BUG-07 | `getAccountingCategories`가 `카테고리` 시트가 아닌 첫 시트를 읽음 | 카테고리 목록 오류 | TC-ACC-02 | 미해결 |
 | BUG-08 | 승인 대기 화면이 자동으로 새로 고쳐지지 않음 | 승인 후에도 재로그인 필요 | TC-AUTH-03 | 개선 과제 |
 | BUG-09 | `initializeSystem`이 일부 실패해도 성공으로 보고 | 초기 세팅 누락을 놓침 | — | 미해결 |
-| BUG-13 | 백그라운드 갱신 표(`dataSyncService.ts`의 `PAGE_CATEGORY_MAP`)의 키 `workflow`·`documents`가 실제 페이지 이름 `workflow_management`·`document_management`와 다름 | 결재 관리·문서관리 화면에서 페이지 기반 자동 갱신이 일어나지 않음 (대시보드 경유 갱신과 수동 새로고침은 동작) | — | 미해결 |
+| BUG-13 | 백그라운드 갱신 표(`dataSyncService.ts`의 `PAGE_CATEGORY_MAP`)의 키 `workflow`·`documents`가 실제 페이지 이름 `workflow_management`·`document_management`와 다름 | 결재 관리·문서관리 화면에서 페이지 기반 자동 갱신이 일어나지 않음 (대시보드 경유 갱신과 수동 새로고침은 동작) | — | 해결 (`039d4ba`, 2026-10-30 운영 반영. 동기화가 끝나면 화면이 다시 조회) |
 
 BUG-10~12는 원본 `hot_potato`에서 발견된 결함으로, 리메이크에서는 이미 고쳐져 이 표에 넣지 않았습니다. 번호는 원본 문서와 맞춰 두었습니다.
 
@@ -122,7 +122,7 @@ BUG-10~12는 원본 `hot_potato`에서 발견된 결함으로, 리메이크에�
 
 ## 8. 로딩 성능 개선 검증 (2026-10-29, `feature/loading-performance`)
 
-브랜치는 develop에 병합됐고, 운영(main)에는 아직 배포되지 않았습니다. 대상 커밋은 `2a81c2a`(로딩 병목·API 재시도 정리), `741691f`(편집기에서만 고쳐져 있던 Apps Script 수정 반영: 실제 그룹 이메일, 공지 이미지 디코딩), `69ee162`(QA 결함 수정), `940670c`(프론트 그룹 이메일 기본값 수정)입니다. 구조는 [ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)에 있습니다.
+브랜치는 develop을 거쳐 2026-10-30에 운영(main `c2b8a6c`, Apps Script @59)에 반영했습니다. 대상 커밋은 `2a81c2a`(로딩 병목·API 재시도 정리), `741691f`(편집기에서만 고쳐져 있던 Apps Script 수정 반영: 실제 그룹 이메일, 공지 이미지 디코딩), `69ee162`(QA 결함 수정), `940670c`(프론트 그룹 이메일 기본값 수정)입니다. 구조는 [ADR-013](./ADR.md#adr-013-스프레드시트-id를-drive-검색-1회와-서버-캐시로-찾는다)에 있습니다.
 
 ### 8.1 원인
 
@@ -158,11 +158,11 @@ BUG-10~12는 원본 `hot_potato`에서 발견된 결함으로, 리메이크에�
 |---|---|---|
 | 파일을 교체·이동한 뒤 `clearSpreadsheetIdCache()`를 실행하지 않으면 서버가 최대 6시간 옛 ID를 돌려줌 | 해당 화면이 빈 데이터 또는 권한 오류 | [OPERATOR_MANUAL.md §7](./OPERATOR_MANUAL.md#7-데이터-직접-수정-시-주의), [RUNBOOK.md RB-08](./RUNBOOK.md#rb-08-시트를-바꾼-뒤-옛-데이터나-빈-화면이-보임) |
 | 프록시 타임아웃(약 9초)이 응답 본문 읽기까지는 제한하지 않음 | 드물게 Netlify 10초 제한에 걸릴 수 있음 (위험 낮음) | 백로그 P3 |
-| BUG-13 | 결재·문서관리 화면 자동 갱신 안 됨 | 이번 브랜치 범위 밖 |
+| BUG-13 | 결재·문서관리 화면 자동 갱신 안 됨 | 이후 `039d4ba`에서 수정 |
 
 ## 9. drive.file 전환 화면 검증 (2026-10-30, `feature/drive-file-scope`)
 
-브랜치는 develop에 병합됐고, 운영(main)에는 아직 배포되지 않았습니다. 로컬 개발 서버(`localhost:5173`)를 Apps Script 테스트 배포(@46~@49, `clasp deploy`)에 연결하고 Chrome에서 직접 조작했습니다. 계정은 `semicolon0213@gmail.com`(회계 메뉴 있음)과 `semicolon@yuhan.ac.kr`(회계 메뉴 없음)을 썼습니다. 테스트 전에 배포 계정이 `script.external_request`를 다시 승인하고 편집기에서 `applyLedgerSharing`을 실행했습니다. 구조는 [ADR-014](./ADR.md#adr-014-drive-범위를-drivefile로-줄이고-공유-파일은-apps-script가-다룬다)에 있습니다.
+브랜치는 develop을 거쳐 2026-10-30에 운영(main `c2b8a6c`, Apps Script @59)에 반영했습니다. 로컬 개발 서버(`localhost:5173`)를 Apps Script 테스트 배포(@46~@49, `clasp deploy`)에 연결하고 Chrome에서 직접 조작했습니다. 계정은 `semicolon0213@gmail.com`(회계 메뉴 있음)과 `semicolon@yuhan.ac.kr`(회계 메뉴 없음)을 썼습니다. 테스트 전에 배포 계정이 `script.external_request`를 다시 승인하고 편집기에서 `applyLedgerSharing`을 실행했습니다. 구조는 [ADR-014](./ADR.md#adr-014-drive-범위를-drivefile로-줄이고-공유-파일은-apps-script가-다룬다)에 있습니다.
 
 ### 9.1 결과
 
@@ -201,3 +201,28 @@ BUG-10~12는 원본 `hot_potato`에서 발견된 결함으로, 리메이크에�
 - 승인·결재 처리·항목 저장·증빙 업로드의 진행 표시를 화면에서 확인합니다.
 - 회원 승인과 결재는 테스트 데이터를 만든 뒤 확인합니다.
 - 테스트로 만든 데이터(공유 양식 3개, 문서 "QA 나만보기 테스트", 장부 "QA 테스트 장부")는 확인이 끝나면 지웁니다.
+
+### 9.4 develop QA와 서버 측 인가 검증 (2026-10-30)
+
+develop에 `fix/develop-qa`(보안·안정성 수정)와 서버 측 인가([ADR-015](./ADR.md#adr-015-apps-script가-액세스-토큰으로-요청자를-확인한다)), BUG-01·02·04 수정을 병합한 뒤 확인했습니다. 같은 코드를 main `c2b8a6c`와 Apps Script 운영 배포 @59로 올린 뒤 운영 사이트에서 다시 확인했습니다.
+
+| 확인 | 결과 |
+|---|---|
+| 토큰 없이 보낸 회원 액션 요청 (익명) | ✅ `AUTH_REQUIRED` |
+| 토큰 없이 다른 사람 이메일을 넣어 보낸 요청 (위조) | ✅ `AUTH_REQUIRED` |
+| 가짜 토큰을 넣은 요청 | ✅ `AUTH_REQUIRED` |
+| 로그인 뒤 화면 조회 | ✅ |
+| 장부 항목 삭제 | ✅ 고른 행이 지워짐 (이전에는 한 행 어긋남) |
+| 공유 문서 삭제 | ✅ 만든 사람만 휴지통으로 이동. 다른 사용자는 거부 |
+| 공지 첨부 | ✅ 링크 공개가 아니고, 공개 범위 대상에게만 보기 권한 |
+| `/setup` 서버·사이트 클라이언트 ID 일치 | ✅ 일치 표시. 서버 값은 응답에 들어 있지 않음 |
+| 운영 배포 후 로그인과 주요 화면 | ✅ 배포자가 편집기에서 `clearSpreadsheetIdCache`, `applyRoleFolderSharing`, `applyLedgerSharing`, `applyNoticeAttachmentSharing`, `migrateBudgetPlanColumns`를 실행한 뒤 확인 |
+
+남은 문제:
+
+| 문제 | 상태 |
+|---|---|
+| 첫 동기화 전 대시보드에 "위젯이 없습니다"가 잠깐 보임 (9.2 ⑨) | 미수정 |
+| 장부 목록 첫 로딩 약 15초. 서버 측 인가가 요청마다 tokeninfo 확인과 회원 조회를 더함 | 미수정 |
+| 운영 사이트 `/setup` 화면에 스타일이 적용되지 않음 | 미수정 |
+| 예전 사용자 소유 공지 첨부(스크린샷 4개)는 배포자가 권한을 바꿀 수 없어 건너뛰고 로그에 남김 | 그대로 두기로 결정 ([RUNBOOK.md RB-10](./RUNBOOK.md#rb-10-예전-공지-첨부가-링크만-있으면-누구나-열림)) |

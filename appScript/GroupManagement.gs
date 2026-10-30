@@ -124,7 +124,7 @@ function approveUserWithGroup(studentId, groupRole) {
       };
     }
   }
-  
+
   /**
    * 그룹스 관리자에게 알림 이메일 전송
    * @param {Object} data - 이메일 데이터
@@ -163,8 +163,8 @@ Hot Potato 시스템에서 새로운 사용자가 승인되어 그룹스에 추�
 감사합니다.
 Hot Potato 시스템 자동 알림`;
       
-      // Gmail API로 이메일 전송
-      GmailApp.sendEmail(data.groupEmail, emailSubject, emailBody);
+      // 발송 전용 권한으로 이메일 전송
+      MailApp.sendEmail(data.groupEmail, emailSubject, emailBody);
       
       return { success: true };
       
@@ -173,7 +173,7 @@ Hot Potato 시스템 자동 알림`;
       return { success: false, error: error.message };
     }
   }
-  
+
   /**
    * 사용자에게 승인 완료 알림 이메일 전송
    * @param {Object} data - 이메일 데이터
@@ -204,7 +204,7 @@ Hot Potato 시스템 회원가입이 승인되었습니다.
 감사합니다.
 Hot Potato 시스템`;
       
-      GmailApp.sendEmail(data.userEmail, emailSubject, emailBody);
+      MailApp.sendEmail(data.userEmail, emailSubject, emailBody);
       
       return { success: true };
       
@@ -359,7 +359,7 @@ Hot Potato 시스템`;
   Hot Potato 시스템 자동 알림
       `;
       
-      GmailApp.sendEmail(userData[3], emailSubject, emailBody);
+      MailApp.sendEmail(userData[3], emailSubject, emailBody);
       
       return { success: true };
       
@@ -485,4 +485,4 @@ Hot Potato 시스템`;
       };
     }
   }
-  
+
