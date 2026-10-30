@@ -938,7 +938,7 @@ function NewDocument({
     const findPersonalTemplateFolder = async (): Promise<string | null> => {
         try {
 
-            const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(ROOT) 기반
+            const rootFolderName = ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME;
             const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(DOCUMENT) 기반
             const personalTemplateFolderName = ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_TEMP) 기반
 

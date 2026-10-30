@@ -670,7 +670,7 @@ export const findPersonalDocumentFolder = async (): Promise<string | null> => {
 
   try {
     const { ENV_CONFIG } = await import('../../config/environment');
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(ROOT) 기반
+    const rootFolderName = ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME;
     const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(DOCUMENT) 기반
     const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME; // ENV v2: VITE_FOLER_NAME(P_DOC) 기반
 

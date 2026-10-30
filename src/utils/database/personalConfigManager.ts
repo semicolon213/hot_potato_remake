@@ -33,48 +33,46 @@ export const clearPersonalConfigSpreadsheetId = (): void => {
  */
 export const findPersonalConfigFile = async (): Promise<string | null> => {
   try {
-    
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;             // ENV v2: FOLER.ROOT 기반 루트 폴더명
-    const configFileName = ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME;    // ENV v2: SPREADSHEET.CONFIG 기반 개인 설정 파일명
-
-    // 1단계: 루트에서 루트 폴더 찾기
-    const hotPotatoResponse = await window.gapi.client.drive.files.list({
-      q: `'root' in parents and name='${rootFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    // drive.file 범위에서는 이 앱이 만든 파일만 검색되므로 폴더를 거치지 않고 이름으로 바로 찾는다.
+    const response = await window.gapi.client.drive.files.list({
+      q: `name='${ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and 'me' in owners and trashed=false`,
       fields: 'files(id,name)',
       spaces: 'drive',
-      orderBy: 'name'
+      orderBy: 'createdTime'
     });
 
-    if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      log.debug(`${rootFolderName} 폴더를 찾을 수 없습니다`);
-      return null;
-    }
-
-    const hotPotatoFolder = hotPotatoResponse.result.files[0];
-    log.debug(`${rootFolderName} 폴더 찾음:`, hotPotatoFolder.id);
-
-    // 2단계: 루트 폴더에서 개인 설정 파일 찾기
-    const configFileResponse = await window.gapi.client.drive.files.list({
-      q: `'${hotPotatoFolder.id}' in parents and name='${configFileName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!configFileResponse.result.files || configFileResponse.result.files.length === 0) {
+    const configFile = response.result.files?.[0];
+    if (!configFile) {
       log.debug(`${ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME} 파일을 찾을 수 없습니다`);
       return null;
     }
 
-    const configFile = configFileResponse.result.files[0];
-    log.debug(`${ENV_CONFIG.PERSONAL_CONFIG_FILE_NAME} 파일 찾음:`, configFile.id);
-    
     personalConfigSpreadsheetId = configFile.id;
     return configFile.id;
   } catch (error) {
     log.error('개인 설정 파일 찾기 오류:', error);
     return null;
   }
+};
+
+/**
+ * @brief 내 드라이브 최상위의 개인 폴더 ID (없으면 생성)
+ */
+export const getOrCreatePersonalRootFolderId = async (): Promise<string> => {
+  const name = ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME;
+  const response = await window.gapi.client.drive.files.list({
+    q: `'root' in parents and name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    fields: 'files(id,name)',
+    spaces: 'drive'
+  });
+  const existing = response.result.files?.[0];
+  if (existing) return existing.id;
+
+  const created = await window.gapi.client.drive.files.create({
+    resource: { name, mimeType: 'application/vnd.google-apps.folder', parents: ['root'] },
+    fields: 'id'
+  });
+  return created.result.id;
 };
 
 /**
@@ -85,7 +83,7 @@ export const findPersonalConfigFile = async (): Promise<string | null> => {
 export const findPersonalTemplateFolder = async (): Promise<string | null> => {
   try {
     
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;
+    const rootFolderName = ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME;
     const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME;
     const personalTemplateFolderName = ENV_CONFIG.PERSONAL_TEMPLATE_FOLDER_NAME;
 
@@ -179,21 +177,8 @@ export const findPersonalTemplateFolder = async (): Promise<string | null> => {
 export const createPersonalConfigFile = async (): Promise<string | null> => {
   try {
     
-    // 1단계: 루트 폴더 찾기
-    const hotPotatoResponse = await window.gapi.client.drive.files.list({
-      q: `'root' in parents and name='${ENV_CONFIG.ROOT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      spaces: 'drive',
-      orderBy: 'name'
-    });
-
-    if (!hotPotatoResponse.result.files || hotPotatoResponse.result.files.length === 0) {
-      log.debug(`${ENV_CONFIG.ROOT_FOLDER_NAME} 폴더를 찾을 수 없습니다. 폴더를 먼저 생성해주세요.`);
-      return null;
-    }
-
-    const hotPotatoFolder = hotPotatoResponse.result.files[0];
-    log.debug(`${ENV_CONFIG.ROOT_FOLDER_NAME} 폴더 찾음:`, hotPotatoFolder.id);
+    // 1단계: 개인 폴더 찾기 (없으면 생성)
+    const hotPotatoFolder = { id: await getOrCreatePersonalRootFolderId() };
 
     // 2단계: hp_potato_DB 스프레드시트 생성
     const sheetsClient = window.gapi.client.sheets;

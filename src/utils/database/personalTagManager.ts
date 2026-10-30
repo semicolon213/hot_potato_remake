@@ -220,7 +220,7 @@ export const findPersonalTemplatesByTag = async (tag: string): Promise<string[]>
   try {
     // 개인 템플릿 폴더에서 파일들 가져오기
     const hotPotatoResponse = await gapi.client.drive.files.list({
-      q: `'root' in parents and name='${ENV_CONFIG.ROOT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      q: `'root' in parents and name='${ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
       fields: 'files(id,name)',
       spaces: 'drive',
       orderBy: 'name'

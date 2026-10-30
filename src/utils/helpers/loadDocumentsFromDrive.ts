@@ -147,7 +147,7 @@ export const loadPersonalDocuments = async (): Promise<DocumentInfo[]> => {
 
   try {
     const { ENV_CONFIG } = await import('../../config/environment');
-    const rootFolderName = ENV_CONFIG.ROOT_FOLDER_NAME;               // ENV v2: FOLER.ROOT 기반 루트 폴더명
+    const rootFolderName = ENV_CONFIG.PERSONAL_ROOT_FOLDER_NAME;              
     const documentFolderName = ENV_CONFIG.DOCUMENT_FOLDER_NAME;       // ENV v2: FOLER.DOCUMENT 기반 문서 폴더명
     const personalDocFolderName = ENV_CONFIG.PERSONAL_DOCUMENT_FOLDER_NAME; // ENV v2: FOLER.P_DOC 기반 개인 문서 폴더명
 
