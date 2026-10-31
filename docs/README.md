@@ -45,6 +45,7 @@ flowchart LR
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | 처음부터 세팅, 변경 배포, 롤백 |
 | [TEST_PLAN.md](./TEST_PLAN.md) | 테스트 전략, TC, 결과, 결함 |
 | [STATUS.md](./STATUS.md) | 기능별 상태, 프로젝트 이력, 백로그 |
+| [KPI.md](./KPI.md) | 2026-10 개선 전후 측정 결과와 정량 성과 |
 | [OPERATOR_MANUAL.md](./OPERATOR_MANUAL.md) | 운영자 작업 절차 |
 | [RUNBOOK.md](./RUNBOOK.md) | 장애 유형별 대응 |
 | [SECURITY.md](./SECURITY.md) | 인증, 권한, 데이터 보호, 신고 |
