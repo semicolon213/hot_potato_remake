@@ -259,7 +259,7 @@ fetch('YOUR_APPS_SCRIPT_URL', {
 ```
 
 ### GET 요청 처리 (시스템 정보)
-`doGet(e)` 함수는 간단한 시스템 정보를 제공합니다.
+`doGet(e)` 함수는 기본 시스템 정보를 반환합니다.
 
 #### 시스템 정보 응답 예시:
 ```json
@@ -658,7 +658,7 @@ OptimizationVerification.verifyMemoryOptimization();
 
 ### 3. 배치 처리
 - 여러 사용자 처리 시 배치 작업 사용
-- 효율적인 데이터 처리
+- API 호출 횟수 절감
 
 ### 4. 에러 처리
 - 적절한 try-catch 구문 사용

@@ -112,7 +112,7 @@ restricted 범위를 남길 때 생기는 일:
 3. **Data Access**: 범위를 코드와 똑같이 맞춥니다. `email`, `profile`, `spreadsheets`, `calendar.events`, `calendar.readonly`(또는 `calendar.calendars.readonly`), `drive.file`, 설치 마법사의 `script.projects`, `script.deployments`(2026-10-31 추가). `drive`, `documents`, `gmail.compose`는 목록에서 지웁니다.
 4. **Audience**: "Publish app"으로 In production으로 바꿉니다.
 5. **Verification Center**: 민감 범위 인증을 제출합니다. 범위별 사용 이유(이 문서 2절 참고), 시연 영상 YouTube 링크(비공개 목록), 동의 화면 언어 English를 준비합니다. 심사 중 Google이 개발자 연락처로 메일을 보내므로 확인합니다.
-6. In production으로 바꾼 뒤 인증이 끝날 때까지는 경고 화면이 뜨고 신규 사용자 100명 제한이 적용됩니다. 사용자가 많다면 인증 승인 직전까지 Testing을 유지하고, 승인 메일을 받은 뒤 게시하는 순서도 가능합니다.
+6. In production으로 바꾼 뒤 인증이 끝날 때까지는 경고 화면이 뜨고 신규 사용자 100명 제한이 적용됩니다. 사용자가 많다면 인증 승인 직전까지 Testing을 유지하다가 승인 메일을 받은 뒤 게시할 수도 있습니다.
 
 ## 4-1. 새 Google 계정으로 처음부터 세팅하는 경우
 

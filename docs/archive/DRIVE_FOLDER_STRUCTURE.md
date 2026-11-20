@@ -233,5 +233,5 @@ hot_potato_remake/                    # 루트 폴더
 ## 관련 문서
 
 - [ENVIRONMENT_VARIABLES_SETUP.md](./ENVIRONMENT_VARIABLES_SETUP.md) - 환경변수 및 스크립트 속성 설정
-- [appScript/README.md](../appScript/README.md) - Apps Script 코드 구조
-- [appScript/InitialSetup.gs](../appScript/InitialSetup.gs) - 폴더/스프레드시트 자동 생성 로직
+- [appScript/README.md](../../appScript/README.md) - Apps Script 코드 구조
+- [appScript/InitialSetup.gs](../../appScript/InitialSetup.gs) - 폴더/스프레드시트 자동 생성 로직

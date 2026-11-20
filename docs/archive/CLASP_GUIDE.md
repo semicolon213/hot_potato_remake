@@ -81,7 +81,7 @@ hot_potato_remake/
 ```
 
 - `timeZone`: 한국 표준시 (Asia/Seoul)
-- `.clasp.json`은 `.gitignore`에 포함되어 있습니다 (스크립트 ID 보안)
+- 스크립트 ID를 보호하기 위해 `.clasp.json`을 `.gitignore`에 추가했습니다.
 
 ### 기존 프로젝트에 연결
 
@@ -287,7 +287,7 @@ clasp open-script
 
 ### .clasp.json을 Git에 올리지 않기
 
-`.clasp.json`에는 스크립트 ID가 포함되어 있으므로 `.gitignore`에 추가하는 것을 권장합니다.  
+`.clasp.json`에는 스크립트 ID가 있으므로 `.gitignore`에 추가합니다.
 팀원은 각자 `.clasp.json`을 로컬에 생성해야 합니다.
 
 ### package.json 스크립트 추가 (선택)
@@ -308,4 +308,4 @@ clasp open-script
 ## 관련 문서
 
 - [ENVIRONMENT_VARIABLES_SETUP.md](./ENVIRONMENT_VARIABLES_SETUP.md) - Apps Script 스크립트 속성 설정
-- [appScript/README.md](../appScript/README.md) - Apps Script 코드 구조 및 기능
+- [appScript/README.md](../../appScript/README.md) - Apps Script 코드 구조 및 기능

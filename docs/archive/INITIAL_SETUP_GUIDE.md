@@ -219,7 +219,7 @@ VITE_SHEET_NAME={ "DEFAULT": "시트1", ... }
 VITE_GROUP_EMAIL={ "STUDENT": "...", ... }
 ```
 
-> 전체 환경변수: [.env.example](../.env.example), [ENVIRONMENT_VARIABLES_SETUP.md](./ENVIRONMENT_VARIABLES_SETUP.md)
+> 전체 환경변수: [.env.example](../../.env.example), [ENVIRONMENT_VARIABLES_SETUP.md](./ENVIRONMENT_VARIABLES_SETUP.md)
 
 ### 5.4 로컬 동작 확인
 
