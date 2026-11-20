@@ -131,7 +131,7 @@ function checkScriptProperties() {
 }
 ```
 
-실행 후 로그에서 설정값 확인 가능합니다.
+실행한 뒤 로그에서 설정값을 확인합니다.
 
 ---
 

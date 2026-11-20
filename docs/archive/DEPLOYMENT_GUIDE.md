@@ -4,7 +4,7 @@
 
 ## 배포 방법 개요
 
-이 프로젝트는 **Electron 앱**으로, GitHub Actions를 통해 자동으로 빌드 및 배포됩니다.
+이 **Electron 앱**은 GitHub Actions에서 자동으로 빌드하고 배포합니다.
 
 ### 지원 플랫폼
 - ✅ Windows (`.exe` - NSIS 설치 프로그램)

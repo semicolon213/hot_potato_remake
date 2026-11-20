@@ -16,7 +16,7 @@
 | Google 로그인 방식 | 4단계에서 **운영자 클라이언트 공유** 또는 **기관이 직접 만들기**를 고릅니다. 공유 방식은 기관 주소·테스트 사용자·기관 연락처를 담은 요청문과 이메일 링크를 만들고 운영자 ID를 Netlify와 백엔드 설치에 자동 사용합니다. 직접 방식은 기존 Google Cloud 4-1~4-7을 그대로 진행합니다 |
 | 공유 방식 설정 | 설치 안내 사이트 빌드의 `VITE_GOOGLE_CLIENT_ID`가 공유할 운영자 클라이언트이며 `VITE_OPERATOR_CONTACT_EMAIL`이 요청 수신 주소입니다. 연락처나 클라이언트가 없으면 공유 선택지를 비활성화합니다. 운영자 Testing 사용자 100명 한도와 동의 화면의 운영자 앱·개인정보처리방침 공유를 안내합니다 |
 | 한 번 배포 | 사이트 이름을 먼저 정해 Google OAuth 원본을 만들고, 백엔드 주소·운영 클라이언트 ID·그룹 JSON을 Netlify에 한 번에 넣습니다. 실제 Netlify 주소가 예정 주소와 다르면 OAuth 원본을 실제 주소로 고치도록 안내합니다 |
-| 운영 시작 | 자동 점검 뒤 첫 관리자 로그인, 그룹 구성원 초대, 사용자 일괄 등록·승인, Testing 제한 안내문, 최종 체크리스트를 이어서 제공합니다 |
+| 운영 시작 | 자동 점검 뒤 첫 관리자 로그인, 그룹 구성원 초대, 사용자 일괄 등록·승인, Testing 제한 안내문, 최종 체크리스트를 차례로 안내합니다 |
 | 계정 유형 | 설치용 로그인 뒤 userinfo의 `hd`로 계정 유형을 봅니다. 개인 Gmail이면 매니페스트 고급 서비스를 Drive만 남기고 뺍니다. Workspace 전용 서비스(`admin`, `groupssettings`)를 개인 계정에 올리면 `Service not found: admin v1`로 실패하기 때문입니다. Workspace 계정은 Drive와 `admin`을 남깁니다(`public/install/bundle-config.js`) |
 | 설치용 매니페스트 범위 | 설치 마법사가 올리는 매니페스트의 `oauthScopes`를 `drive`, `spreadsheets`, `documents`, `script.send_mail`, `script.external_request`, `userinfo.email`로 줄입니다. Workspace는 `admin.directory.group.member`를 더합니다. Gmail 전체 접근은 요청하지 않습니다. 저장소의 운영 매니페스트 `appScript/appsscript.json`은 그대로이며, 줄이려면 운영 배포 계정 재승인이 필요합니다([STATUS.md](./STATUS.md) 백로그) |
 | 다시 실행 | "로그인하고 백엔드 만들기"를 다시 누르면 계정별로 저장한 프로젝트·배포 ID로 **같은 배포**를 새 버전으로 갱신합니다. 백엔드 URL은 바뀌지 않습니다(`public/install/deployment.js`). 예전 탭은 옛 `app.js`를 쓸 수 있으므로 강력 새로고침합니다 |

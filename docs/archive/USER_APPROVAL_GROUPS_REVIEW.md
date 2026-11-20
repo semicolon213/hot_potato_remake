@@ -63,7 +63,7 @@
 | 프론트→백엔드 파라미터 | ✅ | `studentId`, `groupRole` 정상 전달 |
 | `GROUP_ROLE_MAPPING` 매핑 | ✅ | student, std_council, supp, professor, ad_professor → 그룹 이메일 매핑 일치 |
 | 사용자 요청 권한 표시 | ✅ | `user_type` 컬럼 기반으로 요청 권한 UI 표시 |
-| 승인 처리 | ✅ | `approveUser()` 통해 스프레드시트 Approval/approval_date 정상 업데이트 |
+| 승인 처리 | ✅ | `approveUser()`를 거쳐 스프레드시트의 Approval/approval_date 업데이트 |
 | 그룹 이메일 조회 | ✅ | `getGroupEmailByRole(groupRole)`로 역할별 그룹 이메일 정상 반환 |
 | 알림 이메일 전송 | ✅ | Gmail API로 그룹 주소로 알림 전송 |
 

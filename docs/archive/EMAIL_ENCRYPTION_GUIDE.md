@@ -1,7 +1,7 @@
 # 📧 이메일 암호화 설정 가이드
 
 ## 개요
-Hot Potato Admin Key Management System에서 이메일 암호화 방식을 CONFIG.gs에서 설정할 수 있도록 개선되었습니다.
+Hot Potato Admin Key Management System의 이메일 암호화 방식은 `CONFIG.gs`에서 설정합니다.
 
 **중요**: 이메일 암호화는 전체 이메일 주소(사용자명@도메인.확장자)를 통으로 암호화합니다.
 
